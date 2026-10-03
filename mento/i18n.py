@@ -181,12 +181,31 @@ ES: Dict[str, str] = {
     "Wall {storey} - {label} shear check": "Verificación a corte del tabique {storey} - {label}",
     "Summary - All Beams": "Resumen - Todas las vigas",
     "Summary - All Walls": "Resumen - Todos los tabiques",
-    "Beam Data": "Datos de las vigas",
+    "This report presents the detailed results for the first wall of the summary, followed by summary tables for all walls.": "Este informe presenta los resultados detallados del primer tabique del resumen, seguidos de las tablas resumen de todos los tabiques.",
+    "Beam Sections": "Secciones de vigas",
     "Slab Summary Analysis": "Análisis del resumen de losas",
     "This report presents the detailed results for the first slab of the summary, followed by summary tables for all slabs.": "Este informe presenta los resultados detallados de la primera losa del resumen, seguidos de las tablas resumen de todas las losas.",
     "Summary - All Slabs": "Resumen - Todas las losas",
-    "Slab Data": "Datos de las losas",
-    "Wall Data": "Datos de los tabiques",
+    "Slab Sections": "Secciones de losas",
+    "Wall Sections": "Secciones de tabiques",
+    "Forces": "Solicitaciones",
+    "Face": "Cara",
+    "Message": "Mensaje",
+    "No section misses a detailing limit.": "Ninguna sección incumple un límite de detalle.",
+    (
+        "Nx > 0 is compression and enters the shear check only; My > 0 puts the bottom face in tension; "
+        "Vz is taken in magnitude."
+    ): (
+        "Nx > 0 es compresión y entra solo en la verificación al corte; My > 0 tracciona la cara inferior; "
+        "Vz se toma en valor absoluto."
+    ),
+    (
+        "Nx > 0 is compression; Vz is the in-plane shear, taken in magnitude. My is not used: the summary "
+        "checks the in-plane shear only."
+    ): (
+        "Nx > 0 es compresión; Vz es el corte en el plano, en valor absoluto. My no se usa: el resumen "
+        "verifica solo el corte en el plano."
+    ),
     "Flexure Results": "Resultados de flexión",
     "Shear Results": "Resultados de corte",
     "Design Check Summary": "Resumen de verificaciones",

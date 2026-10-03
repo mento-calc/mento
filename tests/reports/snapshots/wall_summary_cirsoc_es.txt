@@ -27,6 +27,7 @@
 ### results_detailed_doc: Shear_Wall_Summary_CIRSOC 201-25.docx
 Análisis del resumen de tabiques
 Generado con mento <version>. Código de diseño: CIRSOC 201-25
+Este informe presenta los resultados detallados del primer tabique del resumen, seguidos de las tablas resumen de todos los tabiques.
 Verificación a corte del tabique Level 1 - M1
 Datos de la sección
 Materiales | Variable | Valor | Unidad
@@ -59,11 +60,18 @@ Resistencia total al corte | ØVn | 1037.5 | kN
 Resistencia máxima al corte | ØVn,max | 1485.0 | kN
 Factor de Utilización | DCR | 0.25 | 
 Resumen - Todos los tabiques
-Datos de los tabiques
-Nivel | Etiqueta | t | lw | hw | cc | dbh | sh | dbv | sv
- |  | cm | m | m | mm | mm | cm | mm | cm
-Level 1 | M1 | 20 | 3 | 3 | 25 | 8 | 20 | 10 | 30
-Level 2 | M2 | 20 | 2 | 3 | 25 | 8 | 20 | 10 | 30
+Secciones de tabiques
+Nivel | Etiqueta | t | lw | hw | cc | Horiz. (c/cara) | Vert. (c/cara)
+ |  | cm | m | m | mm |  | 
+Level 1 | M1 | 20 | 3 | 3 | 25 | Ø8/20 | Ø10/30
+Level 2 | M2 | 20 | 2 | 3 | 25 | Ø8/20 | Ø10/30
+Solicitaciones
+Nivel | Etiqueta | Comb. | Nx | Vz | My
+ |  |  | kN | kN | kNm
+Level 1 | M1 | ELU 1 | 0 | 264 | -172
+Level 1 | M1 | ELU 2 | -301 | 152 | -234
+Level 2 | M2 | ELU 1 | 55.5 | 163 | -278
+Nx > 0 es compresión; Vz es el corte en el plano, en valor absoluto. My no se usa: el resumen verifica solo el corte en el plano.
 Resultados de corte
 Etiqueta | Comb. | ρt,min | ρt,req | ρt | ρl,min | ρl | Vu | ØVc | ØVs | ØVn | ØVn,max | DCR
  |  |  |  |  |  |  | kN | kN | kN | kN | kN | 
@@ -75,3 +83,5 @@ Nivel | Etiqueta | t | lw | hw | Horiz. (c/cara) | Vert. (c/cara) | ρt | ρl | 
  |  | cm | m | m |  |  |  |  |  | kN | kN | kN |  |  | 
 Level 1 | M1 | 20.0 | 3.0 | 3.0 | Ø8/20 | Ø10/30 | 0.00251 | 0.00262 | ELU 1 | 264.0 | 0.0 | 1037.5 | 0.25 | - | ✅
 Level 2 | M2 | 20.0 | 2.0 | 3.0 | Ø8/20 | Ø10/30 | 0.00251 | 0.00262 | ELU 1 | 163.0 | 55.5 | 691.7 | 0.24 | - | ✅
+Advertencias
+Ninguna sección incumple un límite de detalle.

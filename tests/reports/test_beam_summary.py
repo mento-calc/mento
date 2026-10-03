@@ -35,7 +35,10 @@ from mento import (
     split_single_table,
 )
 from mento.beam_summary import BeamSummary
+from mento.i18n import translate
 from mento.reports.summaries import SUMMARY_FONT_SIZE
+from mento.shear_wall_summary import ShearWallSummary
+from mento.slab_summary import OneWaySlabSummary
 from mento.results import FAIL_MARK, PASS_MARK, VERDICT_COLUMN, DocumentBuilder
 from mento.summary_base import GoverningDemand, SectionVerdict
 from mento.summary_tables import SummaryInputError, SummaryInputWarning
@@ -45,7 +48,10 @@ from tests.reports.summary_data import (
     forces,
     geometry_only,
     one_continuous_section,
+    slabs,
     support_and_midspan,
+    wall_forces,
+    walls,
 )
 
 pytestmark = pytest.mark.filterwarnings("ignore::UserWarning")
@@ -1315,18 +1321,115 @@ def test_the_all_beam_tables_are_set_a_point_smaller(
         assert sizes == {float(SUMMARY_FONT_SIZE)}, heading
 
 
+def _report_summaries(concrete: Any, steel: SteelBar, beam_summary: BeamSummary) -> dict:
+    """A beam, a slab and a wall summary, each with a warning, a section without forces and a long label."""
+    slab_sections = slabs(
+        [
+            {"Label": "L1-long-label", "db1_bot": 12, "s1_bot": 40},
+            {"Label": "L2", "db1_bot": 10, "s1_bot": 20},
+        ]
+    )
+    slab_forces = forces([{"Label": "L1-long-label", "Comb.": "1.2D+1.6L", "Vz": 20, "My": 10}])
+    wall_sections = walls(
+        [{"Level": "Level 1", "Label": "M1"}, {"Level": "Level 2", "Label": "M1"}], dbh=20, sh=50, dbv=10, sv=30
+    )
+    wall_rows = wall_forces([{"Level": "Level 1", "Label": "M1", "Comb.": "ELU 1", "Vz": 264, "My": -172}])
+    return {
+        "beam": beam_summary,
+        "slab": OneWaySlabSummary(concrete, steel, slab_sections, slab_forces),
+        "wall": ShearWallSummary(concrete, steel, wall_sections, wall_rows),
+    }
+
+
+@pytest.mark.parametrize("element", ["beam", "slab", "wall"])
 @pytest.mark.parametrize("language", ["en", "es"])
 def test_no_table_in_the_report_runs_past_the_page(
-    beam_summary: BeamSummary, monkeypatch: pytest.MonkeyPatch, language: str
+    sample_concrete: Any,
+    sample_steel: SteelBar,
+    beam_summary: BeamSummary,
+    monkeypatch: pytest.MonkeyPatch,
+    language: str,
+    element: str,
 ) -> None:
+    summary = _report_summaries(sample_concrete, sample_steel, beam_summary)[element]
     set_language(language)
     try:
-        doc = _built_document(beam_summary, monkeypatch)
+        doc = _built_document(summary, monkeypatch)
     finally:
         set_language("en")
     usable = _usable_width_cm(doc)
     for i, table in enumerate(doc.tables):
         assert _table_width_cm(table) <= usable + 0.01, f"table {i} is wider than the text column"
+    cells = [cell.text for table in doc.tables for row in table.rows for cell in row.cells]
+    assert "nan" not in cells
+
+
+def test_word_sections_show_the_designed_bars(
+    h25: Any, sample_steel: SteelBar, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """After design(), the sections table of the report lists what was designed, both faces, as check() writes it."""
+    summary = BeamSummary(h25, sample_steel, *geometry_only())
+    summary.design()
+    rows = _rows(_table_after(_built_document(summary, monkeypatch), "Beam Sections"))
+    assert rows[0] == ["Label", "b×h", "cc", "As,top", "As,bot", "Av"]
+    assert rows[1] == ["", "cm", "mm", "", "", ""]
+    check = summary.check()
+    for row, (_, expected) in zip(rows[2:], check.iloc[1:].iterrows()):
+        assert row == [expected["Beam"], "20×40", "25", expected["As,top"], expected["As,bot"], expected["Av"]]
+    assert rows[3][3:5] == ["3Ø16", "2Ø32"]
+
+
+def test_the_report_lists_the_forces_with_their_signs(
+    h25: Any, sample_steel: SteelBar, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    summary = BeamSummary(h25, sample_steel, *support_and_midspan())
+    doc = _built_document(summary, monkeypatch)
+    rows = _rows(_table_after(doc, "Forces"))
+    assert rows[0] == ["Label", "Comb.", "Nx", "Vz", "My"]
+    assert rows[1] == ["", "", "kN", "kN", "kNm"]
+    assert rows[2:] == [["V9a", "apoyo", "0", "80", "-60"], ["V9t", "tramo", "0", "10", "170"]]
+    assert any(p.text.startswith("Nx > 0 is compression") for p in doc.paragraphs)
+
+
+@pytest.mark.parametrize("language", ["en", "es"])
+def test_the_report_words_every_warning(
+    h25: Any, sample_steel: SteelBar, monkeypatch: pytest.MonkeyPatch, language: str
+) -> None:
+    """Case A plus a section with no forces: each warning in full, with its face and its combinations."""
+    sections, rows = support_and_midspan()
+    sections = beams(
+        [
+            {"Label": "V9a", "n1_top": 3, "db1_top": 16, "n1_bot": 2, "db1_bot": 8},
+            {"Label": "V9t", "n1_top": 2, "db1_top": 8, "n1_bot": 2, "db1_bot": 32},
+            {"Label": "V10", "n1_bot": 2, "db1_bot": 12},
+        ],
+        b=20,
+        h=40,
+        legs=2,
+        dbs=10,
+        sl=17,
+    )
+    summary = BeamSummary(h25, sample_steel, sections, rows)
+    set_language(language)
+    try:
+        doc = _built_document(summary, monkeypatch)
+        heading = translate("Warnings")
+        expected_messages = [w.message for w in summary.warnings[("", "V9t")]]
+        no_forces = translate("no forces")
+        face = translate("Bottom")
+    finally:
+        set_language("en")
+    table = _rows(_table_after(doc, heading))
+    assert [row[1:3] for row in table[1:]] == [[face, "tramo"], ["-", "-"], ["-", "-"]]
+    assert [row[0] for row in table[1:]] == ["V9t", "V9t", "V10"]
+    assert [row[3] for row in table[1:]] == [*expected_messages, no_forces]
+
+
+def test_a_report_without_warnings_says_so(h25: Any, sample_steel: SteelBar, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Case B passes with no warning: the Warnings heading is followed by a sentence, not an empty table."""
+    doc = _built_document(BeamSummary(h25, sample_steel, *one_continuous_section()), monkeypatch)
+    texts = [p.text for p in doc.paragraphs]
+    assert texts[texts.index("Warnings") + 1] == "No section misses a detailing limit."
 
 
 def test_table_widths_are_honoured_and_never_padded(beam_summary: BeamSummary, monkeypatch: pytest.MonkeyPatch) -> None:

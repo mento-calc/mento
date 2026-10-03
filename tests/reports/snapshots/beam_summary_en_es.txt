@@ -155,12 +155,19 @@ Resistencia total al corte | VRd | 75.5 | kN
 Verificación de corte máximo |  | ✅ | 
 Factor de Utilización | DCR | 0.27 | ✅
 Resumen - Todas las vigas
-Datos de las vigas
-Etiqueta | b | h | cc | legs | dbs | sl | n1_top | db1_top | n2_top | db2_top | n3_top | db3_top | n4_top | db4_top | n1_bot | db1_bot | n2_bot | db2_bot | n3_bot | db3_bot | n4_bot | db4_bot
- | cm | cm | mm |  | mm | cm |  | mm |  | mm |  | mm |  | mm |  | mm |  | mm |  | mm |  | mm
-V101 | 20 | 50 | 25 | 2 | 6 | 34 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 10 | 0 | 0 | 0 | 0 | 0 | 0
-V102 | 20 | 50 | 25 | 2 | 6 | 34 | 2 | 12 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 10 | 0 | 0 | 0 | 0 | 0 | 0
-V103 | 25 | 60 | 25 | 2 | 6 | 28 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 12 | 1 | 10 | 0 | 0 | 0 | 0
+Secciones de vigas
+Etiqueta | b×h | cc | As,top | As,bot | Av
+ | cm | mm |  |  | 
+V101 | 20×50 | 25 | - | 2Ø10 | 1eØ6/34
+V102 | 20×50 | 25 | 2Ø12 | 2Ø10 | 1eØ6/34
+V103 | 25×60 | 25 | - | 2Ø12+1Ø10 | 1eØ6/28
+Solicitaciones
+Etiqueta | Comb. | Nx | Vz | My
+ |  | kN | kN | kNm
+V101 | ELU 1 | 0 | 20 | 0
+V102 | ELU 2 | 0 | -50 | -35
+V103 | ELU 3 | 10 | 100 | 60
+Nx > 0 es compresión y entra solo en la verificación al corte; My > 0 tracciona la cara inferior; Vz se toma en valor absoluto.
 Resultados de flexión
 Etiqueta | Comb. | Posición | As,min | As,req top | As,req bot | As | MEd | MRd | DCR
  |  |  | cm² | cm² | cm² | cm² | kNm | kNm | 
@@ -176,6 +183,8 @@ V103 | ELU 3 | 2.0 | 2.0 | 2.02 | 10.0 | 100.0 | 0.0 | 111.3 | 111.3 | 393.3 | 0
 Resumen de verificaciones
 Viga | b×h | As,top | As,bot | Av | Comb.,top | MEd,top | DCRb,top | Comb.,bot | MEd,bot | DCRb,bot | Comb.,v | VEd | NEd | DCRv | Advertencias | ¿Ok?
  | cm |  |  |  |  | kNm |  |  | kNm |  |  | kN | kN |  |  | 
-V101 | 20×50 | - | 2Ø10 | 1eØ6/34 | - | nan | 0.0 | - | nan | 0.0 | ELU 1 | 20.0 | 0.0 | 0.27 | - | ✅
-V102 | 20×50 | 2Ø12 | 2Ø10 | 1eØ6/34 | ELU 2 | -35.0 | 0.8 | - | nan | 0.0 | ELU 2 | 50.0 | 0.0 | 0.66 | - | ✅
-V103 | 25×60 | - | 2Ø12+1Ø10 | 1eØ6/28 | - | nan | 0.0 | ELU 3 | 60.0 | 0.83 | ELU 3 | 100.0 | 10.0 | 0.9 | - | ✅
+V101 | 20×50 | - | 2Ø10 | 1eØ6/34 | - | - | 0.0 | - | - | 0.0 | ELU 1 | 20.0 | 0.0 | 0.27 | - | ✅
+V102 | 20×50 | 2Ø12 | 2Ø10 | 1eØ6/34 | ELU 2 | -35.0 | 0.8 | - | - | 0.0 | ELU 2 | 50.0 | 0.0 | 0.66 | - | ✅
+V103 | 25×60 | - | 2Ø12+1Ø10 | 1eØ6/28 | - | - | 0.0 | ELU 3 | 60.0 | 0.83 | ELU 3 | 100.0 | 10.0 | 0.9 | - | ✅
+Advertencias
+Ninguna sección incumple un límite de detalle.

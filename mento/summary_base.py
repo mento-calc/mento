@@ -25,7 +25,7 @@ import copy
 import math
 import warnings as _warnings
 from dataclasses import dataclass
-from typing import IO, Any, Dict, Iterable, List, Literal, Mapping, Optional, Sequence, Tuple, Union
+from typing import IO, TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, Sequence, Tuple, Union
 
 import pandas as pd
 from pandas import DataFrame
@@ -60,6 +60,9 @@ from mento.summary_tables import (
 )
 from mento.units import Quantity
 
+if TYPE_CHECKING:
+    from mento.reports.summaries import SummaryReport
+
 Key = Tuple[str, str]
 #: How a section is named to a method that reads one: its 1-based position, its label, or ``(Level, Label)``.
 Index = Union[int, str, Tuple[str, str]]
@@ -82,9 +85,13 @@ def translated(df: DataFrame) -> DataFrame:
     return translate_dataframe(out)
 
 
-def section_dimension(length: Quantity, imperial: bool) -> Any:
-    """A width or height for a summary table: whole where it is whole, else to two decimals."""
-    value = shown(length, "length", imperial, 2)
+def section_dimension(length: Quantity, imperial: bool, kind: str = "length") -> Any:
+    """A width, a height or a cover for a summary table: whole where it is whole, else to two decimals.
+
+    ``kind`` is the display kind of :mod:`mento.precompute`: ``"length"``
+    (cm, in) by default, ``"bar"`` for a cover shown in mm.
+    """
+    value = shown(length, kind, imperial, 2)
     return int(value) if float(value).is_integer() else value
 
 
@@ -244,6 +251,8 @@ class _TwoTableSummary:
     _SPEC: TableSpec
     #: The header of the first column of ``check()``: ``"Beam"``, ``"Slab"``, ``"Wall"``.
     _ELEMENT_COLUMN: str = "Section"
+    #: What the Word report calls the elements and its tables.
+    _REPORT: "SummaryReport"
     #: The class of the sections, exactly: a subclass has settings or reinforcement a row does not hold.
     _SECTION_TYPE: type
     #: Whether ``Level`` is shown even when every section leaves it empty.
@@ -746,6 +755,10 @@ class _TwoTableSummary:
     def _check_record(self, key: Key, node: Node) -> SectionVerdict:  # pragma: no cover - every subclass sets it
         raise NotImplementedError
 
+    def _sections_overview(self) -> DataFrame:  # pragma: no cover - every subclass sets it
+        """The sections as the Word report lists them, its unit row first."""
+        raise NotImplementedError
+
     def _check_table(self, records: Sequence[SectionVerdict]) -> DataFrame:  # pragma: no cover
         raise NotImplementedError
 
@@ -864,6 +877,29 @@ class _FlexuralSummary(_TwoTableSummary):
         if self._HAS_STIRRUPS:
             units["Av"] = ""
         return units
+
+    def _sections_overview(self) -> DataFrame:
+        """The sections as the Word report lists them: size, cover and the reinforcement as a drawing writes it."""
+        imperial = self.concrete.is_imperial
+        cover = "length" if imperial else "bar"
+        rows = []
+        for key, node in zip(self._keys, self._nodes):
+            section: Any = node.section
+            top, bottom, transverse = self._rebar_labels(section)
+            row: Dict[str, Any] = {"Level": key[0]} if self._show_level() else {}
+            row["Label"] = key[1]
+            row["b×h"] = f"{section_dimension(section.width, imperial)}×{section_dimension(section.height, imperial)}"
+            row["cc"] = section_dimension(section.c_c, imperial, cover)
+            row["As,top"], row["As,bot"] = top, bottom
+            if self._HAS_STIRRUPS:
+                row["Av"] = transverse
+            rows.append(row)
+        units: Dict[str, str] = {"Level": ""} if self._show_level() else {}
+        units.update({"Label": "", "b×h": unit_label("length", imperial), "cc": unit_label(cover, imperial)})
+        units.update({"As,top": "", "As,bot": ""})
+        if self._HAS_STIRRUPS:
+            units["Av"] = ""
+        return frame_with_units(units, rows)
 
     def _check_table(self, records: Sequence[SectionVerdict]) -> DataFrame:
         imperial = self.concrete.is_imperial
@@ -984,4 +1020,4 @@ class _FlexuralSummary(_TwoTableSummary):
         """
         from mento.reports.summaries import beam_summary_doc
 
-        beam_summary_doc(self, index)  # type: ignore[arg-type]
+        beam_summary_doc(self, index)

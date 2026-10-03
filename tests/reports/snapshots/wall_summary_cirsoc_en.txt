@@ -27,6 +27,7 @@
 ### results_detailed_doc: Shear_Wall_Summary_CIRSOC 201-25.docx
 Shear Wall Summary Analysis
 Made with mento <version>. Design code: CIRSOC 201-25
+This report presents the detailed results for the first wall of the summary, followed by summary tables for all walls.
 Wall Level 1 - M1 shear check
 Section Data
 Materials | Variable | Value | Unit
@@ -59,11 +60,18 @@ Total shear strength | ØVn | 1037.5 | kN
 Maximum shear strength | ØVn,max | 1485.0 | kN
 Demand Capacity Ratio | DCR | 0.25 | 
 Summary - All Walls
-Wall Data
-Level | Label | t | lw | hw | cc | dbh | sh | dbv | sv
- |  | cm | m | m | mm | mm | cm | mm | cm
-Level 1 | M1 | 20 | 3 | 3 | 25 | 8 | 20 | 10 | 30
-Level 2 | M2 | 20 | 2 | 3 | 25 | 8 | 20 | 10 | 30
+Wall Sections
+Level | Label | t | lw | hw | cc | Horiz. (each face) | Vert. (each face)
+ |  | cm | m | m | mm |  | 
+Level 1 | M1 | 20 | 3 | 3 | 25 | Ø8/20 | Ø10/30
+Level 2 | M2 | 20 | 2 | 3 | 25 | Ø8/20 | Ø10/30
+Forces
+Level | Label | Comb. | Nx | Vz | My
+ |  |  | kN | kN | kNm
+Level 1 | M1 | ELU 1 | 0 | 264 | -172
+Level 1 | M1 | ELU 2 | -301 | 152 | -234
+Level 2 | M2 | ELU 1 | 55.5 | 163 | -278
+Nx > 0 is compression; Vz is the in-plane shear, taken in magnitude. My is not used: the summary checks the in-plane shear only.
 Shear Results
 Label | Comb. | ρt,min | ρt,req | ρt | ρl,min | ρl | Vu | ØVc | ØVs | ØVn | ØVn,max | DCR
  |  |  |  |  |  |  | kN | kN | kN | kN | kN | 
@@ -75,3 +83,5 @@ Level | Label | t | lw | hw | Horiz. (each face) | Vert. (each face) | ρt | ρl
  |  | cm | m | m |  |  |  |  |  | kN | kN | kN |  |  | 
 Level 1 | M1 | 20.0 | 3.0 | 3.0 | Ø8/20 | Ø10/30 | 0.00251 | 0.00262 | ELU 1 | 264.0 | 0.0 | 1037.5 | 0.25 | - | ✅
 Level 2 | M2 | 20.0 | 2.0 | 3.0 | Ø8/20 | Ø10/30 | 0.00251 | 0.00262 | ELU 1 | 163.0 | 55.5 | 691.7 | 0.24 | - | ✅
+Warnings
+No section misses a detailing limit.

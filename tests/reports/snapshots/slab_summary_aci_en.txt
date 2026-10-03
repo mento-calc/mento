@@ -160,12 +160,20 @@ Total shear strength | ØVn | 42.1 | kN
 Max shear check |  | ✅ | 
 Demand Capacity Ratio | DCR | 0.59 | ✅
 Summary - All Slabs
-Slab Data
-Label | b | h | cc | db1_top | s1_top | db3_top | s3_top | db1_bot | s1_bot | db3_bot | s3_bot
- | cm | cm | mm | mm | cm | mm | cm | mm | cm | mm | cm
-L1 | 100 | 15 | 20 | 0 | 0 | 0 | 0 | 10 | 25 | 0 | 0
-L2 | 100 | 18 | 25 | 12 | 12 | 0 | 0 | 10 | 20 | 0 | 0
-L3 | 100 | 15 | 20 | 0 | 0 | 0 | 0 | 12 | 25 | 0 | 0
+Slab Sections
+Label | b×h | cc | As,top | As,bot
+ | cm | mm |  | 
+L1 | 100×15 | 20 | - | Ø10/25
+L2 | 100×18 | 25 | Ø12/12 | Ø10/20
+L3 | 100×15 | 20 | - | Ø12/25
+Forces
+Label | Comb. | Nx | Vz | My
+ |  | kN | kN | kNm
+L1 | ELU 1 | 0 | 25 | 12
+L1 | ELU 2 | 0 | 15 | 6
+L2 | ELU 1 | 0 | 40 | -45
+L3 | ELU 1 | 0 | 30 | 18
+Nx > 0 is compression and enters the shear check only; My > 0 puts the bottom face in tension; Vz is taken in magnitude.
 Flexure Results
 Label | Comb. | Position | As,min | As,req top | As,req bot | As | Mu | ØMn | DCR
  |  |  | cm² | cm² | cm² | cm² | kNm | kNm | 
@@ -183,6 +191,8 @@ L3 | ELU 1 | 0.0 | 0.0 | 0.0 | 30.0 | 0.0 | 47.2 | 0.0 | 47.2 | 354.1 | 0.64
 Design Check Summary
 Slab | b×h | As,top | As,bot | Comb.,top | Mu,top | DCRb,top | Comb.,bot | Mu,bot | DCRb,bot | Comb.,v | Vu | Nu | DCRv | Warnings | Ok?
  | cm |  |  |  | kNm |  |  | kNm |  |  | kN | kN |  |  | 
-L1 | 100×15 | - | Ø10/25 | - | nan | 0.0 | ELU 1 | 12.0 | 0.83 | ELU 1 | 25.0 | 0.0 | 0.59 | - | ✅
-L2 | 100×18 | Ø12/12 | Ø10/20 | ELU 1 | -45.0 | 0.9 | - | nan | 0.0 | ELU 1 | 40.0 | 0.0 | 0.59 | - | ✅
-L3 | 100×15 | - | Ø12/25 | - | nan | 0.0 | ELU 1 | 18.0 | 0.88 | ELU 1 | 30.0 | 0.0 | 0.64 | - | ✅
+L1 | 100×15 | - | Ø10/25 | - | - | 0.0 | ELU 1 | 12.0 | 0.83 | ELU 1 | 25.0 | 0.0 | 0.59 | - | ✅
+L2 | 100×18 | Ø12/12 | Ø10/20 | ELU 1 | -45.0 | 0.9 | - | - | 0.0 | ELU 1 | 40.0 | 0.0 | 0.59 | - | ✅
+L3 | 100×15 | - | Ø12/25 | - | - | 0.0 | ELU 1 | 18.0 | 0.88 | ELU 1 | 30.0 | 0.0 | 0.64 | - | ✅
+Warnings
+No section misses a detailing limit.

@@ -1,104 +1,103 @@
 """Word reports for a summary of many elements.
 
 The document assembly used to live on ``BeamSummary`` and ``ShearWallSummary``.
-Phase 3 of the architecture roadmap moves it here; both classes keep a one-line
-``results_detailed_doc`` delegation, so nothing calling them changes.
+Phase 3 of the architecture roadmap moves it here; the summaries keep a
+one-line ``results_detailed_doc`` delegation, so nothing calling them changes.
 
 These are module functions taking the summary, the same shape the design-code
 modules use. Sharing one namespace, they are named after the element family
 rather than after the method.
+
+Every report ends with the same tables for all the sections, in the order a
+reader checks them: what each section is (its sections table), what it carries
+(the forces table, "Solicitaciones" in Spanish), the results of every
+combination, the verdict of each section and, last, every warning worded in
+full, with the face and the combinations it is read on.
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, cast
 
 import pandas as pd
 from docx.shared import Cm
 
 from mento._version import __version__ as MENTO_VERSION
 from mento.codes.registry import design_code
-from mento.i18n import get_language
-from mento.results import DocumentBuilder
+from mento.i18n import get_language, translate
+from mento.results import VERDICT_COLUMN, DocumentBuilder
 
 if TYPE_CHECKING:
     from mento.beam import RectangularBeam
-    from mento.beam_summary import BeamSummary
     from mento.shear_wall import ShearWall
+    from mento.summary_base import _FlexuralSummary, _TwoTableSummary
     from mento.shear_wall_summary import ShearWallSummary
 
 
-#: The all-beams tables are much wider than the running text, so they are set
-#: a point smaller to keep every column on the page.
+#: The all-sections tables are much wider than the running text, so they are
+#: set a point smaller to keep every column on the page.
 SUMMARY_FONT_SIZE = 7
 
-#: What the Beam Data table lists: the section and the bars it carries. The
-#: input frame also holds the position and the demands, which belong to the
-#: per-combination tables rather than to a list of sections.
-BEAM_DATA_COLUMNS = (
-    "Label",
-    "b",
-    "h",
-    "cc",
-    "ns",
-    "dbs",
-    "sl",
-    "n1",
-    "db1",
-    "n2",
-    "db2",
-    "n3",
-    "db3",
-    "n4",
-    "db4",
+#: How a beam's or a slab's forces table is read: the sign conventions of mento
+#: (see the local axes guide), printed under the table.
+FLEXURE_FORCES_NOTE = (
+    "Nx > 0 is compression and enters the shear check only; My > 0 puts the bottom face in tension; "
+    "Vz is taken in magnitude."
 )
 
-#: The label needs room for a beam name and the dimensions for two digits; the
-#: eleven rebar columns hold a count or a diameter and no more.
-BEAM_DATA_WIDTHS = [Cm(2), Cm(1), Cm(1), Cm(1)] + [Cm(0.9)] * 11
-
-#: A slab carries a diameter and a spacing per layer instead of a count and a
-#: diameter per group, and no stirrups (see OneWaySlabSummary).
-SLAB_DATA_COLUMNS = ("Label", "b", "h", "cc", "db1", "s1", "db3", "s3")
-SLAB_DATA_WIDTHS = [Cm(2), Cm(1), Cm(1), Cm(1)] + [Cm(1)] * 4
+#: The same for walls, whose summary checks the in-plane shear alone.
+WALL_FORCES_NOTE = (
+    "Nx > 0 is compression; Vz is the in-plane shear, taken in magnitude. My is not used: the summary "
+    "checks the in-plane shear only."
+)
 
 
 @dataclass(frozen=True)
 class SummaryReport:
-    """What the Word report of a summary calls its elements, and which input columns it lists.
+    """What the Word report of a summary calls its elements.
 
     The strings are the English keys of the i18n catalogue; the report
-    translates them into the language it is written in.
+    translates them into the language it is written in. Every table of the
+    report is sized to its content (:meth:`DocumentBuilder.content_widths`),
+    so the report holds no column widths of its own.
     """
 
     title: str
     intro: str
     all_heading: str
-    data_heading: str
+    sections_heading: str
     file_prefix: str
-    data_columns: Tuple[str, ...]
-    data_widths: List[Any]
+    #: The line under the forces table: the sign conventions it is read with.
+    forces_note: str
 
 
 BEAM_REPORT = SummaryReport(
     title="Beam Summary Analysis",
     intro="This report presents the detailed results for the first beam of the summary, followed by summary tables for all beams.",
     all_heading="Summary - All Beams",
-    data_heading="Beam Data",
+    sections_heading="Beam Sections",
     file_prefix="Beam_Summary",
-    data_columns=BEAM_DATA_COLUMNS,
-    data_widths=BEAM_DATA_WIDTHS,
+    forces_note=FLEXURE_FORCES_NOTE,
 )
 
 SLAB_REPORT = SummaryReport(
     title="Slab Summary Analysis",
     intro="This report presents the detailed results for the first slab of the summary, followed by summary tables for all slabs.",
     all_heading="Summary - All Slabs",
-    data_heading="Slab Data",
+    sections_heading="Slab Sections",
     file_prefix="Slab_Summary",
-    data_columns=SLAB_DATA_COLUMNS,
-    data_widths=SLAB_DATA_WIDTHS,
+    forces_note=FLEXURE_FORCES_NOTE,
+)
+
+WALL_REPORT = SummaryReport(
+    title="Shear Wall Summary Analysis",
+    intro="This report presents the detailed results for the first wall of the summary, followed by summary tables for all walls.",
+    all_heading="Summary - All Walls",
+    sections_heading="Wall Sections",
+    file_prefix="Shear_Wall_Summary",
+    forces_note=WALL_FORCES_NOTE,
 )
 
 #: Widths for the two per-combination summaries, one entry per column, set
@@ -135,26 +134,11 @@ SHEAR_SUMMARY_WIDTHS = [
     Cm(1),
 ]
 
-#: The closing table: the section, its bars, the governing demands, the three
-#: DCRs and the verdict.
-CHECK_SUMMARY_WIDTHS = [
-    Cm(2),
-    Cm(1),
-    Cm(1),
-    Cm(1.4),
-    Cm(1.4),
-    Cm(1.4),
-    Cm(1.2),
-    Cm(1.2),
-    Cm(1.2),
-    Cm(1.5),
-    Cm(1.5),
-    Cm(1.1),
-    Cm(1.0),
-]
+#: What the Warnings table says when no section misses anything.
+NO_WARNINGS = "No section misses a detailing limit."
 
 
-def _without_dropped_columns(self: "BeamSummary", df: pd.DataFrame) -> pd.DataFrame:
+def _without_dropped_columns(self: "_FlexuralSummary", df: pd.DataFrame) -> pd.DataFrame:
     """Drop the columns the active design code keeps out of its Word summary."""
     dropped = design_code(self.concrete).summary_drop_columns
     return df.drop(columns=[column for column in dropped if column in df.columns])
@@ -169,25 +153,91 @@ def _details(value: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     return cast(Dict[str, Any], value)
 
 
-def beam_summary_doc(self: "BeamSummary", index: Any = 1) -> None:
+def _blank_missing(df: pd.DataFrame) -> pd.DataFrame:
+    """A check table for print: a demand or a DCR that does not exist reads ``-``, not ``nan``.
+
+    A face no combination puts in tension has no governing demand, and a
+    section that was not checked no DCR; the frame keeps them as NaN, so its
+    DCR columns stay numeric, and the document writes a dash.
     """
-    Export detailed results to Word document.
-    Shows detailed shear/flexure for one beam, then summary tables for all.
+    out = df.astype(object)
+    return out.map(lambda value: "-" if isinstance(value, float) and math.isnan(value) else value)
 
-    Parameters
-    ----------
-    index : int
-        1-based index of the beam to show detailed results for (default: 1)
+
+def _warnings_table(self: "_TwoTableSummary") -> Optional[pd.DataFrame]:
+    """One row per warning of the last ``check()``, worded in full, and one per section it did not check.
+
+    ``Face`` is the face a longitudinal warning is read on; ``Comb.`` the
+    combinations the limit is missed under (none for a limit of the section
+    alone, such as a bar spacing). ``None`` when there is nothing to list.
     """
+    from mento.summary_base import STATUS_TEXT
 
-    node = self._node_with_forces(index)
-    beam: RectangularBeam = node.section  # type: ignore
+    level = self._show_level()
+    rows: List[Dict[str, Any]] = []
+    for record in self.results:
+        where: Dict[str, Any] = {"Level": record.level} if level else {}
+        where["Label"] = record.label
+        if record.passes is None:
+            rows.append({**where, "Face": "-", "Comb.": "-", "Message": translate(STATUS_TEXT[record.status])})
+            continue
+        for warning in record.warnings:
+            face = translate(warning.face.capitalize()) if warning.face else "-"
+            combinations = ", ".join(warning.combinations) or "-"
+            rows.append({**where, "Face": face, "Comb.": combinations, "Message": warning.message})
+    if not rows:
+        return None
+    return pd.DataFrame(rows)
 
-    # Run checks if not already done
-    node.check_flexure()
-    node.check_shear()
 
-    # Create document with smaller font
+def _all_sections(
+    self: "_TwoTableSummary",
+    doc_builder: DocumentBuilder,
+    per_combination: Callable[[DocumentBuilder], None],
+    status_column: str,
+) -> None:
+    """The tables of every section: what it is, what it carries, its results, its verdict and its warnings."""
+    report = self._REPORT
+    doc_builder.add_heading(report.all_heading, level=2)
+
+    doc_builder.add_heading(report.sections_heading, level=3)
+    sections = self._sections_overview()
+    doc_builder.add_table_data(
+        sections, column_widths=doc_builder.content_widths(sections), font_size=SUMMARY_FONT_SIZE
+    )
+
+    # The forces table as the file holds it, with its unit row: what each
+    # section was checked for, per combination.
+    doc_builder.add_heading("Forces", level=3)
+    forces = self.forces_table
+    doc_builder.add_table_data(forces, column_widths=doc_builder.content_widths(forces), font_size=SUMMARY_FONT_SIZE)
+    doc_builder.add_text(report.forces_note)
+
+    per_combination(doc_builder)
+
+    # Printed as `check()` returns it, so the notebook and the report show the
+    # same summary, warnings and verdict included.
+    doc_builder.add_heading("Design Check Summary", level=3)
+    check = _blank_missing(self.check())
+    doc_builder.add_table_status(
+        check,
+        column_widths=doc_builder.content_widths(check),
+        status_column=status_column,
+        font_size=SUMMARY_FONT_SIZE,
+    )
+
+    doc_builder.add_heading("Warnings", level=3)
+    warnings = _warnings_table(self)
+    if warnings is None:
+        doc_builder.add_text(NO_WARNINGS)
+    else:
+        doc_builder.add_table_data(
+            warnings, column_widths=doc_builder.content_widths(warnings), font_size=SUMMARY_FONT_SIZE
+        )
+
+
+def _document(self: "_TwoTableSummary") -> DocumentBuilder:
+    """A report with its title, the version and code it was made with, and its introduction."""
     report = self._REPORT
     doc_builder = DocumentBuilder(title=report.title, font_size=8, language=get_language())
     doc_builder.add_heading(report.title, level=1)
@@ -197,6 +247,29 @@ def beam_summary_doc(self: "BeamSummary", index: Any = 1) -> None:
         design_code=self.concrete.design_code,
     )
     doc_builder.add_text(report.intro)
+    return doc_builder
+
+
+def _save(self: "_TwoTableSummary", doc_builder: DocumentBuilder) -> None:
+    filename = f"{self._REPORT.file_prefix}_{self.concrete.design_code}.docx"
+    doc_builder.save(filename)
+    print(f"✅ Results exported to {filename}")
+
+
+def beam_summary_doc(self: "_FlexuralSummary", index: Any = 1) -> None:
+    """Write the Word report of a beam or slab summary.
+
+    The detailed flexure and shear of one section (``index``: its 1-based
+    position in the sections table, or its label), then the tables of all.
+    """
+    node = self._node_with_forces(index)
+    beam: RectangularBeam = node.section  # type: ignore
+
+    # Run checks if not already done
+    node.check_flexure()
+    node.check_shear()
+
+    doc_builder = _document(self)
 
     # --- DETAILED FLEXURE RESULTS FOR SELECTED BEAM ---
     doc_builder.add_heading(beam._report_text["flexure_heading"], level=2, label=beam.label)
@@ -291,69 +364,32 @@ def beam_summary_doc(self: "BeamSummary", index: Any = 1) -> None:
     doc_builder.add_table_data(df_shear_reinforcement)
     doc_builder.add_table_dcr(df_shear_concrete)
 
-    # --- SUMMARY TABLES FOR ALL BEAMS ---
-    doc_builder.add_heading(report.all_heading, level=2)
-    doc_builder.add_heading(report.data_heading, level=3)
-    # Geometry and reinforcement only: the demands each beam was checked for
-    # are reported by the flexure and shear tables below, per combination,
-    # which is where they mean something.
-    beam_data_out = self.sections_table
-    doc_builder.add_table_data(
-        beam_data_out,
-        column_widths=doc_builder.content_widths(beam_data_out),
-        font_size=SUMMARY_FONT_SIZE,
-    )
+    # --- SUMMARY TABLES FOR ALL SECTIONS ---
+    def per_combination(builder: DocumentBuilder) -> None:
+        # The label and the combination name are the only columns holding
+        # words; the rest hold a number each and share what is left. Shared
+        # rather than listed because the column count is the code's: each code
+        # drops a different set of columns below.
+        builder.add_heading("Flexure Results", level=3)
+        df_flex_all = _without_dropped_columns(self, self.flexure_results(capacity_check=False))
+        builder.add_table_data(df_flex_all, column_widths=FLEXURE_SUMMARY_WIDTHS, font_size=SUMMARY_FONT_SIZE)
 
-    # The label and the combination name are the only columns holding words;
-    # the rest hold a number each and share what is left. Shared rather than
-    # listed because the column count is the code's: each code drops a
-    # different set of columns below, so one hand-written list cannot serve
-    # both without going quietly out of step the next time one is dropped.
-    doc_builder.add_heading("Flexure Results", level=3)
-    df_flex_all = _without_dropped_columns(self, self.flexure_results(capacity_check=False))
-    doc_builder.add_table_data(
-        df_flex_all,
-        column_widths=FLEXURE_SUMMARY_WIDTHS,
-        font_size=SUMMARY_FONT_SIZE,
-    )
+        builder.add_heading("Shear Results", level=3)
+        df_shear_all = _without_dropped_columns(self, self.shear_results(capacity_check=False))
+        builder.add_table_data(df_shear_all, column_widths=SHEAR_SUMMARY_WIDTHS, font_size=SUMMARY_FONT_SIZE)
 
-    doc_builder.add_heading("Shear Results", level=3)
-    df_shear_all = _without_dropped_columns(self, self.shear_results(capacity_check=False))
-    doc_builder.add_table_data(
-        df_shear_all,
-        column_widths=SHEAR_SUMMARY_WIDTHS,
-        font_size=SUMMARY_FONT_SIZE,
-    )
-
-    doc_builder.add_heading("Design Check Summary", level=3)
-    # Printed as `check()` returns it. The table used to select a subset here,
-    # which meant the notebook and the report disagreed about what the summary
-    # is; `check()` carries the shorter set now and this prints it.
-    df_check = self.check()
-    doc_builder.add_table_status(
-        df_check,
-        column_widths=doc_builder.content_widths(df_check),
-        font_size=SUMMARY_FONT_SIZE,
-    )
-
-    # Save
-    doc_builder.save(f"{report.file_prefix}_{self.concrete.design_code}.docx")
-    print(f"✅ Results exported to {report.file_prefix}_{self.concrete.design_code}.docx")
+    _all_sections(self, doc_builder, per_combination, VERDICT_COLUMN)
+    _save(self, doc_builder)
 
 
 def wall_summary_doc(self: "ShearWallSummary", index: Any = 1) -> None:
+    """Write the Word report of a wall summary: the detailed shear of one wall, then the tables of all."""
     node = self._node_with_forces(index)
     wall: ShearWall = node.section  # type: ignore
 
     node.check_shear()
 
-    doc_builder = DocumentBuilder(title="Shear Wall Summary Analysis", font_size=8, language=get_language())
-    doc_builder.add_heading("Shear Wall Summary Analysis", level=1)
-    doc_builder.add_text(
-        "Made with mento {version}. Design code: {design_code}",
-        version=MENTO_VERSION,
-        design_code=self.concrete.design_code,
-    )
+    doc_builder = _document(self)
 
     # --- DETAILED RESULTS FOR SELECTED WALL ---
     # The placeholder is `storey`, not `level`: `level` is add_heading's own
@@ -377,27 +413,14 @@ def wall_summary_doc(self: "ShearWallSummary", index: Any = 1) -> None:
     doc_builder.add_table_dcr(df_capacity)
 
     # --- SUMMARY TABLES FOR ALL WALLS ---
-    doc_builder.add_heading("Summary - All Walls", level=2)
+    def per_combination(builder: DocumentBuilder) -> None:
+        builder.add_heading("Shear Results", level=3)
+        df_shear_all = self.shear_results()
+        cols_to_drop = [c for c in ["Vu≤ØVn,max", "Vu≤ØVn"] if c in df_shear_all.columns]
+        df_shear_all = df_shear_all.drop(columns=cols_to_drop)
+        builder.add_table_data(
+            df_shear_all, column_widths=builder.content_widths(df_shear_all), font_size=SUMMARY_FONT_SIZE
+        )
 
-    doc_builder.add_heading("Wall Data", level=3)
-    wall_data_out = self.sections_table
-    doc_builder.add_table_data(
-        wall_data_out, column_widths=doc_builder.content_widths(wall_data_out), font_size=SUMMARY_FONT_SIZE
-    )
-
-    doc_builder.add_heading("Shear Results", level=3)
-    df_shear_all = self.shear_results()
-    cols_to_drop = [c for c in ["Vu≤ØVn,max", "Vu≤ØVn"] if c in df_shear_all.columns]
-    df_shear_all = df_shear_all.drop(columns=cols_to_drop)
-    doc_builder.add_table_data(
-        df_shear_all, column_widths=doc_builder.content_widths(df_shear_all), font_size=SUMMARY_FONT_SIZE
-    )
-
-    doc_builder.add_heading("Design Check Summary", level=3)
-    df_check = self.check()
-    doc_builder.add_table_data(
-        df_check, column_widths=doc_builder.content_widths(df_check), font_size=SUMMARY_FONT_SIZE
-    )
-
-    doc_builder.save(f"Shear_Wall_Summary_{self.concrete.design_code}.docx")
-    print(f"✅ Results exported to Shear_Wall_Summary_{self.concrete.design_code}.docx")
+    _all_sections(self, doc_builder, per_combination, "Status")
+    _save(self, doc_builder)

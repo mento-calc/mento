@@ -158,12 +158,20 @@ Resistencia total al corte | VRd | 61.9 | kN
 Verificación de corte máximo |  | ✅ | 
 Factor de Utilización | DCR | 0.4 | ✅
 Resumen - Todas las losas
-Datos de las losas
-Etiqueta | b | h | cc | db1_top | s1_top | db3_top | s3_top | db1_bot | s1_bot | db3_bot | s3_bot
- | cm | cm | mm | mm | cm | mm | cm | mm | cm | mm | cm
-L1 | 100 | 15 | 20 | 0 | 0 | 0 | 0 | 10 | 33 | 0 | 0
-L2 | 100 | 18 | 25 | 12 | 14 | 0 | 0 | 10 | 33 | 0 | 0
-L3 | 100 | 15 | 20 | 0 | 0 | 0 | 0 | 10 | 20 | 0 | 0
+Secciones de losas
+Etiqueta | b×h | cc | As,top | As,bot
+ | cm | mm |  | 
+L1 | 100×15 | 20 | - | Ø10/33
+L2 | 100×18 | 25 | Ø12/14 | Ø10/33
+L3 | 100×15 | 20 | - | Ø10/20
+Solicitaciones
+Etiqueta | Comb. | Nx | Vz | My
+ |  | kN | kN | kNm
+L1 | ELU 1 | 0 | 25 | 12
+L1 | ELU 2 | 0 | 15 | 6
+L2 | ELU 1 | 0 | 40 | -45
+L3 | ELU 1 | 0 | 30 | 18
+Nx > 0 es compresión y entra solo en la verificación al corte; My > 0 tracciona la cara inferior; Vz se toma en valor absoluto.
 Resultados de flexión
 Etiqueta | Comb. | Posición | As,min | As,req top | As,req bot | As | MEd | MRd | DCR
  |  |  | cm² | cm² | cm² | cm² | kNm | kNm | 
@@ -181,6 +189,8 @@ L3 | ELU 1 | 0.0 | 0.0 | 0.0 | 0.0 | 30.0 | 61.9 | 0.0 | 61.9 | 61.9 | 0.48
 Resumen de verificaciones
 Losa | b×h | As,top | As,bot | Comb.,top | MEd,top | DCRb,top | Comb.,bot | MEd,bot | DCRb,bot | Comb.,v | VEd | NEd | DCRv | Advertencias | ¿Ok?
  | cm |  |  |  | kNm |  |  | kNm |  |  | kN | kN |  |  | 
-L1 | 100×15 | - | Ø10/33 | - | nan | 0.0 | ELU 1 | 12.0 | 0.96 | ELU 1 | 25.0 | 0.0 | 0.4 | - | ✅
-L2 | 100×18 | Ø12/14 | Ø10/33 | ELU 1 | -45.0 | 0.94 | - | nan | 0.0 | ELU 1 | 40.0 | 0.0 | 0.47 | - | ✅
-L3 | 100×15 | - | Ø10/20 | - | nan | 0.0 | ELU 1 | 18.0 | 0.89 | ELU 1 | 30.0 | 0.0 | 0.48 | - | ✅
+L1 | 100×15 | - | Ø10/33 | - | - | 0.0 | ELU 1 | 12.0 | 0.96 | ELU 1 | 25.0 | 0.0 | 0.4 | - | ✅
+L2 | 100×18 | Ø12/14 | Ø10/33 | ELU 1 | -45.0 | 0.94 | - | - | 0.0 | ELU 1 | 40.0 | 0.0 | 0.47 | - | ✅
+L3 | 100×15 | - | Ø10/20 | - | - | 0.0 | ELU 1 | 18.0 | 0.89 | ELU 1 | 30.0 | 0.0 | 0.48 | - | ✅
+Advertencias
+Ninguna sección incumple un límite de detalle.

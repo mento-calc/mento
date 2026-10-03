@@ -12,6 +12,7 @@ from mento.bar_sizes import bar_designation
 from mento.design_results import spacing_separator
 from mento.node import Node
 from mento.precompute import shown, unit_label
+from mento.reports.summaries import WALL_REPORT
 from mento.shear_wall import ShearWall
 from mento.summary_base import (
     Index,
@@ -20,6 +21,7 @@ from mento.summary_base import (
     _TwoTableSummary,
     frame_with_units,
     governing,
+    section_dimension,
     translated,
     verdict_passes,
     warning_tags,
@@ -77,6 +79,12 @@ def _given(value: Optional[Quantity]) -> bool:
     return value is not None and value.magnitude > 0
 
 
+def _whole(value: float) -> Any:
+    """A length to two decimals, whole where it is whole: 3, not 3.0."""
+    rounded = round(float(value), 2)
+    return int(rounded) if rounded.is_integer() else rounded
+
+
 def _rounded(value: Optional[Quantity], imperial: bool) -> float:
     return math.nan if value is None else round(shown(value, "force", imperial), 1)
 
@@ -99,6 +107,7 @@ class ShearWallSummary(_TwoTableSummary):
 
     _SPEC = WALL_SPEC
     _ELEMENT_COLUMN = "Wall"
+    _REPORT = WALL_REPORT
     _ALWAYS_LEVEL = True
 
     @property
@@ -219,6 +228,39 @@ class ShearWallSummary(_TwoTableSummary):
             "Status": "",
         }
         return translated(frame_with_units(units, rows))
+
+    def _sections_overview(self) -> DataFrame:
+        """The walls as the Word report lists them: their size, cover and mesh on each face."""
+        imperial = self.concrete.is_imperial
+        long_unit = "ft" if imperial else "m"
+        cover = "length" if imperial else "bar"
+        rows = []
+        for key, node in zip(self._keys, self._nodes):
+            wall: ShearWall = node.section  # type: ignore[assignment]
+            mesh = wall.mesh
+            rows.append(
+                {
+                    "Level": key[0],
+                    "Label": key[1],
+                    "t": section_dimension(wall.thickness, imperial),
+                    "lw": _whole(wall.length.to(long_unit).magnitude),
+                    "hw": _whole(wall.height.to(long_unit).magnitude),
+                    "cc": section_dimension(wall.c_c, imperial, cover),
+                    "Horiz. (each face)": _mesh_label(mesh.horizontal.d_b, mesh.horizontal.s, imperial),
+                    "Vert. (each face)": _mesh_label(mesh.vertical.d_b, mesh.vertical.s, imperial),
+                }
+            )
+        units = {
+            "Level": "",
+            "Label": "",
+            "t": unit_label("length", imperial),
+            "lw": long_unit,
+            "hw": long_unit,
+            "cc": unit_label(cover, imperial),
+            "Horiz. (each face)": "in" if imperial else "",
+            "Vert. (each face)": "in" if imperial else "",
+        }
+        return frame_with_units(units, rows)
 
     def _capacity_table(self) -> DataFrame:  # pragma: no cover - check() raises first
         raise ValueError("ShearWallSummary.check() has no capacity check.")
