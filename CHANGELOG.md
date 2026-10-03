@@ -53,6 +53,12 @@ from the release history and are summaries rather than complete lists.
   1.058); one that still needs stirrups keeps its layers without them, and `design()` names
   it instead of saying it completed.
 
+- **`ShearWallSummary` keeps the units of the mesh through `design()` and `export_design()`.**
+  `design()` wrote the bare magnitude of each bar and spacing in the unit mento computed it
+  in, and `export_design()` did not convert it to its column's unit: under columns in mm/mm
+  a wall designed Ø10/30 (DCR 0.25) read back as Ø10/3, DCR 0.178, ten times its steel; in
+  cm/m it read back as Ø100/3000. `design()` now returns the mesh as quantities.
+
 ## [1.4.0] - 2026-09-30
 
 ### Changed

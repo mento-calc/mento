@@ -8,7 +8,7 @@ import pandas as pd
 from pandas import DataFrame
 
 from mento.bar_sizes import bar_designation
-from mento.beam_summary import _declared, _is_unlabelled
+from mento.beam_summary import _declared, _in_unit, _is_unlabelled
 from mento.design_results import spacing_separator
 from mento.material import Concrete, SteelBar
 from mento.forces import Forces
@@ -290,11 +290,14 @@ class ShearWallSummary:
         for node, positions in zip(self.nodes, self._node_rows):
             wall: ShearWall = node.section  # type: ignore
             node.design_shear()
-            # Every row of the wall gets the mesh designed for all of them.
-            design_df.loc[positions, "dbh"] = wall._d_b_h  # type: ignore
-            design_df.loc[positions, "sh"] = wall._s_h  # type: ignore
-            design_df.loc[positions, "dbv"] = wall._d_b_v  # type: ignore
-            design_df.loc[positions, "sv"] = wall._s_v  # type: ignore
+            # Every row of the wall gets the mesh designed for all of them, as
+            # quantities: one assignment over several rows wrote the bare
+            # magnitude of each, in whatever unit mento computed it in, so a
+            # spacing of 30 cm under a column in mm read back as 3 mm.
+            mesh = {"dbh": wall._d_b_h, "sh": wall._s_h, "dbv": wall._d_b_v, "sv": wall._s_v}
+            for position in positions:
+                for column, value in mesh.items():
+                    design_df.at[position, column] = value  # type: ignore[assignment]
 
         self.design_data = design_df
         print("✅ Shear wall design completed for all walls in Summary.")
@@ -330,9 +333,11 @@ class ShearWallSummary:
         if not hasattr(self, "design_data"):
             raise AttributeError("No design data found. Run .design() before exporting.")
 
+        # Each number in the unit its column declares, as BeamSummary writes them.
         df_numeric = self.design_data.copy()
-        for col in df_numeric.columns:
-            df_numeric[col] = df_numeric[col].apply(lambda x: x.magnitude if hasattr(x, "magnitude") else x)
+        for col, unit_str in zip(df_numeric.columns, self.units_row):
+            unit = self.get_unit_variable(unit_str) if unit_str else None
+            df_numeric[col] = df_numeric[col].apply(lambda x, u=unit: _in_unit(x, u))
 
         df_export = pd.concat(
             [

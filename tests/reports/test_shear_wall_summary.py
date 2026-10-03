@@ -681,3 +681,32 @@ def test_rows_with_no_wall_label_stay_walls_of_their_own(concrete, steel):
 
     assert len(summary.nodes) == 2
     assert len(designed) == 2
+
+
+@pytest.mark.parametrize(
+    ("bar_unit", "spacing_unit"),
+    [("mm", "mm"), ("mm", "cm"), ("cm", "m"), ("mm", "m")],
+)
+def test_the_wall_mesh_keeps_its_units(concrete, steel, tmp_path, bar_unit, spacing_unit):
+    """H25, ADN 420, 20 cm x 3 m x 3 m, cc 25 mm, Vz 264 kN, My -172 kN·m: Ø10/30 and DCR 0.25.
+
+    Designed under columns in mm/mm it read back as Ø10/3, DCR 0.178: ten
+    times the steel. ``design()`` wrote the bare magnitudes of the mesh in
+    whatever unit mento computed them in, and ``export_design()`` did not
+    convert them to the unit of their column.
+    """
+    rows = _wall_rows([{"Label": "M1", "Comb.": "C1", "Vz": 264, "My": -172}])
+    rows.loc[0, ["dbh", "dbv"]] = bar_unit
+    rows.loc[0, ["sh", "sv"]] = spacing_unit
+    summary = ShearWallSummary(concrete, steel, rows)
+    summary.design()
+    before = summary.check().iloc[1]
+
+    path = str(tmp_path / "walls.xlsx")
+    summary.export_design(path)
+    summary.import_design(path)
+    after = summary.check().iloc[1]
+
+    assert before["Horiz."] == after["Horiz."] == "Ø10/30"
+    assert before["Vert."] == after["Vert."] == "Ø10/30"
+    assert before["DCR"] == after["DCR"] == 0.25

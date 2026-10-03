@@ -1,8 +1,8 @@
 ### design
-     Level Label  Comb.         t      lw      hw        cc          Nx         Vz            My dbh  sh dbv  sv
-0  Level 1    M1  ELU 1  20.00 cm  3.00 m  3.00 m  25.00 mm     0.00 kN  264.00 kN  -172.00 kN·m   8  20  10  30
-1  Level 1    M1  ELU 2  20.00 cm  3.00 m  3.00 m  25.00 mm  -301.00 kN  152.00 kN  -234.00 kN·m   8  20  10  30
-2  Level 2    M2  ELU 1  20.00 cm  2.00 m  3.00 m  25.00 mm    55.50 kN  163.00 kN  -278.00 kN·m   8  20  10  30
+     Level Label  Comb.         t      lw      hw        cc          Nx         Vz            My      dbh        sh       dbv        sv
+0  Level 1    M1  ELU 1  20.00 cm  3.00 m  3.00 m  25.00 mm     0.00 kN  264.00 kN  -172.00 kN·m  8.00 mm  20.00 cm  10.00 mm  30.00 cm
+1  Level 1    M1  ELU 2  20.00 cm  3.00 m  3.00 m  25.00 mm  -301.00 kN  152.00 kN  -234.00 kN·m  8.00 mm  20.00 cm  10.00 mm  30.00 cm
+2  Level 2    M2  ELU 1  20.00 cm  2.00 m  3.00 m  25.00 mm    55.50 kN  163.00 kN  -278.00 kN·m  8.00 mm  20.00 cm  10.00 mm  30.00 cm
 
 ### check
      Level Label   t   lw   hw Horiz.   Vert.       ρt       ρl Vu,max     ØVn    DCR Status
