@@ -40,6 +40,12 @@ from the release history and are summaries rather than complete lists.
   (`db1, s1, db3, s3`), rows that share a `Label` are one slab designed for their
   envelope, and `design()` designs the flexure only: the shear is checked against the
   concrete, without stirrups.
+- **The flexure and shear result of each combination carry its demand.**
+  `FlexureCheck.M_demand` (with its sign) and `N_demand`, and `ShearCheck.V_demand` (the
+  shear the DCR was formed from: `Vu`, or `VEd,2` at d under EN 1992-1-1) and `N_demand`,
+  in the units results are shown in; `None` on an envelope. New fields with a default, so
+  nothing that builds or reads these results changes. A table that shows a DCR next to the
+  demand it came from reads both from one result.
 
 ### Fixed
 

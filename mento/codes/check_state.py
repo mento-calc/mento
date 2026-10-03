@@ -128,6 +128,10 @@ class ShearCheckState:
             to_display(self.A_v_min, "per_length", imperial),
         )
 
+    def shear_demand_quantities(self, imperial: bool) -> tuple[Any, Any]:
+        """``(V_u, N_u)``: the shear the DCR was formed from, in magnitude, and the axial load."""
+        return to_display(self.V_u, "force", imperial), to_display(self.N_u, "force", imperial)
+
     def shear_capacity_quantity(self, imperial: bool) -> Any:
         """The design shear strength the DCR was formed from, as a quantity.
 
@@ -283,6 +287,10 @@ class ENShearCheckState:
             to_display(self.A_v_req, "per_length", imperial),
             to_display(self.A_v_min, "per_length", imperial),
         )
+
+    def shear_demand_quantities(self, imperial: bool) -> tuple[Any, Any]:
+        """``(V_Ed,2, N_Ed)``: the shear at d the DCR was formed from, and the axial load."""
+        return to_display(self.V_Ed_2, "force", imperial), to_display(self.N_Ed, "force", imperial)
 
     def shear_capacity_quantity(self, imperial: bool) -> Any:
         """``V_Rd``, the design shear resistance the DCR was formed from."""
@@ -496,6 +504,10 @@ class FlexureCheckState:
         """
         return _face_quantities(self, face, f"phi_M_n_{face}", imperial)
 
+    def moment_demand_quantity(self, imperial: bool) -> Any:
+        """``M_u``, with its sign: positive puts the bottom face in tension."""
+        return to_display(self.M_u, "moment", imperial)
+
 
 def new_flexure_state(section: "RectangularBeam") -> FlexureCheckState:
     """A zeroed flexure state. Every field is a float, so nothing is converted."""
@@ -611,6 +623,10 @@ class ENFlexureCheckState:
         capacity is the ``M_Rd`` the face's DCR was divided by.
         """
         return _face_quantities(self, face, f"M_Rd_{face}", imperial)
+
+    def moment_demand_quantity(self, imperial: bool) -> Any:
+        """``M_Ed``, with its sign: positive puts the bottom face in tension."""
+        return to_display(self.M_Ed, "moment", imperial)
 
 
 def new_en_flexure_state(section: "RectangularBeam") -> ENFlexureCheckState:

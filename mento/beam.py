@@ -1234,7 +1234,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         self._compression_faces = set()
         for position, force in enumerate(forces, 1):
             state = self._run_flexure_check(force, report=False)
-            self._flexure_checks.append(capture_flexure_check(self, force.label, state))
+            self._flexure_checks.append(capture_flexure_check(self, force.label, state, force))
             self._flexure_warnings.extend(flexure_warnings(self, combination_label(force.label, position), state))
             self._note_compression_face(force, state)
         self._flexure_checked = True
@@ -1376,7 +1376,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             # The result is a value of the check itself, not a reading of the
             # attributes it left on the beam -- those describe the last
             # combination only, and are on their way out with them.
-            self._flexure_checks.append(capture_flexure_check(self, force.label, state))
+            self._flexure_checks.append(capture_flexure_check(self, force.label, state, force))
             self._flexure_warnings.extend(flexure_warnings(self, combination_label(force.label, position), state))
 
             # Extract the DCR values for top and bottom from the results
