@@ -153,6 +153,26 @@ def _details(value: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     return cast(Dict[str, Any], value)
 
 
+def _limit_rows(top: Dict[str, Any], bottom: Dict[str, Any]) -> Dict[str, List[Any]]:
+    """The flexure limit rows of the selected section: each face's rows from the combination that governs that face.
+
+    Read off the section's own limit table, labels and limits included, so the
+    summary report shows what the section's detailed report shows: a slab's
+    "Bar spacing" against its maximum (ACI 318-19 §7.7.2.3), a beam's
+    "Minimum spacing" against the clear distance, and the §24.3.2 "Maximum
+    spacing" rows of a code that has them. Written out by hand, the rows were
+    the four of a beam, and a slab at Ø12/40 read "Minimum spacing bottom
+    400 ≥ 37 ❌", its maximum dropped. Numbers are rounded to two decimals.
+    """
+    rows: Dict[str, List[Any]] = {column: [] for column in top["min_max"]}
+    for i, check in enumerate(top["min_max"]["Check"]):
+        source = top if str(check).endswith("top") else bottom
+        for column in rows:
+            value = source["min_max"][column][i]
+            rows[column].append(round(value, 2) if isinstance(value, float) else value)
+    return rows
+
+
 def _blank_missing(df: pd.DataFrame) -> pd.DataFrame:
     """A check table for print: a demand or a DCR that does not exist reads ``-``, not ``nan``.
 
@@ -291,39 +311,7 @@ def beam_summary_doc(self: "_FlexuralSummary", index: Any = 1) -> None:
         ],
         "Unit": [top_details["forces"]["Unit"][0], bot_details["forces"]["Unit"][1]],
     }
-    min_max_result = {
-        "Check": [
-            "Min/Max As rebar top",
-            "Minimum spacing top",
-            "Min/Max As rebar bottom",
-            "Minimum spacing bottom",
-        ],
-        "Unit": [*top_details["min_max"]["Unit"][:2], *bot_details["min_max"]["Unit"][2:4]],
-        "Value": [
-            round(top_details["min_max"]["Value"][0], 2),
-            round(top_details["min_max"]["Value"][1], 2),
-            round(bot_details["min_max"]["Value"][2], 2),
-            round(bot_details["min_max"]["Value"][3], 2),
-        ],
-        "Min.": [
-            round(top_details["min_max"]["Min."][0], 2),
-            top_details["min_max"]["Min."][1],
-            round(bot_details["min_max"]["Min."][2], 2),
-            bot_details["min_max"]["Min."][3],
-        ],
-        "Max.": [
-            round(top_details["min_max"]["Max."][0], 2),
-            "",
-            round(bot_details["min_max"]["Max."][2], 2),
-            "",
-        ],
-        "Ok?": [
-            top_details["min_max"]["Ok?"][0],
-            top_details["min_max"]["Ok?"][1],
-            bot_details["min_max"]["Ok?"][2],
-            bot_details["min_max"]["Ok?"][3],
-        ],
-    }
+    min_max_result = _limit_rows(top_details, bot_details)
 
     df_flex_materials = pd.DataFrame(beam._materials_flexure)
     df_flex_geometry = pd.DataFrame(beam._geometry_flexure)

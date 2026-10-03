@@ -320,3 +320,25 @@ def test_the_check_of_a_slab_has_no_stirrup_column(
     assert "Av,real" not in capacities.columns and "As,bot,real" in capacities.columns
     monkeypatch.setattr(DocumentBuilder, "save", lambda *_: None)
     summary.results_detailed_doc(index="L2")
+
+
+def test_the_report_shows_a_slabs_spacing_against_its_maximum(
+    concrete: Any, steel: SteelBar, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ø12/40 is past the 300 mm of §7.7.2.3: the limit row says so, as the slab's own report does.
+
+    The summary report wrote the four rows of a beam by hand: "Minimum spacing
+    bottom 400 ≥ 37 ❌", the maximum that fails it dropped.
+    """
+    sections = slabs([{"Label": "sparse", "db1_bot": 12, "s1_bot": 40}])
+    summary = OneWaySlabSummary(
+        concrete, steel, sections, forces([{"Label": "sparse", "Comb.": "C", "Vz": 20, "My": 10}])
+    )
+    documents: list = []
+    monkeypatch.setattr(DocumentBuilder, "save", lambda self, *_: documents.append(self.doc))
+    summary.results_detailed_doc()
+    limits = next(t for t in documents[0].tables if t.rows[0].cells[0].text == "Check")
+    rows = {row.cells[0].text: [cell.text for cell in row.cells[1:]] for row in limits.rows[1:]}
+    unit, value, minimum, maximum, verdict = rows["Bar spacing bottom"]
+    assert (unit, float(value), float(minimum), float(maximum), verdict) == ("mm", 400, 37, 300, FAIL_MARK)
+    assert "Minimum spacing bottom" not in rows
