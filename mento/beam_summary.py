@@ -368,22 +368,22 @@ class BeamSummary:
         """
 
         results_list = []
-        for node in self.nodes:
+        for live_node in self.nodes:
+            # The capacity check runs on a copy: zeroing the forces of the
+            # node itself replaced its checks and the warnings that depend on
+            # a combination, which a later reading of the summary then lacked.
+            node = copy.deepcopy(live_node) if capacity_check else live_node
             beam: RectangularBeam = node.section  # type: ignore
-            original_forces = [copy.deepcopy(force) for force in node.get_forces_list()]
 
             imperial = beam.concrete.is_imperial
             rebar_f_top, rebar_f_bot, rebar_v = self._rebar_labels(beam)
 
             if capacity_check:
-                # Remove all forces assignments
                 node.clear_forces()
-                # Create empty force
-                empty_force = Forces()
-                node.add_forces(empty_force)
-                # Perform the shear check
-                shear_results = node.check_shear()
+                node.add_forces(Forces())
+                # In the order Node.check() runs them: flexure, then shear.
                 node.check_flexure()
+                shear_results = node.check_shear()
                 # Common data
                 common_data = {
                     self._ELEMENT_COLUMN: beam.label,
@@ -428,13 +428,14 @@ class BeamSummary:
                 merged_units = {**common_units, **code_specific_units}
                 units_row = pd.DataFrame([OrderedDict({**merged_units})])
 
-                # Restore the original forces after capacity check
-                node.clear_forces()
-                node.add_forces(original_forces)
             else:
-                # Perform the shear check
-                shear_results = node.check_shear().iloc[1:].reset_index(drop=True)  # Skip the first row (units)
+                # In the order Node.check() runs them: the flexure check finds
+                # the faces a combination relies on as compression steel, and
+                # the shear check reads them for the stirrups that have to
+                # brace those bars (ACI 318-19 / CIRSOC 201-25 §9.7.6.4).
+                # Checked the other way round, those warnings were lost.
                 flexure_results = node.check_flexure().iloc[1:].reset_index(drop=True)  # Skip the first row (units)
+                shear_results = node.check_shear().iloc[1:].reset_index(drop=True)  # Skip the first row (units)
                 # A beam carries every combination of its rows: the summary
                 # gives the envelope -- the largest demand of each kind, with
                 # its sign, and the largest DCR of each face and of shear.
@@ -626,9 +627,9 @@ class BeamSummary:
         :param capacity_check: If True, performs capacity check (resets forces)
         :return: Results DataFrame
         """
-        original_forces = [copy.deepcopy(force) for force in node.get_forces_list()]
-
         if capacity_check:
+            # On a copy, so the node keeps the checks and warnings of its own forces.
+            node = copy.deepcopy(node)
             node.clear_forces()
             node.add_forces(Forces())  # Add empty force
 
@@ -647,11 +648,6 @@ class BeamSummary:
             # named the way the active code names it.
             for column, value in design_code(self.concrete).requires("capacity_columns")(beam).items():
                 results[column] = value
-
-        # Restore original forces if we did a capacity check
-        if capacity_check:
-            node.clear_forces()
-            node.add_forces(original_forces)
         return results
 
     # ------------------------------------------------------------

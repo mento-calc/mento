@@ -1874,3 +1874,66 @@ def test_design_matches_a_hand_built_node_where_the_stirrup_moves_the_bars(
     assert beam._bar_groups("bot")[0] == (row["n1"], row["db1"]) == (2, 20 * mm)
     assert row["n2"] == row["n3"] == 0
     assert summary.check().iloc[1]["DCRb,bot"] == 0.962
+
+
+# ============================================================================
+# THE CHECK RUNS IN THE ORDER OF NODE.CHECK()
+# ============================================================================
+
+
+@pytest.fixture
+def braced_compression_beam() -> pd.DataFrame:
+    """ACI 25x70, 4Ø25 ++ 2Ø20 at the bottom, 2Ø12 on top, 1eØ8/25, Mu 500 kN·m and Vu 80 kN.
+
+    The bottom relies on the top bars as compression steel, and a Ø8 every
+    25 cm braces them less than ACI 318-19 §9.7.6.4.2 / §9.7.6.4.3 ask.
+    """
+    common = {"Label": "V", "b": 25, "h": 70}
+    return _beam_rows(
+        [
+            {**common, "Comb.": "C1", "Vz": 80, "My": 500, "ns": 1, "dbs": 8, "sl": 25, "n1": 4, "db1": 25},
+            {**common, "Comb.": "C2", "Vz": 10, "My": -5, "n1": 2, "db1": 12},
+        ]
+    ).assign(n3=["", 2, 0], db3=["mm", 20, 0])
+
+
+def test_check_follows_node_check_order(
+    sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar, braced_compression_beam: pd.DataFrame
+) -> None:
+    """Shear before flexure lost the warnings of the stirrups that brace the compression bars.
+
+    The flexure check finds the faces a combination relies on as compression
+    steel and the shear check reads them. Run the other way round, the
+    summary gave DCRb,bot 0.922 and no warning.
+    """
+    summary = BeamSummary(sample_concrete, sample_steel, braced_compression_beam)
+    summary.check()
+    codes = [w.code for w in summary.nodes[0].warnings]
+    assert codes == ["stirrup_spacing_exceeds_compression_support", "stirrup_diameter_below_compression_support"]
+
+    beam = RectangularBeam(
+        label="V", concrete=sample_concrete, steel_bar=sample_steel, width=25 * cm, height=70 * cm, c_c=25 * mm
+    )
+    beam.set_transverse_rebar(1, 8 * mm, 25 * cm)
+    beam.set_longitudinal_rebar_bot(4, 25 * mm, 0, None, 2, 20 * mm)
+    beam.set_longitudinal_rebar_top(2, 12 * mm)
+    node = Node(beam, [Forces(label="C1", V_z=80 * kN, M_y=500 * kNm), Forces(label="C2", V_z=10 * kN, M_y=-5 * kNm)])
+    node.check()
+    assert summary.nodes[0].warnings == node.warnings
+
+
+def test_capacity_check_leaves_the_warnings_alone(
+    sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar, braced_compression_beam: pd.DataFrame
+) -> None:
+    """The capacity check zeroed the forces of the node itself, and the warnings of its combinations went with them."""
+    summary = BeamSummary(sample_concrete, sample_steel, braced_compression_beam)
+    summary.check()
+    before = summary.nodes[0].warnings
+    checks = summary.nodes[0].section.flexure_checks
+
+    summary.check(capacity_check=True)
+    summary.flexure_results(capacity_check=True)
+    summary.shear_results(capacity_check=True)
+
+    assert summary.nodes[0].warnings == before != ()
+    assert summary.nodes[0].section.flexure_checks == checks

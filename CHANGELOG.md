@@ -59,6 +59,16 @@ from the release history and are summaries rather than complete lists.
   a wall designed Ø10/30 (DCR 0.25) read back as Ø10/3, DCR 0.178, ten times its steel; in
   cm/m it read back as Ø100/3000. `design()` now returns the mesh as quantities.
 
+- **`BeamSummary.check()` runs flexure, then shear, as `Node.check()` does, and the capacity
+  check no longer clears the warnings.** Checking the shear first lost the warnings of the
+  stirrups that brace compression bars (ACI 318-19 / CIRSOC 201-25 §9.7.6.4), which the
+  flexure check is what finds: an ACI 25x70 with 4Ø25 ++ 2Ø20 at the bottom, 2Ø12 on top
+  and 1eØ8/25 under 500 kN·m gave no warning, where `Node.check()` gives
+  `stirrup_spacing_exceeds_compression_support` and
+  `stirrup_diameter_below_compression_support`. `check(capacity_check=True)` and the
+  capacity `flexure_results()` / `shear_results()` zeroed the forces of the nodes
+  themselves; they now run on a copy.
+
 ## [1.4.0] - 2026-09-30
 
 ### Changed
