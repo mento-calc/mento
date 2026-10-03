@@ -1147,6 +1147,7 @@ def test_from_nodes_rejects_what_a_row_cannot_hold(sample_concrete: Any, sample_
         with pytest.raises(SummaryInputError) as raised:
             BeamSummary.from_nodes(sample_concrete, sample_steel, [node])
         assert raised.value.code == code
+    assert "a row with legs = 0 does not hold" in str(raised.value)
     with pytest.raises(SummaryInputError) as raised:
         BeamSummary.from_nodes(sample_concrete, sample_steel, [Node(beam(), []), Node(beam(), [])])
     assert raised.value.code == "duplicate_section"

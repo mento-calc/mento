@@ -138,7 +138,7 @@ class BeamSummary(_FlexuralSummary):
             and section._stirrup_n == 0
             and section._stirrup_d_b != getattr(section.settings, "stirrup_diameter_ini", None)
         ):
-            reason = "a stirrup diameter without stirrups, which a row with ns = 0 does not hold"
+            reason = "a stirrup diameter without stirrups, which a row with legs = 0 does not hold"
         return reason
 
     def _validate_section_row(self, key: Key, row: Mapping[str, Any]) -> None:
