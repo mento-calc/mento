@@ -82,13 +82,15 @@ def _declared(
 ) -> Optional[tuple]:
     """The reinforcement the rows of a beam give in ``columns``, or None if none gives any.
 
-    A row gives it when its first column (the count of bars or legs) is not
-    zero. Rows that give it must agree: a beam has one set of stirrups and one
-    set of bars per face, however many combinations it carries.
+    A row gives it when any of its reinforcement columns is not zero. This
+    also lets the section validate an incomplete declaration, or read a slab's
+    second layer when the first is empty. Rows that give it must agree: a beam
+    has one set of stirrups and one set of bars per face, however many
+    combinations it carries.
     """
     if not columns:
         return None
-    given = [tuple(row[column] for column in columns) for row in rows if row[columns[0]] != 0]
+    given = [tuple(row[column] for column in columns) for row in rows if any(row[column] != 0 for column in columns)]
     if not given:
         return None
     if any(values != given[0] for values in given[1:]):

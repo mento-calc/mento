@@ -47,6 +47,11 @@ from the release history and are summaries rather than complete lists.
   envelope, and `design()` designs the flexure only: the shear is checked against the
   concrete, without stirrups.
 
+### Fixed
+
+- A slab summary reads a second reinforcement layer given on its own, and rejects a
+  layer with only its diameter or its spacing instead of silently ignoring it.
+
 ## [1.4.0] - 2026-09-30
 
 ### Changed

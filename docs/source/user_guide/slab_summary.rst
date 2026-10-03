@@ -30,6 +30,10 @@ they must agree on ``b``, ``h`` and ``cc``, and the rows that give the bars of a
 must give the same ones. A US customary list takes lengths in ``in``, forces in
 ``kip`` and moments in ``kip·ft``.
 
+Each layer must give both a diameter and a spacing, or leave both at zero.
+An incomplete layer raises ``ValueError``; a second layer given on its own is
+read even when the first layer is empty.
+
 .. code-block:: python
 
     import pandas as pd

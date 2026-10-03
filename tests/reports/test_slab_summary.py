@@ -166,10 +166,20 @@ def test_the_file_holds_each_number_in_its_columns_unit(concrete: Any, steel: St
     assert written["s1"] == pytest.approx(designed.iloc[0]["s1"].to("mm").magnitude)
 
 
-def test_a_layer_needs_both_a_diameter_and_a_spacing(concrete: Any, steel: SteelBar) -> None:
-    rows = _slab_rows([{"Label": "L1", "Comb.": "U", "Vz": 30, "My": 30, "db1": 12}])
+@pytest.mark.parametrize("bars", [{"db1": 12}, {"s1": 15}, {"db3": 12}, {"s3": 15}])
+def test_a_layer_needs_both_a_diameter_and_a_spacing(concrete: Any, steel: SteelBar, bars: dict[str, int]) -> None:
+    rows = _slab_rows([{"Label": "L1", "Comb.": "U", "Vz": 30, "My": 30, **bars}])
     with pytest.raises(ValueError, match="Slab 'L1'.*diameter and a spacing"):
         OneWaySlabSummary(concrete, steel, rows)
+
+
+def test_a_second_layer_given_alone_is_read(concrete: Any, steel: SteelBar) -> None:
+    rows = _slab_rows([{"Label": "L1", "Comb.": "U", "My": 30, "db3": 12, "s3": 15}])
+    slab = OneWaySlabSummary(concrete, steel, rows).nodes[0].section
+
+    layer = slab.reinforcement.bottom.layers[0]
+    assert layer.d_b == 12 * mm
+    assert layer.s.to("cm").magnitude == pytest.approx(15)
 
 
 def test_rows_of_a_slab_that_give_different_bars_raise(concrete: Any, steel: SteelBar) -> None:
