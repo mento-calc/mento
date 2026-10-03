@@ -14,6 +14,12 @@ from the release history and are summaries rather than complete lists.
 
 ### Changed
 
+- The README opens with a quick start that designs a beam and shows the result, a table of
+  the elements each design code covers, the validation behind them, and a link to the
+  calculators on [mentocalc.com](https://mentocalc.com). It no longer says mento does
+  structural analysis or designs columns, which it does not yet. Its links are absolute, so
+  they also work on PyPI, and the DOI badge points to the concept DOI that resolves to the
+  latest release, as the citing guide does.
 - **`BeamSummary` designs a beam for the envelope of its combinations.** Rows that share a
   `Label` are now one beam: one node carrying every combination, as a `Node` built by hand,
   instead of one independent section per row. `check()` gives one row per beam with the

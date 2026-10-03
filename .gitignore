@@ -103,3 +103,6 @@ static/
 # Claude Code personal settings (machine-specific paths)
 .claude/settings.local.json
 .claude/memory/
+
+# Archify working folders (diagram candidates and validation receipts)
+.archify/

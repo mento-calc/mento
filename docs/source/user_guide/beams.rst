@@ -15,7 +15,7 @@ Key Concepts
 Usage
 -----
 
-Below is a step-by-step guide on how to use the `Beam` class in your structural analysis workflows.
+Below is a step-by-step guide on how to use the `Beam` class in your design workflows.
 
 1. Creating a Beam Object
 *************************

@@ -3,7 +3,7 @@ Forces
 
 The `Forces` class in the `mento` package allows users to define and manipulate the primary forces acting on a structural element, such as axial force,
 shear force, and bending moment. This class is designed for flexibility in defining forces, with the ability to adjust and retrieve
-them in different stages of a structural analysis or design workflow.
+them in different stages of a design workflow. The forces themselves come from your analysis model: mento designs or checks the section that resists them.
 
 Key Concepts
 ------------
@@ -39,7 +39,7 @@ See :doc:`local_axes` for the axes these components refer to.
 Usage
 -----
 
-Below is a step-by-step guide on how to use the `Forces` class in your structural analysis workflows.
+Below is a step-by-step guide on how to use the `Forces` class in your design workflows.
 
 1. Creating a Forces Object
 ***************************
@@ -126,4 +126,4 @@ Each `Forces` object con be printed in the terminal with `print(force)` method. 
 
     print(force)  # Output: Force ID: 1, Label: Crane load, N_x: 3.00 kN, V_z: 0.00 kN, M_y: 7.00 kN·m
 
-This flexible interface ensures that you can easily manage forces during the design and analysis of structural elements, while maintaining clear and consistent units.
+This flexible interface ensures that you can easily manage forces during the design and checking of structural elements, while maintaining clear and consistent units.

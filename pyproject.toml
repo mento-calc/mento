@@ -29,7 +29,6 @@ requires-python = ">=3.12"
 keywords = [
     "concrete design",
     "structural engineering",
-    "structural analysis",
     "reinforced concrete",
     "ACI 318",
     "Eurocode 2",
