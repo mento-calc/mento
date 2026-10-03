@@ -19,7 +19,7 @@ from mento.precompute import shown
 from mento.reports.summaries import BEAM_REPORT
 from mento.summary_base import Key, _FlexuralSummary, section_dimension, translated
 from mento.summary_tables import (
-    Column,
+    TableColumn,
     SummaryInputError,
     TableSpec,
     count,
@@ -40,8 +40,8 @@ GROUPS = (1, 2, 3, 4)
 FACES = ("top", "bot")
 
 
-def _face_columns(face: str) -> Tuple[Column, ...]:
-    columns: Tuple[Column, ...] = ()
+def _face_columns(face: str) -> Tuple[TableColumn, ...]:
+    columns: Tuple[TableColumn, ...] = ()
     for group in GROUPS:
         columns += (count(f"n{group}_{face}"), length(f"db{group}_{face}", "mm", "in"))
     return columns

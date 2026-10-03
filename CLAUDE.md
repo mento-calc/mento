@@ -103,9 +103,11 @@ mento/
 ├── node.py                 Node(section, forces) — drives check/design
 ├── settings.py             BeamSettings — metric/imperial defaults for design rules
 ├── results.py              Formatter, TablePrinter, DocumentBuilder — display helpers
-├── beam_summary.py         BeamSummary — aggregate results for multiple beams
-├── slab_summary.py         OneWaySlabSummary — BeamSummary's workflow for one-way slab strips
+├── beam_summary.py         BeamSummary — many beam sections, read from two tables
+├── slab_summary.py         OneWaySlabSummary — the same for one-way slab strips
 ├── shear_wall_summary.py   ShearWallSummary — the same for walls
+├── summary_tables.py       The sections / forces tables of the summaries: read, write, errors
+├── summary_base.py         What the summaries share (one Node per section, frozen results)
 ├── summary.py              Deprecated shim re-exporting BeamSummary (emits DeprecationWarning)
 ├── i18n.py                 set_language() — language of the detailed report output
 ├── plots/                  Matplotlib drawings: sections.py, walls.py, punching.py
@@ -232,14 +234,11 @@ PunchingSlab (standalone dataclass); PunchingNode(slab, column, forces) pairs it
 - `Formatter`: formats pint quantities for display.
 - `TablePrinter`: renders pandas DataFrames as styled tables (Markdown/IPython).
 - `DocumentBuilder`: builds Word (python-docx) report documents.
-- `BeamSummary` (in `mento/beam_summary.py`; `mento/summary.py` is a deprecated shim): aggregates design results across multiple `RectangularBeam` instances.
-  - Rows sharing a `Label` are one beam: one `Node` with all their combinations, checked and designed for the envelope. Rows with no label stay separate.
-  - `OneWaySlabSummary` (`mento/slab_summary.py`) subclasses it through hooks (`_new_section`, `_set_face`, `_designed`, `_rebar_labels`): faces as `db1, s1, db3, s3`, flexure design only. `ShearWallSummary` groups by (Level, Label) the same way.
-  - `.check(capacity_check=False)` — DCR summary table for all beams; set `capacity_check=True` to zero forces and report capacities (MRd,top/bot or ØMn,top/bot) instead.
-  - `.design()` — runs flexure + shear design for every beam and fills rebar columns.
-  - `.flexure_results(capacity_check=False)` / `.shear_results(capacity_check=False)` — per-beam detailed check tables; `capacity_check=True` adds code-specific capacity columns.
-  - `.results_detailed_doc(index=1)` — exports a Word document (`Beam_Summary_{design_code}.docx`) with full flexure/shear detail for the selected beam (1-based index) followed by summary tables for all beams. Saves to the current working directory.
-  - `.export_design(path)` / `.import_design(path)` — round-trip the designed rebar to/from Excel.
+- `BeamSummary` (`mento/beam_summary.py`; `mento/summary.py` is a deprecated shim), `OneWaySlabSummary` and `ShearWallSummary` read **two tables**: `Sections` (one row per section, key `(Level, Label)`, geometry and **both faces**; beam stirrups as `legs` = 2 per closed stirrup) and `Forces` (`Label, Comb., Nx, Vz, My`). The 1.4.0 single table raises; `split_single_table` converts it.
+  - The `Node`s are the only state: `sections_table` / `forces_table` are read off them.
+  - Element hooks: `_SPEC`, `_section(key, row)` and its exact inverse `_section_row(section)`, `_validate_section_row`, `_design`, `_rebar_labels`, `_check_record`, `_has_reinforcement`, `_sections_overview`. (#180's `_new_section`, `_set_face`, `_set_transverse`, `_designed` are gone.)
+  - `.check()`: one row per section, governing combination per DCR, `Warnings` codes; `Ok?` fails on any warning; frozen `results`.
+  - `.design()` is `Node.design()`, writing both faces. `from_excel` / `to_excel` / `tables` / `from_nodes`; `results_detailed_doc(index)` (position or label) in `reports/summaries.py`.
 
 ---
 

@@ -427,3 +427,37 @@ def test_a_forces_row_names_a_wall_on_its_level() -> None:
             CONCRETE, STEEL, sections, wall_forces([{"Level": "L3", "Label": "M1", "Comb.": "C", "Vz": 1}])
         )
     assert raised.value.code == "unknown_section" and "'L3 / M1'" in str(raised.value)
+
+
+_GUIDES = Path(__file__).resolve().parents[2] / "docs" / "source" / "user_guide"
+
+
+def _guide_tables(page: str) -> Dict[str, Any]:
+    """Run the code block of a user guide that builds the two tables, and return what it defines."""
+    text = (_GUIDES / page).read_text(encoding="utf-8")
+    blocks = re.findall(r".. code-block:: python\n\n((?:    .*\n|\n)+)", text)
+    code = next(block for block in blocks if "sections = pd.DataFrame(" in block)
+    namespace: Dict[str, Any] = {
+        "conc": Concrete_ACI_318_19(name="H25", f_c=25 * MPa),
+        "steel": SteelBar(name="ADN 420", f_y=420 * MPa),
+    }
+    exec("\n".join(line[4:] for line in code.splitlines()), namespace)  # noqa: S102 - the documentation's own example
+    return namespace
+
+
+@pytest.mark.filterwarnings("ignore::UserWarning")
+def test_documented_examples() -> None:
+    """The tables the user guides write in code build their summaries, and give the numbers the guides quote."""
+    beam = _guide_tables("beam_summary.rst")["beam_summary"]
+    support, midspan = beam.check().iloc[1], beam.check().iloc[2]
+    assert (support["DCRb,top"], support["Ok?"]) == (0.804, "✅")
+    assert (midspan["DCRb,bot"], midspan["Ok?"]) == (1.263, "❌")
+    assert midspan["Warnings"] == "not_tension_controlled (bottom), stirrup_spacing_exceeds_compression_support"
+
+    slab = _guide_tables("slab_summary.rst")["slab_summary"]
+    assert slab.labels == ["L101", "L102"] and len(slab.nodes[0].forces) == 2
+    assert len(slab.check()) == 3
+
+    wall = _guide_tables("shear_wall_summary.rst")["wall_summary"]
+    assert wall.labels == [("Level 1", "M1"), ("Level 2", "M1")]
+    assert list(wall.check()["Status"][1:]) == ["✅", "✅"]

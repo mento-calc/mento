@@ -1,8 +1,9 @@
 Beam Summary
 ============
 
-The ``BeamSummary`` class lets you work with a list of beam sections and perform
-checks, design, and report generation for all of them at once.
+The ``BeamSummary`` class checks, designs and reports a list of beam sections at
+once. It reads two tables: one that says what each **section** is, and one that says
+what **forces** each section carries, one row per load combination.
 
 Creating Concrete and Steel Materials
 --------------------------------------
@@ -24,195 +25,272 @@ Define the concrete and steel materials to be used across all beams:
 
 Supported design codes: **ACI 318-19**, **EN 1992-2004**, and **CIRSOC 201-25**.
 
-Loading Input Data from Excel
-------------------------------
+The Two Tables
+--------------
 
-The beam dimensions, forces, and reinforcement details are typically loaded from
-an Excel input file. The file should have a specific format and units, as shown below:
+Each table is a ``DataFrame`` whose first row holds the unit of every column, as an
+Excel sheet with its unit row under the headers. Columns are read by name, in any order.
 
-.. figure:: ../_static/summary/beam_summary.png
-   :alt: Beam summary input.
-   :align: center
-   :width: 100%
+**Sections** — one row per section, with a ``Label`` no other row repeats:
 
-The recommended way to read the Excel file is with pandas:
+- **Level** (optional): a storey or a group; where given, a section is the pair
+  ``(Level, Label)``.
+- **Label**: the section's name (V101, V9a...).
+- **b**, **h**: width and height (``cm``, ``mm``, ``m``, ``in``, ``ft``).
+- **cc**: clear cover to the stirrups.
+- **legs**, **dbs**, **sl**: the stirrups: the number of **legs** (two per closed
+  stirrup, so it is even), their diameter and their spacing along the beam.
+- **n1_top, db1_top ... n4_top, db4_top** and **n1_bot, db1_bot ... n4_bot, db4_bot**:
+  the bars of each face, as four groups of a number and a diameter. ``n1/db1`` and
+  ``n2/db2`` make the layer nearest the face; ``n3/db3`` and ``n4/db4`` a second layer
+  inside it, as :meth:`~mento.beam.RectangularBeam.set_longitudinal_rebar_bot` takes them.
+- **Notes** (optional): free text — a span, a station, the name a model gives the
+  member. It is kept and written back, and never read.
+
+**Forces** — one row per load combination of a section:
+
+- **Level** (optional) and **Label**: the section the row acts on.
+- **Comb.**: the combination's name. A section takes each combination once.
+- **Nx** (optional), **Vz**, **My**: in ``kN`` and ``kNm``, or ``kip`` and ``kip·ft``.
+- **Notes** (optional).
+
+Sign conventions, as everywhere in mento (:doc:`local_axes`): **Nx > 0 is
+compression** (a tension taken from ETABS, which gives P positive in tension, changes
+sign), **My > 0 puts the bottom face in tension**, and **Vz** is taken in magnitude.
+``Nx`` enters the shear check only: a beam's flexure is checked without it. Under ACI
+318-19 and CIRSOC 201-25, a compression of ``0.10 f'c Ag`` or more (§9.5.2.2) raises the
+warning ``axial_load_beyond_beam``: check that section as a column. A forces table with
+no ``Nx`` column is read as ``N = 0``, with a warning, since a tension left out makes the
+shear check unconservative.
+
+The rules:
+
+- A section is prismatic. If the support bars are cut before the midspan, the support and
+  the midspan are **two sections**, with two labels. A section under several combinations
+  is one row of sections and several rows of forces.
+- A label repeated in the sections table, a forces row whose label is not in the sections
+  table, and a combination given twice to one section are errors that name it.
+  A section with no forces gives a warning and keeps its row, shown as not checked.
+- Labels are text, stripped: ``"V4 "`` is ``"V4"``, and ``101`` is ``"101"``.
+- A zero is no bars: a face whose ``n1`` is 0 has no bars at all. ``legs = 0`` is a beam
+  without stirrups, which keeps the starter stirrup of its settings (Ø8, #3) in its
+  effective depth, as a :class:`~mento.beam.RectangularBeam` built by hand does.
+- The reinforcement columns may be left out (they are zero on every row), to design from
+  the geometry alone. An empty reinforcement or force cell is zero; an empty geometry
+  cell, text in a numeric column, a negative bar, a bar count without its diameter or an
+  odd number of legs are errors that name the section and the column.
+- A row with every cell empty is skipped.
+
+Errors are :class:`~mento.summary_tables.SummaryInputError` (a ``ValueError``) and
+warnings :class:`~mento.summary_tables.SummaryInputWarning`, each with a stable ``code``.
+``str(error)`` is in English; ``error.message`` follows :func:`mento.set_language`.
+
+Example: a support and a midspan
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ACI 318-19, H25, ADN 420, 20×40, cc 25 mm, stirrups 1eØ10/17. The support carries
+3Ø16 on top under −60 kN·m and 80 kN; the midspan 2Ø32 at the bottom under +170 kN·m
+and 10 kN. The support bars are cut before the midspan, so these are two sections,
+each with 2Ø8 on its other face (the columns of the second layer, all zero, are left out):
+
+.. csv-table:: Sections
+   :header: "Label", "b", "h", "cc", "legs", "dbs", "sl", "n1_top", "db1_top", "n1_bot", "db1_bot"
+
+   "", "cm", "cm", "mm", "", "mm", "cm", "", "mm", "", "mm"
+   "V9a", 20, 40, 25, 2, 10, 17, 3, 16, 2, 8
+   "V9t", 20, 40, 25, 2, 10, 17, 2, 8, 2, 32
+
+.. csv-table:: Forces
+   :header: "Label", "Comb.", "Nx", "Vz", "My"
+
+   "", "", "kN", "kN", "kNm"
+   "V9a", "apoyo", 0, 80, -60
+   "V9t", "tramo", 0, 10, 170
+
+``check()`` gives V9a 0.804 on top and ✅; V9t 1.263 at the bottom and ❌, with the
+warnings ``not_tension_controlled (bottom)`` and
+``stirrup_spacing_exceeds_compression_support`` (``test_a_support_and_a_midspan_are_two_sections``).
+
+If the bars run through, it is one section under both combinations: one row of sections
+with ``n1_top = 3, db1_top = 16, n1_bot = 2, db1_bot = 32`` and the two rows of forces
+under the label ``V9``. ``check()`` then gives 0.804 on top (apoyo), 0.934 at the bottom
+(tramo) and 0.548 in shear (apoyo), with no warning, as a :class:`~mento.node.Node` built
+by hand (``test_continuous_bars_are_one_section_declared_once``).
+
+The same tables in code:
 
 .. code-block:: python
 
     import pandas as pd
+    from mento import BeamSummary
 
-    input_df = pd.read_excel('Mento-Input.xlsx', sheet_name='Beams', usecols='B:S', skiprows=4)
+    sections = pd.DataFrame(
+        {
+            "Label": ["", "V9a", "V9t"],
+            "b": ["cm", 20, 20],
+            "h": ["cm", 40, 40],
+            "cc": ["mm", 25, 25],
+            "legs": ["", 2, 2],
+            "dbs": ["mm", 10, 10],
+            "sl": ["cm", 17, 17],
+            "n1_top": ["", 3, 2],
+            "db1_top": ["mm", 16, 8],
+            "n1_bot": ["", 2, 2],
+            "db1_bot": ["mm", 8, 32],
+        }
+    )
+    forces = pd.DataFrame(
+        {
+            "Label": ["", "V9a", "V9t"],
+            "Comb.": ["", "apoyo", "tramo"],
+            "Nx": ["kN", 0, 0],
+            "Vz": ["kN", 80, 10],
+            "My": ["kNm", -60, 170],
+        }
+    )
+    beam_summary = BeamSummary(conc, steel, sections, forces)
 
-The Excel file should contain the following columns:
+Reading and Writing Excel
+--------------------------
 
-- **Label**: Beam identifier (e.g., V101, V102).
-- **Comb.**: Load combination label.
-- **b**: Beam width in cm.
-- **h**: Beam height in cm.
-- **cc**: Stirrup clear cover in mm.
-- **Nx**: Axial force in kN.
-- **Vz**: Shear force in kN.
-- **My**: Moment in kNm.
-- **ns**: Number of stirrup legs.
-- **dbs**: Stirrup diameter in mm.
-- **sl**: Stirrup spacing in cm.
-- **n1, n2, n3, n4**: Number of longitudinal bars per group.
-- **db1, db2, db3, db4**: Diameter of longitudinal bars in mm.
-
-Bottom reinforcement is checked against positive bending moments; top reinforcement
-against negative bending moments.
-
-One beam, several combinations
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Rows that share a **Label** are one beam under several load combinations. They become a
-single node carrying every combination, so ``check()`` and ``design()`` work on the
-envelope, exactly as a :class:`~mento.node.Node` built by hand does:
-
-.. code-block:: python
-
-    data = {
-        "Label": ["", "V101", "V101"],
-        "Comb.": ["", "1.2D+1.6L", "1.4D"],
-        "b": ["cm", 20, 20],
-        "h": ["cm", 50, 50],
-        "cc": ["mm", 25, 25],
-        "Nx": ["kN", 0, 10],
-        "Vz": ["kN", 60, -110],
-        "My": ["kNm", 45, -70],
-        # ns, dbs, sl, n1-n4, db1-db4 as above
-    }
-
-The rows of a beam must agree on ``b``, ``h`` and ``cc``. The bars on a row are those of
-the face its moment puts in tension (bottom for ``My >= 0``, top otherwise) and the
-stirrups are the beam's; a row may leave them at zero, but rows that give them must give
-the same ones, or a ``ValueError`` names the beam. A row with no label is a beam of its own.
-
-``check()`` reports one row per beam with the envelope: the largest moment, shear and
-axial force with their sign, and the largest DCR of each face and of shear.
-``flexure_results()`` and ``shear_results()`` keep one row per combination, and their
-``index`` counts beams, not rows. ``design()`` writes the same stirrups on every row of a
-beam and, on each row, the bars of the face that row puts in tension.
-
-For a quick test you can build the DataFrame manually:
+A summary file holds two sheets, ``Sections`` and ``Forces``, each with its unit row
+under the headers. :meth:`~mento.beam_summary.BeamSummary.from_excel` reads them and
+:meth:`~mento.beam_summary.BeamSummary.to_excel` writes them (to a path or to a
+buffer such as ``io.BytesIO``); sheet names and headers are always in English, whatever
+the language set, so a file reads back anywhere:
 
 .. code-block:: python
 
-    data = {
-        "Label": ["", "V101", "V102", "V103", "V104"],
-        "Comb.": ["", "ELU 1", "ELU 2", "ELU 3", "ELU 4"],
-        "b": ["cm", 20, 20, 20, 20],
-        "h": ["cm", 50, 50, 50, 50],
-        "cc": ["mm", 25, 25, 25, 25],
-        "Nx": ["kN", 0, 0, 0, 0],
-        "Vz": ["kN", 20, -50, 100, 100],
-        "My": ["kNm", 0, -35, 40, 45],
-        "ns": ["", 0, 1.0, 1.0, 1.0],
-        "dbs": ["mm", 0, 6, 6, 6],
-        "sl": ["cm", 0, 20, 20, 20],
-        "n1": ["", 2.0, 2, 2.0, 2.0],
-        "db1": ["mm", 12, 12, 12, 12],
-        "n2": ["", 1.0, 1, 1.0, 0.0],
-        "db2": ["mm", 10, 16, 10, 0],
-        "n3": ["", 2.0, 0.0, 2.0, 0.0],
-        "db3": ["mm", 12, 0, 16, 0],
-        "n4": ["", 0, 0.0, 0, 0.0],
-        "db4": ["mm", 0, 0, 0, 0],
-    }
-    input_df = pd.DataFrame(data)
+    beam_summary = BeamSummary.from_excel(conc, steel, "Beams.xlsx")
+    beam_summary.to_excel("Beams.xlsx")
+    sections, forces = beam_summary.tables()   # the two tables as the file holds them
 
-Creating the BeamSummary Object
----------------------------------
-
-Once the input data is ready, create a ``BeamSummary`` object:
+A workbook laid out otherwise — a title above the headers, columns further right — is
+read with pandas and passed as two ``DataFrame``:
 
 .. code-block:: python
 
-    from mento.summary import BeamSummary
+    sections = pd.read_excel("Project.xlsx", sheet_name="Vigas", usecols="B:Z", skiprows=4)
+    forces = pd.read_excel("Project.xlsx", sheet_name="Esfuerzos", usecols="B:G", skiprows=4)
+    beam_summary = BeamSummary(conc, steel, sections, forces)
 
-    beam_summary = BeamSummary(concrete=conc, steel_bar=steel, beam_list=input_df)
-
-To verify that units were applied correctly, inspect the ``data`` attribute:
+Nodes built by hand are written the same way with
+:meth:`~mento.beam_summary.BeamSummary.from_nodes`: each node is a section,
+labelled with its section's ``label``, and its forces its combinations. A node a row
+cannot hold (settings other than the defaults, an out-of-plane moment ``M_x``, other
+materials) raises instead of coming back as another section.
 
 .. code-block:: python
 
-    beam_summary.data
+    BeamSummary.from_nodes(conc, steel, [node_1, node_2]).to_excel("Beams.xlsx")
 
-Checking Beam Capacity
------------------------
+From mento 1.4.0
+~~~~~~~~~~~~~~~~
 
-Use ``check()`` to get a summary table with DCR (Demand-Capacity Ratio) values for
-all beams. Two modes are available:
+The single table of mento 1.4.0 — one row per combination, the section repeated on each —
+is no longer read; passing it raises ``SummaryInputError`` with code ``single_table``.
+:func:`~mento.summary_tables.split_single_table` converts it, each row becoming a section
+of its own with its forces, which is what 1.4.0 computed:
 
-**Check with applied forces** (uses the forces in the input data):
+.. code-block:: python
+
+    from mento import split_single_table
+
+    old = pd.read_excel("Beams_1_4_0.xlsx")
+    beam_summary = BeamSummary(conc, steel, *split_single_table(old, "beam"))
+
+It writes the 2Ø8 (2 #3) 1.4.0 placed on the face no moment pulls, renames repeated
+labels (``V1``, ``V1-2``...) and warns about every row with ``n3`` or ``n4``: 1.4.0 read
+them as a second layer of the face in tension, whatever the template drawing said.
+
+Checking
+--------
+
+``check()`` runs ``node.check()`` — flexure, then shear — on every section and returns
+one row per section:
 
 .. code-block:: python
 
     beam_summary.check()
 
-**Capacity check** (zeros all forces to report section capacity only):
+- ``b×h``, ``As,top``, ``As,bot`` and ``Av``: what the section is.
+- ``Comb.,top``, ``Mu,top``, ``DCRb,top`` (and the same for ``bot``): the combination
+  that governs each face, its moment and the DCR. Every combination tied at that DCR is
+  named. A face no combination puts in tension reads ``-`` and DCR 0.
+- ``Comb.,v``, ``Vu``, ``Nu``, ``DCRv``: the same for the shear, with the axial load of
+  that combination. (``MEd``, ``VEd``, ``NEd`` under EN 1992-1-1.)
+- ``Warnings``: mento's warning codes (:doc:`design_results`) with the face they are read
+  on, e.g. ``As_below_min (bottom)``; ``-`` for none. They are the same in every language.
+- ``Ok?``: ✅ when every DCR is at most 1 **and** the section misses no limit — a section
+  with warnings is ❌. A section with no forces reads "no forces", and one with no bars
+  "no reinforcement: run design()".
 
-.. code-block:: python
+The same, as data that does not depend on the language, is in ``beam_summary.results``:
+one :class:`~mento.summary_base.SectionVerdict` per section, with the
+:class:`~mento.summary_base.GoverningDemand` of each face and of the shear, its warnings
+and ``passes``. ``beam_summary.warnings`` maps each ``(Level, Label)`` to its warnings.
 
-    beam_summary.check(capacity_check=True)
-
-The result is a DataFrame with identification, reinforcement, DCR columns, and a
-pass/fail status (✅ / ❌). For EN 1992-2004 concrete, code-specific capacity columns
-(``MRd,top``, ``MRd,bot``, ``VRd``) are added automatically; for ACI 318-19 and
-CIRSOC 201-25 the equivalent columns are ``ØMn,top``, ``ØMn,bot``, ``ØVn``.
+``check(capacity_check=True)`` gives the capacities instead (``ØMn,top``, ``ØMn,bot``,
+``ØVn``, or ``MRd,top``, ``MRd,bot``, ``VRd`` under EN 1992-1-1), computed on a copy of
+each section with no forces, so ``results`` stays that of the forces.
 
 Viewing Detailed Results
 -------------------------
 
-For a full breakdown per beam use ``flexure_results()`` and ``shear_results()``.
-Both methods accept an optional ``index`` (1-based) to retrieve results for a single
-beam, and a ``capacity_check`` flag:
+``flexure_results()`` and ``shear_results()`` give one row per combination. ``index``
+picks one section, by its 1-based position in the sections table or by its label:
 
 .. code-block:: python
 
-    # All beams — forces from input
     beam_summary.flexure_results()
-    beam_summary.shear_results()
-
-    # All beams — capacity check (adds MRd,top / MRd,bot or ØMn,top / ØMn,bot columns)
-    beam_summary.flexure_results(capacity_check=True)
     beam_summary.shear_results(capacity_check=True)
-
-    # Single beam (1-based index)
     beam_summary.flexure_results(index=2)
-    beam_summary.shear_results(index=2)
+    beam_summary.shear_results(index="V9t")
 
-For step-by-step detail of a specific beam you can also access the node directly:
+Each section is a :class:`~mento.node.Node` in ``beam_summary.nodes``, in the order of the
+sections table:
 
 .. code-block:: python
 
-    beam_summary.nodes[2].check_shear()
-    beam_summary.nodes[2].check_flexure()
+    beam_summary.nodes[1].shear_results_detailed()
 
 Designing Reinforcement
 ------------------------
 
-``design()`` runs automatic flexure and shear design for every beam, for the envelope of
-its combinations, and returns a DataFrame with the filled rebar columns (``n1``–``n4``, ``db1``–``db4``, ``ns``, ``dbs``, ``sl``):
+``design()`` designs every section that has forces exactly as ``node.design()`` does, for
+the envelope of its combinations (``test_design_is_node_design``), writes what it designed
+into the sections table — **both faces**, and the stirrups — and checks it. It returns the
+sections table:
 
 .. code-block:: python
 
-    designed_df = beam_summary.design()
+    designed = beam_summary.design()
+
+So a design exported and read back is the section designed: the 20×40 midspan of the
+example, designed from its geometry alone, gets 2Ø32 at the bottom and 2Ø16 + 1Ø16 on top,
+and checks 0.934 before and after ``to_excel`` / ``from_excel``.
+
+Two things follow from ``design()`` being ``Node.design()``:
+
+- A section under positive moments only is designed with no bars on top (no hanger bars),
+  while one under negative moments only gets bars at the bottom too. Add the hanger bars
+  to the sections table if the drawings carry them.
+- A section designed can still be ❌ for a detailing warning; its row says which.
 
 Exporting and Importing a Design
 ----------------------------------
 
-After running ``design()``, save the result to Excel so it can be reviewed or edited:
+``export_design(path)`` writes the two sheets, as ``to_excel``; ``import_design(path)``
+reads them back into the summary, replacing its sections and forces:
 
 .. code-block:: python
 
     beam_summary.export_design("BeamDesign.xlsx")
-
-To reload an edited file and rebuild the summary with the new reinforcement:
-
-.. code-block:: python
-
+    # ... edit the bars in the Sections sheet ...
     beam_summary.import_design("BeamDesign.xlsx")
+    beam_summary.check()
+
+What these print follows :func:`mento.set_language`.
 
 Exporting Results to Excel
 ----------------------------
@@ -230,7 +308,9 @@ Detailed Word Report
 ``results_detailed_doc()`` generates a Word document (``.docx``) that contains:
 
 - Full flexure and shear detail for one selected beam.
-- Summary tables (beam data, flexure results, shear results, DCR check) for all beams.
+- The tables of all beams: the sections, the forces with their sign conventions, the
+  flexure and shear results per combination, the check, and every warning worded in full,
+  with the face and the combinations it is read on.
 
 The document is saved to the current working directory with the name
 ``Beam_Summary_{design_code}.docx`` (e.g. ``Beam_Summary_ACI 318-19.docx``).
@@ -240,8 +320,9 @@ The document is saved to the current working directory with the name
     # Detailed report with beam 1 as the reference beam (default)
     beam_summary.results_detailed_doc()
 
-    # Use beam 3 as the reference beam
-    beam_summary.results_detailed_doc(index=3)
+    # Use beam V9t as the reference beam
+    beam_summary.results_detailed_doc(index="V9t")
 
-The ``index`` parameter is 1-based and must be within the range of beams in the
-summary. An ``IndexError`` is raised for out-of-range values.
+``index`` is the section's 1-based position in the sections table or its label. An
+``IndexError`` is raised for a position out of range; a section with no forces has no
+detail to report and raises ``SummaryInputError``.

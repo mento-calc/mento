@@ -214,7 +214,7 @@ def _ordinal(n: int) -> str:
 
 
 @dataclass(frozen=True)
-class Column:
+class TableColumn:
     """One column of a summary table.
 
     ``required`` columns must be present; an optional one that is absent is
@@ -239,16 +239,16 @@ class Column:
         return list(UNITS[self.kind])
 
 
-def text(name: str, required: bool = False) -> Column:
-    return Column(name, "text", required)
+def text(name: str, required: bool = False) -> TableColumn:
+    return TableColumn(name, "text", required)
 
 
-def count(name: str) -> Column:
-    return Column(name, "count")
+def count(name: str) -> TableColumn:
+    return TableColumn(name, "count")
 
 
-def length(name: str, metric: str, imperial: str, *, dimension: bool = False) -> Column:
-    return Column(name, "length", dimension, metric, imperial, dimension=dimension)
+def length(name: str, metric: str, imperial: str, *, dimension: bool = False) -> TableColumn:
+    return TableColumn(name, "length", dimension, metric, imperial, dimension=dimension)
 
 
 @dataclass(frozen=True)
@@ -262,10 +262,10 @@ class TableSpec:
 
     kind: str
     element: str
-    sections: Tuple[Column, ...]
-    forces: Tuple[Column, ...]
+    sections: Tuple[TableColumn, ...]
+    forces: Tuple[TableColumn, ...]
 
-    def columns(self, table: str) -> Tuple[Column, ...]:
+    def columns(self, table: str) -> Tuple[TableColumn, ...]:
         return self.sections if table == "sections" else self.forces
 
     def geometry(self) -> Tuple[str, ...]:
@@ -282,15 +282,15 @@ _RENAMED = {"ns": "legs: the number of stirrup legs, 2 per closed stirrup"}
 FORCE_NAMES = ("Comb.", "Nx", "Vz", "My")
 
 
-def forces_columns(*, moment_required: bool = True) -> Tuple[Column, ...]:
+def forces_columns(*, moment_required: bool = True) -> Tuple[TableColumn, ...]:
     """``Level, Label, Comb., Nx, Vz, My, Notes``."""
     return (
         text("Level"),
         text("Label", required=True),
         text("Comb.", required=True),
-        Column("Nx", "force", False, "kN", "kip", signed=True),
-        Column("Vz", "force", True, "kN", "kip", signed=True),
-        Column("My", "moment", moment_required, "kNm", "kip·ft", signed=True),
+        TableColumn("Nx", "force", False, "kN", "kip", signed=True),
+        TableColumn("Vz", "force", True, "kN", "kip", signed=True),
+        TableColumn("My", "moment", moment_required, "kNm", "kip·ft", signed=True),
         text("Notes"),
     )
 
@@ -502,7 +502,9 @@ def _significant(value: float) -> Union[int, float]:
     return int(rounded) if rounded.is_integer() else rounded
 
 
-def write_table(rows: Sequence[Mapping[str, Any]], columns: Sequence[Column], units: Mapping[str, str]) -> DataFrame:
+def write_table(
+    rows: Sequence[Mapping[str, Any]], columns: Sequence[TableColumn], units: Mapping[str, str]
+) -> DataFrame:
     """A table as a file holds it: the unit row, then each row with its numbers in the unit of their column.
 
     ``rows`` hold quantities, counts and text by column name; a quantity is

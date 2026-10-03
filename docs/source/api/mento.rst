@@ -28,6 +28,7 @@ mento.beam\_summary module
 .. automodule:: mento.beam_summary
    :members:
    :undoc-members:
+   :inherited-members:
    :show-inheritance:
 
 mento.column module
@@ -148,6 +149,7 @@ mento.shear\_wall\_summary module
 .. automodule:: mento.shear_wall_summary
    :members:
    :undoc-members:
+   :inherited-members:
    :show-inheritance:
 
 mento.slab module
@@ -164,12 +166,29 @@ mento.slab\_summary module
 .. automodule:: mento.slab_summary
    :members:
    :undoc-members:
+   :inherited-members:
    :show-inheritance:
 
 mento.summary module
 --------------------
 
 .. automodule:: mento.summary
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+mento.summary\_base module
+--------------------------
+
+.. automodule:: mento.summary_base
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+mento.summary\_tables module
+----------------------------
+
+.. automodule:: mento.summary_tables
    :members:
    :undoc-members:
    :show-inheritance:
