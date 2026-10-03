@@ -25,7 +25,6 @@ from matplotlib.text import Text
 
 from mento import Forces, Node, set_language
 from mento.beam import RectangularBeam
-from mento.beam_summary import BeamSummary
 from mento.shear_wall import ShearWall
 from mento.shear_wall_summary import ShearWallSummary
 
@@ -174,8 +173,11 @@ def render_wall(wall: ShearWall, forces: List[Forces], workdir: Path) -> str:
     return t.text()
 
 
-def render_beam_summary(summary: BeamSummary, workdir: Path) -> str:
+def render_beam_summary(summary: Any, workdir: Path) -> str:
+    """A beam or slab summary: the tables it reads, its check, its design and its report."""
     t = Transcript(workdir)
+    t.frame("sections", summary.sections_table)
+    t.frame("forces", summary.forces_table)
     t.frame("check", summary.check())
     t.frame("check capacity", summary.check(capacity_check=True))
     t.frame("design", summary.design())
@@ -189,6 +191,7 @@ def render_beam_summary(summary: BeamSummary, workdir: Path) -> str:
 
 def render_wall_summary(summary: ShearWallSummary, workdir: Path) -> str:
     t = Transcript(workdir)
+    t.frame("forces", summary.forces_table)
     t.frame("design", summary.design())
     t.frame("check", summary.check())
     t.frame("shear_results", summary.shear_results())

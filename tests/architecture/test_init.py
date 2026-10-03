@@ -261,6 +261,9 @@ def test_all_exports_in_all() -> None:
         "WallShearDesign",
         "DesignNotRunError",
         "NotABeamError",
+        "SummaryInputError",
+        "SummaryInputWarning",
+        "split_single_table",
         "bar_designation",
         "bar_diameter",
     ]
@@ -384,3 +387,14 @@ def test_the_result_errors_are_importable_from_the_package() -> None:
     assert mento.DesignNotRunError is DesignNotRunError
     assert mento.NotABeamError is NotABeamError
     assert issubclass(mento.NotABeamError, AttributeError)
+
+
+def test_the_summary_errors_and_the_converter_are_importable_from_the_package() -> None:
+    import mento
+    from mento.summary_tables import SummaryInputError, SummaryInputWarning, split_single_table
+
+    assert mento.SummaryInputError is SummaryInputError
+    assert mento.SummaryInputWarning is SummaryInputWarning
+    assert mento.split_single_table is split_single_table
+    assert issubclass(mento.SummaryInputError, ValueError)
+    assert issubclass(mento.SummaryInputWarning, UserWarning)

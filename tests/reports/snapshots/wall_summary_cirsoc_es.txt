@@ -1,14 +1,21 @@
+### forces
+     Level Label  Comb.    Nx   Vz    My
+0                          kN   kN   kNm
+1  Level 1    M1  ELU 1     0  264  -172
+2  Level 1    M1  ELU 2  -301  152  -234
+3  Level 2    M2  ELU 1  55.5  163  -278
+
 ### design
-     Level Label  Comb.         t      lw      hw        cc          Nx         Vz            My      dbh        sh       dbv        sv
-0  Level 1    M1  ELU 1  20.00 cm  3.00 m  3.00 m  25.00 mm     0.00 kN  264.00 kN  -172.00 kN·m  8.00 mm  20.00 cm  10.00 mm  30.00 cm
-1  Level 1    M1  ELU 2  20.00 cm  3.00 m  3.00 m  25.00 mm  -301.00 kN  152.00 kN  -234.00 kN·m  8.00 mm  20.00 cm  10.00 mm  30.00 cm
-2  Level 2    M2  ELU 1  20.00 cm  2.00 m  3.00 m  25.00 mm    55.50 kN  163.00 kN  -278.00 kN·m  8.00 mm  20.00 cm  10.00 mm  30.00 cm
+     Level Label   t lw hw  cc dbh  sh dbv  sv
+0                 cm  m  m  mm  mm  cm  mm  cm
+1  Level 1    M1  20  3  3  25   8  20  10  30
+2  Level 2    M2  20  2  3  25   8  20  10  30
 
 ### check
-     Nivel Etiqueta   t   lw   hw Horiz.   Vert.       ρt       ρl Vu,max     ØVn    DCR Estado
-0                    cm    m    m                                      kN      kN              
-1  Level 1       M1  20  3.0  3.0  Ø8/20  Ø10/30  0.00251  0.00262  264.0  1037.5  0.254      ✅
-2  Level 2       M2  20  2.0  3.0  Ø8/20  Ø10/30  0.00251  0.00262  163.0   691.7  0.236      ✅
+     Nivel Etiqueta     t   lw   hw Horiz. (c/cara) Vert. (c/cara)       ρt       ρl  Comb.     Vu    Nu     ØVn    DCR Advertencias Estado
+0                      cm    m    m                                                             kN    kN      kN                           
+1  Level 1       M1  20.0  3.0  3.0           Ø8/20         Ø10/30  0.00251  0.00262  ELU 1  264.0   0.0  1037.5  0.254            -      ✅
+2  Level 2       M2  20.0  2.0  3.0           Ø8/20         Ø10/30  0.00251  0.00262  ELU 1  163.0  55.5   691.7  0.236            -      ✅
 
 ### shear_results
   Etiqueta  Comb.  ρt,min  ρt,req       ρt  ρl,min       ρl     Vu     ØVc     ØVs      ØVn ØVn,max Vu≤ØVn,max Vu≤ØVn    DCR
@@ -53,11 +60,10 @@ Resistencia máxima al corte | ØVn,max | 1485.0 | kN
 Factor de Utilización | DCR | 0.25 | 
 Resumen - Todos los tabiques
 Datos de los tabiques
-Nivel | Etiqueta | Comb. | t | lw | hw | cc | Nx | Vz | My | dbh | sh | dbv | sv
- |  |  | cm | m | m | mm | kN | kN | kNm | mm | cm | mm | cm
-Level 1 | M1 | ELU 1 | 20 | 3.0 | 3.0 | 25 | 0 | 264 | -172 | 8 | 20 | 12 | 15
-Level 1 | M1 | ELU 2 | 20 | 3.0 | 3.0 | 25 | -301 | 152 | -234 | 8 | 20 | 12 | 15
-Level 2 | M2 | ELU 1 | 20 | 2.0 | 3.0 | 25 | 55.5 | 163 | -278 | 0 | 0 | 0 | 0
+Nivel | Etiqueta | t | lw | hw | cc | dbh | sh | dbv | sv
+ |  | cm | m | m | mm | mm | cm | mm | cm
+Level 1 | M1 | 20 | 3 | 3 | 25 | 8 | 20 | 10 | 30
+Level 2 | M2 | 20 | 2 | 3 | 25 | 8 | 20 | 10 | 30
 Resultados de corte
 Etiqueta | Comb. | ρt,min | ρt,req | ρt | ρl,min | ρl | Vu | ØVc | ØVs | ØVn | ØVn,max | DCR
  |  |  |  |  |  |  | kN | kN | kN | kN | kN | 
@@ -65,7 +71,7 @@ M1 | ELU 1 | 0.0025 | 0.0025 | 0.00251 | 0.0025 | 0.00262 | 264.0 | 562.5 | 475.
 M1 | ELU 2 | 0.0025 | 0.0025 | 0.00251 | 0.0025 | 0.00262 | 152.0 | 327.7 | 475.0 | 802.7 | 1485.0 | 0.19
 M2 | ELU 1 | 0.0025 | 0.0025 | 0.00251 | 0.0025 | 0.00262 | 163.0 | 375.0 | 316.7 | 691.7 | 990.0 | 0.24
 Resumen de verificaciones
-Nivel | Etiqueta | t | lw | hw | Horiz. | Vert. | ρt | ρl | Vu,max | ØVn | DCR | Estado
- |  | cm | m | m |  |  |  |  | kN | kN |  | 
-Level 1 | M1 | 20 | 3.0 | 3.0 | Ø8/20 | Ø10/30 | 0.00251 | 0.00262 | 264.0 | 1037.5 | 0.25 | ✅
-Level 2 | M2 | 20 | 2.0 | 3.0 | Ø8/20 | Ø10/30 | 0.00251 | 0.00262 | 163.0 | 691.7 | 0.24 | ✅
+Nivel | Etiqueta | t | lw | hw | Horiz. (c/cara) | Vert. (c/cara) | ρt | ρl | Comb. | Vu | Nu | ØVn | DCR | Advertencias | Estado
+ |  | cm | m | m |  |  |  |  |  | kN | kN | kN |  |  | 
+Level 1 | M1 | 20.0 | 3.0 | 3.0 | Ø8/20 | Ø10/30 | 0.00251 | 0.00262 | ELU 1 | 264.0 | 0.0 | 1037.5 | 0.25 | - | ✅
+Level 2 | M2 | 20.0 | 2.0 | 3.0 | Ø8/20 | Ø10/30 | 0.00251 | 0.00262 | ELU 1 | 163.0 | 55.5 | 691.7 | 0.24 | - | ✅

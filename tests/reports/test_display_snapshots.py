@@ -42,6 +42,8 @@ from mento import (
 )
 from mento.beam_summary import BeamSummary
 from mento.shear_wall_summary import ShearWallSummary
+from mento.slab_summary import OneWaySlabSummary
+from mento.summary_tables import split_single_table
 from tests.reports.display_render import (
     SNAPSHOT_DIR,
     render_beam_summary,
@@ -154,7 +156,40 @@ def _beam_summary(code: str, workdir: Path) -> str:
             "db4": ["mm", 0, 0, 0],
         }
     )
-    return render_beam_summary(BeamSummary(_concrete(code), _steel(code), beam_list), workdir)
+    # The single table of 1.4.0, converted: each row a section of its own,
+    # with the DCRs 1.4.0 gave it.
+    summary = BeamSummary(_concrete(code), _steel(code), *split_single_table(beam_list, "beam"))
+    return render_beam_summary(summary, workdir)
+
+
+def _slab_summary(code: str, workdir: Path) -> str:
+    """Three strips: L1 with its bars, checked as given; L2 under hogging only; L3 with no bars.
+
+    The check runs before the design on purpose, so L2 and L3 show the row of
+    a section with no reinforcement; the design then gives them their bars.
+    """
+    sections = pd.DataFrame(
+        {
+            "Label": ["", "L1", "L2", "L3"],
+            "b": ["cm", 100, 100, 100],
+            "h": ["cm", 15, 18, 15],
+            "cc": ["mm", 20, 25, 20],
+            "db1_top": ["mm", 0, 0, 0],
+            "s1_top": ["cm", 0, 0, 0],
+            "db1_bot": ["mm", 10, 0, 0],
+            "s1_bot": ["cm", 20, 0, 0],
+        }
+    )
+    rows = pd.DataFrame(
+        {
+            "Label": ["", "L1", "L1", "L2", "L3"],
+            "Comb.": ["", "ELU 1", "ELU 2", "ELU 1", "ELU 1"],
+            "Nx": ["kN", 0, 0, 0, 0],
+            "Vz": ["kN", 25, 15, 40, 30],
+            "My": ["kNm", 12, 6, -45, 18],
+        }
+    )
+    return render_beam_summary(OneWaySlabSummary(_concrete(code), _steel(code), sections, rows), workdir)
 
 
 def _wall_summary(code: str, workdir: Path) -> str:
@@ -176,7 +211,9 @@ def _wall_summary(code: str, workdir: Path) -> str:
             "sv": ["cm", 15, 15, 0],
         }
     )
-    return render_wall_summary(ShearWallSummary(_concrete(code), _steel(code), wall_list), workdir)
+    return render_wall_summary(
+        ShearWallSummary(_concrete(code), _steel(code), *split_single_table(wall_list, "wall")), workdir
+    )
 
 
 CASES: Dict[str, Callable[[str, Path], str]] = {
@@ -186,6 +223,7 @@ CASES: Dict[str, Callable[[str, Path], str]] = {
     "footing": _footing,
     "wall": _wall,
     "beam_summary": _beam_summary,
+    "slab_summary": _slab_summary,
     "wall_summary": _wall_summary,
 }
 # EN 1992-2004 has no shear-wall check.

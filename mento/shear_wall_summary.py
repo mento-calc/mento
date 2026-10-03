@@ -1,368 +1,245 @@
+"""A list of shear walls read from two tables: the sections, and the forces each one carries."""
+
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List, Optional, Tuple
-from collections import OrderedDict
+from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 import pandas as pd
 from pandas import DataFrame
 
 from mento.bar_sizes import bar_designation
-from mento.beam_summary import _declared, _in_unit, _is_unlabelled
 from mento.design_results import spacing_separator
-from mento.material import Concrete, SteelBar
-from mento.forces import Forces
-from mento.shear_wall import ShearWall
-from mento import mm, cm, kN, m, kNm, MPa, inch, ft, kip
-from mento.i18n import translate_dataframe
 from mento.node import Node
-from mento.reports.summaries import wall_summary_doc
+from mento.precompute import shown, unit_label
+from mento.shear_wall import ShearWall
+from mento.summary_base import (
+    Index,
+    Key,
+    SectionVerdict,
+    _TwoTableSummary,
+    frame_with_units,
+    governing,
+    translated,
+    verdict_passes,
+    warning_tags,
+)
+from mento.summary_tables import (
+    SummaryInputError,
+    TableSpec,
+    forces_columns,
+    key_text,
+    length,
+    text,
+    unit_of,
+)
+from mento.units import Quantity
+
+WALL_SPEC = TableSpec(
+    kind="wall",
+    element="ShearWallSummary",
+    sections=(
+        text("Level"),
+        text("Label", required=True),
+        length("t", "cm", "in", dimension=True),
+        length("lw", "m", "ft", dimension=True),
+        length("hw", "m", "ft", dimension=True),
+        length("cc", "mm", "in", dimension=True),
+        length("dbh", "mm", "in"),
+        length("sh", "cm", "in"),
+        length("dbv", "mm", "in"),
+        length("sv", "cm", "in"),
+        text("Notes"),
+    ),
+    forces=forces_columns(moment_required=False),
+)
+
+#: The mesh columns of a wall: the bar and the spacing of each direction.
+MESH = (("dbh", "sh"), ("dbv", "sv"))
 
 
-def _wall_passes(wall: ShearWall) -> bool:
-    """Whether the wall carries every combination of its last check and misses no limit.
-
-    Read off the public results rather than the report's flag, which holds the
-    combination that ran last. The warnings cover the mesh ratios of §11.6.2,
-    the spacing of §11.7 and the section limit of §11.5.4.2, each over every
-    combination; the DCR covers the strength of each one, with the tolerance
-    the warnings use: a wall at exactly ØVn,max can come out at DCR
-    1.0000000000000002, and that is 1.
-    """
-    return all(check.DCR <= 1 or math.isclose(check.DCR, 1.0) for check in wall.shear_checks) and not wall.warnings
-
-
-def _mesh_label(d_b: Any, s: Any, imperial: bool) -> str:
+def _mesh_label(d_b: Quantity, s: Quantity, imperial: bool) -> str:
     """One direction of the mesh as the summary table writes it: ``Ø10/15`` (mm/cm), ``#4@8`` (in).
 
     In the units the section is detailed in: an imperial bar printed in mm and
     cm rounds #4 @ 8 in to "Ø13/20", a bar and a spacing nobody placed. A US
     bar is its ASTM size, and its spacing follows an ``@``, as on a drawing.
+    ``-`` for a direction with no bars.
     """
+    if d_b.magnitude == 0 or s.magnitude == 0:
+        return "-"
     if imperial:
         return f"{bar_designation(d_b)}{spacing_separator(True)}{s.to('inch').magnitude:.4g}"
     return f"Ø{d_b.to('mm').magnitude:.0f}/{s.to('cm').magnitude:.0f}"
 
 
-class ShearWallSummary:
-    def __init__(self, concrete: Concrete, steel_bar: SteelBar, wall_list: DataFrame) -> None:
-        self.concrete: Concrete = concrete
-        self.steel_bar: SteelBar = steel_bar
-        self.wall_list: DataFrame = wall_list
-        self.units_row: List[str] = []
-        self.data: DataFrame = DataFrame()
-        self.nodes: List[Node] = []
-        self.wall_keys: List[Tuple[str, str]] = []
-        #: Positions in :attr:`data` of the rows of each node, in node order.
-        self._node_rows: List[List[int]] = []
-        self.check_and_process_input()
-        self.convert_to_walls()
+def _given(value: Optional[Quantity]) -> bool:
+    return value is not None and value.magnitude > 0
 
-    # ------------------------------------------------------------------
-    # Input processing
-    # ------------------------------------------------------------------
 
-    def check_and_process_input(self) -> None:
-        self.units_row = self.wall_list.iloc[0].tolist()
-        data = self.wall_list.iloc[1:].copy()
+def _rounded(value: Optional[Quantity], imperial: bool) -> float:
+    return math.nan if value is None else round(shown(value, "force", imperial), 1)
 
-        self.units_row = ["" if pd.isna(unit) else unit for unit in self.units_row]
-        self.validate_units(self.units_row)
 
-        # Columns 3 onward are numeric (after Level, Label, Comb.)
-        data.iloc[:, 3:] = data.iloc[:, 3:].astype(float).fillna(0)
+class ShearWallSummary(_TwoTableSummary):
+    """Check and design the in-plane shear of a list of walls, read from a sections table and a forces table.
 
-        for i in range(1, len(self.units_row)):
-            unit_str = self.units_row[i]
-            if unit_str != "":
-                unit = self.get_unit_variable(unit_str)
-                if isinstance(data.iloc[:, i], pd.Series):
-                    data.iloc[:, i] = data.iloc[:, i].apply(lambda x, u=unit: x * u)
+    ``sections`` has one row per wall, keyed by ``(Level, Label)``:
 
-        self.data = data
+    ``Level, Label, t, lw, hw, cc, dbh, sh, dbv, sv, Notes``
 
-    def validate_units(self, units_row: List[str]) -> None:
-        # Forces in kip and moments in kip·ft ("kipft") for an imperial wall,
-        # whose results come back in kip.
-        valid_units = {"m", "mm", "cm", "in", "inch", "ft", "kN", "kNm", "kip", "kipft", ""}
-        for unit_str in units_row:
-            if unit_str and unit_str not in valid_units:
-                raise ValueError(f"Invalid unit '{unit_str}' detected. Allowed units: {valid_units}")
+    ``t`` is the thickness, ``lw`` the length, ``hw`` the height and ``cc`` the
+    cover; ``dbh/sh`` and ``dbv/sv`` are the horizontal and vertical mesh, the
+    bar and spacing on each face (two curtains). ``forces`` has one row per
+    combination, ``Level, Label, Comb., Nx, Vz, My, Notes``. ``My`` is kept
+    and written back but not used: the summary checks the in-plane shear
+    (ACI 318-19 / CIRSOC 201-25 §11.5), and the vertical mesh it designs is the
+    shear minimum of §11.6.2, not what P-M or a boundary element would ask.
+    """
 
-    def get_unit_variable(self, unit_str: str) -> Any:
-        unit_map: Dict[str, Any] = {
-            "mm": mm,
-            "cm": cm,
-            "m": m,
-            "in": inch,
-            "inch": inch,
-            "ft": ft,
-            "kN": kN,
-            "kNm": kNm,
-            "kip": kip,
-            "kipft": kip * ft,
-            "MPa": MPa,
-        }
-        if unit_str in unit_map:
-            return unit_map[unit_str]
-        raise ValueError(f"Unit '{unit_str}' is not recognized.")
+    _SPEC = WALL_SPEC
+    _ELEMENT_COLUMN = "Wall"
+    _ALWAYS_LEVEL = True
 
-    # ------------------------------------------------------------------
-    # Grouping rows → walls + nodes
-    # ------------------------------------------------------------------
+    @property
+    def wall_keys(self) -> List[Any]:
+        """The ``(Level, Label)`` of each wall, in the order of :attr:`nodes`: :attr:`labels`."""
+        return self.labels
 
-    def convert_to_walls(self) -> None:
-        """Build one node per wall from the rows of :attr:`data`.
+    _SECTION_TYPE = ShearWall
 
-        The rows that share ``Level`` and ``Label`` are one wall under several
-        load combinations, checked and designed for their envelope. A row with
-        no label is a wall of its own. The rows of a wall must agree on ``t``,
-        ``lw``, ``hw`` and ``cc``; the mesh may be given on one row only, but
-        rows that give a direction of it must give the same one. Anything else
-        raises a ``ValueError`` naming the wall.
-        """
-        self.nodes = []
-        self.wall_keys = []
-        self._node_rows = []
-        rows = [row for _, row in self.data.reset_index(drop=True).iterrows()]
-        by_key: Dict[Tuple[str, str], List[int]] = {}
-        for position, row in enumerate(rows):
-            key = (str(row["Level"]), str(row["Label"]))
-            if _is_unlabelled(row["Label"]):
-                self._node_rows.append([position])
-                self.wall_keys.append(key)
-            elif key in by_key:
-                by_key[key].append(position)
-            else:
-                by_key[key] = [position]
-                self._node_rows.append(by_key[key])
-                self.wall_keys.append(key)
+    def _validate_section_row(self, key: Key, row: Mapping[str, Any]) -> None:
+        for d_b, s in MESH:
+            has_d, has_s = _given(row.get(d_b)), _given(row.get(s))
+            if has_d != has_s:
+                given, missing = (d_b, s) if has_d else (s, d_b)
+                raise SummaryInputError("incomplete_group", label=repr(key_text(key)), given=given, missing=missing)
 
-        for key, positions in zip(self.wall_keys, self._node_rows):
-            self.nodes.append(self._wall_node(key, [rows[position] for position in positions]))
-
-    def _wall_node(self, key: Tuple[str, str], rows: List["pd.Series[Any]"]) -> Node:
-        """The node of one wall, from the rows that describe it."""
-        first = rows[0]
-        for row in rows[1:]:
-            self._validate_geometry_consistency(first, row, key)
-
+    def _section(self, key: Key, row: Mapping[str, Any]) -> ShearWall:
         wall = ShearWall(
             level=key[0],
             label=key[1],
             concrete=self.concrete,
             steel_bar=self.steel_bar,
-            thickness=first["t"],
-            length=first["lw"],
-            height=first["hw"],
-            c_c=first["cc"],
+            thickness=row["t"],
+            length=row["lw"],
+            height=row["hw"],
+            c_c=row["cc"],
         )
+        if _given(row.get("dbh")):
+            wall.set_horizontal_rebar(d_b=row["dbh"], s=row["sh"])
+        if _given(row.get("dbv")):
+            wall.set_vertical_rebar(d_b=row["dbv"], s=row["sv"])
+        return wall
 
-        name = f"{key[0]} - {key[1]}"
-        horizontal = _declared(rows, ("dbh", "sh"), name, "horizontal mesh", "Wall")
-        if horizontal is not None and horizontal[1].magnitude != 0:
-            wall.set_horizontal_rebar(d_b=horizontal[0], s=horizontal[1])
-        vertical = _declared(rows, ("dbv", "sv"), name, "vertical mesh", "Wall")
-        if vertical is not None and vertical[1].magnitude != 0:
-            wall.set_vertical_rebar(d_b=vertical[0], s=vertical[1])
+    def _section_row(self, section: ShearWall) -> Dict[str, Any]:
+        zero = 0 * unit_of("in" if self.concrete.is_imperial else "mm")
+        mesh = section.mesh
+        row: Dict[str, Any] = {"t": section.thickness, "lw": section.length, "hw": section.height, "cc": section.c_c}
+        for (d_b, s), direction in zip(MESH, (mesh.horizontal, mesh.vertical)):
+            row[d_b] = direction.d_b if direction.has_bars else zero
+            row[s] = direction.s if direction.has_bars else zero
+        return row
 
-        forces = [Forces(label=row["Comb."], N_x=row["Nx"], V_z=row["Vz"], M_y=row["My"]) for row in rows]
-        return Node(section=wall, forces=forces)
+    def _has_reinforcement(self, section: ShearWall) -> bool:
+        return section.mesh.horizontal.has_bars or section.mesh.vertical.has_bars
 
-    def _validate_geometry_consistency(self, first: Any, row: "pd.Series[Any]", key: Tuple[str, str]) -> None:
-        for col in ("t", "lw", "hw", "cc"):
-            val_first = first[col]
-            val_row = row[col]
-            if abs(val_first.magnitude - val_row.magnitude) > 1e-6:
-                raise ValueError(
-                    f"Geometry mismatch for wall {key}: '{col}' differs between rows "
-                    f"({val_first} vs {val_row}). All rows in the same (Level, Label) "
-                    f"group must have identical geometry."
-                )
+    def _check_record(self, key: Key, node: Node) -> SectionVerdict:
+        wall: ShearWall = node.section  # type: ignore[assignment]
+        names = self._combination_names(node)
+        shear = governing(names, [(check.DCR, check.V_u, check.N_u) for check in wall.shear_checks])
+        found = tuple(wall.warnings)
+        return SectionVerdict(key, "checked", None, None, shear, found, verdict_passes((shear,), found))
 
-    # ------------------------------------------------------------------
-    # Check
-    # ------------------------------------------------------------------
-
-    def check(self) -> DataFrame:
-        """One row per wall: its geometry, its mesh, the governing combination and the status.
+    def check(self, capacity_check: bool = False) -> DataFrame:
+        """One row per wall: its geometry, its mesh, the governing combination, its warnings and its status.
 
         Written in the unit system of the concrete: t in cm, lw and hw in m,
         the mesh in mm/cm and the forces in kN for a metric wall; t in in, lw
         and hw in ft, the mesh in in and the forces in kip for an imperial one.
+        A wall has no capacity check: ``capacity_check=True`` raises.
         """
-        results_list = []
-        imperial = self.concrete.unit_system != "metric"
+        if capacity_check:
+            raise ValueError("ShearWallSummary.check() has no capacity check.")
+        return super().check()
 
-        for node in self.nodes:
-            wall: ShearWall = node.section  # type: ignore
-
-            if wall._d_b_h.magnitude == 0 or wall._s_h.magnitude == 0:
-                raise ValueError(
-                    f"Wall '{wall.level} - {wall.label}' has no horizontal rebar assigned. "
-                    f"All walls must have rebar for check(). "
-                    f"Either run design() first or provide rebar in the input."
+    def _check_table(self, records: Sequence[SectionVerdict]) -> DataFrame:
+        imperial = self.concrete.is_imperial
+        long_unit = "ft" if imperial else "m"
+        rows = []
+        for record, node in zip(records, self._nodes):
+            wall: ShearWall = node.section  # type: ignore[assignment]
+            mesh = wall.mesh
+            shear = record.shear
+            capacity: Optional[Quantity] = None
+            if shear is not None and shear.demand is not None:
+                capacity = next(
+                    check.V_capacity
+                    for check in wall.shear_checks
+                    if math.isclose(check.DCR, shear.DCR) and check.V_u == shear.demand
                 )
-            if wall._d_b_v.magnitude == 0 or wall._s_v.magnitude == 0:
-                raise ValueError(
-                    f"Wall '{wall.level} - {wall.label}' has no vertical rebar assigned. "
-                    f"All walls must have rebar for check(). "
-                    f"Either run design() first or provide rebar in the input."
-                )
-
-            node.check_shear()
-
-            limiting = wall.limiting_case_shear
-            dcr = limiting["DCR"]
-
-            rebar_h = _mesh_label(wall._d_b_h, wall._s_h, imperial)
-            rebar_v = _mesh_label(wall._d_b_v, wall._s_v, imperial)
-            if imperial:
-                t = round(wall.thickness.to("inch").magnitude, 2)
-                lw = round(wall.length.to("ft").magnitude, 2)
-                hw = round(wall.height.to("ft").magnitude, 2)
-            else:
-                t = int(wall.thickness.to("cm").magnitude)
-                lw = round(wall.length.to("m").magnitude, 2)
-                hw = round(wall.height.to("m").magnitude, 2)
-
-            # The status is the AND over every combination: the strength of each
-            # one and no limit missed under any of them. `wall.warnings` already
-            # spans the combinations -- ρl,min in particular changes with the
-            # shear, so a wall can miss it under the governing combination and
-            # meet it under the last one checked.
-            status = "✅" if _wall_passes(wall) else "❌"
-
-            results_dict = OrderedDict(
+            rows.append(
                 {
-                    "Level": wall.level,
-                    "Label": wall.label,
-                    "t": t,
-                    "lw": lw,
-                    "hw": hw,
-                    "Horiz.": rebar_h,
-                    "Vert.": rebar_v,
-                    "ρt": round(float(wall._rho_t.magnitude), 5),
-                    "ρl": round(float(wall._rho_l.magnitude), 5),
-                    "Vu,max": round(limiting["Vu"], 1),
-                    "ØVn": round(limiting["ØVn"], 1),
-                    "DCR": round(dcr, 3),
-                    "Status": status,
+                    "Level": record.level,
+                    "Label": record.label,
+                    "t": round(shown(wall.thickness, "length", imperial), 2),
+                    "lw": round(wall.length.to(long_unit).magnitude, 2),
+                    "hw": round(wall.height.to(long_unit).magnitude, 2),
+                    "Horiz. (each face)": _mesh_label(mesh.horizontal.d_b, mesh.horizontal.s, imperial),
+                    "Vert. (each face)": _mesh_label(mesh.vertical.d_b, mesh.vertical.s, imperial),
+                    "ρt": round(float(mesh.horizontal.rho), 5),
+                    "ρl": round(float(mesh.vertical.rho), 5),
+                    "Comb.": (", ".join(shear.combinations) or "-") if shear is not None else "-",
+                    "Vu": _rounded(shear.demand if shear is not None else None, imperial),
+                    "Nu": _rounded(shear.axial if shear is not None else None, imperial),
+                    "ØVn": _rounded(capacity, imperial),
+                    "DCR": math.nan if shear is None else round(shear.DCR, 3),
+                    "Warnings": warning_tags(record.warnings),
+                    "Status": self._verdict_text(record),
                 }
             )
-            results_list.append(results_dict)
+        force = unit_label("force", imperial)
+        mesh_unit = "in" if imperial else ""
+        units = {
+            "Level": "",
+            "Label": "",
+            "t": unit_label("length", imperial),
+            "lw": long_unit,
+            "hw": long_unit,
+            "Horiz. (each face)": mesh_unit,
+            "Vert. (each face)": mesh_unit,
+            "ρt": "",
+            "ρl": "",
+            "Comb.": "",
+            "Vu": force,
+            "Nu": force,
+            "ØVn": force,
+            "DCR": "",
+            "Warnings": "",
+            "Status": "",
+        }
+        return translated(frame_with_units(units, rows))
 
-        # The mesh columns carry a unit only where both of their numbers share one.
-        v_unit, t_unit, l_unit, mesh_unit = ("kip", "in", "ft", "in") if imperial else ("kN", "cm", "m", "")
+    def _capacity_table(self) -> DataFrame:  # pragma: no cover - check() raises first
+        raise ValueError("ShearWallSummary.check() has no capacity check.")
 
-        units_row = pd.DataFrame(
-            [
-                OrderedDict(
-                    {
-                        "Level": "",
-                        "Label": "",
-                        "t": t_unit,
-                        "lw": l_unit,
-                        "hw": l_unit,
-                        "Horiz.": mesh_unit,
-                        "Vert.": mesh_unit,
-                        "ρt": "",
-                        "ρl": "",
-                        "Vu,max": v_unit,
-                        "ØVn": v_unit,
-                        "DCR": "",
-                        "Status": "",
-                    }
-                )
-            ]
-        )
+    def shear_results(self, index: Optional[Index] = None) -> DataFrame:
+        """The shear table of every combination, of one wall (``index``: 1-based, or its label) or of all."""
+        nodes = [self._node_with_forces(index)] if index is not None else [n for n in self._nodes if n.forces]
+        first: Any = self._nodes[0].section
+        frames: List[DataFrame] = [first._get_units_row_shear_wall()] if not nodes else []
+        for node in nodes:
+            table = node.check_shear()
+            frames.append(table if not frames else table.iloc[1:])
+        return translated(pd.concat(frames, ignore_index=True))
 
-        results_df = pd.DataFrame(results_list)
-        return translate_dataframe(pd.concat([units_row, results_df], ignore_index=True))
+    def results_detailed_doc(self, index: Index = 1) -> None:
+        """Write a Word report: the detailed shear of one wall, then the tables of all.
 
-    # ------------------------------------------------------------------
-    # Design
-    # ------------------------------------------------------------------
-
-    def design(self) -> DataFrame:
-        design_df: DataFrame = self.data.reset_index(drop=True).copy()
-
-        for node, positions in zip(self.nodes, self._node_rows):
-            wall: ShearWall = node.section  # type: ignore
-            node.design_shear()
-            # Every row of the wall gets the mesh designed for all of them, as
-            # quantities: one assignment over several rows wrote the bare
-            # magnitude of each, in whatever unit mento computed it in, so a
-            # spacing of 30 cm under a column in mm read back as 3 mm.
-            mesh = {"dbh": wall._d_b_h, "sh": wall._s_h, "dbv": wall._d_b_v, "sv": wall._s_v}
-            for position in positions:
-                for column, value in mesh.items():
-                    design_df.at[position, column] = value  # type: ignore[assignment]
-
-        self.design_data = design_df
-        print("✅ Shear wall design completed for all walls in Summary.")
-        return design_df
-
-    # ------------------------------------------------------------------
-    # Shear results
-    # ------------------------------------------------------------------
-
-    def shear_results(self, index: Optional[int] = None) -> DataFrame:
-        if index is not None:
-            if index < 1 or index > len(self.nodes):
-                raise IndexError(f"Index {index} is out of range. Valid: 1 to {len(self.nodes)}")
-            node = self.nodes[index - 1]
-            return translate_dataframe(node.check_shear())
-
-        results = []
-        units_row_added = False
-        for node in self.nodes:
-            df = node.check_shear()
-            if not units_row_added:
-                results.append(df.iloc[[0]])
-                units_row_added = True
-            results.append(df.iloc[1:])
-        out: DataFrame = pd.concat(results, ignore_index=True)
-        return translate_dataframe(out)
-
-    # ------------------------------------------------------------------
-    # Excel I/O
-    # ------------------------------------------------------------------
-
-    def export_design(self, path: str) -> None:
-        if not hasattr(self, "design_data"):
-            raise AttributeError("No design data found. Run .design() before exporting.")
-
-        # Each number in the unit its column declares, as BeamSummary writes them.
-        df_numeric = self.design_data.copy()
-        for col, unit_str in zip(df_numeric.columns, self.units_row):
-            unit = self.get_unit_variable(unit_str) if unit_str else None
-            df_numeric[col] = df_numeric[col].apply(lambda x, u=unit: _in_unit(x, u))
-
-        df_export = pd.concat(
-            [
-                pd.DataFrame([self.units_row], columns=self.wall_list.columns),
-                df_numeric,
-            ],
-            ignore_index=True,
-        )
-        df_export.to_excel(path, index=False)
-        print(f"✅ Shear wall design exported to {path}")
-
-    def import_design(self, path: str) -> None:
-        wall_df = pd.read_excel(path)
-        self.wall_list = wall_df
-        self.check_and_process_input()
-        self.convert_to_walls()
-        print("✅ Shear wall design imported and summary data updated.")
-
-    # ------------------------------------------------------------------
-    # Word export
-    # ------------------------------------------------------------------
-
-    def results_detailed_doc(self, index: int = 1) -> None:
-        """Export detailed results for one wall, plus summary tables for all, to Word.
-
-        The assembly lives in :mod:`mento.reports.summaries`.
+        ``index`` is the wall's position (1-based) in the sections table, its
+        label or its ``(Level, Label)``. Saved as
+        ``Shear_Wall_Summary_{design_code}.docx`` in the current directory.
         """
+        from mento.reports.summaries import wall_summary_doc
+
         wall_summary_doc(self, index)

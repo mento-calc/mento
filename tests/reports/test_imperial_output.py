@@ -39,6 +39,7 @@ from mento import (
 )
 from mento.beam_summary import BeamSummary
 from mento.shear_wall_summary import ShearWallSummary
+from mento.summary_tables import split_single_table
 from tests.reports.display_render import (
     LANGUAGES,
     render_beam_summary,
@@ -118,7 +119,7 @@ def _beam_summary() -> BeamSummary:
             "db4": ["in", 0, 0],
         }
     )
-    return BeamSummary(_concrete(), _steel(), beam_list)
+    return BeamSummary(_concrete(), _steel(), *split_single_table(beam_list, "beam"))
 
 
 def _wall_summary() -> ShearWallSummary:
@@ -140,7 +141,7 @@ def _wall_summary() -> ShearWallSummary:
             "sv": ["in", 12, 12],
         }
     )
-    return ShearWallSummary(_concrete(), _steel(), wall_list)
+    return ShearWallSummary(_concrete(), _steel(), *split_single_table(wall_list, "wall"))
 
 
 RENDERS: Dict[str, Callable[[Path], str]] = {

@@ -1,14 +1,21 @@
+### forces
+     Level Label  Comb.    Nx   Vz    My
+0                          kN   kN   kNm
+1  Level 1    M1  ELU 1     0  264  -172
+2  Level 1    M1  ELU 2  -301  152  -234
+3  Level 2    M2  ELU 1  55.5  163  -278
+
 ### design
-     Level Label  Comb.         t      lw      hw        cc          Nx         Vz            My       dbh        sh       dbv        sv
-0  Level 1    M1  ELU 1  20.00 cm  3.00 m  3.00 m  25.00 mm     0.00 kN  264.00 kN  -172.00 kN·m  10.00 mm  30.00 cm  10.00 mm  30.00 cm
-1  Level 1    M1  ELU 2  20.00 cm  3.00 m  3.00 m  25.00 mm  -301.00 kN  152.00 kN  -234.00 kN·m  10.00 mm  30.00 cm  10.00 mm  30.00 cm
-2  Level 2    M2  ELU 1  20.00 cm  2.00 m  3.00 m  25.00 mm    55.50 kN  163.00 kN  -278.00 kN·m  10.00 mm  30.00 cm  10.00 mm  30.00 cm
+     Level Label   t lw hw  cc dbh  sh dbv  sv
+0                 cm  m  m  mm  mm  cm  mm  cm
+1  Level 1    M1  20  3  3  25  10  30  10  30
+2  Level 2    M2  20  2  3  25  10  30  10  30
 
 ### check
-     Level Label   t   lw   hw  Horiz.   Vert.       ρt       ρl Vu,max     ØVn    DCR Status
-0                 cm    m    m                                       kN      kN              
-1  Level 1    M1  20  3.0  3.0  Ø10/30  Ø10/30  0.00262  0.00262  264.0  1057.3   0.25      ✅
-2  Level 2    M2  20  2.0  3.0  Ø10/30  Ø10/30  0.00262  0.00262  163.0   704.9  0.231      ✅
+     Level Label     t   lw   hw Horiz. (each face) Vert. (each face)       ρt       ρl  Comb.     Vu    Nu     ØVn    DCR Warnings Status
+0                   cm    m    m                                                                   kN    kN      kN                       
+1  Level 1    M1  20.0  3.0  3.0             Ø10/30            Ø10/30  0.00262  0.00262  ELU 1  264.0   0.0  1057.3   0.25        -      ✅
+2  Level 2    M2  20.0  2.0  3.0             Ø10/30            Ø10/30  0.00262  0.00262  ELU 1  163.0  55.5   704.9  0.231        -      ✅
 
 ### shear_results
   Label  Comb.  ρt,min  ρt,req       ρt  ρl,min       ρl     Vu     ØVc     ØVs     ØVn ØVn,max Vu≤ØVn,max Vu≤ØVn    DCR
@@ -53,11 +60,10 @@ Maximum shear strength | ØVn,max | 1485.0 | kN
 Demand Capacity Ratio | DCR | 0.25 | 
 Summary - All Walls
 Wall Data
-Level | Label | Comb. | t | lw | hw | cc | Nx | Vz | My | dbh | sh | dbv | sv
- |  |  | cm | m | m | mm | kN | kN | kNm | mm | cm | mm | cm
-Level 1 | M1 | ELU 1 | 20 | 3.0 | 3.0 | 25 | 0 | 264 | -172 | 8 | 20 | 12 | 15
-Level 1 | M1 | ELU 2 | 20 | 3.0 | 3.0 | 25 | -301 | 152 | -234 | 8 | 20 | 12 | 15
-Level 2 | M2 | ELU 1 | 20 | 2.0 | 3.0 | 25 | 55.5 | 163 | -278 | 0 | 0 | 0 | 0
+Level | Label | t | lw | hw | cc | dbh | sh | dbv | sv
+ |  | cm | m | m | mm | mm | cm | mm | cm
+Level 1 | M1 | 20 | 3 | 3 | 25 | 10 | 30 | 10 | 30
+Level 2 | M2 | 20 | 2 | 3 | 25 | 10 | 30 | 10 | 30
 Shear Results
 Label | Comb. | ρt,min | ρt,req | ρt | ρl,min | ρl | Vu | ØVc | ØVs | ØVn | ØVn,max | DCR
  |  |  |  |  |  |  | kN | kN | kN | kN | kN | 
@@ -65,7 +71,7 @@ M1 | ELU 1 | 0.0025 | 0.0025 | 0.00262 | 0.0025 | 0.00262 | 264.0 | 562.5 | 494.
 M1 | ELU 2 | 0.0025 | 0.0025 | 0.00262 | 0.0025 | 0.00262 | 152.0 | 326.9 | 494.8 | 821.7 | 1485.0 | 0.18
 M2 | ELU 1 | 0.0025 | 0.0025 | 0.00262 | 0.0025 | 0.00262 | 163.0 | 375.0 | 329.9 | 704.9 | 990.0 | 0.23
 Design Check Summary
-Level | Label | t | lw | hw | Horiz. | Vert. | ρt | ρl | Vu,max | ØVn | DCR | Status
- |  | cm | m | m |  |  |  |  | kN | kN |  | 
-Level 1 | M1 | 20 | 3.0 | 3.0 | Ø10/30 | Ø10/30 | 0.00262 | 0.00262 | 264.0 | 1057.3 | 0.25 | ✅
-Level 2 | M2 | 20 | 2.0 | 3.0 | Ø10/30 | Ø10/30 | 0.00262 | 0.00262 | 163.0 | 704.9 | 0.23 | ✅
+Level | Label | t | lw | hw | Horiz. (each face) | Vert. (each face) | ρt | ρl | Comb. | Vu | Nu | ØVn | DCR | Warnings | Status
+ |  | cm | m | m |  |  |  |  |  | kN | kN | kN |  |  | 
+Level 1 | M1 | 20.0 | 3.0 | 3.0 | Ø10/30 | Ø10/30 | 0.00262 | 0.00262 | ELU 1 | 264.0 | 0.0 | 1057.3 | 0.25 | - | ✅
+Level 2 | M2 | 20.0 | 2.0 | 3.0 | Ø10/30 | Ø10/30 | 0.00262 | 0.00262 | ELU 1 | 163.0 | 55.5 | 704.9 | 0.23 | - | ✅

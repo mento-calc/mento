@@ -93,6 +93,9 @@ __all__ = [
     "WallShearDesign",
     "DesignNotRunError",
     "NotABeamError",
+    "SummaryInputError",
+    "SummaryInputWarning",
+    "split_single_table",
     "bar_designation",
     "bar_diameter",
 ]
@@ -124,6 +127,7 @@ if TYPE_CHECKING:
     from mento.wall_results import MeshDirection, WallMesh, WallShearCheck, WallShearDesign
     from mento.design_results import DesignNotRunError
     from mento.shear_wall import NotABeamError
+    from mento.summary_tables import SummaryInputError, SummaryInputWarning, split_single_table
     from mento.bar_sizes import bar_designation, bar_diameter
 
 
@@ -171,6 +175,9 @@ def __getattr__(name: str) -> object:
         "WallShearDesign": "wall_results",
         "DesignNotRunError": "design_results",
         "NotABeamError": "shear_wall",
+        "SummaryInputError": "summary_tables",
+        "SummaryInputWarning": "summary_tables",
+        "split_single_table": "summary_tables",
     }
 
     if name in module_mapping:

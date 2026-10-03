@@ -1,21 +1,57 @@
-"""A list of one-way slabs read from a table: the workflow of :class:`~mento.beam_summary.BeamSummary`."""
+"""A list of one-way slab strips read from two tables: the sections, and the forces each one carries."""
 
-from typing import Any, Dict, List, Optional
+from __future__ import annotations
 
-import pandas as pd
-from pandas import DataFrame
+from typing import Any, Dict, Mapping, Optional, Tuple
 
 from mento.bar_sizes import bar_designation
-from mento.beam_summary import BeamSummary
 from mento.design_results import spacing_separator
-from mento.material import Concrete, SteelBar
+from mento.i18n import translate
 from mento.node import Node
 from mento.reports.summaries import SLAB_REPORT
 from mento.slab import OneWaySlab
-from mento.units import cm, mm
+from mento.summary_base import Key, _FlexuralSummary
+from mento.summary_tables import (
+    SummaryInputError,
+    SummaryInputWarning,
+    TableSpec,
+    _listed,
+    forces_columns,
+    key_text,
+    length,
+    text,
+    unit_of,
+)
+from mento.units import Quantity, cm, mm
 
-#: The two layers of a face: position 1 and the optional second layer, position 3.
-_SLAB_FACE_COLUMNS = ("db1", "s1", "db3", "s3")
+FACES = ("top", "bot")
+#: The two layers of a face: position 1, nearest the face, and position 3, a second layer inside it.
+LAYERS = (1, 3)
+
+
+def _face_columns(face: str) -> tuple:
+    return tuple(
+        column
+        for layer in LAYERS
+        for column in (length(f"db{layer}_{face}", "mm", "in"), length(f"s{layer}_{face}", "cm", "in"))
+    )
+
+
+SLAB_SPEC = TableSpec(
+    kind="slab",
+    element="OneWaySlabSummary",
+    sections=(
+        text("Level"),
+        text("Label", required=True),
+        length("b", "cm", "in", dimension=True),
+        length("h", "cm", "in", dimension=True),
+        length("cc", "mm", "in", dimension=True),
+        *_face_columns("top"),
+        *_face_columns("bot"),
+        text("Notes"),
+    ),
+    forces=forces_columns(),
+)
 
 
 def _layers_label(layers: Any, imperial: bool) -> str:
@@ -29,121 +65,121 @@ def _layers_label(layers: Any, imperial: bool) -> str:
     return " ++ ".join(texts) or "-"
 
 
-class OneWaySlabSummary(BeamSummary):
-    """Check and design a list of one-way slabs read from a table, one row per load combination.
+def _given(value: Optional[Quantity]) -> bool:
+    return value is not None and value.magnitude > 0
 
-    The table is the one :class:`~mento.beam_summary.BeamSummary` reads, with
-    each face given as a bar diameter and a spacing per layer, the way a slab
-    is detailed, and no stirrups:
 
-    ``Label, Comb., b, h, cc, Nx, Vz, My, db1, s1, db3, s3``
+class OneWaySlabSummary(_FlexuralSummary):
+    """Check and design a list of one-way slab strips, read from a sections table and a forces table.
 
-    ``b`` is the width of the strip (100 cm for a metre of slab), ``db1``/``s1``
-    the first layer of the face the row's moment puts in tension and
-    ``db3``/``s3`` an optional second one. Rows that share a ``Label`` are one
-    slab under several combinations, designed and checked for their envelope;
-    see :meth:`~mento.beam_summary.BeamSummary.convert_to_nodes`.
+    ``sections`` has one row per strip, each face a diameter and a spacing per layer:
 
-    ``design()`` designs the flexural reinforcement only. A one-way slab is
-    detailed without stirrups, so its shear is checked against the concrete
-    alone, and a slab that needs more is one that needs to be thicker.
+    ``Level, Label, b, h, cc, db1_top, s1_top, db3_top, s3_top, db1_bot, s1_bot, db3_bot, s3_bot, Notes``
+
+    ``b`` is the width of the strip (100 cm for a metre of slab). ``db1/s1``
+    is the layer nearest the face and ``db3/s3`` a second layer inside it --
+    position 3 of :meth:`~mento.slab.OneWaySlab.set_slab_longitudinal_rebar_bot`,
+    at a smaller effective depth, not bars laid between those of the first.
+    A strip is detailed without stirrups, so the table has no stirrup columns.
+
+    ``forces`` is the forces table of
+    :class:`~mento.beam_summary.BeamSummary`. The forces are those of the strip
+    of width ``b``: for ``b = 100 cm``, the forces per metre of slab.
+
+    ``design()`` is ``Node.design()``. A strip it would give stirrups keeps
+    the layers it designed, without the stirrups, and is named: ``check()``
+    fails it with ``stirrups_required``.
     """
 
+    _SPEC = SLAB_SPEC
     _ELEMENT_COLUMN = "Slab"
-    _FACE_COLUMNS = _SLAB_FACE_COLUMNS
-    _TRANSVERSE_COLUMNS = ()
     _REPORT = SLAB_REPORT
+    _HAS_STIRRUPS = False
 
-    def __init__(self, concrete: Concrete, steel_bar: SteelBar, slab_list: DataFrame) -> None:
-        super().__init__(concrete, steel_bar, slab_list)
+    _SECTION_TYPE = OneWaySlab
 
-    @property
-    def slab_list(self) -> DataFrame:
-        """The table the summary was built from, its unit row first."""
-        return self.beam_list
+    def _not_representable(self, key: Key, section: Any) -> Optional[str]:
+        reason = super()._not_representable(key, section)
+        if reason is None and section._stirrup_n > 0:
+            reason = "stirrups, which a slab of the table does not carry"
+        return reason
 
-    def _new_section(self, row: pd.Series) -> OneWaySlab:
-        return OneWaySlab(
-            label=row["Label"],
+    def _validate_section_row(self, key: Key, row: Mapping[str, Any]) -> None:
+        for face in FACES:
+            placed = {}
+            for layer in LAYERS:
+                d_b, s = f"db{layer}_{face}", f"s{layer}_{face}"
+                has_d, has_s = _given(row.get(d_b)), _given(row.get(s))
+                if has_d != has_s:
+                    given, missing = (d_b, s) if has_d else (s, d_b)
+                    raise SummaryInputError("incomplete_group", label=repr(key_text(key)), given=given, missing=missing)
+                placed[layer] = has_d
+            if placed[3] and not placed[1]:
+                raise SummaryInputError(
+                    "incomplete_group", label=repr(key_text(key)), given=f"db3_{face}", missing=f"db1_{face}"
+                )
+
+    def _section(self, key: Key, row: Mapping[str, Any]) -> OneWaySlab:
+        slab = OneWaySlab(
+            label=key[1],
             concrete=self.concrete,
             steel_bar=self.steel_bar,
             width=row["b"],
             height=row["h"],
             c_c=row["cc"],
         )
-
-    def _set_face(self, section: Any, face: str, values: tuple) -> None:
-        d_b1, s_b1, d_b3, s_b3 = values
-        for d_b, s, layer in ((d_b1, s_b1, 1), (d_b3, s_b3, 3)):
-            if (d_b.magnitude == 0) != (s.magnitude == 0):
-                raise ValueError(
-                    f"Slab {section.label!r}: the {face} layer {layer} needs both a diameter and a spacing."
+        for face, setter in (
+            ("top", slab.set_slab_longitudinal_rebar_top),
+            ("bot", slab.set_slab_longitudinal_rebar_bot),
+        ):
+            if _given(row.get(f"db1_{face}")):
+                setter(
+                    d_b1=row[f"db1_{face}"],
+                    s_b1=row[f"s1_{face}"],
+                    d_b3=row[f"db3_{face}"] if _given(row.get(f"db3_{face}")) else 0 * mm,
+                    s_b3=row[f"s3_{face}"] if _given(row.get(f"s3_{face}")) else 0 * mm,
                 )
-        setter = (
-            section.set_slab_longitudinal_rebar_bot if face == "bottom" else section.set_slab_longitudinal_rebar_top
-        )
-        setter(d_b1=d_b1, s_b1=s_b1, d_b3=d_b3, s_b3=s_b3)
+        return slab
 
-    def _designed(self, node: Node) -> tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
-        """Design the slab for its combinations; each face as its input columns.
+    def _section_row(self, section: OneWaySlab) -> Dict[str, Any]:
+        zero = 0 * unit_of("in" if self.concrete.is_imperial else "mm")
+        row: Dict[str, Any] = {"b": section.width, "h": section.height, "cc": section.c_c}
+        placed = section.reinforcement
+        for face, reinforcement in (("top", placed.top), ("bot", placed.bottom)):
+            layers = list(reinforcement.layers) + [None, None]
+            for layer, position in zip(layers, LAYERS):
+                row[f"db{position}_{face}"] = layer.d_b if layer is not None else zero
+                row[f"s{position}_{face}"] = layer.s if layer is not None else zero
+        return row
 
-        :meth:`Node.design`, the way a slab built by hand is designed: it
-        raises the longitudinal steel where that lifts the concrete's shear
-        strength enough to do without stirrups (ρw in ACI 318-19 Table
-        22.5.5.1(c), ρl in EN 1992-1-1 Eq. 6.2a). An ACI 100x15 strip under
-        20 kN·m and 50 kN takes Ø10/14 and passes its shear on the concrete
-        alone, where designing the flexure on its own gave Ø12/25 and DCRv
-        1.058. Where even that is not enough, ``Node.design()`` adds stirrups,
-        which a slab of this table does not carry: its layers are kept, the
-        stirrups dropped and the slab named, and ``check()`` fails it with
-        ``stirrups_required``.
-        """
-        slab: OneWaySlab = node.section  # type: ignore[assignment]
-        node.design()
-        if slab._stirrup_n > 0:
-            slab.set_slab_transverse_rebar(0 * mm, 0 * cm, 0 * cm)
-            self._needs_shear_reinforcement.append(str(slab.label))
-        placed = slab.reinforcement
-
-        def columns(layers: Any) -> Dict[str, Any]:
-            out: Dict[str, Any] = {column: 0 for column in _SLAB_FACE_COLUMNS}
-            for (d_column, s_column), layer in zip((("db1", "s1"), ("db3", "s3")), layers):
-                out[d_column], out[s_column] = layer.d_b, layer.s
-            return out
-
-        return {"bottom": columns(placed.bottom.layers), "top": columns(placed.top.layers)}, {}
-
-    def _rebar_labels(self, section: Any) -> tuple[str, str, str]:
+    def _rebar_labels(self, section: OneWaySlab) -> Tuple[str, str, str]:
         imperial = section.concrete.is_imperial
         placed = section.reinforcement
         return _layers_label(placed.top.layers, imperial), _layers_label(placed.bottom.layers, imperial), "-"
 
-    def design(self) -> DataFrame:
-        """Design every slab for the envelope of its combinations, as ``Node.design()`` does.
+    def _design(self, key: Key, node: Node) -> Node:
+        """``node.design()``; a strip it gives stirrups keeps its layers without them, and is named.
 
-        Fills in ``db1``, ``s1``, ``db3`` and ``s3``: every row of a slab gets
-        the layers of the face its moment puts in tension. No stirrups are
-        kept; a slab whose shear the concrete cannot carry with the layers
-        designed is named instead of reported as completed (see
-        :meth:`_designed`), and ``check()`` reports it as failing.
+        ``Node.design()`` raises the longitudinal steel where that lifts the
+        concrete's shear strength enough to do without stirrups (ρw in ACI
+        318-19 Table 22.5.5.1(c), ρl in EN 1992-1-1 Eq. 6.2a): an ACI 100x15
+        strip under 20 kN·m and 50 kN takes Ø10/14 and passes its shear on the
+        concrete alone. Under 55 kN it adds stirrups, which a strip of this
+        table does not carry: the layers stay, the stirrups go, and
+        ``check()`` reports DCRv 1.078 with ``stirrups_required``. A slab
+        starts a design with no stirrup, so taking them off moves no bar.
         """
-        self._needs_shear_reinforcement: List[str] = []
-        designed = super().design()
-        if self._needs_shear_reinforcement:
-            print(
-                f"⚠ Slabs designed. {', '.join(self._needs_shear_reinforcement)}: Vu > φVc with the bars designed; "
-                "more longitudinal steel, more thickness, a higher f'c, or shear reinforcement detailed as a "
-                "beam (ACI 318-19 §7.6.3). check() gives them as failing."
-            )
-        return designed
+        node.design()
+        slab: OneWaySlab = node.section  # type: ignore[assignment]
+        if slab._stirrup_n > 0:
+            slab.set_slab_transverse_rebar(0 * mm, 0 * cm, 0 * cm)
+            self._designed_short.append(key_text(key))
+        return node
 
-    def _design_completed_message(self) -> Optional[str]:
-        """No "completed" when a slab was left needing shear reinforcement: :meth:`design` names it."""
-        return None if self._needs_shear_reinforcement else super()._design_completed_message()
-
-    def results_detailed_doc(self, index: int = 1) -> None:
-        """Export detailed results for one slab, plus summary tables for all, to Word.
-
-        Saved as ``Slab_Summary_{design_code}.docx`` in the current directory.
-        """
-        super().results_detailed_doc(index)
+    def _report_design(self) -> None:
+        if not self._designed_short:
+            super()._report_design()
+            return
+        warning = SummaryInputWarning("shear_reinforcement_required", labels=_listed(self._designed_short))
+        self._warn(warning)
+        print(f"⚠ {translate('Slabs designed.')} {warning.message}")

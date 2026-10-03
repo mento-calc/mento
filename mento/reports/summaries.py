@@ -169,7 +169,7 @@ def _details(value: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     return cast(Dict[str, Any], value)
 
 
-def beam_summary_doc(self: "BeamSummary", index: int = 1) -> None:
+def beam_summary_doc(self: "BeamSummary", index: Any = 1) -> None:
     """
     Export detailed results to Word document.
     Shows detailed shear/flexure for one beam, then summary tables for all.
@@ -180,10 +180,7 @@ def beam_summary_doc(self: "BeamSummary", index: int = 1) -> None:
         1-based index of the beam to show detailed results for (default: 1)
     """
 
-    if index < 1 or index > len(self.nodes):
-        raise IndexError(f"Index {index} out of range. Valid: 1 to {len(self.nodes)}")
-
-    node = self.nodes[index - 1]
+    node = self._node_with_forces(index)
     beam: RectangularBeam = node.section  # type: ignore
 
     # Run checks if not already done
@@ -300,10 +297,10 @@ def beam_summary_doc(self: "BeamSummary", index: int = 1) -> None:
     # Geometry and reinforcement only: the demands each beam was checked for
     # are reported by the flexure and shear tables below, per combination,
     # which is where they mean something.
-    beam_data_out = self.beam_list.fillna("")[list(report.data_columns)]
+    beam_data_out = self.sections_table
     doc_builder.add_table_data(
         beam_data_out,
-        column_widths=report.data_widths,
+        column_widths=doc_builder.content_widths(beam_data_out),
         font_size=SUMMARY_FONT_SIZE,
     )
 
@@ -335,7 +332,7 @@ def beam_summary_doc(self: "BeamSummary", index: int = 1) -> None:
     df_check = self.check()
     doc_builder.add_table_status(
         df_check,
-        column_widths=CHECK_SUMMARY_WIDTHS,
+        column_widths=doc_builder.content_widths(df_check),
         font_size=SUMMARY_FONT_SIZE,
     )
 
@@ -344,11 +341,8 @@ def beam_summary_doc(self: "BeamSummary", index: int = 1) -> None:
     print(f"✅ Results exported to {report.file_prefix}_{self.concrete.design_code}.docx")
 
 
-def wall_summary_doc(self: "ShearWallSummary", index: int = 1) -> None:
-    if index < 1 or index > len(self.nodes):
-        raise IndexError(f"Index {index} out of range. Valid: 1 to {len(self.nodes)}")
-
-    node = self.nodes[index - 1]
+def wall_summary_doc(self: "ShearWallSummary", index: Any = 1) -> None:
+    node = self._node_with_forces(index)
     wall: ShearWall = node.section  # type: ignore
 
     node.check_shear()
@@ -386,7 +380,7 @@ def wall_summary_doc(self: "ShearWallSummary", index: int = 1) -> None:
     doc_builder.add_heading("Summary - All Walls", level=2)
 
     doc_builder.add_heading("Wall Data", level=3)
-    wall_data_out = self.wall_list.fillna("")
+    wall_data_out = self.sections_table
     doc_builder.add_table_data(
         wall_data_out, column_widths=doc_builder.content_widths(wall_data_out), font_size=SUMMARY_FONT_SIZE
     )

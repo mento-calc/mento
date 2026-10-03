@@ -1,0 +1,186 @@
+### sections
+  Label    b   h  cc db1_top s1_top db3_top s3_top db1_bot s1_bot db3_bot s3_bot
+0         cm  cm  mm      mm     cm      mm     cm      mm     cm      mm     cm
+1    L1  100  15  20       0      0       0      0      10     20       0      0
+2    L2  100  18  25       0      0       0      0       0      0       0      0
+3    L3  100  15  20       0      0       0      0       0      0       0      0
+
+### forces
+  Label  Comb.  Nx  Vz   My
+0               kN  kN  kNm
+1    L1  ELU 1   0  25   12
+2    L1  ELU 2   0  15    6
+3    L2  ELU 1   0  40  -45
+4    L3  ELU 1   0  30   18
+
+### check
+  Slab     b×h As,top  As,bot Comb.,top MEd,top DCRb,top Comb.,bot MEd,bot DCRb,bot Comb.,v   VEd  NEd   DCRv Warnings                             Ok?
+0           cm                              kNm                        kNm                     kN   kN                                                
+1   L1  100×15      -  Ø10/20         -     NaN      0.0     ELU 1    12.0    0.591   ELU 1  25.0  0.0  0.404        -                               ✅
+2   L2  100×18      -       -         -     NaN      NaN         -     NaN      NaN       -   NaN  NaN    NaN        -  no reinforcement: run design()
+3   L3  100×15      -       -         -     NaN      NaN         -     NaN      NaN       -   NaN  NaN    NaN        -  no reinforcement: run design()
+
+### check capacity
+  Slab     b×h As,top  As,bot As,top,real As,bot,real MRd,top MRd,bot    VRd
+0           cm                        cm²         cm²     kNm     kNm     kN
+1   L1  100×15      -  Ø10/20         0.0         3.9     0.0    20.3  61.87
+2   L2  100×18      -       -         0.0         0.0     0.0     0.0  76.72
+3   L3  100×15      -       -         0.0         0.0     0.0     0.0  64.35
+
+### design
+  Label    b   h  cc db1_top s1_top db3_top s3_top db1_bot s1_bot db3_bot s3_bot
+0         cm  cm  mm      mm     cm      mm     cm      mm     cm      mm     cm
+1    L1  100  15  20       0      0       0      0      10     33       0      0
+2    L2  100  18  25      12     14       0      0      10     33       0      0
+3    L3  100  15  20       0      0       0      0      10     20       0      0
+
+### flexure_results
+  Label  Comb. Position As,min As,req top As,req bot    As   MEd    MRd MEd≤MRd    DCR
+0                          cm²        cm²        cm²   cm²   kNm    kNm               
+1    L1  ELU 1   Bottom   1.67        0.0       2.27  2.38  12.0  12.56    True  0.956
+2    L1  ELU 2   Bottom   1.67        0.0       1.67  2.38   6.0  12.56    True  0.478
+3    L2  ELU 1      Top   1.99       7.53        0.0  8.08 -45.0  47.98    True  0.938
+4    L3  ELU 1   Bottom   1.67        0.0       3.46  3.93  18.0  20.31    True  0.886
+
+### shear_results
+  Label  Comb. Av,min Av,req     Av  NEd VEd,1 VEd,2  VRd,c VRd,s    VRd VRd,max VEd,1≤VRd,max VEd,2≤VRd    DCR
+0               cm²/m  cm²/m  cm²/m   kN    kN    kN     kN    kN     kN      kN                               
+1    L1  ELU 1    0.0    0.0    0.0  0.0  25.0  25.0  61.87   0.0  61.87   61.87          True      True  0.404
+2    L1  ELU 2    0.0    0.0    0.0  0.0  15.0  15.0  61.87   0.0  61.87   61.87          True      True  0.242
+3    L2  ELU 1    0.0    0.0    0.0  0.0  40.0  40.0  85.26   0.0  85.26   85.26          True      True  0.469
+4    L3  ELU 1    0.0    0.0    0.0  0.0  30.0  30.0  61.87   0.0  61.87   61.87          True      True  0.485
+
+### flexure_results capacity
+  Label Comb. Position As,min As,req top As,req bot    As  MEd    MRd MEd≤MRd  DCR  MRd,top  MRd,bot
+0                         cm²        cm²        cm²   cm²  kNm    kNm                   NaN      NaN
+1    L1  None   Bottom   1.67        0.0       1.67  2.38  0.0  12.56    True  0.0      0.0     12.6
+2    L2  None   Bottom    2.0        0.0        2.0  2.38  0.0  15.14    True  0.0     48.0     15.1
+3    L3  None   Bottom   1.67        0.0       1.67  3.93  0.0  20.31    True  0.0      0.0     20.3
+
+### shear_results capacity
+  Label Comb. Av,min Av,req     Av  NEd VEd,1 VEd,2  VRd,c VRd,s    VRd VRd,max VEd,1≤VRd,max VEd,2≤VRd  DCR
+0              cm²/m  cm²/m  cm²/m   kN    kN    kN     kN    kN     kN      kN                             
+1    L1  None    0.0    0.0    0.0  0.0   0.0   0.0  61.87   0.0  61.87   61.87          True      True  0.0
+2    L2  None    0.0    0.0    0.0  0.0   0.0   0.0  73.75   0.0  73.75   73.75          True      True  0.0
+3    L3  None    0.0    0.0    0.0  0.0   0.0   0.0  61.87   0.0  61.87   61.87          True      True  0.0
+
+### results_detailed_doc: Slab_Summary_EN 1992-2004.docx
+Slab Summary Analysis
+Made with mento <version>. Design code: EN 1992-2004
+This report presents the detailed results for the first slab of the summary, followed by summary tables for all slabs.
+Slab L1 flexure check
+Section Data
+Materials | Variable | Value | Unit
+Section Label |  | L1 | 
+Concrete strength | fck | 25 | MPa
+Steel reinforcement yield strength | fyk | 500 | MPa
+Geometry | Variable | Value | Unit
+Section height | h | 15.0 | cm
+Section width | b | 100.0 | cm
+Clear cover | cc | 2.0 | cm
+Mechanical top cover | cm,top | 2.0 | cm
+Mechanical bottom cover | cm,bot | 2.5 | cm
+Design forces | Variable | Value | Unit
+Top max moment | MEd,top | 0.0 | kNm
+Bottom max moment | MEd,bot | 12.0 | kNm
+Limit checks
+Check | Unit | Value | Min. | Max. | Ok?
+Min/Max As rebar top | cm² | 0.0 | 0.0 | 60.0 | ✅
+Minimum spacing top | mm | 0.0 |  |  | ✅
+Min/Max As rebar bottom | cm² | 2.38 | 1.67 | 60.0 | ✅
+Minimum spacing bottom | mm | 330.0 | 35 |  | ✅
+Flexural Capacity Top
+Top reinforcement check | Variable | Value | Unit
+First layer bars | Ø1/s1 | - | 
+Second layer bars | Ø3/s3 | - | 
+Effective height | d | 13.0 | cm
+Depth of equivalent strength block ratio | c/d | 0 | 
+Minimum rebar reinforcing | As,min | 0.0 | cm²
+Required rebar reinforcing top | As,req top | 0.0 | cm²
+Required rebar reinforcing bottom | As,req bot | 1.67 | cm²
+Defined rebar reinforcing top | As | 0.0 | cm²
+Longitudinal reinforcement ratio | ρl | 0.0 | 
+Total flexural strength | MRd | 0.0 | kNm
+Demand Capacity Ratio | DCR | 0 | ✅
+Flexural Capacity Bottom
+Bottom reinforcement check | Variable | Value | Unit
+First layer bars | Ø1/s1 | Ø10 mm/33 cm | 
+Second layer bars | Ø3/s3 | - | 
+Effective height | d | 12.5 | cm
+Depth of equivalent strength block ratio | c/d | 0.0 | 
+Minimum rebar reinforcing | As,min | 1.67 | cm²
+Required rebar reinforcing top | As,req top | 0.0 | cm²
+Required rebar reinforcing bottom | As,req bot | 2.27 | cm²
+Defined rebar reinforcing bottom | As | 2.38 | cm²
+Longitudinal reinforcement ratio | ρl | 0.0019 | 
+Total flexural strength | MRd | 12.6 | kNm
+Demand Capacity Ratio | DCR | 0.96 | ✅
+Slab L1 shear check
+Section Data
+Materials | Variable | Value | Unit
+Section Label |  | L1 | 
+Concrete strength | fck | 25 | MPa
+Steel reinforcement yield strength | fywk | 500 | MPa
+Safety factor for concrete | γc | 1.5 | 
+Safety factor for steel | γs | 1.15 | 
+Coefficient for long term effects and loading effects | αcc | 0.85 | 
+Geometry | Variable | Value | Unit
+Section height | h | 15.0 | cm
+Section width | b | 100.0 | cm
+Clear cover | cc | 2.0 | cm
+Longitudinal tension rebar | As | 2.38 | cm²
+Design forces | Variable | Value | Unit
+Axial, positive for compression | NEd | 0.0 | kN
+Shear | VEd,2 | 25.0 | kN
+Limit checks
+Check | Unit | Value | Min. | Max. | Ok?
+Stirrup spacing along length | cm | 0.0 |  | 0.0 | ✅
+Stirrup spacing along width | cm | 0.0 |  | 0.0 | ✅
+Minimum shear reinforcement | cm²/m | 0.0 | 0.0 |  | ✅
+Strength Checks
+Shear reinforcement strength | Variable | Value | Unit
+Stirrup diameter | db | 0.0 | mm
+Stirrup spacing along length | sl | 0.0 | cm
+Stirrup spacing along width | sw | 0.0 | cm
+Effective height | d | 12.5 | cm
+Minimum shear reinforcing | Asw,min | 0.0 | cm²/m
+Required shear reinforcing | Asw,req | 0.0 | cm²/m
+Defined shear reinforcing | Asw | 0.0 | cm²/m
+Shear rebar strength | VRd,s | 0.0 | kN
+Shear strength | Variable | Value | Unit
+Longitudinal reinforcement ratio | ρl | 0.0019 | 
+k value | k | 2.0 | 
+Axial stress | σcd | 0.0 | MPa
+Concrete strut angle | Θ | 0.0 | deg
+Concrete strength | VRd,c | 61.9 | kN
+Maximum shear strength | VRd,max | 61.9 | kN
+Total shear strength | VRd | 61.9 | kN
+Max shear check |  | ✅ | 
+Demand Capacity Ratio | DCR | 0.4 | ✅
+Summary - All Slabs
+Slab Data
+Label | b | h | cc | db1_top | s1_top | db3_top | s3_top | db1_bot | s1_bot | db3_bot | s3_bot
+ | cm | cm | mm | mm | cm | mm | cm | mm | cm | mm | cm
+L1 | 100 | 15 | 20 | 0 | 0 | 0 | 0 | 10 | 33 | 0 | 0
+L2 | 100 | 18 | 25 | 12 | 14 | 0 | 0 | 10 | 33 | 0 | 0
+L3 | 100 | 15 | 20 | 0 | 0 | 0 | 0 | 10 | 20 | 0 | 0
+Flexure Results
+Label | Comb. | Position | As,min | As,req top | As,req bot | As | MEd | MRd | DCR
+ |  |  | cm² | cm² | cm² | cm² | kNm | kNm | 
+L1 | ELU 1 | Bottom | 1.67 | 0.0 | 2.27 | 2.38 | 12.0 | 12.6 | 0.96
+L1 | ELU 2 | Bottom | 1.67 | 0.0 | 1.67 | 2.38 | 6.0 | 12.6 | 0.48
+L2 | ELU 1 | Top | 1.99 | 7.53 | 0.0 | 8.08 | -45.0 | 48.0 | 0.94
+L3 | ELU 1 | Bottom | 1.67 | 0.0 | 3.46 | 3.93 | 18.0 | 20.3 | 0.89
+Shear Results
+Label | Comb. | Av,min | Av,req | Av | NEd | VEd,2 | VRd,c | VRd,s | VRd | VRd,max | DCR
+ |  | cm²/m | cm²/m | cm²/m | kN | kN | kN | kN | kN | kN | 
+L1 | ELU 1 | 0.0 | 0.0 | 0.0 | 0.0 | 25.0 | 61.9 | 0.0 | 61.9 | 61.9 | 0.4
+L1 | ELU 2 | 0.0 | 0.0 | 0.0 | 0.0 | 15.0 | 61.9 | 0.0 | 61.9 | 61.9 | 0.24
+L2 | ELU 1 | 0.0 | 0.0 | 0.0 | 0.0 | 40.0 | 85.3 | 0.0 | 85.3 | 85.3 | 0.47
+L3 | ELU 1 | 0.0 | 0.0 | 0.0 | 0.0 | 30.0 | 61.9 | 0.0 | 61.9 | 61.9 | 0.48
+Design Check Summary
+Slab | b×h | As,top | As,bot | Comb.,top | MEd,top | DCRb,top | Comb.,bot | MEd,bot | DCRb,bot | Comb.,v | VEd | NEd | DCRv | Warnings | Ok?
+ | cm |  |  |  | kNm |  |  | kNm |  |  | kN | kN |  |  | 
+L1 | 100×15 | - | Ø10/33 | - | nan | 0.0 | ELU 1 | 12.0 | 0.96 | ELU 1 | 25.0 | 0.0 | 0.4 | - | ✅
+L2 | 100×18 | Ø12/14 | Ø10/33 | ELU 1 | -45.0 | 0.94 | - | nan | 0.0 | ELU 1 | 40.0 | 0.0 | 0.47 | - | ✅
+L3 | 100×15 | - | Ø10/20 | - | nan | 0.0 | ELU 1 | 18.0 | 0.89 | ELU 1 | 30.0 | 0.0 | 0.48 | - | ✅
