@@ -41,6 +41,18 @@ from the release history and are summaries rather than complete lists.
   envelope, and `design()` designs the flexure only: the shear is checked against the
   concrete, without stirrups.
 
+### Fixed
+
+- **`BeamSummary.design()` and `OneWaySlabSummary.design()` are `Node.design()`.** They
+  designed the flexure and then the shear on their own, without the reset and the second
+  round of `Node.design()`, and could leave a section that fails its own check: an ACI
+  318-19 20x50 under 150 kN·m and 250 kN got 2Ø25 and 1eØ10/11, DCRb,bot 1.0005, where
+  `Node.design()` gives 2Ø25 + 1Ø20, 0.787; an EN 30x80 under 30 kN·m got 3.047 cm² against
+  A_s,min 3.054 cm². A slab is designed the same way (an ACI 100x15 under 20 kN·m and 50 kN
+  takes Ø10/14 and passes its shear on the concrete alone, where it got Ø12/25 and DCRv
+  1.058); one that still needs stirrups keeps its layers without them, and `design()` names
+  it instead of saying it completed.
+
 ## [1.4.0] - 2026-09-30
 
 ### Changed

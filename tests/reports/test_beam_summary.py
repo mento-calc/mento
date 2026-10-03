@@ -1809,3 +1809,68 @@ def test_rows_with_no_label_stay_beams_of_their_own(
         ]
     )
     assert len(BeamSummary(sample_concrete, sample_steel, rows).nodes) == 2
+
+
+# ============================================================================
+# DESIGN IS NODE.DESIGN()
+# ============================================================================
+
+
+def _designed_row(summary: BeamSummary) -> pd.Series:
+    """The first designed row of a summary, and the check of what it designed."""
+    return summary.design().iloc[0]
+
+
+def test_design_is_node_design(sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar) -> None:
+    """The cases where designing the flexure and then the shear on their own left a section that fails.
+
+    ACI 318-19 20x50, cc 25 mm, H25 / ADN 420, Mu 150 kN·m, Vu 250 kN: the
+    flexure sized at the depth of the starter stirrup gave 2Ø25 and the shear
+    1eØ10/11, which sinks the bars: DCRb,bot 1.0005 on the summary's own
+    check. ``Node.design()`` redoes the flexure at that depth.
+    """
+    summary = BeamSummary(sample_concrete, sample_steel, _beam_rows([{"Label": "V1", "Vz": 250, "My": 150}]))
+    row = _designed_row(summary)
+    assert (row["n1"], row["db1"], row["n2"], row["db2"]) == (2, 25 * mm, 1, 20 * mm)
+    assert (row["ns"], row["dbs"], row["sl"]) == (1, 10 * mm, 11 * cm)
+    check = summary.check().iloc[1]
+    assert check["DCRb,bot"] == 0.787
+    assert check[VERDICT_COLUMN] == PASS_MARK
+
+    # The same beam under a second, hogging combination: the bottom face is the same.
+    rows = _beam_rows(
+        [{"Label": "V1", "Comb.": "C1", "Vz": 250, "My": 150}, {"Label": "V1", "Comb.": "C2", "Vz": 100, "My": -60}]
+    )
+    summary = BeamSummary(sample_concrete, sample_steel, rows)
+    summary.design()
+    assert summary.check().iloc[1]["DCRb,bot"] == 0.787
+
+
+def test_design_meets_the_minimum_it_is_checked_against() -> None:
+    """EN 1992-1-1 30x80, MEd 30 kN·m: 2Ø12 + 1Ø10 = 3.047 cm² against A_s,min 3.054 at the Ø6 depth.
+
+    ``Node.design()`` gives 2Ø10 + 2Ø10 = 3.142 cm², with no warning.
+    """
+    concrete = Concrete_EN_1992_2004(name="C25/30", f_c=25 * MPa)
+    steel = SteelBar(name="B500S", f_y=500 * MPa)
+    summary = BeamSummary(concrete, steel, _beam_rows([{"Label": "V1", "Vz": 0, "My": 30, "b": 30, "h": 80}]))
+    row = _designed_row(summary)
+    assert (row["n1"], row["db1"], row["n2"], row["db2"]) == (2, 10 * mm, 2, 10 * mm)
+    assert summary.nodes[0].warnings == ()
+
+
+def test_design_matches_a_hand_built_node_where_the_stirrup_moves_the_bars(
+    sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar
+) -> None:
+    """ACI 25x60, cc 30, Vz 150, My 120: 6.03 cm² and DCR 0.9965 before, 2Ø20 = 6.28 cm² and 0.962 now."""
+    rows = _beam_rows([{"Label": "V1", "Vz": 150, "My": 120, "b": 25, "h": 60, "cc": 30}])
+    summary = BeamSummary(sample_concrete, sample_steel, rows)
+    row = _designed_row(summary)
+
+    beam = RectangularBeam(
+        label="V1", concrete=sample_concrete, steel_bar=sample_steel, width=25 * cm, height=60 * cm, c_c=30 * mm
+    )
+    Node(beam, [Forces(V_z=150 * kN, M_y=120 * kNm)]).design()
+    assert beam._bar_groups("bot")[0] == (row["n1"], row["db1"]) == (2, 20 * mm)
+    assert row["n2"] == row["n3"] == 0
+    assert summary.check().iloc[1]["DCRb,bot"] == 0.962

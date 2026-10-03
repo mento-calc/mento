@@ -1,6 +1,6 @@
 """A list of one-way slabs read from a table: the workflow of :class:`~mento.beam_summary.BeamSummary`."""
 
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 from pandas import DataFrame
@@ -12,6 +12,7 @@ from mento.material import Concrete, SteelBar
 from mento.node import Node
 from mento.reports.summaries import SLAB_REPORT
 from mento.slab import OneWaySlab
+from mento.units import cm, mm
 
 #: The two layers of a face: position 1 and the optional second layer, position 3.
 _SLAB_FACE_COLUMNS = ("db1", "s1", "db3", "s3")
@@ -84,9 +85,25 @@ class OneWaySlabSummary(BeamSummary):
         setter(d_b1=d_b1, s_b1=s_b1, d_b3=d_b3, s_b3=s_b3)
 
     def _designed(self, node: Node) -> tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
-        """Design the slab's flexure for its combinations; each face as its input columns."""
-        node.design_flexure()
-        placed = node.section.reinforcement  # type: ignore[attr-defined]
+        """Design the slab for its combinations; each face as its input columns.
+
+        :meth:`Node.design`, the way a slab built by hand is designed: it
+        raises the longitudinal steel where that lifts the concrete's shear
+        strength enough to do without stirrups (ρw in ACI 318-19 Table
+        22.5.5.1(c), ρl in EN 1992-1-1 Eq. 6.2a). An ACI 100x15 strip under
+        20 kN·m and 50 kN takes Ø10/14 and passes its shear on the concrete
+        alone, where designing the flexure on its own gave Ø12/25 and DCRv
+        1.058. Where even that is not enough, ``Node.design()`` adds stirrups,
+        which a slab of this table does not carry: its layers are kept, the
+        stirrups dropped and the slab named, and ``check()`` fails it with
+        ``stirrups_required``.
+        """
+        slab: OneWaySlab = node.section  # type: ignore[assignment]
+        node.design()
+        if slab._stirrup_n > 0:
+            slab.set_slab_transverse_rebar(0 * mm, 0 * cm, 0 * cm)
+            self._needs_shear_reinforcement.append(str(slab.label))
+        placed = slab.reinforcement
 
         def columns(layers: Any) -> Dict[str, Any]:
             out: Dict[str, Any] = {column: 0 for column in _SLAB_FACE_COLUMNS}
@@ -102,13 +119,27 @@ class OneWaySlabSummary(BeamSummary):
         return _layers_label(placed.top.layers, imperial), _layers_label(placed.bottom.layers, imperial), "-"
 
     def design(self) -> DataFrame:
-        """Design the flexural reinforcement of every slab for the envelope of its combinations.
+        """Design every slab for the envelope of its combinations, as ``Node.design()`` does.
 
         Fills in ``db1``, ``s1``, ``db3`` and ``s3``: every row of a slab gets
         the layers of the face its moment puts in tension. No stirrups are
-        designed; ``check()`` reports the shear against the concrete alone.
+        kept; a slab whose shear the concrete cannot carry with the layers
+        designed is named instead of reported as completed (see
+        :meth:`_designed`), and ``check()`` reports it as failing.
         """
-        return super().design()
+        self._needs_shear_reinforcement: List[str] = []
+        designed = super().design()
+        if self._needs_shear_reinforcement:
+            print(
+                f"⚠ Slabs designed. {', '.join(self._needs_shear_reinforcement)}: Vu > φVc with the bars designed; "
+                "more longitudinal steel, more thickness, a higher f'c, or shear reinforcement detailed as a "
+                "beam (ACI 318-19 §7.6.3). check() gives them as failing."
+            )
+        return designed
+
+    def _design_completed_message(self) -> Optional[str]:
+        """No "completed" when a slab was left needing shear reinforcement: :meth:`design` names it."""
+        return None if self._needs_shear_reinforcement else super()._design_completed_message()
 
     def results_detailed_doc(self, index: int = 1) -> None:
         """Export detailed results for one slab, plus summary tables for all, to Word.

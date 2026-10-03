@@ -110,12 +110,12 @@ def _peak(values: Any) -> Any:
     return max(values, key=abs)
 
 
-def _face_columns(result: Any) -> Dict[str, Any]:
-    """The input columns ``n1``-``db4`` of one designed face."""
-    columns: Dict[str, Any] = {"n1": result["n_1"], "db1": result["d_b1"]}
-    for layer in (2, 3, 4):
-        columns[f"n{layer}"] = result[f"n_{layer}"]
-        columns[f"db{layer}"] = result[f"d_b{layer}"] if result[f"d_b{layer}"] is not None else 0
+def _face_columns(beam: RectangularBeam, face: str) -> Dict[str, Any]:
+    """The input columns ``n1``-``db4`` of the bars one face of ``beam`` carries (``"bot"``/``"top"``)."""
+    columns: Dict[str, Any] = {}
+    for group, (n, d_b) in enumerate(beam._bar_groups(face), 1):
+        columns[f"n{group}"] = int(n)
+        columns[f"db{group}"] = d_b if n else 0
     return columns
 
 
@@ -320,16 +320,19 @@ class BeamSummary:
         setter(*values)
 
     def _designed(self, node: Node) -> tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
-        """Design a beam for its combinations: the input columns of each face, and of its stirrups."""
+        """Design a beam for its combinations: the input columns of each face, and of its stirrups.
+
+        Exactly :meth:`Node.design`: it starts from the reinforcement a first
+        design would and redoes the flexure once the shear design has chosen
+        the stirrup that sets the depth of the bars. Designing the flexure and
+        then the shear on their own skipped both, and an ACI 318-19 20x50
+        under 150 kN·m and 250 kN came out with 2Ø25 and 1eØ10/11, DCR 1.0005
+        on its own check, where ``Node.design()`` gives 2Ø25 + 1Ø20, DCR 0.787.
+        """
         beam: RectangularBeam = node.section  # type: ignore
-        node.design_flexure()
-        faces = {
-            "bottom": _face_columns(beam.flexure_design_results_bot),
-            "top": _face_columns(beam.flexure_design_results_top),
-        }
-        node.design_shear()
-        shear_row = beam.shear_design_results.iloc[0]  # take best row
-        transverse = {"ns": int(shear_row["n_stir"]), "dbs": shear_row["d_b"], "sl": shear_row["s_l"]}
+        node.design()
+        faces = {"bottom": _face_columns(beam, "bot"), "top": _face_columns(beam, "top")}
+        transverse = {"ns": int(beam._stirrup_n), "dbs": beam._stirrup_d_b, "sl": beam._stirrup_s_l}
         return faces, transverse
 
     def _rebar_labels(self, section: RectangularBeam) -> tuple[str, str, str]:
@@ -537,8 +540,14 @@ class BeamSummary:
         # store for export
         self.design_data = design_df
 
-        print(f"✅ {self._ELEMENT_COLUMN} design completed for every element of the summary.")
+        message = self._design_completed_message()
+        if message:
+            print(message)
         return design_df
+
+    def _design_completed_message(self) -> Optional[str]:
+        """What :meth:`design` prints once every element is designed, if anything."""
+        return f"✅ {self._ELEMENT_COLUMN} design completed for every element of the summary."
 
     def shear_results(self, index: Optional[int] = None, capacity_check: bool = False) -> DataFrame:
         """

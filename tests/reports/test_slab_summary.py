@@ -218,3 +218,49 @@ def test_the_word_report_names_slabs(
     assert "Slab Summary Analysis" in headings
     assert "Slab L1 flexure check" in headings
     assert "Slab Data" in headings
+
+
+def _one_slab(shear: float, moment: float = 20) -> pd.DataFrame:
+    """An ACI 100x15 strip, cc 20 mm, with no bars, under one combination."""
+    return _slab_rows([{"Label": "L1", "Comb.": "C1", "b": 100, "h": 15, "cc": 20, "Vz": shear, "My": moment}])
+
+
+def test_slab_design_is_node_design(concrete: Any, steel: SteelBar, capsys: pytest.CaptureFixture[str]) -> None:
+    """ACI 100x15, My 20 kN·m, Vu 50 kN: Ø10/14 and DCRv 0.98, as a hand-built slab designs it.
+
+    Designing the flexure alone gave Ø12/25, DCRv 1.058 and ``stirrups_required``,
+    after printing that the design was completed.
+    """
+    summary = OneWaySlabSummary(concrete, steel, _one_slab(50))
+    row = summary.design().iloc[0]
+
+    slab = OneWaySlab(label="L1", concrete=concrete, steel_bar=steel, width=100 * cm, height=15 * cm, c_c=20 * mm)
+    Node(slab, [Forces(V_z=50 * kN, M_y=20 * kNm)]).design()
+    assert slab._stirrup_n == 0
+    assert (row["db1"], row["s1"]) == (slab._d_b1_b, slab._s_b1_b) == (10 * mm, 14 * cm)
+    check = summary.check().iloc[1]
+    assert check["DCRv"] == pytest.approx(0.98, abs=5e-4)
+    assert check[VERDICT_COLUMN] == PASS_MARK
+    assert "completed" in capsys.readouterr().out
+
+
+def test_a_slab_that_needs_shear_reinforcement_is_named(
+    concrete: Any, steel: SteelBar, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Vu 55 kN: ``Node.design()`` puts stirrups on Ø10/14, which a slab of the table does not carry.
+
+    The layers stay, the stirrups go, ``design()`` names the slab instead of
+    saying it completed, and ``check()`` fails it: DCRv 1.078, ``stirrups_required``.
+    """
+    summary = OneWaySlabSummary(concrete, steel, _one_slab(55))
+    row = summary.design().iloc[0]
+    out = capsys.readouterr().out
+    assert "completed" not in out
+    assert "L1: Vu > φVc" in out
+
+    assert (row["db1"], row["s1"]) == (10 * mm, 14 * cm)
+    assert summary.nodes[0].section._stirrup_n == 0
+    check = summary.check().iloc[1]
+    assert check["DCRv"] == 1.078
+    assert check[VERDICT_COLUMN] == FAIL_MARK
+    assert [w.code for w in summary.nodes[0].warnings] == ["stirrups_required"]

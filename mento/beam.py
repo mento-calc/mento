@@ -727,7 +727,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         self._initialize_longitudinal_rebar_attributes()
 
     def _clear_top_longitudinal(self) -> None:
-        """Reset the top reinforcement to the default placeholder bars."""
+        """Clear the top reinforcement: no bars on the top face."""
         if self.concrete.unit_system == "metric":
             self.set_longitudinal_rebar_top(0, 0 * mm)
         else:
@@ -938,6 +938,21 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         self._face_set_by_hand("top")
         self._update_longitudinal_rebar_attributes()
         self._drop_results()
+
+    def _bar_groups(self, face: str) -> Tuple[Tuple[float, Quantity], ...]:
+        """The four bar groups of one face, ``(n, d_b)`` each, empty groups included.
+
+        In the order :meth:`set_longitudinal_rebar_bot` takes them: groups 1
+        and 2 are the layer nearest the face, 3 and 4 the one inside it. The
+        public :attr:`reinforcement` drops the empty groups, which a table
+        that writes the bars back group by group cannot: 2Ø16 in group 1 and
+        2Ø12 in group 3 is a second layer, 2Ø16 + 2Ø12 in groups 1 and 2 is
+        not. ``face`` is ``"bot"`` or ``"top"``.
+        """
+        suffix = "b" if face == "bot" else "t"
+        return tuple(
+            (getattr(self, f"_n{group}_{suffix}"), getattr(self, f"_d_b{group}_{suffix}")) for group in (1, 2, 3, 4)
+        )
 
     def _face_set_by_hand(self, face: str) -> None:
         """A face given bars is no longer the face the search gave up on.
