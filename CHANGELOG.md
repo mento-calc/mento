@@ -12,14 +12,41 @@ from the release history and are summaries rather than complete lists.
 
 ## [Unreleased]
 
+### Added
+
+- **`Forces` holds the complete demand of a section** (#186): `V_y` and `M_z` join `N_x`,
+  `V_z`, `M_y` and `M_x`, so the six components are those of a frame model's member forces
+  (FX, FY, FZ, MX, MY, MZ). On a member `M_x` is the torsion; at a punching node, whose axes
+  are the slab's, it stays the in-plane unbalanced moment, so punching keeps its names. The
+  sign convention is written in the docstring and fixed by tests: `N_x > 0` compression,
+  `M_y > 0` compresses +z (sagging, z up), `M_z > 0` compresses −y. Beams read only `N_x`,
+  `V_z` and `M_y`, as before; `get_forces()` and `compare_to()` cover the six, and `str()`
+  shows `V_y`, `M_x` and `M_z` only when they are not zero.
+- **EN 1992-1-1 concrete: `alpha_cc`, `f_cd` and the strains of Table 3.1** (#184).
+  `Concrete_EN_1992_2004(name, f_c, alpha_cc=0.85)` takes α_cc between 0.8 and 1.0
+  (§3.1.6(1); 1.0 is the recommended value). The default stays at 0.85, so no EN result
+  moves. New properties: `f_cd`, `epsilon_c1`, `epsilon_cu1`, `epsilon_c2`,
+  `epsilon_cu2`, `n_parabola`, `epsilon_c3`.
+- **Steel design values** (#185): `Steel`, `SteelBar` and `SteelStrand` take and keep
+  `gamma_s` (1.15 by default) and `epsilon_ud` (`None`, no limit, by default), and expose
+  `f_yd = f_y/gamma_s` and `epsilon_yd = f_yd/E_s`.
+
 ### Changed
 
+- **EN 1992-1-1 reads γ_s from the steel.** The EN beam took it from the concrete, which
+  fixed it at 1.15; it now uses `steel_bar.gamma_s`, so `SteelBar(gamma_s=1.0)` reaches the
+  flexure and shear checks. With the default steel nothing moves.
 - The README opens with a quick start that designs a beam and shows the result, a table of
   the elements each design code covers, the validation behind them, and a link to the
   calculators on [mentocalc.com](https://mentocalc.com). It no longer says mento does
   structural analysis or designs columns, which it does not yet. Its links are absolute, so
   they also work on PyPI, and the DOI badge points to the concept DOI that resolves to the
   latest release, as the citing guide does.
+
+### Deprecated
+
+- `Concrete_EN_1992_2004.gamma_s` warns and will be removed in 2.0: read `SteelBar.gamma_s`.
+  The concrete's `str()` no longer prints γ_s.
 
 ## [1.4.0] - 2026-09-30
 
