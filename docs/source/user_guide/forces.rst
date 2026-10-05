@@ -11,10 +11,13 @@ Key Concepts
 - **Axial Force (`N_x`)**: Force applied along the axis of the element, along the x-x axis. **Positive in compression.**
 - **Shear Force (`V_z`)**: Force acting perpendicular to the axis of the element, along the z-z local axis. **Always entered as a positive magnitude.**
 - **Bending Moment (`M_y`)**: The moment caused by forces that induce bending about the y-y axis. **Positive when it produces tension at the bottom** of the section.
+- **Shear Force (`V_y`)** and **Bending Moment (`M_z`)**: the shear along y and the moment about z, the other direction of a column or wall section. **`M_z` is positive when it compresses the −y face.**
+- **Torsion (`M_x`)**: the moment about the member axis x. At a punching node, where the axes are the slab's, `M_x` is an in-plane moment instead (see :doc:`local_axes`).
 - **Unit System**: You can define the unit system to display the forces for a Force object, *metric* or *imperial*.
 
-These are the main forces considered to  analyze a beam along it's main axis.
-For Columns analysis in future releases, the Forces object will have to have shear and bending moment in both axis.
+A beam reads `N_x`, `V_z` and `M_y`; the other three default to zero and are there so that
+one `Forces` holds the complete demand of a section, the FX, FY, FZ, MX, MY, MZ of a frame
+model's member forces.
 
 These forces are defined using compatible units from the `Pint` library, like `kN` or `kip` for forces and `kN*m` or `ft*kip` for moments.
 
@@ -29,7 +32,8 @@ The signs are part of the input, not a formatting detail — they change the res
   it. Entering a tension force as a positive number is unconservative.
 - **`M_y` is positive for sagging**, i.e. tension at the bottom fibre. The sign selects the
   tension face, so a support moment must be entered as negative for the top reinforcement to
-  be designed.
+  be designed. In local-axis terms, with z up, `M_y > 0` compresses the +z face.
+- **`M_z` is positive when it compresses the −y face.**
 - **`V_z` is the magnitude of the design shear.** The demand-capacity ratio uses its absolute
   value, but the design routine sizes stirrups from the largest required :math:`A_v` across the
   combinations, so a negative value would be read as a smaller demand.
@@ -78,7 +82,7 @@ If you want to display the Forces in *imperial system* just pass the input to th
 3. Modifying Forces
 *******************
 
-Forces can be modified at any point by calling the `set_forces()` method. This method allows you to update the values of `N_x`, `V_z`, and `M_y`.
+Forces can be modified at any point by calling the `set_forces()` method. It sets every component: the ones not given are set to zero.
 
 .. code-block:: python
 
@@ -90,13 +94,13 @@ Forces can be modified at any point by calling the `set_forces()` method. This m
 4. Retrieving Forces as a Dictionary
 ************************************
 
-You can retrieve the forces in the form of a dictionary for easy manipulation, storage, or reporting. The `get_forces()` method returns a dictionary where the keys are `N_x`, `V_z`, and `M_y`, with values corresponding to the respective forces in the unit system.
+You can retrieve the forces in the form of a dictionary for easy manipulation, storage, or reporting. The `get_forces()` method returns a dictionary keyed `N_x`, `V_y`, `V_z`, `M_x`, `M_y` and `M_z`, with values corresponding to the respective forces in the unit system.
 
 .. code-block:: python
 
     force_dict = force.get_forces()
     print(force_dict)
-    # Output: {'N_x': 3.00 kN, 'V_z': 10.00 kN, 'M_y': 7.00 kN*m}
+    # Output: {'N_x': 3.00 kN, 'V_y': 0.00 kN, 'V_z': 0.00 kN, 'M_x': 0.00 kN*m, 'M_y': 7.00 kN*m, 'M_z': 0.00 kN*m}
 
 5. Assigning a Label to a Force
 *******************************

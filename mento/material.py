@@ -2,6 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, TYPE_CHECKING, Any
 import math
+import warnings
 from mento.units import kg, m, MPa, ksi, GPa, psi, Pa, lb, ft, kPa
 
 # Conditional import for type checking only
@@ -290,6 +291,10 @@ class Concrete_EN_1992_2004(Concrete):
     Inputs:
         name: Name of the concrete material.
         f_c: Characteristic compressive strength of concrete (f_ck for Eurocode).
+        alpha_cc: Coefficient for long term effects on the compressive strength, §3.1.6(1).
+
+    EN 1992-1-1 recommends α_cc = 1.0 and lets the National Annex choose between 0.8 and
+    1.0. The default is 0.85, the UK National Annex value mento's EN beams were validated with.
 
     Methods:
         get_properties() -> Dict[str, Any]: Returns a dictionary of all relevant material properties.
@@ -297,9 +302,12 @@ class Concrete_EN_1992_2004(Concrete):
         f_ck (property): Returns the characteristic compressive strength.
         f_cm (property): Returns the mean compressive strength.
         f_ctm (property): Returns the mean tensile strength.
-        epsilon_cu3 (property): Returns the ultimate strain in concrete.
+        f_cd (property): Returns the design compressive strength α_cc·f_ck/γ_c, §3.1.6(1).
+        epsilon_c2, epsilon_cu2 (properties): Strains of the parabola-rectangle diagram, Table 3.1.
+        n_parabola (property): Exponent n of the parabola, Table 3.1 and eq. (3.17).
+        epsilon_c3, epsilon_cu3 (properties): Strains of the bilinear diagram, Table 3.1.
+        epsilon_cu1 (property): Ultimate strain of the diagram for structural analysis, Table 3.1.
         gamma_c (property): Returns the partial safety factor for concrete.
-        alpha_cc (property): Returns the α_cc coefficient.
         Lambda_factor (property): Returns the λ factor.
         Eta_factor (property): Returns the η factor.
 
@@ -308,11 +316,17 @@ class Concrete_EN_1992_2004(Concrete):
         It provides all necessary parameters for design and verification according to the code.
     """
 
+    alpha_cc: float = field(default=0.85)
+
     def __post_init__(self) -> None:
         # Crucial: Call parent's __post_init__ first to set unit_system and density
         super().__post_init__()
         self.design_code = "EN 1992-2004"
         self._require_metric()
+        # §3.1.6(1): "The value of alpha_cc for use in a Country should lie between 0,8
+        # and 1,0." 1.0 is the recommended value; the UK National Annex takes 0.85.
+        if not 0.8 <= self.alpha_cc <= 1.0:
+            raise ValueError(f"alpha_cc must lie between 0.8 and 1.0 (EN 1992-1-1 §3.1.6(1)), got {self.alpha_cc}.")
 
         # The f_c passed to Concrete is the f_ck for Eurocode
         self._delta = 0.85
@@ -338,9 +352,13 @@ class Concrete_EN_1992_2004(Concrete):
         self._epsilon_cu3 = (
             2.6 + 35 * ((90 - self._f_ck.to("MPa").magnitude) / 100) ** 4 if self._f_ck >= 50 * MPa else 3.5
         ) * 1e-3
+        # Exponent of the parabola, Table 3.1 and eq. (3.17).
+        self._n_parabola = (
+            1.4 + 23.4 * ((90 - self._f_ck.to("MPa").magnitude) / 100) ** 4 if self._f_ck >= 50 * MPa else 2.0
+        )
         self._gamma_c = 1.5
+        # Kept only for the deprecated gamma_s property: gamma_s belongs to the steel.
         self._gamma_s = 1.15
-        self._alpha_cc = self._alpha_cc_calc()
         # Default values for k values EN_1992-1-1 - ART 5.5:
         # k_1..k_4 bound the neutral axis ratio x_u/d in eqs. (5.10a)/(5.10b);
         # k_5 and k_6 are plain lower bounds on the redistribution ratio delta
@@ -351,14 +369,6 @@ class Concrete_EN_1992_2004(Concrete):
         self._k_4 = 1.25 * (0.6 + 0.0014 / self._epsilon_cu2)
         self._k_5 = 0.7
         self._k_6 = 0.8
-
-    def _alpha_cc_calc(self) -> float:
-        # Implementation for alpha_cc, as per Eurocode EN 1992-1-1
-        # Designers Guide to EN 1992-1-1, Page 62
-        # Study of the data available on the behaviour of compression zones at failure suggests that the
-        # use of 1.0 is unconservative. For this reason, the UK National Annex recommends a value for
-        # αcc of 0.85, as is proposed in the CEB Model Codes.
-        return 0.85
 
     def _lambda_factor(self) -> float:
         """
@@ -388,10 +398,16 @@ class Concrete_EN_1992_2004(Concrete):
                 "f_ck": self._f_ck,
                 "f_cm": self._f_cm,
                 "f_ctm": self._f_ctm,
+                "f_cd": self.f_cd,
+                "epsilon_c2": self._epsilon_c2,
+                "epsilon_cu2": self._epsilon_cu2,
+                "n_parabola": self._n_parabola,
                 "epsilon_cu3": self._epsilon_cu3,
                 "gamma_c": self._gamma_c,
+                # Deprecated: gamma_s is the steel's (Steel.gamma_s). Kept so a reader of
+                # this dictionary does not break.
                 "gamma_s": self._gamma_s,
-                "alpha_cc": self._alpha_cc,
+                "alpha_cc": self.alpha_cc,
                 "lambda_factor": self._lambda_factor(),
                 "eta_factor": self._eta_factor(),
             }
@@ -415,7 +431,43 @@ class Concrete_EN_1992_2004(Concrete):
         return self._f_ctm
 
     @property
+    def f_cd(self) -> Quantity:
+        """Design compressive strength, f_cd = α_cc·f_ck/γ_c (§3.1.6(1), eq. (3.15))."""
+        return (self.alpha_cc * self._f_ck / self._gamma_c).to("MPa")
+
+    @property
+    def epsilon_c1(self) -> float:
+        """Strain at peak stress of the diagram for structural analysis, Table 3.1: 0.7·f_cm^0.31 ≤ 2.8 ‰."""
+        return min(0.7 * self._f_cm.to("MPa").magnitude ** 0.31, 2.8) * 1e-3
+
+    @property
+    def epsilon_cu1(self) -> float:
+        """Ultimate strain of the diagram for structural analysis, Table 3.1."""
+        return self._epsilon_cu1
+
+    @property
+    def epsilon_c2(self) -> float:
+        """Strain at which the parabola reaches f_cd, Table 3.1 (2.0 ‰ up to C50/60)."""
+        return self._epsilon_c2
+
+    @property
+    def epsilon_cu2(self) -> float:
+        """Ultimate strain of the parabola-rectangle diagram, Table 3.1 (3.5 ‰ up to C50/60)."""
+        return self._epsilon_cu2
+
+    @property
+    def n_parabola(self) -> float:
+        """Exponent n of the parabola, Table 3.1 and eq. (3.17): 2.0 up to C50/60."""
+        return self._n_parabola
+
+    @property
+    def epsilon_c3(self) -> float:
+        """Strain at which the bilinear diagram reaches f_cd, Table 3.1 (1.75 ‰ up to C50/60)."""
+        return self._epsilon_c3
+
+    @property
     def epsilon_cu3(self) -> float:
+        """Ultimate strain of the bilinear and rectangular diagrams, Table 3.1 (3.5 ‰ up to C50/60)."""
         return self._epsilon_cu3
 
     @property
@@ -424,11 +476,14 @@ class Concrete_EN_1992_2004(Concrete):
 
     @property
     def gamma_s(self) -> float:
+        """Deprecated: γ_s is a property of the steel. Read ``steel_bar.gamma_s``."""
+        warnings.warn(
+            "Concrete_EN_1992_2004.gamma_s is deprecated and will be removed in mento 2.0: "
+            "the partial factor of the reinforcement belongs to the steel. Read SteelBar.gamma_s.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self._gamma_s
-
-    @property
-    def alpha_cc(self) -> float:  # This property returns the calculated alpha_cc
-        return self._alpha_cc
 
     @property
     def Lambda_factor(self) -> float:  # Property for lambda_factor
@@ -450,9 +505,12 @@ class Concrete_EN_1992_2004(Concrete):
             f"  f_ctm (Mean Tensile): {properties['f_ctm']}\n"
             f"  E_cm (Secant Modulus): {properties['E_cm']}\n"
             f"  Density: {properties['density']}\n"
+            f"  f_cd: {properties['f_cd']}\n"
+            f"  ε_c2: {properties['epsilon_c2']:.4f}\n"
+            f"  ε_cu2: {properties['epsilon_cu2']:.4f}\n"
+            f"  n: {properties['n_parabola']:.2f}\n"
             f"  ε_cu3: {properties['epsilon_cu3']:.4f}\n"
             f"  γ_c: {properties['gamma_c']:.2f}\n"
-            f"  γ_s: {properties['gamma_s']:.2f}\n"
             f"  α_cc: {properties['alpha_cc']:.2f}\n"
             f"  λ Factor: {properties['lambda_factor']:.2f}\n"
             f"  Eta Factor: {properties['eta_factor']:.2f}"
@@ -473,10 +531,23 @@ class Steel(Material):
     of each (AL 220: 220 MPa; ADN 420: 420 MPa; ATR 500 N and AM 500 N wires
     and welded mesh: 500 MPa). The cap that does reach a calculation, on f_yt
     for shear, is applied in the shear equations, not here.
+
+    The design values belong to the steel as well. ``gamma_s`` is the partial
+    factor of EN 1992-1-1 Table 2.1N (1.15 for persistent and transient
+    situations, 1.0 for accidental ones) and ``f_yd = f_y/gamma_s``. ACI 318-19
+    and CIRSOC 201-25 put the safety in φ instead, and never read either.
+
+    ``epsilon_ud`` is the design limit on the steel strain, EN 1992-1-1
+    §3.2.7(2). ``None``, the default, is the horizontal top branch of
+    §3.2.7(2)b, which needs no limit, and the elastic-perfectly plastic
+    steel of ACI 318-19 §20.2.2.1. A section analysis that bounds the strain
+    passes the value it uses: 0.9·ε_uk (§3.2.7(2) note) or 0.01, for example.
     """
 
     _f_y: Quantity = field(init=False)
     _density: Quantity = field(default=7850 * kg / m**3)
+    _gamma_s: float = field(default=1.15)
+    _epsilon_ud: float | None = field(default=None)
 
     def __init__(
         self,
@@ -484,10 +555,17 @@ class Steel(Material):
         f_y: Quantity,
         density: Quantity = 7850 * kg / m**3,
         gamma_s: float = 1.15,
+        epsilon_ud: float | None = None,
     ):
         super().__init__(name)
+        if gamma_s <= 0:
+            raise ValueError(f"gamma_s must be positive, got {gamma_s}.")
+        if epsilon_ud is not None and epsilon_ud <= 0:
+            raise ValueError(f"epsilon_ud must be positive, got {epsilon_ud}.")
         self._f_y = f_y
         self._density = density
+        self._gamma_s = gamma_s
+        self._epsilon_ud = epsilon_ud
 
     @property
     def f_y(self) -> Quantity:
@@ -497,22 +575,54 @@ class Steel(Material):
     def density(self) -> Quantity:
         return self._density
 
+    @property
+    def gamma_s(self) -> float:
+        """Partial factor of the steel, EN 1992-1-1 Table 2.1N. Not read under ACI 318-19 or CIRSOC 201-25."""
+        return self._gamma_s
+
+    @property
+    def f_yd(self) -> Quantity:
+        """Design yield strength, f_yd = f_y/γ_s (EN 1992-1-1 §3.2.7(2))."""
+        return self._f_y / self._gamma_s
+
+    @property
+    def epsilon_ud(self) -> float | None:
+        """Design limit on the steel strain (EN 1992-1-1 §3.2.7(2)); ``None`` for no limit."""
+        return self._epsilon_ud
+
+
+def _check_epsilon_ud(steel: SteelBar | SteelStrand) -> None:
+    """A strain limit below the yield strain would keep the steel from ever reaching f_yd."""
+    if steel.epsilon_ud is not None and steel.epsilon_ud <= steel.epsilon_yd:
+        raise ValueError(
+            f"epsilon_ud = {steel.epsilon_ud} is not above the design yield strain f_yd/E_s = "
+            f"{steel.epsilon_yd:.5f}: the steel would never yield."
+        )
+
 
 @dataclass
 class SteelBar(Steel):
     #: ACI 318-19 §20.2.2.2 / CIRSOC 201-25 §20.2.2.2: E_s may be taken as
     #: 200,000 MPa (29,000,000 psi) for nonprestressed bars and wires. Same
-    #: value in both codes.
+    #: value in both codes; EN 1992-1-1 §3.2.7(4) takes the same 200 GPa.
     _E_s: Quantity = field(default=200 * GPa)
     _epsilon_y: Quantity = field(init=False)
 
-    def __init__(self, name: str, f_y: Quantity, density: Quantity = 7850 * kg / m**3):
-        super().__init__(name, f_y, density)
+    def __init__(
+        self,
+        name: str,
+        f_y: Quantity,
+        density: Quantity = 7850 * kg / m**3,
+        gamma_s: float = 1.15,
+        epsilon_ud: float | None = None,
+    ):
+        super().__init__(name, f_y, density, gamma_s, epsilon_ud)
         # eps_ty = f_y/E_s — ACI 318-19 §21.2.2.1 / CIRSOC 201-25 §21.2.2.1.
         # Both also permit 0.002 for Grade 420 (f_y = 420 MPa); the quotient is
         # kept instead, 0.0021 for that grade, which is the exact value the
         # clause rounds.
         self._epsilon_y = f_y.to("MPa") / (self._E_s.to("MPa"))
+        _check_epsilon_ud(self)
 
     @property
     def E_s(self) -> Quantity:
@@ -522,11 +632,19 @@ class SteelBar(Steel):
     def epsilon_y(self) -> Quantity:
         return self._epsilon_y
 
+    @property
+    def epsilon_yd(self) -> float:
+        """Design yield strain, f_yd/E_s: where the diagram of EN 1992-1-1 Fig. 3.8 turns."""
+        return float((self.f_yd / self._E_s).to("dimensionless").magnitude)
+
     def get_properties(self) -> Dict[str, Any]:
         properties = {
             "E_s": self._E_s.to("GPa"),
             "f_y": self._f_y.to("MPa"),
             "epsilon_y": self._epsilon_y,
+            "gamma_s": self._gamma_s,
+            "f_yd": self.f_yd.to("MPa"),
+            "epsilon_ud": self._epsilon_ud,
         }
         return properties
 
@@ -549,9 +667,17 @@ class SteelStrand(Steel):
     prestress_stress: Quantity = field(default=0 * MPa)
     _epsilon_y: Quantity = field(init=False)
 
-    def __init__(self, name: str, f_y: Quantity, density: Quantity = 7850 * kg / m**3):
-        super().__init__(name, f_y, density)
+    def __init__(
+        self,
+        name: str,
+        f_y: Quantity,
+        density: Quantity = 7850 * kg / m**3,
+        gamma_s: float = 1.15,
+        epsilon_ud: float | None = None,
+    ):
+        super().__init__(name, f_y, density, gamma_s, epsilon_ud)
         self._epsilon_y = self._f_y / self._E_s
+        _check_epsilon_ud(self)
 
     def get_properties(self) -> Dict[str, Any]:
         properties = {
@@ -572,6 +698,11 @@ class SteelStrand(Steel):
     @property
     def epsilon_y(self) -> Quantity:
         return self._epsilon_y
+
+    @property
+    def epsilon_yd(self) -> float:
+        """Design yield strain, f_yd/E_s."""
+        return float((self.f_yd / self._E_s).to("dimensionless").magnitude)
 
     def __str__(self) -> str:
         """Customize the string representation for user-friendly display."""

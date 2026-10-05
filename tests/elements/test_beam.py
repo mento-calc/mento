@@ -811,9 +811,38 @@ def test_compression_zone_limits_EN_1992_2004_are_expressed_on_the_neutral_axis(
     assert x_u_lim / d == pytest.approx(xi_expected, rel=1e-9)
     assert x_eff_lim / x_u_lim == pytest.approx(concrete._lambda_factor(), rel=1e-9)
     # M_lim built on the block depth, per The Concrete Centre's K' = 0.453*xi*(1-0.4*xi)
-    f_cd = (concrete._alpha_cc * concrete.f_ck / concrete.gamma_c).to("MPa").magnitude
+    f_cd = concrete.f_cd.to("MPa").magnitude
     M_lim = concrete._eta_factor() * f_cd * 200 * x_eff_lim * (560 - 0.5 * x_eff_lim)
     assert M_lim / 1e6 == pytest.approx(202.55, rel=1e-3)
+
+
+def _EN_bottom_capacity(concrete: Concrete_EN_1992_2004, steel: SteelBar) -> Quantity:
+    """M_Rd of a 20x60 beam with 4Ø16 at the bottom, under 100 kN·m."""
+    beam = RectangularBeam(label="EN", concrete=concrete, steel_bar=steel, width=20 * cm, height=60 * cm, c_c=2.6 * cm)
+    beam.set_transverse_rebar(n_stirrups=1, d_b=8 * mm, s_l=20 * cm)
+    beam.set_longitudinal_rebar_bot(n1=4, d_b1=16 * mm)
+    Node(section=beam, forces=[Forces(label="ELU", M_y=100 * kNm)]).check_flexure()
+    capacity = beam.flexure_checks[0].bottom.M_capacity
+    assert capacity is not None
+    return capacity.to("kN*m")
+
+
+def test_EN_beam_reads_gamma_s_from_the_steel_and_alpha_cc_from_the_concrete() -> None:
+    """γ_s is the steel's and α_cc the concrete's: changing either moves M_Rd (#184, #185).
+
+    Under-reinforced, so M_Rd ≈ A_s·f_yd·z: it rises close to 1.15 times with γ_s = 1.0,
+    and only through the lever arm with α_cc = 1.0.
+    """
+    base = _EN_bottom_capacity(Concrete_EN_1992_2004(name="C25", f_c=25 * MPa), SteelBar(name="B500S", f_y=500 * MPa))
+    no_gamma_s = _EN_bottom_capacity(
+        Concrete_EN_1992_2004(name="C25", f_c=25 * MPa), SteelBar(name="B500S", f_y=500 * MPa, gamma_s=1.0)
+    )
+    alpha_cc_1 = _EN_bottom_capacity(
+        Concrete_EN_1992_2004(name="C25", f_c=25 * MPa, alpha_cc=1.0), SteelBar(name="B500S", f_y=500 * MPa)
+    )
+    assert no_gamma_s.magnitude / base.magnitude == pytest.approx(1.15, rel=0.03)
+    assert alpha_cc_1 > base
+    assert alpha_cc_1.magnitude / base.magnitude == pytest.approx(1.0, abs=0.02)
 
 
 def test_design_flexure_EN_1992_2004_infeasible_does_not_crash() -> None:

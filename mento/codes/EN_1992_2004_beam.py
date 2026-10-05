@@ -46,11 +46,11 @@ def _initialize_variables_EN_1992_2004(self: "RectangularBeam") -> None:
     Initialize variables for EN 1992-2004 design code.
     """
     if isinstance(self.concrete, Concrete_EN_1992_2004):
-        self._f_ywd = self._f_ywk / self.concrete._gamma_s
+        self._f_ywd = self._f_ywk / self.steel_bar.gamma_s
         alpha_cc_shear = 1  # Take this as 1.00 for shear design and not 0.85, as in Eurocode Applied.
         self._f_cd_shear = alpha_cc_shear * self.concrete.f_ck / self.concrete.gamma_c
         # Flexure concrete resistance with a alpha_cc reduction
-        self._f_cd = self.concrete._alpha_cc * self.concrete.f_ck / self.concrete.gamma_c
+        self._f_cd = self.concrete.f_cd
 
 
 ##########################################################
@@ -235,10 +235,10 @@ def _check_shear_EN_1992_2004(self: "RectangularBeam", force: Forces) -> ENShear
     # The material values the shear check needs. _f_cd belongs to flexure as
     # well, so it is carried rather than written.
     f_ck = section_floats(self).f_c
-    st.f_ywd = self._f_ywk.to(MPa).magnitude / concrete._gamma_s
+    st.f_ywd = self._f_ywk.to(MPa).magnitude / self.steel_bar.gamma_s
     alpha_cc_shear = 1  # Take this as 1.00 for shear design and not 0.85, as in Eurocode Applied.
     st.f_cd_shear = alpha_cc_shear * f_ck / concrete.gamma_c
-    st.f_cd = concrete._alpha_cc * f_ck / concrete.gamma_c
+    st.f_cd = concrete.alpha_cc * f_ck / concrete.gamma_c
 
     _initialize_shear_variables_EN_1992_2004(self, st, force)
 
@@ -421,7 +421,7 @@ def _minimum_flexural_reinforcement_area_EN_1992_2004(self: "RectangularBeam", d
         sec.width * sec.height / 2,
         # The stress permitted in the bars right after cracking, taken at the
         # design yield strength.
-        sec.f_y / concrete_en._gamma_s,
+        sec.f_y / self.steel_bar.gamma_s,
     )
     return max(A_s_geometric, A_s_crack)
 
@@ -481,9 +481,9 @@ def _calculate_flexural_reinforcement_EN_1992_2004(
         eta = self.concrete._eta_factor()  # Factor for concrete strength (EN 1992-1-1)
         # Derived from the concrete rather than read off the beam: it is a
         # material property, so a check has no reason to have stored it first.
-        f_cd = self.concrete._alpha_cc * sec.f_c / self.concrete.gamma_c
+        f_cd = self.concrete.alpha_cc * sec.f_c / self.concrete.gamma_c
         # Define f_yd
-        f_yd = sec.f_y / self.concrete._gamma_s
+        f_yd = sec.f_y / self.steel_bar.gamma_s
 
         # Compression zone at the ductility limit (EC2 5.5(4) and the 0.45 cap)
         x_u_lim, x_eff_lim = _compression_zone_limits_EN_1992_2004(self, d)
@@ -517,7 +517,7 @@ def _calculate_flexural_reinforcement_EN_1992_2004(
             f_sd = flexure_eq.compression_steel_stress(
                 x_u_lim,
                 d_prime,
-                self.concrete._epsilon_cu2,
+                self.concrete.epsilon_cu2,
                 sec.E_s,
                 f_yd,
             )
@@ -563,8 +563,8 @@ def _simple_determine_nominal_moment_EN_1992_2004(
     # Constants and material properties
     if isinstance(self.concrete, Concrete_EN_1992_2004):
         sec = section_floats(self)
-        f_yd = sec.f_y / self.concrete._gamma_s
-        f_cd = self.concrete._alpha_cc * sec.f_c / self.concrete.gamma_c
+        f_yd = sec.f_y / self.steel_bar.gamma_s
+        f_cd = self.concrete.alpha_cc * sec.f_c / self.concrete.gamma_c
         eta = self.concrete._eta_factor()  # Factor for concrete strength
         b = sec.width
         d_mm = d
@@ -746,9 +746,9 @@ def _check_flexure_EN_1992_2004(self: "RectangularBeam", force: Forces) -> ENFle
 
     # The material values this check needs, carried rather than written.
     sec = section_floats(self)
-    st.f_ywd = self._f_ywk.to(MPa).magnitude / concrete._gamma_s
+    st.f_ywd = self._f_ywk.to(MPa).magnitude / self.steel_bar.gamma_s
     st.f_cd_shear = sec.f_c / concrete.gamma_c
-    st.f_cd = concrete._alpha_cc * sec.f_c / concrete.gamma_c
+    st.f_cd = concrete.alpha_cc * sec.f_c / concrete.gamma_c
 
     # Split bottom and top moments
     _split_top_bot_moment(self, st, force)
