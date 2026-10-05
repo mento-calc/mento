@@ -93,7 +93,7 @@ html_css_files = [
 html_logo = "_static/logo/mento_isotipo_transparente.png"
 html_favicon = "_static/logo/mento_isotipo_transparente.png"
 html_theme_options = {
-    "repository_url": "https://github.com/mihdicaballero/mento",
+    "repository_url": "https://github.com/mento-calc/mento",
     "repository_branch": "main",
     "use_repository_button": True,
     "use_issues_button": True,

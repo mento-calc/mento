@@ -51,6 +51,23 @@ a check, so it must match the convention below.
      - **Magnitude of the design shear**
      - Shear is checked against a symmetric resistance, so its direction does not
        change the outcome. Always pass it as a positive value.
+   * - ``M_z``
+     - **Compresses the −y face**
+     - Bending about the z-axis. Not read by beams, slabs or walls; it is there for
+       the biaxial demand of a column or a wall section.
+   * - ``V_y``
+     - Shear along the y-axis
+     - Not read by beams, slabs or walls.
+   * - ``M_x``
+     - **Torsion** on a member
+     - The moment about the member axis. Not read by beams yet. At a punching node it
+       is an in-plane moment instead; see below.
+
+These six components are the member forces of a frame model, in the same order: a
+program's FX, FY, FZ, MX, MY, MZ in the member's local axes are ``N_x``, ``V_y``,
+``V_z``, ``M_x``, ``M_y``, ``M_z``, with **z pointing up** in the section. With z up,
+``M_y > 0`` compresses the +z face, which is the sagging moment of the table above.
+Check the sign of FX in your program: mento takes compression as positive.
 
 Axial force
 ***********

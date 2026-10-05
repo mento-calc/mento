@@ -26,6 +26,7 @@ from mento.design_warnings import (
     shear_warnings,
     shortfall_warnings,
     spacing_warnings,
+    unread_force_warnings,
 )
 from mento.forces import Forces
 from mento.settings import BeamSettings
@@ -1221,6 +1222,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             state = self._run_flexure_check(force, report=False)
             self._flexure_checks.append(capture_flexure_check(self, force.label, state))
             self._flexure_warnings.extend(flexure_warnings(self, combination_label(force.label, position), state))
+            self._flexure_warnings.extend(unread_force_warnings(force, combination_label(force.label, position)))
             self._note_compression_face(force, state)
         self._flexure_checked = True
         return tuple(self._flexure_checks)
@@ -1293,6 +1295,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             state = self._run_shear_check(force, report=False)
             self._shear_checks.append(capture_shear_check(self, force.label, state))
             self._shear_warnings.extend(shear_warnings(self, combination_label(force.label, position), state))
+            self._shear_warnings.extend(unread_force_warnings(force, combination_label(force.label, position)))
         self._shear_checked = True
         return tuple(self._shear_checks)
 
@@ -1363,6 +1366,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             # combination only, and are on their way out with them.
             self._flexure_checks.append(capture_flexure_check(self, force.label, state))
             self._flexure_warnings.extend(flexure_warnings(self, combination_label(force.label, position), state))
+            self._flexure_warnings.extend(unread_force_warnings(force, combination_label(force.label, position)))
 
             # Extract the DCR values for top and bottom from the results
             current_dcr_top = self._DCRb_top
@@ -1578,6 +1582,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             # attributes afterwards.
             self._shear_checks.append(capture_shear_check(self, force.label, state))
             self._shear_warnings.extend(shear_warnings(self, combination_label(force.label, position), state))
+            self._shear_warnings.extend(unread_force_warnings(force, combination_label(force.label, position)))
 
             # Check if this result is the limiting case
             current_dcr = result["DCR"][0]

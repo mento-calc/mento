@@ -39,7 +39,7 @@ Citation metadata
 -----------------
 
 The authoritative metadata lives in `CITATION.cff
-<https://github.com/mihdicaballero/mento/blob/main/CITATION.cff>`_ at the root of the
+<https://github.com/mento-calc/mento/blob/main/CITATION.cff>`_ at the root of the
 repository. On GitHub, the **Cite this repository** button in the sidebar renders it as APA
 or BibTeX for you, so you rarely need to write the entry by hand.
 

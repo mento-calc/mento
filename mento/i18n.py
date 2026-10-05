@@ -205,6 +205,9 @@ ES.update(
         "Steel on the {face}: A_s = {A_s} exceeds the maximum A_s,max = {A_s_max}.": (
             "Armadura en la {face}: A_s = {A_s} supera la máxima A_s,máx = {A_s_max}."
         ),
+        "{component} = {value} is given but not checked: this element reads only N_x, V_z and M_y.": (
+            "{component} = {value} está dado pero no se verifica: este elemento lee sólo N_x, V_z y M_y."
+        ),
         (
             "The section is not tension-controlled (§{clause}): A_s = {A_s} on the {face} exceeds "
             "A_s,max = {A_s_max}. It does not comply, even where its capacity covers the moment."

@@ -1531,3 +1531,72 @@ def test_aci_holds_a_bare_bottom_to_the_geometric_floor_when_nothing_bends_the_s
     assert check.bottom.A_s_min_eff == check.bottom.A_s_min
     assert check.top.A_s_min.magnitude == 0
     assert [w.face for w in node.warnings if w.code == "As_below_min"] == ["bottom"]
+
+
+def test_components_a_beam_does_not_read_are_reported() -> None:
+    """V_y, M_z and the torsion M_x reach a beam unchecked, and the warning says so (#186).
+
+    One warning per component, the largest value given and every combination that
+    gives it; flexure and shear running over the same combinations do not double it.
+    """
+    beam = _beam()
+    beam.set_longitudinal_rebar_bot(n1=4, d_b1=16 * mm)
+    beam.set_longitudinal_rebar_top(n1=2, d_b1=12 * mm)
+    beam.set_transverse_rebar(n_stirrups=1, d_b=8 * mm, s_l=20 * cm)
+    forces = [
+        Forces(label="ELU 1", V_z=100 * kN, M_y=80 * kNm, M_z=-12 * kNm),
+        Forces(label="ELU 2", V_z=90 * kN, M_y=60 * kNm, M_z=5 * kNm, M_x=3 * kNm),
+        Forces(V_z=80 * kN, M_y=40 * kNm),
+    ]
+    node = Node(section=beam, forces=forces)
+    node.check()
+
+    unread = [w for w in node.warnings if w.code == "force_component_not_checked"]
+    by_component = {w.values["component"]: w for w in unread}
+    assert set(by_component) == {"M_z", "M_x"}
+    M_z = by_component["M_z"]
+    assert M_z.combinations == ("ELU 1", "ELU 2")
+    assert M_z.values["value"].to("kN*m").magnitude == pytest.approx(-12)
+    assert M_z.face is None
+    assert M_z.message.replace("⋅", "·") == (
+        "M_z = -12 kN·m is given but not checked: this element reads only N_x, V_z and M_y."
+    )
+    assert by_component["M_x"].combinations == ("ELU 2",)
+
+    # The message is worded when it is read, in the language of the day.
+    mento.set_language("es")
+    spanish = {w.values["component"]: w for w in node.warnings if w.code == "force_component_not_checked"}
+    assert spanish["M_x"].message.replace("⋅", "·") == (
+        "M_x = 3 kN·m está dado pero no se verifica: este elemento lee sólo N_x, V_z y M_y."
+    )
+
+
+def test_a_beam_given_only_what_it_reads_gets_no_unread_component_warning() -> None:
+    beam, node = _poorly_detailed()
+    assert "force_component_not_checked" not in _by_code(node.warnings)
+
+
+def test_a_wall_reports_the_components_it_does_not_read() -> None:
+    """The wall check reads V_z and N_x: a V_y given to it is reported, and dropped with the checks."""
+    from mento import ShearWall
+    from mento.units import m
+
+    wall = ShearWall(
+        label="W",
+        concrete=Concrete_ACI_318_19(name="H25", f_c=25 * MPa),
+        steel_bar=SteelBar(name="ADN 420", f_y=420 * MPa),
+        thickness=25 * cm,
+        length=1.5 * m,
+        height=3.0 * m,
+        c_c=20 * mm,
+    )
+    wall.set_horizontal_rebar(d_b=10 * mm, s=20 * cm)
+    wall.set_vertical_rebar(d_b=10 * mm, s=20 * cm)
+    Node(section=wall, forces=[Forces(label="E", V_z=150 * kN, V_y=40 * kN)]).check_shear()
+    unread = [w for w in wall.warnings if w.code == "force_component_not_checked"]
+    assert [w.values["component"] for w in unread] == ["V_y"]
+    assert unread[0].combinations == ("E",)
+
+    # Changing the mesh drops the checks, and the warnings of the forces they ran on.
+    wall.set_horizontal_rebar(d_b=12 * mm, s=20 * cm)
+    assert not [w for w in wall.warnings if w.code == "force_component_not_checked"]

@@ -2,17 +2,17 @@
 
 *An intuitive tool for structural engineers to design concrete elements efficiently.*
 
-[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors)](https://github.com/sponsors/mihdicaballero)
-[![Tests](https://github.com/mihdicaballero/mento/actions/workflows/tests.yml/badge.svg)][tests]
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors)](https://ko-fi.com/mentoapp)
+[![Tests](https://github.com/mento-calc/mento/actions/workflows/tests.yml/badge.svg)][tests]
 [![Docs](https://readthedocs.org/projects/mento-docs/badge/?version=latest)](https://mento-docs.readthedocs.io/en/latest/?badge=latest)
-[![codecov](https://codecov.io/github/mihdicaballero/mento/graph/badge.svg?token=9X81ZRKMCX)](https://codecov.io/github/mihdicaballero/mento)
+[![codecov](https://codecov.io/gh/mento-calc/mento/graph/badge.svg?token=9X81ZRKMCX)](https://codecov.io/gh/mento-calc/mento)
 [![PyPI](https://img.shields.io/pypi/v/mento.svg)](https://pypi.org/project/mento/)
 [![Python versions](https://img.shields.io/pypi/pyversions/mento.svg)](https://pypi.org/project/mento/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/mihdicaballero/mento/blob/main/LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/mento-calc/mento/blob/main/LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21956634.svg)](https://doi.org/10.5281/zenodo.21956634)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/charliermarsh/ruff/main/assets/badge/v2.json)][ruff]
 
-[tests]: https://github.com/mihdicaballero/mento/actions/workflows/tests.yml
+[tests]: https://github.com/mento-calc/mento/actions/workflows/tests.yml
 [ruff]: https://github.com/charliermarsh/ruff
 
 mento designs and checks reinforced concrete members to **ACI 318-19**, **EN 1992-1-1:2004
@@ -65,7 +65,7 @@ print(beam.reinforcement)
 bottom: 2Ø20 mm + 1Ø16 mm / top: no reinforcement / stirrups: 1sØ10 mm/22 cm
 ```
 
-<img width="220" alt="Designed section of beam B101" src="https://raw.githubusercontent.com/mihdicaballero/mento/main/docs/source/_static/readme/beam_section.png" />
+<img width="220" alt="Designed section of beam B101" src="https://raw.githubusercontent.com/mento-calc/mento/main/docs/source/_static/readme/beam_section.png" />
 
 From there:
 
@@ -104,7 +104,7 @@ Across all of them:
 ## Validated against published examples
 
 The 58 tests in
-[`tests/validation`](https://github.com/mihdicaballero/mento/tree/main/tests/validation)
+[`tests/validation`](https://github.com/mento-calc/mento/tree/main/tests/validation)
 reproduce cases worked out outside mento: the CRSI *Design Guide on the ACI 318 Building
 Code*, CSI's software verification examples, ETABS runs, The Concrete Centre's Eurocode 2
 guide and eurocodeapplied.com. Each test names the example and the page its numbers come from.
@@ -139,7 +139,6 @@ The full documentation is at [mento-docs.readthedocs.io](https://mento-docs.read
 mento is built and maintained in the time left over from consulting work. If it saves you a
 spreadsheet or a few hours, consider sponsoring its development:
 
-- [GitHub Sponsors](https://github.com/sponsors/mihdicaballero) — monthly tiers from $5, or one-time contributions.
 - [Ko-fi](https://ko-fi.com/mentoapp) — one-off support, no account needed.
 
 Sponsorship funds the roadmap above: punching shear, columns, and full EN 1992 coverage.
@@ -149,7 +148,7 @@ Sponsors are listed in this README, and Partner sponsors get their logo on
 <!-- Sponsors: list Partner logos and Supporter names here once there are any. -->
 
 Not looking to sponsor? A ⭐ on the repo or feedback in
-[Discussions](https://github.com/mihdicaballero/mento/discussions) is also genuinely appreciated.
+[Discussions](https://github.com/mento-calc/mento/discussions) is also genuinely appreciated.
 
 ## Using mento at your company?
 
@@ -164,13 +163,13 @@ If any of that is useful for your team, fill out [this form](https://forms.gle/Q
 ## Contributing
 
 We welcome contributions from the community to expand and enhance the package. Start with the
-[contributing guide](https://github.com/mihdicaballero/mento/blob/main/CONTRIBUTING.md), then
-look through the [open issues](https://github.com/mihdicaballero/mento/issues) — those labelled
+[contributing guide](https://github.com/mento-calc/mento/blob/main/CONTRIBUTING.md), then
+look through the [open issues](https://github.com/mento-calc/mento/issues) — those labelled
 `good first issue` are a good entry point. A new calculation needs a published worked example
 to validate it against; the guide explains how.
 
 Participation in this project is governed by our
-[Code of Conduct](https://github.com/mihdicaballero/mento/blob/main/CODE_OF_CONDUCT.md).
+[Code of Conduct](https://github.com/mento-calc/mento/blob/main/CODE_OF_CONDUCT.md).
 
 ## Disclaimer
 
@@ -181,7 +180,7 @@ mento is a tool to assist structural engineers, not a replacement for engineerin
 If mento supports your research or professional work, cite it with the DOI
 [10.5281/zenodo.21956634](https://doi.org/10.5281/zenodo.21956634), which always resolves to the
 latest release. Citation metadata is in
-[CITATION.cff](https://github.com/mihdicaballero/mento/blob/main/CITATION.cff), and GitHub's
+[CITATION.cff](https://github.com/mento-calc/mento/blob/main/CITATION.cff), and GitHub's
 "Cite this repository" button will format it for you. The
 [citing guide](https://mento-docs.readthedocs.io/en/latest/getting_started/citing.html) explains
 which version to cite and gives a BibTeX entry.
@@ -189,4 +188,4 @@ which version to cite and gives a BibTeX entry.
 ## License
 
 This project is licensed under the MIT License. See
-[LICENSE](https://github.com/mihdicaballero/mento/blob/main/LICENSE) for the full text.
+[LICENSE](https://github.com/mento-calc/mento/blob/main/LICENSE) for the full text.

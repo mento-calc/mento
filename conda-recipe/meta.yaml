@@ -48,7 +48,7 @@ test:
     - pip check
 
 about:
-  homepage: https://github.com/mihdicaballero/mento
+  homepage: https://github.com/mento-calc/mento
   summary: An intuitive tool for structural engineers to design concrete elements efficiently.
   description: |
     mento designs and verifies reinforced concrete elements — beams, one way slabs,
@@ -60,7 +60,7 @@ about:
   license_family: MIT
   license_file: LICENSE
   doc_url: https://mento-docs.readthedocs.io/
-  dev_url: https://github.com/mihdicaballero/mento
+  dev_url: https://github.com/mento-calc/mento
 
 extra:
   recipe-maintainers:

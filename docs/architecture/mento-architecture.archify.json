@@ -447,7 +447,7 @@
    "viewer.common.close": "Cerrar"
   },
   "repository": {
-   "url": "https://github.com/mihdicaballero/mento",
+   "url": "https://github.com/mento-calc/mento",
    "provider": "github",
    "link_mode": "web",
    "revision": "85f9d35bbffd585b583626c4b77de6b4ace3d07d"

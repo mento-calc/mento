@@ -9,7 +9,7 @@ authors:
   - family-names: Romaris
     given-names: "Juan Pablo"
     email: jpromaris@yahoo.com.ar
-repository-code: "https://github.com/mihdicaballero/mento"
+repository-code: "https://github.com/mento-calc/mento"
 url: "https://mento-docs.readthedocs.io/"
 abstract: >-
   mento is a Python package for the design and verification of reinforced concrete elements
@@ -26,8 +26,8 @@ keywords:
   - CIRSOC 201
   - Python
 license: MIT
-version: 1.4.0
-date-released: "2026-09-30"
+version: 1.5.0
+date-released: "2026-10-05"
 identifiers:
   # Concept DOI: always resolves to the latest release, so it never has to change here.
   # The DOI of one specific release is on its own Zenodo record.

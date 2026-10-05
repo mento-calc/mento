@@ -10,7 +10,7 @@ running an older version, please upgrade before reporting an issue.
 Please do not open a public issue for security problems.
 
 Report vulnerabilities privately through
-[GitHub's security advisory form](https://github.com/mihdicaballero/mento/security/advisories/new),
+[GitHub's security advisory form](https://github.com/mento-calc/mento/security/advisories/new),
 or by email to mihdicaballero@gmail.com.
 
 Include the version of mento, the environment you are running it in, and the steps needed to
@@ -22,6 +22,6 @@ prefer to stay anonymous.
 
 A wrong design result is not a security vulnerability, but it is the most serious kind of
 bug this project can have. Report it as a normal
-[bug report](https://github.com/mihdicaballero/mento/issues/new/choose) and include the
+[bug report](https://github.com/mento-calc/mento/issues/new/choose) and include the
 inputs, the result mento produced, and the expected value with its source — a code clause,
 a design guide, or a worked textbook example. Those reports get priority.

@@ -5,7 +5,7 @@ name: Publish
 # Authentication uses PyPI trusted publishing, so no API token is stored in the
 # repository. It has to be configured once on PyPI, under the project's
 # Publishing settings, with:
-#   owner        mihdicaballero
+#   owner        mento-calc
 #   repository   mento
 #   workflow     publish.yml
 #   environment  pypi
@@ -148,7 +148,7 @@ jobs:
         run: gh release upload "$GITHUB_REF_NAME" stats.json --clobber
 
       # Needs the repository secret MENTO_WEB_DISPATCH_TOKEN: a fine-grained
-      # personal access token scoped to mihdicaballero/mento-web with
+      # personal access token scoped to mento-calc/mento-web with
       # "Contents: read and write", which is what the dispatches endpoint asks
       # for. The workflow's own GITHUB_TOKEN cannot reach another repository.
       - name: Notify mento-web
@@ -161,7 +161,7 @@ jobs:
             echo "::warning::MENTO_WEB_DISPATCH_TOKEN is not set; mento-web was not notified."
             exit 0
           fi
-          gh api repos/mihdicaballero/mento-web/dispatches \
+          gh api repos/mento-calc/mento-web/dispatches \
             --method POST \
             -f event_type=mento-release \
             -f "client_payload[version]=${VERSION#v}" \
