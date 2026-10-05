@@ -12,6 +12,8 @@ from the release history and are summaries rather than complete lists.
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-05
+
 ### Added
 
 - **`Forces` holds the complete demand of a section** (#186): `V_y` and `M_z` join `N_x`,
