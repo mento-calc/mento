@@ -12,6 +12,40 @@ from the release history and are summaries rather than complete lists.
 
 ## [Unreleased]
 
+### Changed
+
+- **`BeamSummary` designs a beam for the envelope of its combinations.** Rows that share a
+  `Label` are now one beam: one node carrying every combination, as a `Node` built by hand,
+  instead of one independent section per row. `check()` gives one row per beam with the
+  largest demands and DCRs over its combinations (it read the last combination before),
+  `design()` writes the same stirrups on every row of the beam and the bars of the face each
+  row puts in tension, and `flexure_results()` / `shear_results()` keep one row per
+  combination, with `index` counting beams. Rows of a beam that disagree on `b`, `h`, `cc`,
+  the stirrups or the bars of a face raise a `ValueError` naming the beam. A list whose
+  labels are all different, or empty, gives the same results as before.
+- **`ShearWallSummary` reads the mesh of a wall from any of its rows.** It took the mesh
+  of the first row of a (Level, Label) group only, so a mesh given on a later row was
+  lost; now it may be given on any row, rows that give different meshes raise a
+  `ValueError` naming the wall, and a row with no label is a wall of its own instead of
+  joining every other unlabelled row.
+- **`export_design()` writes each number in the unit its column declares.** It wrote the
+  magnitude of whatever unit the design computed a value in.
+
+### Added
+
+- **`OneWaySlabSummary`**, in `mento` and `mento.slab_summary`: the `BeamSummary`
+  workflow — `check()`, `design()`, `flexure_results()`, `shear_results()`,
+  `export_design()` / `import_design()` and `results_detailed_doc()` — on a list of
+  one-way slab strips. Each face is a diameter and a spacing per layer
+  (`db1, s1, db3, s3`), rows that share a `Label` are one slab designed for their
+  envelope, and `design()` designs the flexure only: the shear is checked against the
+  concrete, without stirrups.
+
+### Fixed
+
+- A slab summary reads a second reinforcement layer given on its own, and rejects a
+  layer with only its diameter or its spacing instead of silently ignoring it.
+
 ## [1.5.0] - 2026-10-05
 
 ### Added
@@ -48,37 +82,6 @@ from the release history and are summaries rather than complete lists.
   structural analysis or designs columns, which it does not yet. Its links are absolute, so
   they also work on PyPI, and the DOI badge points to the concept DOI that resolves to the
   latest release, as the citing guide does.
-- **`BeamSummary` designs a beam for the envelope of its combinations.** Rows that share a
-  `Label` are now one beam: one node carrying every combination, as a `Node` built by hand,
-  instead of one independent section per row. `check()` gives one row per beam with the
-  largest demands and DCRs over its combinations (it read the last combination before),
-  `design()` writes the same stirrups on every row of the beam and the bars of the face each
-  row puts in tension, and `flexure_results()` / `shear_results()` keep one row per
-  combination, with `index` counting beams. Rows of a beam that disagree on `b`, `h`, `cc`,
-  the stirrups or the bars of a face raise a `ValueError` naming the beam. A list whose
-  labels are all different, or empty, gives the same results as before.
-- **`ShearWallSummary` reads the mesh of a wall from any of its rows.** It took the mesh
-  of the first row of a (Level, Label) group only, so a mesh given on a later row was
-  lost; now it may be given on any row, rows that give different meshes raise a
-  `ValueError` naming the wall, and a row with no label is a wall of its own instead of
-  joining every other unlabelled row.
-- **`export_design()` writes each number in the unit its column declares.** It wrote the
-  magnitude of whatever unit the design computed a value in.
-
-### Added
-
-- **`OneWaySlabSummary`**, in `mento` and `mento.slab_summary`: the `BeamSummary`
-  workflow — `check()`, `design()`, `flexure_results()`, `shear_results()`,
-  `export_design()` / `import_design()` and `results_detailed_doc()` — on a list of
-  one-way slab strips. Each face is a diameter and a spacing per layer
-  (`db1, s1, db3, s3`), rows that share a `Label` are one slab designed for their
-  envelope, and `design()` designs the flexure only: the shear is checked against the
-  concrete, without stirrups.
-
-### Fixed
-
-- A slab summary reads a second reinforcement layer given on its own, and rejects a
-  layer with only its diameter or its spacing instead of silently ignoring it.
 
 ### Deprecated
 
