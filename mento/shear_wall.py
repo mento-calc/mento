@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Dict, List, NoReturn, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, NoReturn, Optional, Tuple
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
@@ -18,7 +18,7 @@ from mento.units import cm, dimensionless, kN, mm
 
 from mento.codes.registry import design_code
 from mento.precompute import unit_label
-from mento.design_warnings import DesignWarning, collect, wall_warnings
+from mento.design_warnings import DesignWarning, collect, combination_label, unread_force_warnings, wall_warnings
 from mento.wall_results import (
     WallMesh,
     WallShearCheck,
@@ -184,6 +184,8 @@ class ShearWall(RectangularBeam):
 
         # One public result per combination of the last check (wall_results)
         self._wall_shear_checks: List[WallShearCheck] = []
+        # The components of those combinations the check passed over (V_y, M_x, M_z)
+        self._unread_force_warnings: List[Any] = []
 
         # Status flags
         self._shear_wall_checked: bool = False
@@ -248,6 +250,7 @@ class ShearWall(RectangularBeam):
         DCR of the one that was checked.
         """
         self._wall_shear_checks = []
+        self._unread_force_warnings = []
         self._shear_wall_checked = False
 
     # ------------------------------------------------------------------
@@ -260,6 +263,7 @@ class ShearWall(RectangularBeam):
         max_dcr: float = 0.0
         self._limiting_case_shear_details = None
         self._wall_shear_checks = []
+        self._unread_force_warnings = _unread_warnings(forces)
 
         for force in forces:
             code = design_code(self.concrete)
@@ -304,6 +308,7 @@ class ShearWall(RectangularBeam):
             capture_wall_shear_check(self, force.label, code.requires("check_shear_wall")(self, force))
             for force in forces
         ]
+        self._unread_force_warnings = _unread_warnings(forces)
         return tuple(self._wall_shear_checks)
 
     def design_shear(self, forces: list[Forces]) -> DataFrame:
@@ -405,7 +410,8 @@ class ShearWall(RectangularBeam):
         """
         checks = tuple(self._wall_shear_checks)
         mesh = checks[0].mesh if checks else self.mesh
-        return collect(wall_warnings(self, mesh, checks))
+        unread = list(self._unread_force_warnings) if checks else []
+        return collect(wall_warnings(self, mesh, checks) + unread)
 
     # The beam's shear attributes, read off the wall. A wall inherits ``V_c`` and
     # ``f_yt`` from RectangularBeam, whose shear check fills them; the wall has a
@@ -509,3 +515,12 @@ class ShearWall(RectangularBeam):
     # ------------------------------------------------------------------
     # Plot — wall plan view: length lw (horizontal) × thickness t
     # ------------------------------------------------------------------
+
+
+def _unread_warnings(forces: list[Forces]) -> List[Any]:
+    """The components of ``forces`` a wall check does not read; see ``unread_force_warnings``."""
+    return [
+        raw
+        for position, force in enumerate(forces, 1)
+        for raw in unread_force_warnings(force, combination_label(force.label, position))
+    ]

@@ -30,6 +30,10 @@ from the release history and are summaries rather than complete lists.
 - **Steel design values** (#185): `Steel`, `SteelBar` and `SteelStrand` take and keep
   `gamma_s` (1.15 by default) and `epsilon_ud` (`None`, no limit, by default), and expose
   `f_yd = f_y/gamma_s` and `epsilon_yd = f_yd/E_s`.
+- **`force_component_not_checked` warning.** A beam, slab, footing or wall given `V_y`,
+  `M_z` or a torsion `M_x` reports it in `node.warnings`: its checks read `N_x`, `V_z` and
+  `M_y` only, so a DCR below 1 says nothing about the rest. One warning per component,
+  with the largest value given and the combinations that give it.
 
 ### Changed
 
