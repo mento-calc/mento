@@ -607,7 +607,7 @@ class TestShearWallSummaryImperial:
         assert (units["t"], units["lw"], units["hw"]) == ("in", "ft", "ft")
         assert (units["Horiz."], units["Vert."]) == ("in", "in")
         assert (row["t"], row["lw"], row["hw"]) == (10, 12, 10)
-        assert (row["Horiz."], row["Vert."]) == ("Ø0.5/8", "Ø0.5/8")
+        assert (row["Horiz."], row["Vert."]) == ("#4@8", "#4@8")
         assert row["Vu,max"] == pytest.approx(100.0)
         assert row["ØVn"] == pytest.approx(523.0, abs=0.1)
         assert row["DCR"] == pytest.approx(0.191, abs=1e-3)

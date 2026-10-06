@@ -62,6 +62,7 @@ from mento.codes.check_state import (
 )
 from mento.codes.registry import DesignCode, register
 from mento.material import Concrete_ACI_318_19, Concrete_CIRSOC_201_25
+from mento.precompute import shown
 from mento.units import cm, dimensionless, inch, kN, kNm, mm, MPa, psi
 
 if TYPE_CHECKING:
@@ -77,18 +78,19 @@ _FLEXURE_SYMBOLS = {
     "md_capacity": r"\phi M_n",
 }
 
+#: Column -> kind of quantity (a key of ``DISPLAY``); ``units_row`` writes the unit.
 _UNITS_ROW_SHEAR = {
     "Label": "",
     "Comb.": "",
-    "Av,min": "cm²/m",
-    "Av,req": "cm²/m",
-    "Av": "cm²/m",
-    "Vu": "kN",
-    "Nu": "kN",
-    "ØVc": "kN",
-    "ØVs": "kN",
-    "ØVn": "kN",
-    "ØVmax": "kN",
+    "Av,min": "per_length",
+    "Av,req": "per_length",
+    "Av": "per_length",
+    "Vu": "force",
+    "Nu": "force",
+    "ØVc": "force",
+    "ØVs": "force",
+    "ØVn": "force",
+    "ØVmax": "force",
     "Vu≤ØVmax": "",
     "Vu≤ØVn": "",
     "DCR": "",
@@ -98,12 +100,12 @@ _UNITS_ROW_FLEXURE = {
     "Label": "",
     "Comb.": "",
     "Position": "",
-    "As,min": "cm²",
-    "As,req top": "cm²",
-    "As,req bot": "cm²",
-    "As": "cm²",
-    "Mu": "kNm",
-    "ØMn": "kNm",
+    "As,min": "area",
+    "As,req top": "area",
+    "As,req bot": "area",
+    "As": "area",
+    "Mu": "moment",
+    "ØMn": "moment",
     "Mu≤ØMn": "",
     "DCR": "",
 }
@@ -380,10 +382,11 @@ _SUMMARY_COLUMNS = {
 
 
 def _capacity_columns(section: "RectangularBeam") -> dict:
-    """ACI reports a reduced capacity phi*Mn on each face."""
+    """ACI reports a reduced capacity phi*Mn on each face, in the section's display units."""
+    imperial = section.concrete.is_imperial
     return {
-        "ØMn,top": round(section._phi_M_n_top.to("kN*m").magnitude, 1),
-        "ØMn,bot": round(section._phi_M_n_bot.to("kN*m").magnitude, 1),
+        "ØMn,top": shown(section._phi_M_n_top, "moment", imperial, 1),
+        "ØMn,bot": shown(section._phi_M_n_bot, "moment", imperial, 1),
     }
 
 

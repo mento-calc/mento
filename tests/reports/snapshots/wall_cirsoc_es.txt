@@ -1,0 +1,97 @@
+### check_shear
+  Label Comb.  ρt,min  ρt,req       ρt  ρl,min       ρl   Vu    ØVc     ØVs      ØVn ØVn,max Vu≤ØVn,max Vu≤ØVn    DCR
+0                                                         kN     kN      kN       kN      kN                         
+1    M1     E  0.0025  0.0025  0.00251  0.0025  0.00262  400  562.5  475.01  1037.51  1485.0       True   True  0.386
+
+### shear_results_detailed
+===== RESULTADOS DETALLADOS DE TABIQUE =====
+Materiales                            Variable     Valor  Unidad
+-----------------------------------  ----------  -------  --------
+Identificación de la sección                          M1
+Resistencia del hormigón                 fc           25  MPa
+Tensión de fluencia del acero            fy          420  MPa
+Hormigón de densidad normal              λ             1
+Coeficiente de seguridad para corte      Øv         0.75 
+
+Geometría              Variable     Valor  Unidad
+--------------------  ----------  -------  --------
+Espesor del tabique       t            20  cm
+Longitud del tabique      lw          300  cm
+Altura del tabique        hw          300  cm
+Relación de aspecto     hw/lw           1
+Área bruta de corte      Acv         6000  cm² 
+
+Solicitaciones     Variable     Valor  Unidad
+----------------  ----------  -------  --------
+Corte                 Vu          400  kN 
+
+Verificación                                       Unidad     Valor  Mín.       Máx.  ¿Ok?
+------------------------------------------------  --------  -------  ------  -------  ------
+Cuantía de armadura horizontal                              0.00251  0.0025           ✅
+Cuantía vertical mínima                                     0.00262  0.0025           ✅
+Separación de barras horizontales (en cada cara)     mm         200              450  ✅
+Separación de barras verticales (en cada cara)       mm         300              450  ✅
+Capacidad máxima de corte                            kN         400             1485  ✅
+Capacidad total de corte                             kN         400          1037.51  ✅ 
+
+Resistencia al corte                Variable     Valor  Unidad
+---------------------------------  ----------  -------  --------
+Resistencia al corte del hormigón     ØVc        562.5  kN
+Resistencia al corte del acero        ØVs       475.01  kN
+Resistencia total al corte            ØVn      1037.51  kN
+Resistencia máxima al corte         ØVn,max       1485  kN
+Factor de Utilización                 DCR        0.386 
+
+
+
+### shear_results_detailed_doc: Shear Wall M1 shear check CIRSOC 201-25.docx
+Verificación a corte de tabique M1
+Generado con mento <version>. Código de diseño: CIRSOC 201-25
+Datos de la sección
+Materiales | Variable | Valor | Unidad
+Identificación de la sección |  | M1 | 
+Resistencia del hormigón | fc | 25 | MPa
+Tensión de fluencia del acero | fy | 420 | MPa
+Hormigón de densidad normal | λ | 1 | 
+Coeficiente de seguridad para corte | Øv | 0.75 | 
+Geometría | Variable | Valor | Unidad
+Espesor del tabique | t | 20.0 | cm
+Longitud del tabique | lw | 300.0 | cm
+Altura del tabique | hw | 300.0 | cm
+Relación de aspecto | hw/lw | 1.0 | 
+Área bruta de corte | Acv | 6000.0 | cm²
+Solicitaciones | Variable | Valor | Unidad
+Corte | Vu | 400 | kN
+Verificaciones de límites
+Verificación | Unidad | Valor | Mín. | Máx. | ¿Ok?
+Cuantía de armadura horizontal |  | 0.00251 | 0.0025 |  | ✅
+Cuantía vertical mínima |  | 0.00262 | 0.0025 |  | ✅
+Separación de barras horizontales (en cada cara) | mm | 200.0 |  | 450.0 | ✅
+Separación de barras verticales (en cada cara) | mm | 300.0 |  | 450.0 | ✅
+Capacidad máxima de corte | kN | 400.0 |  | 1485.0 | ✅
+Capacidad total de corte | kN | 400.0 |  | 1037.5 | ✅
+Verificaciones de resistencia
+Resistencia al corte | Variable | Valor | Unidad
+Resistencia al corte del hormigón | ØVc | 562.5 | kN
+Resistencia al corte del acero | ØVs | 475.0 | kN
+Resistencia total al corte | ØVn | 1037.5 | kN
+Resistencia máxima al corte | ØVn,max | 1485.0 | kN
+Factor de Utilización | DCR | 0.39 | 
+
+### results
+Shear Wall M1, $l_w$=300.00 cm, $t$=20.00 cm, $h_w$=300.00 cm, $c_c$=2.50 cm, Concrete H25, Rebar ADN 420.
+Horizontal rebar: Ø8/20 cm E.F., $\rho_t$=0.00251, Minimum vertical rebar: Ø10/30 cm E.F., $\rho_l$=0.00262, $V_u$=400 kN, $\phi V_n$=1037.51 kN → $\color{#439b00}{\text{DCR}=0.39}$ 
+
+### mesh
+2×Ø8 mm/20 cm
+2×Ø10 mm/30 cm
+
+### warnings
+
+
+### plot
+300 cm
+20 cm
+Horizontal rebar: Ø8/20 cm E.F.
+Minimum vertical rebar: Ø10/30 cm E.F.
+Shear Wall M1 — plan view

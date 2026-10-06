@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any, Optional, Sequence, Tuple, cast
 
 from mento.units import Quantity, ureg
 
+from mento.bar_sizes import bar_designation, is_us_customary
 from mento.codes.check_state import to_display
 from mento.codes.registry import design_code
 from mento.i18n import checked_language, translate
@@ -37,24 +38,45 @@ class DesignNotRunError(RuntimeError):
     """Raised when results are read before a check or design has been run."""
 
 
-def format_longitudinal_rebar(n: float, d_b: str, s: Optional[str] = None) -> str:
+def spacing_separator(imperial: bool) -> str:
+    """What stands between a bar and its spacing: ``Ø12/17cm``, but ``#4@12 in``.
+
+    A slash after a US bar size would read as a fraction -- ``#3/4 in`` is
+    three quarters of an inch -- so US customary writes the spacing with ``@``,
+    as its drawings do.
+    """
+    return "@" if imperial else "/"
+
+
+def bar_mark(d_b: Quantity) -> str:
+    """A bar as the result dataclasses write it: ``Ø16 mm``, or its ASTM size, ``#6``.
+
+    The dataclasses carry no unit system, so the unit of the diameter, in the
+    display units of the section it came from, is what decides.
+    """
+    return bar_designation(d_b) if is_us_customary(d_b) else f"Ø{d_b:.4g~P}"
+
+
+def format_longitudinal_rebar(n: float, bar: str, s: Optional[str] = None, *, imperial: bool = False) -> str:
     """Label one layer of longitudinal bars in the notation of its element.
 
     A beam is detailed as a number of bars of a diameter, so the count leads:
-    ``4Ø16``. A slab is one bar repeated at a spacing across the strip, and the
-    count that falls out of it -- ``width / s``, not a whole number -- says
-    nothing about how it is drawn, so the spacing takes its place:
-    ``Ø12/17cm`` -- the same notation its grid of stirrups is written in.
+    ``4Ø16``, ``4#5``. A slab is one bar repeated at a spacing across the strip,
+    and the count that falls out of it -- ``width / s``, not a whole number --
+    says nothing about how it is drawn, so the spacing takes its place:
+    ``Ø12/17cm``, ``#4@12 in`` -- the same notation its grid of stirrups is
+    written in.
 
-    Takes the numbers already formatted, so each caller keeps its own precision
-    and units while the shape of the label is decided in one place. The count
-    is the exception, a bare number: a whole one reads whole whatever its
-    type, since a count entered as ``2.0`` is still two bars, not "2.0Ø16".
+    Takes the bar and the spacing already written -- ``bar`` with its symbol,
+    ``Ø16`` or ``#5`` -- so each caller keeps its own precision and units while
+    the shape of the label is decided in one place. The count is the
+    exception, a bare number: a whole one reads whole whatever its type, since
+    a count entered as ``2.0`` is still two bars, not "2.0Ø16".
     """
     if s is None:
         count = int(n) if float(n).is_integer() else n
-        return f"{count}Ø{d_b}"
-    return f"Ø{d_b}/{s}"
+        return f"{count}{bar}"
+    return f"{bar}{spacing_separator(imperial)}{s}"
 
 
 def placed_bars(n: float) -> int:
@@ -100,8 +122,9 @@ class RebarLayer:
     def __str__(self) -> str:
         return format_longitudinal_rebar(
             self.n,
-            f"{self.d_b:.4g~P}",
+            bar_mark(self.d_b),
             None if self.s is None else f"{self.s:.4g~P}",
+            imperial=is_us_customary(self.d_b),
         )
 
 
@@ -249,7 +272,7 @@ class ShearCheck:
     ``label`` is the name of the load combination, not a description of the
     stirrups: that is :meth:`ShearDesign.notation`.
 
-    The spacing limits of this combination (new in 1.4.0). ``s_max_l_table``
+    The spacing limits of this combination. ``s_max_l_table``
     and ``s_max_w`` are the limits along the member and across its width
     that ACI 318-19 / CIRSOC 201-25 Table 9.7.6.2.2 set -- Expressions (9.6N)
     and (9.8N) under EN 1992-1-1, the first with mento's own 400 mm cap. The
@@ -476,6 +499,7 @@ def format_transverse_rebar(
     s_max_w: Optional[str] = None,
     language: Optional[str] = "en",
     separator: str = " · ",
+    imperial: bool = False,
 ) -> str:
     """Label the transverse reinforcement in the notation of its element.
 
@@ -500,10 +524,13 @@ def format_transverse_rebar(
     checked_language(language)
     if n_stirrups == 0:
         return translate("no stirrups", language)
+    bar = d_b if d_b.startswith(("Ø", "#")) else f"Ø{d_b}"
     if layout == GRID:
-        return f"Ø{d_b}/{s_l}×{s_w}"
+        return f"{bar}{spacing_separator(imperial)}{s_l}×{s_w}"
     legs = 2 * n_stirrups if n_legs is None else n_legs
-    text = translate("{n_legs} legs Ø{d_b} @ {s_l}", language, n_legs=legs, d_b=d_b, s_l=s_l)
+    text = translate("{n_legs} legs Ø{d_b} @ {s_l}", language, n_legs=legs, d_b=d_b.removeprefix("Ø"), s_l=s_l).replace(
+        "Ø#", "#"
+    )
     text += separator + translate("{s_w} between legs", language, s_w=s_w)
     if s_max_w is not None:
         text += " " + translate("(max {s_max_w})", language, s_max_w=s_max_w)
@@ -536,30 +563,40 @@ def transverse_notation(
     ``d_b`` keeps its own. Numbers take mento's ``.4g`` format with a dot.
 
     ``compact`` is the form for a narrow column: bare numbers, the bar in mm
-    and the spacing in cm -- in and in when ``imperial`` is True -- and neither
+    and the spacing in cm -- ASTM sizes and inches when ``imperial`` is True -- and neither
     the spacing across the width nor its maximum: ``10 legs Ø12/14`` on a
     beam, ``Ø10/8×16`` on a slab strip. The numbers carry no unit, so the
     caller says which system they are in: pass the section's
     (``beam.concrete.is_imperial``), or the system of the table they sit in.
     With ``imperial`` left as ``None`` the compact form follows the unit of
-    ``s_l``: in and in when it is in inches or feet, mm and cm otherwise.
+    ``s_l``: ASTM sizes and inches when it is in inches or feet, mm and cm otherwise.
 
     ``language`` is the catalog the words come from, the current one with
     ``None``; an explicit code without a catalog raises ``ValueError``, as
     :func:`mento.set_language` does.
     """
     checked_language(language)
+    if imperial is None:
+        imperial = _is_imperial_length(s_l)
     if compact:
         if n_stirrups == 0:
             return translate("no stirrups", language)
-        if imperial is None:
-            imperial = _is_imperial_length(s_l)
         d_unit, s_unit = ("inch", "inch") if imperial else ("mm", "cm")
-        d_shown = f"{d_b.to(d_unit).magnitude:.4g}"
+        d_shown = bar_designation(d_b) if imperial else f"{d_b.to(d_unit).magnitude:.4g}"
         s_shown = f"{s_l.to(s_unit).magnitude:.4g}"
         if layout == GRID:
-            return f"Ø{d_shown}/{s_shown}×{s_w.to(s_unit).magnitude:.4g}"
-        return translate("{n_legs} legs Ø{d_b}/{s_l}", language, n_legs=2 * n_stirrups, d_b=d_shown, s_l=s_shown)
+            return f"{d_shown if imperial else f'Ø{d_shown}'}{spacing_separator(imperial)}{s_shown}×{s_w.to(s_unit).magnitude:.4g}"
+        return (
+            translate(
+                "{n_legs} legs Ø{d_b}/{s_l}",
+                language,
+                n_legs=2 * n_stirrups,
+                d_b=d_shown.removeprefix("Ø"),
+                s_l=s_shown,
+            )
+            .replace("Ø#", "#")
+            .replace("/", "@" if imperial else "/")
+        )
     if layout == GRID:
         # The grid is written as it always was, each spacing in its own unit.
         s_w_shown = f"{s_w:.4g~P}"
@@ -570,13 +607,14 @@ def transverse_notation(
     return format_transverse_rebar(
         layout,
         n_stirrups,
-        f"{d_b:.4g~P}",
+        bar_designation(d_b) if imperial else f"{d_b:.4g~P}",
         f"{s_l:.4g~P}",
         s_w_shown,
         n_legs=2 * n_stirrups,
         s_max_w=max_shown,
         language=language,
         separator=separator,
+        imperial=imperial,
     )
 
 
@@ -828,7 +866,7 @@ class StirrupOption:
     the stirrups are held to, Table 9.7.6.2.2 and §9.7.6.4.3 together -- but
     an option carries no ``s_max_l_table`` / ``s_max_l_support`` split, and
     its two limits are the ones the search read at the depth this option's
-    own stirrup gives the section (new in 1.4.0; ``None`` where the search
+    own stirrup gives the section (``None`` where the search
     recorded none). ``functional`` says how
     much steel the option adds: the excess of ``A_v`` over what the section
     asks for with this stirrup on it, ``A_v / A_v_req - 1``, plus one for
@@ -923,7 +961,7 @@ class ShearDesign:
     ``DCR``, which is the shear's. Empty when the stirrups were not
     designed, or were changed by hand afterwards.
 
-    The spacing limits (new in 1.4.0) are envelopes over every combination
+    The spacing limits are envelopes over every combination
     checked, the tightest of each -- what the warnings hold the stirrups to:
 
     - ``s_max_w``: the limit across the width, on the legs -- ACI 318-19 /

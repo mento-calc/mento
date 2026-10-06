@@ -7,6 +7,8 @@ from collections import OrderedDict
 import pandas as pd
 from pandas import DataFrame
 
+from mento.bar_sizes import bar_designation
+from mento.design_results import spacing_separator
 from mento.material import Concrete, SteelBar
 from mento.forces import Forces
 from mento.shear_wall import ShearWall
@@ -30,13 +32,14 @@ def _wall_passes(wall: ShearWall) -> bool:
 
 
 def _mesh_label(d_b: Any, s: Any, imperial: bool) -> str:
-    """One direction of the mesh as the summary table writes it: ``Ø10/15`` (mm/cm), ``Ø0.5/8`` (in/in).
+    """One direction of the mesh as the summary table writes it: ``Ø10/15`` (mm/cm), ``#4@8`` (in).
 
     In the units the section is detailed in: an imperial bar printed in mm and
-    cm rounds #4 @ 8 in to "Ø13/20", a bar and a spacing nobody placed.
+    cm rounds #4 @ 8 in to "Ø13/20", a bar and a spacing nobody placed. A US
+    bar is its ASTM size, and its spacing follows an ``@``, as on a drawing.
     """
     if imperial:
-        return f"Ø{d_b.to('inch').magnitude:.4g}/{s.to('inch').magnitude:.4g}"
+        return f"{bar_designation(d_b)}{spacing_separator(True)}{s.to('inch').magnitude:.4g}"
     return f"Ø{d_b.to('mm').magnitude:.0f}/{s.to('cm').magnitude:.0f}"
 
 

@@ -13,7 +13,8 @@ from numbers import Integral
 # from devtools import debug
 
 from mento.rectangular import RectangularSection
-from mento.codes.registry import design_code
+from mento.bar_sizes import bar_designation
+from mento.codes.registry import design_code, units_row
 from mento.precompute import refresh_section_floats
 from mento.rebar import Rebar
 from mento.units import mm, inch, kN, m, cm, dimensionless
@@ -25,6 +26,7 @@ from mento.design_warnings import (
     shear_warnings,
     shortfall_warnings,
     spacing_warnings,
+    unread_force_warnings,
 )
 from mento.forces import Forces
 from mento.settings import BeamSettings
@@ -1230,6 +1232,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             state = self._run_flexure_check(force, report=False)
             self._flexure_checks.append(capture_flexure_check(self, force.label, state))
             self._flexure_warnings.extend(flexure_warnings(self, combination_label(force.label, position), state))
+            self._flexure_warnings.extend(unread_force_warnings(force, combination_label(force.label, position)))
             self._note_compression_face(force, state)
         self._flexure_checked = True
         return tuple(self._flexure_checks)
@@ -1302,6 +1305,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             state = self._run_shear_check(force, report=False)
             self._shear_checks.append(capture_shear_check(self, force.label, state))
             self._shear_warnings.extend(shear_warnings(self, combination_label(force.label, position), state))
+            self._shear_warnings.extend(unread_force_warnings(force, combination_label(force.label, position)))
         self._shear_checked = True
         return tuple(self._shear_checks)
 
@@ -1372,6 +1376,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             # combination only, and are on their way out with them.
             self._flexure_checks.append(capture_flexure_check(self, force.label, state))
             self._flexure_warnings.extend(flexure_warnings(self, combination_label(force.label, position), state))
+            self._flexure_warnings.extend(unread_force_warnings(force, combination_label(force.label, position)))
 
             # Extract the DCR values for top and bottom from the results
             current_dcr_top = self._DCRb_top
@@ -1587,6 +1592,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             # attributes afterwards.
             self._shear_checks.append(capture_shear_check(self, force.label, state))
             self._shear_warnings.extend(shear_warnings(self, combination_label(force.label, position), state))
+            self._shear_warnings.extend(unread_force_warnings(force, combination_label(force.label, position)))
 
             # Check if this result is the limiting case
             current_dcr = result["DCR"][0]
@@ -1607,13 +1613,12 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         return all_results
 
     def _get_units_row_shear(self) -> pd.DataFrame:
-        """The unit row of the shear summary, in the active code's own names."""
-        return pd.DataFrame([design_code(self.concrete).units_row_shear])
+        """The unit row of the shear summary, in the active code's own names and the section's units."""
+        return pd.DataFrame([units_row(design_code(self.concrete).units_row_shear, self.concrete.is_imperial)])
 
     def _get_units_row_flexure(self) -> pd.DataFrame:
-        """The unit row of the flexure summary, in the active code's own names."""
-        # TODO: Add imperial units row output
-        return pd.DataFrame([design_code(self.concrete).units_row_flexure])
+        """The unit row of the flexure summary, in the active code's own names and the section's units."""
+        return pd.DataFrame([units_row(design_code(self.concrete).units_row_flexure, self.concrete.is_imperial)])
 
     ##########################################################
     # CHECK & DESIGN ALL
@@ -1922,10 +1927,16 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         - If n1 and n2 have the same diameter → combine (e.g., 2Ø16 + 1Ø16 → 3Ø16)
         - If they differ → show both groups (e.g., 2Ø16+2Ø10)
         - If no bars exist → "-"
+
+        A bar is written ``Ø16`` in SI and by its ASTM size, ``#5``, in US customary.
         """
         # Convert diameters safely
         phi1 = int(d_b1.to("mm").magnitude) if (d_b1 is not None and d_b1.magnitude > 0) else 0
         phi2 = int(d_b2.to("mm").magnitude) if (d_b2 is not None and d_b2.magnitude > 0) else 0
+        imperial = self.concrete.is_imperial
+
+        def mark(phi: int, d_b: Quantity) -> str:
+            return bar_designation(d_b) if imperial else f"Ø{phi}"
 
         # No bars at all
         if n1 == 0 and n2 == 0:
@@ -1933,16 +1944,16 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
 
         # Only one group
         if n2 == 0 or phi2 == 0:
-            return f"{n1}Ø{phi1}"
+            return f"{n1}{mark(phi1, d_b1)}"
         if n1 == 0 or phi1 == 0:
-            return f"{n2}Ø{phi2}"
+            return f"{n2}{mark(phi2, d_b2)}"
 
         # Same diameter → combine quantities
         if phi1 == phi2:
-            return f"{n1 + n2}Ø{phi1}"
+            return f"{n1 + n2}{mark(phi1, d_b1)}"
 
         # Different diameters → write both
-        return f"{n1}Ø{phi1}+{n2}Ø{phi2}"
+        return f"{n1}{mark(phi1, d_b1)}+{n2}{mark(phi2, d_b2)}"
 
     ##########################################################
     # PLOT BEAM SECTION WITH REBAR

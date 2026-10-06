@@ -176,7 +176,7 @@ def beam_summary_doc(self: "BeamSummary", index: int = 1) -> None:
             round(top_details["forces"]["Value"][0], 2),
             round(bot_details["forces"]["Value"][1], 2),
         ],
-        "Unit": ["kNm", "kNm"],
+        "Unit": [top_details["forces"]["Unit"][0], bot_details["forces"]["Unit"][1]],
     }
     min_max_result = {
         "Check": [
@@ -185,7 +185,7 @@ def beam_summary_doc(self: "BeamSummary", index: int = 1) -> None:
             "Min/Max As rebar bottom",
             "Minimum spacing bottom",
         ],
-        "Unit": ["cm²", "mm", "cm²", "mm"],
+        "Unit": [*top_details["min_max"]["Unit"][:2], *bot_details["min_max"]["Unit"][2:4]],
         "Value": [
             round(top_details["min_max"]["Value"][0], 2),
             round(top_details["min_max"]["Value"][1], 2),

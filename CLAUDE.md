@@ -86,6 +86,7 @@ mento/
 ├── units.py                Pint unit registry (m, cm, mm, kN, kNm, MPa, kip, psi, etc.)
 ├── material.py             Concrete_ACI_318_19, Concrete_EN_1992_2004, Concrete_CIRSOC_201_25, SteelBar, SteelStrand
 ├── rebar.py                Rebar — bar database and selection logic
+├── bar_sizes.py            ASTM bar sizes: bar_designation("#6") / bar_diameter(6), the table imperial output and Rebar share
 ├── section.py              Section base class
 ├── section_geometry.py     SectionGeometry — where the bars and stirrup legs are, as the checks assume them
 ├── rectangular.py          RectangularSection — geometry and cover calculations
@@ -98,7 +99,7 @@ mento/
 ├── wall_results.py         WallMesh, WallShearCheck, WallShearDesign — public results of a ShearWall
 ├── design_results.py       Public read-only result dataclasses (FlexureDesign, ShearDesign, SectionReinforcement, ...) — ADR-0001
 ├── design_warnings.py      DesignWarning — detailing limits a section misses, with stable codes (beam.warnings / node.warnings)
-├── precompute.py           SectionFloats — section geometry and materials as plain floats, converted once (ADR-0005)
+├── precompute.py           SectionFloats (ADR-0005); DISPLAY / DISPLAY_LABEL: the unit every report shows, per unit system
 ├── forces.py               Forces(label, N_x, V_z, M_y, M_x) with pint units
 ├── node.py                 Node(section, forces) — drives check/design
 ├── settings.py             BeamSettings — metric/imperial defaults for design rules

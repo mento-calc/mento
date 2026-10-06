@@ -14,6 +14,7 @@ from mento.material import (
 )
 from mento.units import kip, inch, mm, cm, kN, MPa, kNm, ksi
 from mento.forces import Forces
+from tests.helpers import us
 
 
 @pytest.fixture()
@@ -151,15 +152,15 @@ def test_shear_check_ACI_318_19_1(slab_example_ACI_318_19: OneWaySlab) -> None:
     # 0.24 in²/ft of any bar table), so rho_w = 0.236/(12*6.0) = 0.00327 and
     # Table 22.5.5.1(c): V_c = 8*1.0*1.0*0.00327^(1/3)*sqrt(4000)*12*6.0
     # = 8*0.1485*63.25*72 = 5409 lb; phi = 0.75 -> 4057 lb = 18.04 kN.
-    assert results.iloc[1]["Av,min"] == pytest.approx(0, rel=1e-3)
-    assert results.iloc[1]["Av,req"] == pytest.approx(0, rel=1e-3)
-    assert results.iloc[1]["Av"] == pytest.approx(0, rel=1e-3)
-    assert results.iloc[1]["ØVc"] == pytest.approx(18.04, rel=1e-3)
-    assert results.iloc[1]["ØVs"] == pytest.approx(0, rel=1e-3)
-    assert results.iloc[1]["ØVn"] == pytest.approx(18.04, rel=1e-3)
+    assert results.iloc[1]["Av,min"] == pytest.approx(us(0, "cm**2/m", "inch**2/ft"), rel=1e-3, abs=0.0005)
+    assert results.iloc[1]["Av,req"] == pytest.approx(us(0, "cm**2/m", "inch**2/ft"), rel=1e-3, abs=0.0005)
+    assert results.iloc[1]["Av"] == pytest.approx(us(0, "cm**2/m", "inch**2/ft"), rel=1e-3, abs=0.0005)
+    assert results.iloc[1]["ØVc"] == pytest.approx(us(18.04, "kN", "kip"), rel=1e-3, abs=0.005)
+    assert results.iloc[1]["ØVs"] == pytest.approx(us(0, "kN", "kip"), rel=1e-3, abs=0.005)
+    assert results.iloc[1]["ØVn"] == pytest.approx(us(18.04, "kN", "kip"), rel=1e-3, abs=0.005)
     # phi*V_max = phi_v*(V_c + 8*lambda*sqrt(f_c)*b_w*d) carries V_c:
     # 0.75*(5409 + 8*63.25*72) lb = 0.75*41 839 lb = 31 379 lb = 139.58 kN.
-    assert results.iloc[1]["ØVmax"] == pytest.approx(139.58, rel=1e-3)
+    assert results.iloc[1]["ØVmax"] == pytest.approx(us(139.58, "kN", "kip"), rel=1e-3, abs=0.005)
     # 1.52 kip / 4.057 kip = 0.375.
     assert results.iloc[1]["DCR"] == pytest.approx(0.375, rel=1e-2)
 
@@ -518,6 +519,41 @@ def test_shear_design_of_an_imperial_slab_strip() -> None:
     assert slab._stirrup_s_w <= slab._stirrup_s_max_w
     assert shear.A_v >= shear.A_v_req
     assert shear.DCR <= 1
+
+
+def test_shear_line_writes_a_slab_grid_as_a_bar_and_two_spacings() -> None:
+    """The shear line reads the slab's rows as what they are: bar, s_l, s_w.
+
+    It read them as a beam's count, bar and spacing, so this grid printed as
+    "10sØ7/15 cm" -- the Ø10 bar taken for ten stirrups.
+    """
+    slab = _slab_needing_stirrups(Concrete_ACI_318_19)
+    slab.set_slab_longitudinal_rebar_bot(d_b1=12 * mm, s_b1=20 * cm)
+    slab.set_slab_transverse_rebar(d_b=10 * mm, s_long=7 * cm, s_trans=15 * cm)
+    Node(section=slab, forces=Forces(label="C1", M_y=30 * kNm, V_z=100 * kN)).check_shear()
+
+    slab.shear_results
+
+    assert slab._md_shear_results.startswith("Shear reinforcing Ø10 mm/7 cm×15 cm, ")
+
+
+def test_shear_line_writes_an_imperial_slab_grid_with_a_unit_per_spacing() -> None:
+    """In US customary the bar is its size and each spacing carries its unit."""
+    slab = OneWaySlab(
+        label="Slab shear imperial",
+        concrete=Concrete_ACI_318_19(name="C4", f_c=4 * ksi),
+        steel_bar=SteelBar(name="G60", f_y=60 * ksi),
+        width=12 * inch,
+        height=10 * inch,
+        c_c=0.75 * inch,
+    )
+    slab.set_slab_longitudinal_rebar_bot(d_b1=0.5 * inch, s_b1=8 * inch)
+    slab.set_slab_transverse_rebar(d_b=0.375 * inch, s_long=4 * inch, s_trans=8 * inch)
+    Node(section=slab, forces=Forces(label="C1", V_z=12 * kip)).check_shear()
+
+    slab.shear_results
+
+    assert slab._md_shear_results.startswith("Shear reinforcing #3@4 in×8 in, ")
 
 
 def test_transverse_rebar_set_on_a_slab_is_credited_by_the_shear_check() -> None:

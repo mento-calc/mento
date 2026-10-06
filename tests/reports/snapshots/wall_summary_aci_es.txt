@@ -1,0 +1,71 @@
+### design
+     Level Label  Comb.         t      lw      hw        cc          Nx         Vz            My dbh  sh dbv  sv
+0  Level 1    M1  ELU 1  20.00 cm  3.00 m  3.00 m  25.00 mm     0.00 kN  264.00 kN  -172.00 kN·m  10  30  10  30
+1  Level 1    M1  ELU 2  20.00 cm  3.00 m  3.00 m  25.00 mm  -301.00 kN  152.00 kN  -234.00 kN·m  10  30  10  30
+2  Level 2    M2  ELU 1  20.00 cm  2.00 m  3.00 m  25.00 mm    55.50 kN  163.00 kN  -278.00 kN·m  10  30  10  30
+
+### check
+     Nivel Etiqueta   t   lw   hw  Horiz.   Vert.       ρt       ρl Vu,max     ØVn    DCR Estado
+0                    cm    m    m                                       kN      kN              
+1  Level 1       M1  20  3.0  3.0  Ø10/30  Ø10/30  0.00262  0.00262  264.0  1057.3   0.25      ✅
+2  Level 2       M2  20  2.0  3.0  Ø10/30  Ø10/30  0.00262  0.00262  163.0   704.9  0.231      ✅
+
+### shear_results
+  Etiqueta  Comb.  ρt,min  ρt,req       ρt  ρl,min       ρl     Vu     ØVc     ØVs     ØVn ØVn,max Vu≤ØVn,max Vu≤ØVn    DCR
+0                                                               kN      kN      kN      kN      kN                         
+1       M1  ELU 1  0.0025  0.0025  0.00262  0.0025  0.00262  264.0   562.5   494.8  1057.3  1485.0       True   True   0.25
+2       M1  ELU 2  0.0025  0.0025  0.00262  0.0025  0.00262  152.0  326.88   494.8  821.68  1485.0       True   True  0.185
+3       M2  ELU 1  0.0025  0.0025  0.00262  0.0025  0.00262  163.0   375.0  329.87  704.87   990.0       True   True  0.231
+
+### results_detailed_doc: Shear_Wall_Summary_ACI 318-19.docx
+Análisis del resumen de tabiques
+Generado con mento <version>. Código de diseño: ACI 318-19
+Verificación a corte del tabique Level 1 - M1
+Datos de la sección
+Materiales | Variable | Valor | Unidad
+Identificación de la sección |  | M1 | 
+Resistencia del hormigón | fc | 25 | MPa
+Tensión de fluencia del acero | fy | 420 | MPa
+Hormigón de densidad normal | λ | 1 | 
+Coeficiente de seguridad para corte | Øv | 0.75 | 
+Geometría | Variable | Valor | Unidad
+Espesor del tabique | t | 20.0 | cm
+Longitud del tabique | lw | 300.0 | cm
+Altura del tabique | hw | 300.0 | cm
+Relación de aspecto | hw/lw | 1.0 | 
+Área bruta de corte | Acv | 6000.0 | cm²
+Solicitaciones | Variable | Valor | Unidad
+Corte | Vu | 264.0 | kN
+Verificaciones de límites
+Verificación | Unidad | Valor | Mín. | Máx. | ¿Ok?
+Cuantía de armadura horizontal |  | 0.00262 | 0.0025 |  | ✅
+Cuantía vertical mínima |  | 0.00262 | 0.0025 |  | ✅
+Separación de barras horizontales (en cada cara) | mm | 300.0 |  | 450.0 | ✅
+Separación de barras verticales (en cada cara) | mm | 300.0 |  | 450.0 | ✅
+Capacidad máxima de corte | kN | 264.0 |  | 1485.0 | ✅
+Capacidad total de corte | kN | 264.0 |  | 1057.3 | ✅
+Verificaciones de resistencia
+Resistencia al corte | Variable | Valor | Unidad
+Resistencia al corte del hormigón | ØVc | 562.5 | kN
+Resistencia al corte del acero | ØVs | 494.8 | kN
+Resistencia total al corte | ØVn | 1057.3 | kN
+Resistencia máxima al corte | ØVn,max | 1485.0 | kN
+Factor de Utilización | DCR | 0.25 | 
+Resumen - Todos los tabiques
+Datos de los tabiques
+Nivel | Etiqueta | Comb. | t | lw | hw | cc | Nx | Vz | My | dbh | sh | dbv | sv
+ |  |  | cm | m | m | mm | kN | kN | kNm | mm | cm | mm | cm
+Level 1 | M1 | ELU 1 | 20 | 3.0 | 3.0 | 25 | 0 | 264 | -172 | 8 | 20 | 12 | 15
+Level 1 | M1 | ELU 2 | 20 | 3.0 | 3.0 | 25 | -301 | 152 | -234 | 8 | 20 | 12 | 15
+Level 2 | M2 | ELU 1 | 20 | 2.0 | 3.0 | 25 | 55.5 | 163 | -278 | 0 | 0 | 0 | 0
+Resultados de corte
+Etiqueta | Comb. | ρt,min | ρt,req | ρt | ρl,min | ρl | Vu | ØVc | ØVs | ØVn | ØVn,max | DCR
+ |  |  |  |  |  |  | kN | kN | kN | kN | kN | 
+M1 | ELU 1 | 0.0025 | 0.0025 | 0.00262 | 0.0025 | 0.00262 | 264.0 | 562.5 | 494.8 | 1057.3 | 1485.0 | 0.25
+M1 | ELU 2 | 0.0025 | 0.0025 | 0.00262 | 0.0025 | 0.00262 | 152.0 | 326.9 | 494.8 | 821.7 | 1485.0 | 0.18
+M2 | ELU 1 | 0.0025 | 0.0025 | 0.00262 | 0.0025 | 0.00262 | 163.0 | 375.0 | 329.9 | 704.9 | 990.0 | 0.23
+Resumen de verificaciones
+Nivel | Etiqueta | t | lw | hw | Horiz. | Vert. | ρt | ρl | Vu,max | ØVn | DCR | Estado
+ |  | cm | m | m |  |  |  |  | kN | kN |  | 
+Level 1 | M1 | 20 | 3.0 | 3.0 | Ø10/30 | Ø10/30 | 0.00262 | 0.00262 | 264.0 | 1057.3 | 0.25 | ✅
+Level 2 | M2 | 20 | 2.0 | 3.0 | Ø10/30 | Ø10/30 | 0.00262 | 0.00262 | 163.0 | 704.9 | 0.23 | ✅

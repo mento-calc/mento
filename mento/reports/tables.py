@@ -21,8 +21,10 @@ from mento.units import Quantity
 
 from mento.units import inch, kN, mm
 
+from mento.bar_sizes import bar_designation
 from mento.codes.registry import design_code
 from mento.design_results import GRID, format_longitudinal_rebar, transverse_layout
+from mento.precompute import shown, unit_label
 from mento.design_warnings import bars_side_by_side
 
 if TYPE_CHECKING:
@@ -48,18 +50,20 @@ def _transverse_rebar_rows(
     stay the same length either way.
     """
 
-    def shown(value: Quantity, unit: str) -> Any:
-        magnitude = value.to(unit).magnitude
-        return magnitude if round_to is None else round(magnitude, round_to)
+    imperial = self.concrete.is_imperial
 
-    diameter = shown(d_b_shown, "mm")
-    s_l = shown(self._stirrup_s_l, "cm")
+    def shown_as(value: Quantity, kind: str) -> Any:
+        return shown(value, kind, imperial, round_to)
+
+    diameter = bar_value(self, d_b_shown, round_to)
+    s_l = shown_as(self._stirrup_s_l, "length")
+    bar, length = unit_label("bar", imperial), unit_label("length", imperial)
     if transverse_layout(self) == GRID:
         return (
             ["Stirrup diameter", "Stirrup spacing along length", "Stirrup spacing along width"],
             ["db", "sl", "sw"],
-            [diameter, s_l, shown(self._leg_spacing_across_width(), "cm")],
-            ["mm", "cm", "cm"],
+            [diameter, s_l, shown_as(self._leg_spacing_across_width(), "length")],
+            [bar, length, length],
         )
     return (
         ["Number of stirrups", "Number of legs", "Stirrup diameter", "Stirrup spacing", "Leg spacing across width"],
@@ -69,10 +73,27 @@ def _transverse_rebar_rows(
             2 * int(self._stirrup_n),
             diameter,
             s_l,
-            round(self._leg_spacing_across_width().to("cm").magnitude, 2),
+            shown(self._leg_spacing_across_width(), "length", imperial, 2),
         ],
-        ["", "", "mm", "cm", "cm"],
+        ["", "", bar, length, length],
     )
+
+
+def _per_length_digits(imperial: bool) -> int:
+    """Decimals of a steel area per length: cm²/m to two, in²/ft -- some twenty times smaller -- to three."""
+    return 3 if imperial else 2
+
+
+def bar_value(self: "RectangularBeam", d_b: Quantity, digits: int | None) -> Any:
+    """A bar diameter as a report table writes it: mm in SI, the ASTM size in US customary.
+
+    A US bar is called by its number, ``#4``, not by 0.5 in, so its unit is
+    blank, as ``unit_label("bar", True)`` is. No bar at all reads ``-`` there,
+    where SI keeps writing 0 mm.
+    """
+    if self.concrete.is_imperial:
+        return bar_designation(d_b) if d_b.magnitude > 0 else "-"
+    return shown(d_b, "bar", False, digits)
 
 
 def _longitudinal_rebar_rows(self: "RectangularBeam", face: str) -> tuple[list[str], list[str], list[Any]]:
@@ -104,11 +125,15 @@ def _longitudinal_rebar_rows(self: "RectangularBeam", face: str) -> tuple[list[s
             )
             continue
         spacing = getattr(self, f"_s_b{first}_{face}")
-        variables.append(f"Ø{first}/s{first}")
+        # The bar of a position and its spacing: "Ø1/s1", or "db1@s1" where a
+        # "#" would read as a bar size.
+        imperial = self.concrete.is_imperial
+        variables.append(f"db{first}@s{first}" if imperial else f"Ø{first}/s{first}")
         if n == 0 or d_b.magnitude == 0 or spacing.magnitude == 0:
             values.append("-")
         else:
-            values.append(format_longitudinal_rebar(n, f"{d_b:.4g~P}", f"{spacing:.4g~P}"))
+            bar = bar_designation(d_b) if imperial else f"Ø{d_b:.4g~P}"
+            values.append(format_longitudinal_rebar(n, bar, f"{spacing:.4g~P}", imperial=imperial))
     return labels, variables, values
 
 
@@ -180,18 +205,18 @@ def _append_max_bar_spacing_rows(self: "RectangularBeam", M: Quantity) -> None:
         within = value <= limit or math.isclose(value.to("mm").magnitude, limit.to("mm").magnitude)
         ok = within or not in_tension
         table["Check"].append(label)
-        table["Unit"].append("mm")
-        table["Value"].append(_shown_mm(value))
+        table["Unit"].append(unit_label("spacing", self.concrete.is_imperial))
+        table["Value"].append(_shown_spacing(self, value))
         table["Min."].append("")
-        table["Max."].append(_shown_mm(limit))
+        table["Max."].append(_shown_spacing(self, limit))
         table["Ok?"].append("✅" if ok else "❌")
         if not ok:
             self._all_flexure_checks_passed = False
 
 
-def _shown_mm(value: Quantity | None) -> Any:
-    """A limit in millimetres for the report tables, blank where there is none."""
-    return "" if value is None else round(value.to("mm").magnitude, 2)
+def _shown_spacing(self: "RectangularBeam", value: Quantity | None) -> Any:
+    """A bar spacing or its limit for the report tables (mm, or in), blank where there is none."""
+    return "" if value is None else shown(value, "spacing", self.concrete.is_imperial, 2)
 
 
 def _settings(beam: RectangularBeam) -> BeamSettings:
@@ -273,18 +298,19 @@ def build_flexure_report(self: "RectangularBeam", force: Forces) -> pd.DataFrame
 
 
 def _compile_results_ACI_shear(self: "RectangularBeam", force: Forces) -> pd.DataFrame:
+    imperial = self.concrete.is_imperial
     results = {
         "Label": self.label,
         "Comb.": force.label,
-        "Av,min": round(self._A_v_min.to("cm²/m").magnitude, 2),
-        "Av,req": round(self._A_v_req.to("cm²/m").magnitude, 2),
-        "Av": round(self._A_v.to("cm²/m").magnitude, 2),
-        "Vu": self._V_u.to("kN").magnitude,
-        "Nu": self._N_u.to("kN").magnitude,
-        "ØVc": round(self._phi_V_c.to("kN").magnitude, 2),
-        "ØVs": round(self._phi_V_s.to("kN").magnitude, 2),
-        "ØVn": round(self._phi_V_n.to("kN").magnitude, 2),
-        "ØVmax": round(self._phi_V_max.to("kN").magnitude, 2),
+        "Av,min": shown(self._A_v_min, "per_length", imperial, _per_length_digits(imperial)),
+        "Av,req": shown(self._A_v_req, "per_length", imperial, _per_length_digits(imperial)),
+        "Av": shown(self._A_v, "per_length", imperial, _per_length_digits(imperial)),
+        "Vu": shown(self._V_u, "force", imperial),
+        "Nu": shown(self._N_u, "force", imperial),
+        "ØVc": shown(self._phi_V_c, "force", imperial, 2),
+        "ØVs": shown(self._phi_V_s, "force", imperial, 2),
+        "ØVn": shown(self._phi_V_n, "force", imperial, 2),
+        "ØVmax": shown(self._phi_V_max, "force", imperial, 2),
         "Vu≤ØVmax": self._max_shear_ok,
         "Vu≤ØVn": self._V_u <= self._phi_V_n,
         "DCR": round(self._DCRv, 3),
@@ -293,19 +319,20 @@ def _compile_results_ACI_shear(self: "RectangularBeam", force: Forces) -> pd.Dat
 
 
 def _compile_results_ACI_flexure_metric(self: "RectangularBeam", force: Forces) -> Dict[str, Any]:
+    imperial = self.concrete.is_imperial
     # Create dictionaries for bottom and top rows
     if self._M_u >= 0:
         result = {
             "Label": self.label,
             "Comb.": force.label,
             "Position": "Bottom",
-            "As,min": round(self._A_s_min_bot.to("cm ** 2").magnitude, 2),
-            "As,req top": round(self._A_s_req_top.to("cm ** 2").magnitude, 2),
-            "As,req bot": round(self._A_s_req_bot.to("cm ** 2").magnitude, 2),
-            "As": round(self._A_s_bot.to("cm ** 2").magnitude, 2),
+            "As,min": shown(self._A_s_min_bot, "area", imperial, 2),
+            "As,req top": shown(self._A_s_req_top, "area", imperial, 2),
+            "As,req bot": shown(self._A_s_req_bot, "area", imperial, 2),
+            "As": shown(self._A_s_bot, "area", imperial, 2),
             # 'c/d': self._c_d_bot,
-            "Mu": round(self._M_u_bot.to("kN*m").magnitude, 2),
-            "ØMn": round(self._phi_M_n_bot.to("kN*m").magnitude, 2),
+            "Mu": shown(self._M_u_bot, "moment", imperial, 2),
+            "ØMn": shown(self._phi_M_n_bot, "moment", imperial, 2),
             "Mu≤ØMn": self._M_u_bot <= self._phi_M_n_bot,
             "DCR": round(self._DCRb_bot, 3),
         }
@@ -314,13 +341,13 @@ def _compile_results_ACI_flexure_metric(self: "RectangularBeam", force: Forces) 
             "Label": self.label,
             "Comb.": force.label,
             "Position": "Top",
-            "As,min": round(self._A_s_min_top.to("cm ** 2").magnitude, 2),
-            "As,req top": round(self._A_s_req_top.to("cm ** 2").magnitude, 2),
-            "As,req bot": round(self._A_s_req_bot.to("cm ** 2").magnitude, 2),
-            "As": round(self._A_s_top.to("cm ** 2").magnitude, 2),
+            "As,min": shown(self._A_s_min_top, "area", imperial, 2),
+            "As,req top": shown(self._A_s_req_top, "area", imperial, 2),
+            "As,req bot": shown(self._A_s_req_bot, "area", imperial, 2),
+            "As": shown(self._A_s_top, "area", imperial, 2),
             # 'c/d': self._c_d_top,
-            "Mu": round(self._M_u_top.to("kN*m").magnitude, 2),
-            "ØMn": round(self._phi_M_n_top.to("kN*m").magnitude, 2),
+            "Mu": shown(self._M_u_top, "moment", imperial, 2),
+            "ØMn": shown(self._phi_M_n_top, "moment", imperial, 2),
             "Mu≤ØMn": -self._M_u_top <= self._phi_M_n_top,
             "DCR": round(self._DCRb_top, 3),
         }
@@ -364,12 +391,12 @@ def _spacing_table_rows(self: "RectangularBeam", state: Any) -> tuple[list[str],
     ]
     variables = ["Vs,req", "Vs,lim", "", "s,cap"]
     values: list[Any] = [
-        round(V_s_req.to("kN").magnitude, 2),
-        round(V_s_threshold.to("kN").magnitude, 2),
+        shown(V_s_req, "force", imperial, 2),
+        shown(V_s_threshold, "force", imperial, 2),
         "",
-        round(cap.to("cm").magnitude, 2),
+        shown(cap, "length", imperial, 2),
     ]
-    units = ["kN", "kN", "", "cm"]
+    units = [unit_label("force", imperial), unit_label("force", imperial), "", unit_label("length", imperial)]
     return labels, variables, values, units
 
 
@@ -394,10 +421,10 @@ def _support_row(self: "RectangularBeam", support: Any, support_hook: Any) -> li
         ok = not (s_l > s_max and not math.isclose(s_l.magnitude, s_max.magnitude))
     return [
         _SUPPORT_ROW,
-        "cm",
-        round(s_l.to("cm").magnitude, 2),
+        unit_label("length", self.concrete.is_imperial),
+        shown(s_l, "length", self.concrete.is_imperial, 2),
         "",
-        round(s_max.to("cm").magnitude, 2),
+        shown(s_max, "length", self.concrete.is_imperial, 2),
         "✅" if ok else "❌",
     ]
 
@@ -411,6 +438,9 @@ def _initialize_dicts_ACI_318_19_shear(self: "RectangularBeam", state: Any) -> N
     # This builder serves only ACI 318-19 and CIRSOC 201-25,
     # which is what the registry routes here.
     concrete_aci = cast("Concrete_ACI_318_19", self.concrete)
+    imperial = self.concrete.is_imperial
+    # Section geometry is the input as given in SI, and to two decimals in inches.
+    geometry_digits = 2 if imperial else None
     self._materials_shear = {
         "Materials": [
             "Section Label",
@@ -423,13 +453,20 @@ def _initialize_dicts_ACI_318_19_shear(self: "RectangularBeam", state: Any) -> N
         "Variable": ["", "fc", "fy", "wc", "λ", "Øv"],
         "Value": [
             self.label,
-            round(self.concrete.f_c.to("MPa").magnitude, 2),
-            round(self.steel_bar.f_y.to("MPa").magnitude, 2),
-            round(self.concrete.density.to("kg/m**3").magnitude, 1),
+            shown(self.concrete.f_c, "stress", imperial, 2),
+            shown(self.steel_bar.f_y, "steel_stress", imperial, 2),
+            shown(self.concrete.density, "density", imperial, 1),
             concrete_aci.lambda_factor,
             concrete_aci.phi_v,
         ],
-        "Unit": ["", "MPa", "MPa", "kg/m³", "", ""],
+        "Unit": [
+            "",
+            unit_label("stress", imperial),
+            unit_label("steel_stress", imperial),
+            unit_label("density", imperial),
+            "",
+            "",
+        ],
     }
     self._geometry_shear = {
         "Geometry": [
@@ -440,12 +477,12 @@ def _initialize_dicts_ACI_318_19_shear(self: "RectangularBeam", state: Any) -> N
         ],
         "Variable": ["h", "b", "cc", "As"],
         "Value": [
-            self.height.to("cm").magnitude,
-            self.width.to("cm").magnitude,
-            self.c_c.to("cm").magnitude,
-            round(self._A_s_tension.to("cm**2").magnitude, 2),
+            shown(self.height, "length", imperial, geometry_digits),
+            shown(self.width, "length", imperial, geometry_digits),
+            shown(self.c_c, "length", imperial, geometry_digits),
+            shown(self._A_s_tension, "area", imperial, 2),
         ],
-        "Unit": ["cm", "cm", "cm", "cm²"],
+        "Unit": [*[unit_label("length", imperial)] * 3, unit_label("area", imperial)],
     }
     self._forces_shear = {
         "Design forces": [
@@ -454,10 +491,10 @@ def _initialize_dicts_ACI_318_19_shear(self: "RectangularBeam", state: Any) -> N
         ],
         "Variable": ["Nu", "Vu"],
         "Value": [
-            round(self._N_u.to("kN").magnitude, 2),
-            round(self._V_u.to("kN").magnitude, 2),
+            shown(self._N_u, "force", imperial, 2),
+            shown(self._V_u, "force", imperial, 2),
         ],
-        "Unit": ["kN", "kN"],
+        "Unit": [unit_label("force", imperial)] * 2,
     }
     # Min max lists
     # With no stirrup contribution there is no stirrup to report. This used to
@@ -516,22 +553,27 @@ def _initialize_dicts_ACI_318_19_shear(self: "RectangularBeam", state: Any) -> N
             "Minimum shear reinforcement",
             "Minimum rebar diameter",
         ],
-        "Unit": ["cm", "cm", "cm²/m", "mm"],
+        "Unit": [
+            unit_label("length", imperial),
+            unit_label("length", imperial),
+            unit_label("per_length", imperial),
+            unit_label("bar", imperial),
+        ],
         "Value": [
-            round(self._stirrup_s_l.to("cm").magnitude, 2),
-            round(self._stirrup_s_w.to("cm").magnitude, 2),
-            round(self._A_v.to("cm**2/m").magnitude, 2),
-            round(d_b_shown.to("mm").magnitude, 0),
+            shown(self._stirrup_s_l, "length", imperial, 2),
+            shown(self._stirrup_s_w, "length", imperial, 2),
+            shown(self._A_v, "per_length", imperial, _per_length_digits(imperial)),
+            bar_value(self, d_b_shown, 0),
         ],
         "Min.": [
             "",
             "",
-            round(self._A_v_min.to("cm**2/m").magnitude, 2),
-            "" if db_min is None else round(db_min.to("mm").magnitude, 0),
+            shown(self._A_v_min, "per_length", imperial, _per_length_digits(imperial)),
+            "" if db_min is None else bar_value(self, db_min, 0),
         ],
         "Max.": [
-            round(self._stirrup_s_max_l.to("cm").magnitude, 2),
-            round(self._stirrup_s_max_w.to("cm").magnitude, 2),
+            shown(self._stirrup_s_max_l, "length", imperial, 2),
+            shown(self._stirrup_s_max_w, "length", imperial, 2),
             "",
             "",
         ],
@@ -561,14 +603,20 @@ def _initialize_dicts_ACI_318_19_shear(self: "RectangularBeam", state: Any) -> N
         "Variable": [*rebar_vars, "d", "Av,min", "Av,req", "Av", "ØVs", *table_vars],
         "Value": [
             *rebar_values,
-            round(self._d_shear.to("cm").magnitude, 2),
-            round(self._A_v_min.to("cm**2/m").magnitude, 2),
-            round(self._A_v_req.to("cm**2/m").magnitude, 2),
-            round(self._A_v.to("cm**2/m").magnitude, 2),
-            round(self._phi_V_s.to("kN").magnitude, 2),
+            shown(self._d_shear, "length", imperial, 2),
+            shown(self._A_v_min, "per_length", imperial, _per_length_digits(imperial)),
+            shown(self._A_v_req, "per_length", imperial, _per_length_digits(imperial)),
+            shown(self._A_v, "per_length", imperial, _per_length_digits(imperial)),
+            shown(self._phi_V_s, "force", imperial, 2),
             *table_values,
         ],
-        "Unit": [*rebar_units, "cm", "cm²/m", "cm²/m", "cm²/m", "kN", *table_units],
+        "Unit": [
+            *rebar_units,
+            unit_label("length", imperial),
+            *[unit_label("per_length", imperial)] * 3,
+            unit_label("force", imperial),
+            *table_units,
+        ],
     }
     check_max = "✅" if self._max_shear_ok else "❌"
     check_FU = "✅" if self._DCRv < 1 else "❌"
@@ -598,18 +646,26 @@ def _initialize_dicts_ACI_318_19_shear(self: "RectangularBeam", state: Any) -> N
             "DCR",
         ],
         "Value": [
-            round(self._A_cv.to("cm**2").magnitude, 2),
+            shown(self._A_cv, "area", imperial, 2),
             round(self._rho_w.magnitude, 5),
             round(self._lambda_s, 3),
-            round(self._sigma_Nu.to("MPa").magnitude, 2),
-            round(self._k_c_min.to("MPa").magnitude, 2),
-            round(self._phi_V_c.to("kN").magnitude, 2),
-            round(self._phi_V_max.to("kN").magnitude, 2),
-            round(self._phi_V_n.to("kN").magnitude, 2),
+            shown(self._sigma_Nu, "stress", imperial, 2),
+            shown(self._k_c_min, "stress", imperial, 2),
+            shown(self._phi_V_c, "force", imperial, 2),
+            shown(self._phi_V_max, "force", imperial, 2),
+            shown(self._phi_V_n, "force", imperial, 2),
             check_max,
             round(self._DCRv, 2),
         ],
-        "Unit": ["cm²", "", "", "MPa", "MPa", "kN", "kN", "kN", "", check_FU],
+        "Unit": [
+            unit_label("area", imperial),
+            "",
+            "",
+            *[unit_label("stress", imperial)] * 2,
+            *[unit_label("force", imperial)] * 3,
+            "",
+            check_FU,
+        ],
     }
     self._shear_all_checks = self._all_shear_checks_passed and (check_max == "✅") and (check_FU == "✅")
 
@@ -633,6 +689,8 @@ def _initialize_dicts_ACI_318_19_flexure(self: "RectangularBeam") -> None:
     # Update longitudinal rebar attributes
     self._update_longitudinal_rebar_attributes()
     """Initialize the dictionaries used in check and design methods."""
+    imperial = self.concrete.is_imperial
+    geometry_digits = 2 if imperial else None
     self._materials_flexure = {
         "Materials": [
             "Section Label",
@@ -642,10 +700,10 @@ def _initialize_dicts_ACI_318_19_flexure(self: "RectangularBeam") -> None:
         "Variable": ["", "fc", "fy"],
         "Value": [
             self.label,
-            round(self.concrete.f_c.to("MPa").magnitude, 2),
-            round(self.steel_bar.f_y.to("MPa").magnitude, 2),
+            shown(self.concrete.f_c, "stress", imperial, 2),
+            shown(self.steel_bar.f_y, "steel_stress", imperial, 2),
         ],
-        "Unit": ["", "MPa", "MPa"],
+        "Unit": ["", unit_label("stress", imperial), unit_label("steel_stress", imperial)],
     }
     self._geometry_flexure = {
         "Geometry": [
@@ -657,13 +715,13 @@ def _initialize_dicts_ACI_318_19_flexure(self: "RectangularBeam") -> None:
         ],
         "Variable": ["h", "b", "cc", "cm,top", "cm,bot"],
         "Value": [
-            self.height.to("cm").magnitude,
-            self.width.to("cm").magnitude,
-            self.c_c.to("cm").magnitude,
-            round(self._c_mec_top.to("cm").magnitude, 2),
-            round(self._c_mec_bot.to("cm").magnitude, 2),
+            shown(self.height, "length", imperial, geometry_digits),
+            shown(self.width, "length", imperial, geometry_digits),
+            shown(self.c_c, "length", imperial, geometry_digits),
+            shown(self._c_mec_top, "length", imperial, 2),
+            shown(self._c_mec_bot, "length", imperial, 2),
         ],
-        "Unit": ["cm", "cm", "cm", "cm", "cm"],
+        "Unit": [unit_label("length", imperial)] * 5,
     }
     self._forces_flexure = {
         "Design forces": [
@@ -672,10 +730,10 @@ def _initialize_dicts_ACI_318_19_flexure(self: "RectangularBeam") -> None:
         ],
         "Variable": ["Mu,top", "Mu,bot"],
         "Value": [
-            round(self._M_u_top.to("kN*m").magnitude, 2),
-            round(self._M_u_bot.to("kN*m").magnitude, 2),
+            shown(self._M_u_top, "moment", imperial, 2),
+            shown(self._M_u_bot, "moment", imperial, 2),
         ],
-        "Unit": ["kNm", "kNm"],
+        "Unit": [unit_label("moment", imperial)] * 2,
     }
     # Min max lists
     settings = _settings(self)
@@ -749,24 +807,24 @@ def _initialize_dicts_ACI_318_19_flexure(self: "RectangularBeam") -> None:
             "Min/Max As rebar bottom",
             label_s_bot,
         ],
-        "Unit": ["cm²", "mm", "cm²", "mm"],
+        "Unit": [unit_label("area", imperial), unit_label("spacing", imperial)] * 2,
         "Value": [
-            round(self._A_s_top.to("cm**2").magnitude, 2),
-            _shown_mm(s_top),
-            round(self._A_s_bot.to("cm**2").magnitude, 2),
-            _shown_mm(s_bot),
+            shown(self._A_s_top, "area", imperial, 2),
+            _shown_spacing(self, s_top),
+            shown(self._A_s_bot, "area", imperial, 2),
+            _shown_spacing(self, s_bot),
         ],
         "Min.": [
-            round(self._A_s_min_top.to("cm**2").magnitude, 2),
-            _shown_mm(s_top_min),
-            round(self._A_s_min_bot.to("cm**2").magnitude, 2),
-            _shown_mm(s_bot_min),
+            shown(self._A_s_min_top, "area", imperial, 2),
+            _shown_spacing(self, s_top_min),
+            shown(self._A_s_min_bot, "area", imperial, 2),
+            _shown_spacing(self, s_bot_min),
         ],
         "Max.": [
-            round(self._A_s_max_eff_top.to("cm**2").magnitude, 2),
-            _shown_mm(s_top_max),
-            round(self._A_s_max_eff_bot.to("cm**2").magnitude, 2),
-            _shown_mm(s_bot_max),
+            shown(self._A_s_max_eff_top, "area", imperial, 2),
+            _shown_spacing(self, s_top_max),
+            shown(self._A_s_max_eff_bot, "area", imperial, 2),
+            _shown_spacing(self, s_bot_max),
         ],
         "Ok?": checks,
     }
@@ -803,27 +861,24 @@ def _initialize_dicts_ACI_318_19_flexure(self: "RectangularBeam") -> None:
         ],
         "Value": [
             *long_rebar_top[2],
-            round(self._d_top.to("cm").magnitude, 2),
+            shown(self._d_top, "length", imperial, 2),
             round(self._c_d_top, 4),
-            round(self._A_s_min_top.to("cm**2").magnitude, 2),
-            round(self._A_s_req_top.to("cm**2").magnitude, 2),
-            round(self._A_s_req_bot.to("cm**2").magnitude, 2),
-            round(self._A_s_top.to("cm**2").magnitude, 2),
+            shown(self._A_s_min_top, "area", imperial, 2),
+            shown(self._A_s_req_top, "area", imperial, 2),
+            shown(self._A_s_req_bot, "area", imperial, 2),
+            shown(self._A_s_top, "area", imperial, 2),
             round(self._rho_l_top.magnitude, 5),
-            round(self._phi_M_n_top.to("kN*m").magnitude, 2),
+            shown(self._phi_M_n_top, "moment", imperial, 2),
             round(self._DCRb_top, 2),
         ],
         "Unit": [
             "",
             "",
-            "cm",
+            unit_label("length", imperial),
             "",
-            "cm²",
-            "cm²",
-            "cm²",
-            "cm²",
+            *[unit_label("area", imperial)] * 4,
             "",
-            "kNm",
+            unit_label("moment", imperial),
             check_DCR_top,
         ],
     }
@@ -855,27 +910,24 @@ def _initialize_dicts_ACI_318_19_flexure(self: "RectangularBeam") -> None:
         ],
         "Value": [
             *long_rebar_bot[2],
-            round(self._d_bot.to("cm").magnitude, 2),
+            shown(self._d_bot, "length", imperial, 2),
             round(self._c_d_bot, 4),
-            round(self._A_s_min_bot.to("cm**2").magnitude, 2),
-            round(self._A_s_req_top.to("cm**2").magnitude, 2),
-            round(self._A_s_req_bot.to("cm**2").magnitude, 2),
-            round(self._A_s_bot.to("cm**2").magnitude, 2),
+            shown(self._A_s_min_bot, "area", imperial, 2),
+            shown(self._A_s_req_top, "area", imperial, 2),
+            shown(self._A_s_req_bot, "area", imperial, 2),
+            shown(self._A_s_bot, "area", imperial, 2),
             round(self._rho_l_bot.magnitude, 5),
-            round(self._phi_M_n_bot.to("kN*m").magnitude, 2),
+            shown(self._phi_M_n_bot, "moment", imperial, 2),
             round(self._DCRb_bot, 2),
         ],
         "Unit": [
             "",
             "",
-            "cm",
+            unit_label("length", imperial),
             "",
-            "cm²",
-            "cm²",
-            "cm²",
-            "cm²",
+            *[unit_label("area", imperial)] * 4,
             "",
-            "kNm",
+            unit_label("moment", imperial),
             check_DCR_bot,
         ],
     }
@@ -950,7 +1002,7 @@ def _initialize_dicts_EN_1992_2004_shear(self: "RectangularBeam", state: Any) ->
             round(concrete_en.f_ck.to("MPa").magnitude, 2),
             round(self.steel_bar.f_y.to("MPa").magnitude, 2),
             concrete_en.gamma_c,
-            concrete_en._gamma_s,
+            self.steel_bar.gamma_s,
             concrete_en.alpha_cc,
         ],
         "Unit": ["", "MPa", "MPa", "", "", ""],
@@ -1194,21 +1246,21 @@ def _initialize_dicts_EN_1992_2004_flexure(self: "RectangularBeam") -> None:
         "Unit": ["cm²", "mm", "cm²", "mm"],
         "Value": [
             round(self._A_s_top.to("cm**2").magnitude, 2),
-            _shown_mm(s_top),
+            _shown_spacing(self, s_top),
             round(self._A_s_bot.to("cm**2").magnitude, 2),
-            _shown_mm(s_bot),
+            _shown_spacing(self, s_bot),
         ],
         "Min.": [
             round(self._A_s_min_top.to("cm**2").magnitude, 2),
-            _shown_mm(s_top_min),
+            _shown_spacing(self, s_top_min),
             round(self._A_s_min_bot.to("cm**2").magnitude, 2),
-            _shown_mm(s_bot_min),
+            _shown_spacing(self, s_bot_min),
         ],
         "Max.": [
             round(self._A_s_max_top.to("cm**2").magnitude, 2),
-            _shown_mm(s_top_max),
+            _shown_spacing(self, s_top_max),
             round(self._A_s_max_bot.to("cm**2").magnitude, 2),
-            _shown_mm(s_bot_max),
+            _shown_spacing(self, s_bot_max),
         ],
         "Ok?": checks,
     }

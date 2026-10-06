@@ -1023,3 +1023,41 @@ def test_wall_warnings(wall_metric: ShearWall) -> None:
     assert ("shear_exceeds_section_limit", False) in found
     spacing = next(w for w in wall_metric.warnings if w.code == "mesh_spacing_exceeds_max")
     assert "Horizontal" in spacing.message
+
+
+def test_the_beam_shear_attributes_read_the_walls_own_values() -> None:
+    """Issue #171: ``wall.V_c`` and ``wall.f_yt`` stayed at the zeros a beam starts with.
+
+    A ShearWall inherits them from RectangularBeam, whose shear check fills
+    them; the wall's check (§11.5.4) fills its own. A 20 cm x 3 m wall, H25,
+    ADN 420: V_c = alpha_c*lambda*sqrt(f'c)*Acv = 0.25*5*0.2*3 m² = 750 kN, and
+    f_yt is the 420 MPa of the mesh. They now read those, in the wall's units.
+    """
+    wall = ShearWall(
+        label="W",
+        concrete=Concrete_ACI_318_19(name="H25", f_c=25 * MPa),
+        steel_bar=SteelBar(name="ADN 420", f_y=420 * MPa),
+        c_c=25 * mm,
+        thickness=20 * cm,
+        length=3 * m,
+        height=3 * m,
+    )
+    assert wall.V_c.magnitude == 0
+    wall.design([Forces(label="E", V_z=400 * kN)])
+    assert wall.V_c.to(kN).magnitude == pytest.approx(750.0)
+    assert wall.f_yt.to(MPa).magnitude == pytest.approx(420.0)
+    assert wall.V_c == wall._V_c_wall
+
+    imperial = ShearWall(
+        label="W",
+        concrete=Concrete_ACI_318_19(name="4000", f_c=4000 * psi),
+        steel_bar=SteelBar(name="Gr60", f_y=60 * ksi),
+        c_c=1 * inch,
+        thickness=8 * inch,
+        length=120 * inch,
+        height=120 * inch,
+    )
+    imperial.design([Forces(label="E", V_z=150 * kip)])
+    assert imperial.V_c.units == kip
+    assert imperial.V_c.magnitude > 0
+    assert imperial.f_yt.to(ksi).magnitude == pytest.approx(60.0)

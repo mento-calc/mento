@@ -1,0 +1,174 @@
+### check
+   Viga   b   h     As,top        As,bot             Av    Mu     Vu    Nu DCRb,top DCRb,bot   DCRv ¿Ok?
+0        cm  cm                                           kNm     kN    kN                              
+1  V101  20  50        2Ø8     2Ø12+1Ø10              -   0.0   20.0   0.0      0.0      0.0  0.701    ✅
+2  V102  20  50  2Ø12+1Ø16           2Ø8  2 ramas Ø6/20 -35.0   50.0   0.0    0.491      0.0    0.5    ✅
+3  V103  25  60        2Ø8  3Ø16 ++ 2Ø12  2 ramas Ø8/15  60.0  100.0  10.0      0.0    0.371  0.489    ✅
+
+### check capacity
+   Viga   b   h     As,top        As,bot             Av As,top,real As,bot,real Av,real ØMn,top ØMn,bot     ØVn
+0        cm  cm                                                 cm²         cm²   cm²/m     kNm     kNm      kN
+1  V101  20  50        2Ø8     2Ø12+1Ø10              -         1.0         3.0     0.0    17.4    51.4   28.51
+2  V102  20  50  2Ø12+1Ø16           2Ø8  2 ramas Ø6/20         4.3         1.0     2.8    71.2    17.5  100.07
+3  V103  25  60        2Ø8  3Ø16 ++ 2Ø12  2 ramas Ø8/15         1.0         8.3     6.7    21.2   161.6  203.16
+
+### design
+  Label  Comb.         b         h        cc        Nx         Vz           My  ns      dbs        sl  n1       db1  n2       db2  n3 db3  n4 db4
+0  V101  ELU 1  20.00 cm  50.00 cm  25.00 mm   0.00 kN   20.00 kN    0.00 kN·m   1  6.00 mm  23.00 cm   2  12.00 mm   0         0   0   0   0   0
+1  V102  ELU 2  20.00 cm  50.00 cm  25.00 mm   0.00 kN  -50.00 kN  -35.00 kN·m   1  6.00 mm  23.00 cm   2  12.00 mm   1  10.00 mm   0   0   0   0
+2  V103  ELU 3  25.00 cm  60.00 cm  25.00 mm  10.00 kN  100.00 kN   60.00 kN·m   1  6.00 mm  27.00 cm   2  16.00 mm   0         0   0   0   0   0
+
+### flexure_results
+  Etiqueta  Comb.  Posición As,min As,req top As,req bot    As    Mu    ØMn Mu≤ØMn    DCR
+0                              cm²        cm²        cm²   cm²   kNm    kNm              
+1     V101  ELU 1  Inferior    1.8        0.0        1.8  2.26   0.0  38.63   True    0.0
+2     V102  ELU 2  Superior   3.09       2.72        0.0  3.05 -35.0  51.63   True  0.678
+3     V103  ELU 3  Inferior   4.67        0.0       3.85  4.02  60.0  82.86   True  0.724
+
+### shear_results
+  Etiqueta  Comb. Av,min Av,req     Av     Vu    Nu    ØVc    ØVs     ØVn   ØVmax Vu≤ØVmax Vu≤ØVn    DCR
+0                  cm²/m  cm²/m  cm²/m     kN    kN     kN     kN      kN      kN                       
+1     V101  ELU 1    0.0    0.0   2.46   20.0   0.0  59.03  35.86   94.89  288.22     True   True  0.211
+2     V102  ELU 2   1.67   1.67   2.46   50.0   0.0  59.03  35.86   94.89  288.22     True   True  0.527
+3     V103  ELU 3   2.08   2.08   2.09  100.0  10.0  90.58  37.01  127.59   437.7     True   True  0.784
+
+### flexure_results capacity
+  Etiqueta Comb.  Posición As,min As,req top As,req bot    As   Mu    ØMn Mu≤ØMn  DCR  ØMn,top  ØMn,bot
+0                             cm²        cm²        cm²   cm²  kNm    kNm                  NaN      NaN
+1     V101  None  Inferior    1.8        0.0        1.8  2.26  0.0  38.63   True  0.0      0.0     38.6
+2     V102  None  Inferior    1.8        0.0        1.8  2.26  0.0  38.63   True  0.0     51.6     38.6
+3     V103  None  Inferior    2.7        0.0        2.7  4.02  0.0  82.86   True  0.0      0.0     82.9
+
+### shear_results capacity
+  Etiqueta Comb. Av,min Av,req     Av   Vu   Nu    ØVc    ØVs     ØVn   ØVmax Vu≤ØVmax Vu≤ØVn  DCR
+0                 cm²/m  cm²/m  cm²/m   kN   kN     kN     kN      kN      kN                     
+1     V101  None    0.0    0.0   2.46  0.0  0.0  59.03  35.86   94.89  288.22     True   True  0.0
+2     V102  None    0.0    0.0   2.46  0.0  0.0  59.03  35.86   94.89  288.22     True   True  0.0
+3     V103  None    0.0    0.0   2.09  0.0  0.0  89.41  37.01  126.42  436.53     True   True  0.0
+
+### results_detailed_doc: Beam_Summary_CIRSOC 201-25.docx
+Análisis del resumen de vigas
+Generado con mento <version>. Código de diseño: CIRSOC 201-25
+Este informe presenta los resultados detallados de la primera viga del resumen, seguidos de las tablas resumen de todas las vigas.
+Verificación a flexión de viga V101
+Datos de la sección
+Materiales | Variable | Valor | Unidad
+Identificación de la sección |  | V101 | 
+Resistencia del hormigón | fc | 25 | MPa
+Tensión de fluencia del acero | fy | 420 | MPa
+Geometría | Variable | Valor | Unidad
+Altura de la sección | h | 50.0 | cm
+Ancho de la sección | b | 20.0 | cm
+Recubrimiento geométrico | cc | 2.5 | cm
+Recubrimiento mecánico superior | cm,top | 3.1 | cm
+Recubrimiento mecánico inferior | cm,bot | 3.7 | cm
+Solicitaciones | Variable | Valor | Unidad
+Momento máximo superior | Mu,top | 0.0 | kNm
+Momento máximo inferior | Mu,bot | 0.0 | kNm
+Verificaciones de límites
+Verificación | Unidad | Valor | Mín. | Máx. | ¿Ok?
+As mín/máx de la armadura superior | cm² | 0.0 | 0.0 | 17.09 | ✅
+Separación mínima superior | mm | 138.0 |  |  | ✅
+As mín/máx de la armadura inferior | cm² | 2.26 | 1.8 | 14.75 | ✅
+Separación mínima inferior | mm | 114.0 | 25 |  | ✅
+Capacidad a flexión superior
+Verificación de la armadura superior | Variable | Valor | Unidad
+Barras de la primera capa | n1+n2 | - | 
+Barras de la segunda capa | n3+n4 | - | 
+Altura útil | d | 46.9 | cm
+Relación de profundidad del bloque equivalente | c/d | 0 | 
+Armadura mínima | As,min | 0.0 | cm²
+Armadura superior requerida | As,req top | 0.0 | cm²
+Armadura inferior requerida | As,req bot | 1.8 | cm²
+Armadura superior adoptada | As | 0.0 | cm²
+Cuantía de armadura longitudinal | ρl | 0.0 | 
+Resistencia total a flexión | ØMn | 0.0 | kNm
+Factor de Utilización | DCR | 0 | ✅
+Capacidad a flexión inferior
+Verificación de la armadura inferior | Variable | Valor | Unidad
+Barras de la primera capa | n1+n2 | 2Ø12 | 
+Barras de la segunda capa | n3+n4 | - | 
+Altura útil | d | 46.3 | cm
+Relación de profundidad del bloque equivalente | c/d | 0.0 | 
+Armadura mínima | As,min | 1.8 | cm²
+Armadura superior requerida | As,req top | 0.0 | cm²
+Armadura inferior requerida | As,req bot | 1.8 | cm²
+Armadura inferior adoptada | As | 2.26 | cm²
+Cuantía de armadura longitudinal | ρl | 0.00244 | 
+Resistencia total a flexión | ØMn | 38.6 | kNm
+Factor de Utilización | DCR | 0.0 | ✅
+Verificación a corte de viga V101
+Datos de la sección
+Materiales | Variable | Valor | Unidad
+Identificación de la sección |  | V101 | 
+Resistencia del hormigón | fc | 25 | MPa
+Tensión de fluencia del acero | fy | 420 | MPa
+Densidad del hormigón | wc | 2500.0 | kg/m³
+Hormigón de densidad normal | λ | 1 | 
+Coeficiente de seguridad para corte | Øv | 0.75 | 
+Geometría | Variable | Valor | Unidad
+Altura de la sección | h | 50.0 | cm
+Ancho de la sección | b | 20.0 | cm
+Recubrimiento geométrico | cc | 2.5 | cm
+Armadura longitudinal traccionada | As | 2.26 | cm²
+Solicitaciones | Variable | Valor | Unidad
+Axil, positivo en compresión | Nu | 0.0 | kN
+Corte | Vu | 20.0 | kN
+Verificaciones de límites
+Verificación | Unidad | Valor | Mín. | Máx. | ¿Ok?
+Separación de estribos en la dirección longitudinal | cm | 23.0 |  | 23.15 | ✅
+Separación de ramas en el ancho (Tabla 9.7.6.2.2) | cm | 14.4 |  | 40.0 | ✅
+Armadura mínima de corte | cm²/m | 2.46 | 0.0 |  | ✅
+Diámetro mínimo de barra | mm | 6.0 |  |  | ✅
+Verificaciones de resistencia
+Resistencia de la armadura de corte | Variable | Valor | Unidad
+Número de estribos | ns | 1 | 
+Número de ramas | nl | 2 | 
+Diámetro del estribo | db | 6 | mm
+Separación de estribos | s | 23 | cm
+Separación de ramas en el ancho | sw | 14.4 | cm
+Altura útil | d | 46.3 | cm
+Armadura mínima de corte | Av,min | 0.0 | cm²/m
+Armadura de corte requerida | Av,req | 0.0 | cm²/m
+Armadura de corte adoptada | Av | 2.46 | cm²/m
+Resistencia de la armadura de corte | ØVs | 35.9 | kN
+Corte nominal que deben resistir los estribos (Vu/φ − Vc) | Vs,req | 0.0 | kN
+Umbral de la Tabla 9.7.6.2.2 (0.33√f'c·bw·d) | Vs,lim | 152.8 | kN
+Vs,req ≤ Vs,lim → Tabla 9.7.6.2.2: d/2 a lo largo, d en el ancho |  |  | 
+Tope absoluto de la Tabla 9.7.6.2.2 en esta fila | s,cap | 40.0 | cm
+Resistencia al corte | Variable | Valor | Unidad
+Área efectiva de corte | Acv | 926.0 | cm²
+Cuantía de armadura longitudinal | ρw | 0.00244 | 
+Factor de modificación por tamaño | λs | 0.837 | 
+Tensión axial | σNu | 0.0 | MPa
+Tensión de corte efectiva del hormigón | kc | 0.85 | MPa
+Resistencia del hormigón | ØVc | 59.0 | kN
+Resistencia máxima al corte | ØVmax | 288.2 | kN
+Resistencia total al corte | ØVn | 94.9 | kN
+Verificación de corte máximo |  | ✅ | 
+Factor de Utilización | DCR | 0.21 | ✅
+Resumen - Todas las vigas
+Datos de las vigas
+Etiqueta | b | h | cc | ns | dbs | sl | n1 | db1 | n2 | db2 | n3 | db3 | n4 | db4
+ | cm | cm | mm |  | mm | cm |  | mm |  | mm |  | mm |  | mm
+V101 | 20 | 50 | 25 | 0 | 0 | 0 | 2.0 | 12 | 1.0 | 10 | 0.0 | 0 | 0 | 0
+V102 | 20 | 50 | 25 | 1.0 | 6 | 20 | 2 | 12 | 1 | 16 | 0.0 | 0 | 0.0 | 0
+V103 | 25 | 60 | 25 | 1.0 | 8 | 15 | 3.0 | 16 | 0.0 | 0 | 2.0 | 12 | 0 | 0
+Resultados de flexión
+Etiqueta | Comb. | Posición | As,min | As,req top | As,req bot | As | Mu | ØMn | DCR
+ |  |  | cm² | cm² | cm² | cm² | kNm | kNm | 
+V101 | ELU 1 | Inferior | 1.8 | 0.0 | 1.8 | 2.26 | 0.0 | 38.6 | 0.0
+V102 | ELU 2 | Superior | 3.09 | 2.72 | 0.0 | 3.05 | -35.0 | 51.6 | 0.68
+V103 | ELU 3 | Inferior | 4.67 | 0.0 | 3.85 | 4.02 | 60.0 | 82.9 | 0.72
+Resultados de corte
+Etiqueta | Comb. | Av,min | Av,req | Av | Vu | Nu | ØVc | ØVs | ØVn | ØVmax | DCR
+ |  | cm²/m | cm²/m | cm²/m | kN | kN | kN | kN | kN | kN | 
+V101 | ELU 1 | 0.0 | 0.0 | 2.46 | 20.0 | 0.0 | 59.0 | 35.9 | 94.9 | 288.2 | 0.21
+V102 | ELU 2 | 1.67 | 1.67 | 2.46 | 50.0 | 0.0 | 59.0 | 35.9 | 94.9 | 288.2 | 0.53
+V103 | ELU 3 | 2.08 | 2.08 | 2.09 | 100.0 | 10.0 | 90.6 | 37.0 | 127.6 | 437.7 | 0.78
+Resumen de verificaciones
+Viga | b | h | As,top | As,bot | Av | Mu | Vu | Nu | DCRb,top | DCRb,bot | DCRv | ¿Ok?
+ | cm | cm |  |  |  | kNm | kN | kN |  |  |  | 
+V101 | 20 | 50 | - | 2Ø12 | 2 ramas Ø6/23 | 0.0 | 20.0 | 0.0 | 0.0 | 0.0 | 0.21 | ✅
+V102 | 20 | 50 | 2Ø12+1Ø10 | 2Ø12 | 2 ramas Ø6/23 | -35.0 | 50.0 | 0.0 | 0.68 | 0.0 | 0.53 | ✅
+V103 | 25 | 60 | - | 2Ø16 | 2 ramas Ø6/27 | 60.0 | 100.0 | 10.0 | 0.0 | 0.72 | 0.78 | ✅

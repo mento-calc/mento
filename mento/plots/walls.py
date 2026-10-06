@@ -13,10 +13,18 @@ from matplotlib.figure import Figure
 from matplotlib.patches import Rectangle
 from mento.units import Quantity
 
+from mento.precompute import DISPLAY
 from mento.results import CUSTOM_COLORS
+from mento.wall_results import mesh_callout
 
 if TYPE_CHECKING:
     from mento.shear_wall import ShearWall
+
+
+def _dimension(length: Quantity, kind: str, imperial: bool) -> str:
+    """A dimension label: whole centimetres in SI, up to four figures in inches and feet."""
+    value = length.to(DISPLAY[imperial][kind])
+    return f"{value:.4g~P}" if imperial else f"{value:.0f~P}"
 
 
 def plot_wall_elevation(self: "ShearWall", show: bool = False) -> Figure:
@@ -67,7 +75,7 @@ def plot_wall_elevation(self: "ShearWall", show: bool = False) -> Figure:
     ax.text(
         lw_cm / 2,
         dim_y - tick_v * 1.6,
-        "{:.0f~P}".format(self.length.to("cm")),
+        _dimension(self.length, "wall_length", self.concrete.is_imperial),
         ha="center",
         va="top",
         color=text_color,
@@ -94,7 +102,7 @@ def plot_wall_elevation(self: "ShearWall", show: bool = False) -> Figure:
     ax.text(
         x_dim + tick_h * 4,
         t_cm / 2,
-        "{:.0f~P}".format(self.thickness.to("cm")),
+        _dimension(self.thickness, "length", self.concrete.is_imperial),
         ha="left",
         va="center",
         color=text_color,
@@ -104,7 +112,7 @@ def plot_wall_elevation(self: "ShearWall", show: bool = False) -> Figure:
     def _fmt_rebar(d_b: Quantity, s: Quantity) -> str:
         if s.magnitude <= 0:
             return "not assigned"
-        return f"Ø{d_b.to('mm').magnitude:.0f}/{s.to('cm').magnitude:.0f} cm E.F."
+        return mesh_callout(d_b, s, self.concrete.is_imperial)
 
     rebar_text = (
         f"Horizontal rebar: {_fmt_rebar(self._d_b_h, self._s_h)}\n"

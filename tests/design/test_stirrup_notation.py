@@ -235,7 +235,7 @@ def test_the_compact_form_on_imperial_and_grid_sections() -> None:
         c_c=1.5 * inch,
     )
     imperial.set_transverse_rebar(n_stirrups=1, d_b=0.375 * inch, s_l=6 * inch)
-    assert imperial.reinforcement.transverse.notation(compact=True) == "2 legs Ø0.375/6"
+    assert imperial.reinforcement.transverse.notation(compact=True) == "2 legs #3@6"
 
     slab = OneWaySlab(
         label="S",
@@ -263,9 +263,9 @@ def test_the_compact_form_takes_its_unit_system_from_the_caller() -> None:
     beam.set_transverse_rebar(n_stirrups=1, d_b=8 * mm, s_l=6 * inch)
     transverse = beam.reinforcement.transverse
     assert transverse.notation(compact=True, imperial=False) == "2 legs Ø8/15.24"
-    assert transverse.notation(compact=True, imperial=True) == "2 legs Ø0.315/6"
+    assert transverse.notation(compact=True, imperial=True) == '2 legs Ø0.31"@6'
     # Left unsaid, it follows the unit of s_l, as documented.
-    assert transverse.notation(compact=True) == "2 legs Ø0.315/6"
+    assert transverse.notation(compact=True) == '2 legs Ø0.31"@6'
 
 
 def test_the_beam_summary_av_cell_stays_in_mm_and_cm_with_sl_in_inches() -> None:

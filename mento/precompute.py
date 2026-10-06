@@ -19,12 +19,13 @@ is wrapped back into pint where it leaves the check.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from mento.units import cm, ft, inch, kip, kN, kNm, lbf, m, mm, MPa, N, psi
+from mento.units import cm, ft, inch, kg, kip, kN, kNm, ksi, lb, lbf, m, mm, MPa, N, psi
 
 if TYPE_CHECKING:
     from mento.beam import RectangularBeam
+    from mento.units import Quantity
 
 #: The units the design-code equations are written in, per unit system. ACI
 #: publishes separately rounded coefficients for SI and US customary (ADR-0005),
@@ -46,6 +47,85 @@ DISPLAY = {
         "moment": kip * ft,
     },
 }
+
+#: Kinds that only the report layer reads: they choose how a value is *shown*,
+#: and never enter ``to_display``, so they need no CANONICAL twin. The metric
+#: side keeps what the reports have always printed -- a bar and a clear spacing
+#: in mm, a wall in cm, a wall in m in the summaries -- while US customary
+#: writes every length of a section in inches and a wall's plan and height in
+#: feet. f'c and fy are specified in psi and ksi in the US, so the steel has a
+#: stress of its own.
+_REPORT_ONLY = {
+    False: {
+        "spacing": mm,
+        "bar": mm,
+        "steel_stress": MPa,
+        "density": kg / m**3,
+        "wall_length": cm,
+        "long_length": m,
+    },
+    True: {
+        "spacing": inch,
+        "bar": inch,
+        "steel_stress": ksi,
+        "density": lb / ft**3,
+        "wall_length": ft,
+        "long_length": ft,
+    },
+}
+for _imperial in (False, True):
+    DISPLAY[_imperial].update(_REPORT_ONLY[_imperial])
+
+#: How each display unit is written in a table's unit row or ``Unit`` column.
+#: Spelled out rather than taken from pint, which writes ``kN·m`` and
+#: ``ft·kip`` where the reports write ``kNm`` and ``kip·ft``.
+DISPLAY_LABEL = {
+    False: {
+        "length": "cm",
+        "area": "cm²",
+        "stress": "MPa",
+        "force": "kN",
+        "per_length": "cm²/m",
+        "moment": "kNm",
+        "spacing": "mm",
+        "bar": "mm",
+        "steel_stress": "MPa",
+        "density": "kg/m³",
+        "wall_length": "cm",
+        "long_length": "m",
+    },
+    True: {
+        "length": "in",
+        "area": "in²",
+        "stress": "psi",
+        "force": "kip",
+        "per_length": "in²/ft",
+        "moment": "kip·ft",
+        "spacing": "in",
+        # A US bar is written by its ASTM size, "#6", which carries no unit.
+        "bar": "",
+        "steel_stress": "ksi",
+        "density": "lb/ft³",
+        "wall_length": "ft",
+        "long_length": "ft",
+    },
+}
+
+
+def unit_label(kind: str, imperial: bool) -> str:
+    """How the display unit of ``kind`` is written; ``""`` for no kind (a ratio, a label)."""
+    return DISPLAY_LABEL[imperial][kind] if kind else ""
+
+
+def shown(value: "Quantity", kind: str, imperial: bool, digits: int | None = None) -> Any:
+    """The magnitude of ``value`` in the display unit of ``kind``, rounded to ``digits`` if given.
+
+    The magnitude keeps its type: an f'c entered as ``25 * MPa`` prints as 25,
+    not 25.0, as the reports always have.
+    """
+    magnitude = value.to(DISPLAY[imperial][kind]).magnitude
+    return magnitude if digits is None else round(magnitude, digits)
+
 
 # A per-length reinforcement ratio (area per unit length) has the dimension of a
 # length, and the equations return it as one.

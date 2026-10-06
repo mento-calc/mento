@@ -1,0 +1,244 @@
+### check_flexure
+  Label Comb. Position As,min As,req top As,req bot    As   MEd    MRd MEd≤MRd    DCR
+0                         cm²        cm²        cm²   cm²   kNm    kNm               
+1    L1     u   Bottom   2.27        0.0       5.71  6.54  40.0  45.52    True  0.879
+2    L1   neg      Top   2.27       3.49        0.0  3.93 -25.0   28.0    True  0.893
+
+### check_shear
+  Label Comb. Av,min Av,req     Av  NEd VEd,1 VEd,2  VRd,c VRd,s    VRd VRd,max VEd,1≤VRd,max VEd,2≤VRd    DCR
+0              cm²/m  cm²/m  cm²/m   kN    kN    kN     kN    kN     kN      kN                               
+1    L1     u    0.0    0.0    0.0  0.0  60.0  60.0  86.79   0.0  86.79   86.79          True      True  0.691
+2    L1   neg    0.0    0.0    0.0  0.0  40.0  40.0  84.15   0.0  84.15   84.15          True      True  0.475
+
+### flexure_results_detailed
+===== SLAB FLEXURE DETAILED RESULTS =====
+Materials                            Variable     Value  Unit
+----------------------------------  ----------  -------  ------
+Section Label                                        L1
+Concrete strength                      fck           25  MPa
+Steel reinforcement yield strength     fyk          500  MPa 
+
+Geometry                  Variable     Value  Unit
+-----------------------  ----------  -------  ------
+Section height               h            20  cm
+Section width                b           100  cm
+Clear cover                  cc          2.5  cm
+Mechanical top cover       cm,top          3  cm
+Mechanical bottom cover    cm,bot          3  cm 
+
+Design forces       Variable     Value  Unit
+-----------------  ----------  -------  ------
+Top max moment      MEd,top        -25  kNm
+Bottom max moment   MEd,bot         40  kNm 
+
+Check                     Unit     Value  Min.      Max.  Ok?
+-----------------------  ------  -------  ------  ------  -----
+Min/Max As rebar top      cm²       3.93  2.27        80  ✅
+Minimum spacing top        mm        200  40              ✅
+Min/Max As rebar bottom   cm²       6.54  2.27        80  ✅
+Minimum spacing bottom     mm        120  35              ✅ 
+
+Top reinforcement check                    Variable          Value  Unit
+----------------------------------------  ----------  ------------  ------
+First layer bars                            Ø1/s1     Ø10 mm/20 cm
+Second layer bars                           Ø3/s3                -
+Effective height                              d               17.0  cm
+Depth of equivalent strength block ratio     c/d               0.0
+Minimum rebar reinforcing                   As,min            2.27  cm²
+Required rebar reinforcing top            As,req top          3.49  cm²
+Required rebar reinforcing bottom         As,req bot           0.0  cm²
+Defined rebar reinforcing top                 As              3.93  cm²
+Longitudinal reinforcement ratio              ρl           0.00231
+Total flexural strength                      MRd              28.0  kNm
+Demand Capacity Ratio                        DCR              0.89  ✅ 
+
+Bottom reinforcement check                 Variable          Value  Unit
+----------------------------------------  ----------  ------------  ------
+First layer bars                            Ø1/s1     Ø10 mm/12 cm
+Second layer bars                           Ø3/s3                -
+Effective height                              d               17.0  cm
+Depth of equivalent strength block ratio     c/d               0.0
+Minimum rebar reinforcing                   As,min            2.27  cm²
+Required rebar reinforcing top            As,req top           0.0  cm²
+Required rebar reinforcing bottom         As,req bot          5.71  cm²
+Defined rebar reinforcing bottom              As              6.54  cm²
+Longitudinal reinforcement ratio              ρl           0.00385
+Total flexural strength                      MRd             45.52  kNm
+Demand Capacity Ratio                        DCR              0.88  ✅ 
+
+
+
+### shear_results_detailed
+===== SLAB SHEAR DETAILED RESULTS =====
+Materials                                               Variable     Value  Unit
+-----------------------------------------------------  ----------  -------  ------
+Section Label                                                           L1
+Concrete strength                                         fck           25  MPa
+Steel reinforcement yield strength                        fywk         500  MPa
+Safety factor for concrete                                 γc          1.5
+Safety factor for steel                                    γs         1.15
+Coefficient for long term effects and loading effects     αcc         0.85 
+
+Geometry                     Variable     Value  Unit
+--------------------------  ----------  -------  ------
+Section height                  h            20  cm
+Section width                   b           100  cm
+Clear cover                     cc          2.5  cm
+Longitudinal tension rebar      As         3.93  cm² 
+
+Design forces                     Variable     Value  Unit
+-------------------------------  ----------  -------  ------
+Axial, positive for compression     NEd            0  kN
+Shear                              VEd,2          60  kN 
+
+Shear reinforcement strength     Variable     Value  Unit
+------------------------------  ----------  -------  ------
+Stirrup diameter                    db            0  mm
+Stirrup spacing along length        sl            0  cm
+Stirrup spacing along width         sw            0  cm
+Effective height                    d            17  cm
+Minimum shear reinforcing        Asw,min          0  cm²/m
+Required shear reinforcing       Asw,req          0  cm²/m
+Defined shear reinforcing          Asw            0  cm²/m
+Shear rebar strength              VRd,s           0  kN 
+
+Check                          Unit     Value  Min.      Max.  Ok?
+----------------------------  ------  -------  ------  ------  -----
+Stirrup spacing along length    cm          0               0  ✅
+Stirrup spacing along width     cm          0               0  ✅
+Minimum shear reinforcement   cm²/m         0  0               ✅ 
+
+Shear strength                     Variable     Value  Unit
+--------------------------------  ----------  -------  ------
+Longitudinal reinforcement ratio      ρl       0.0038
+k value                               k           2.0
+Axial stress                         σcd          0.0  MPa
+Concrete strut angle                  Θ           0.0  deg
+Concrete strength                   VRd,c       86.79  kN
+Maximum shear strength             VRd,max      86.79  kN
+Total shear strength                 VRd        86.79  kN
+Max shear check                                    ✅
+Demand Capacity Ratio                DCR        0.691  ✅ 
+
+
+
+### flexure_results_detailed_doc: Slab L1 flexure check EN 1992-2004.docx
+Slab L1 flexure check
+Made with mento <version>. Design code: EN 1992-2004
+Section Data
+Materials | Variable | Value | Unit
+Section Label |  | L1 | 
+Concrete strength | fck | 25 | MPa
+Steel reinforcement yield strength | fyk | 500 | MPa
+Geometry | Variable | Value | Unit
+Section height | h | 20.0 | cm
+Section width | b | 100.0 | cm
+Clear cover | cc | 2.5 | cm
+Mechanical top cover | cm,top | 3.0 | cm
+Mechanical bottom cover | cm,bot | 3.0 | cm
+Design forces | Variable | Value | Unit
+Top max moment | MEd,top | -25.0 | kNm
+Bottom max moment | MEd,bot | 40.0 | kNm
+Limit checks
+Check | Unit | Value | Min. | Max. | Ok?
+Min/Max As rebar top | cm² | 3.93 | 2.27 | 80.0 | ✅
+Minimum spacing top | mm | 200.0 | 40.0 |  | ✅
+Min/Max As rebar bottom | cm² | 6.54 | 2.27 | 80.0 | ✅
+Minimum spacing bottom | mm | 120.0 | 35.0 |  | ✅
+Flexural Capacity Top
+Top reinforcement check | Variable | Value | Unit
+First layer bars | Ø1/s1 | Ø10 mm/20 cm | 
+Second layer bars | Ø3/s3 | - | 
+Effective height | d | 17.0 | cm
+Depth of equivalent strength block ratio | c/d | 0.0 | 
+Minimum rebar reinforcing | As,min | 2.27 | cm²
+Required rebar reinforcing top | As,req top | 3.49 | cm²
+Required rebar reinforcing bottom | As,req bot | 0.0 | cm²
+Defined rebar reinforcing top | As | 3.93 | cm²
+Longitudinal reinforcement ratio | ρl | 0.00231 | 
+Total flexural strength | MRd | 28.0 | kNm
+Demand Capacity Ratio | DCR | 0.89 | ✅
+Flexural Capacity Bottom
+Bottom reinforcement check | Variable | Value | Unit
+First layer bars | Ø1/s1 | Ø10 mm/12 cm | 
+Second layer bars | Ø3/s3 | - | 
+Effective height | d | 17.0 | cm
+Depth of equivalent strength block ratio | c/d | 0.0 | 
+Minimum rebar reinforcing | As,min | 2.27 | cm²
+Required rebar reinforcing top | As,req top | 0.0 | cm²
+Required rebar reinforcing bottom | As,req bot | 5.71 | cm²
+Defined rebar reinforcing bottom | As | 6.54 | cm²
+Longitudinal reinforcement ratio | ρl | 0.00385 | 
+Total flexural strength | MRd | 45.5 | kNm
+Demand Capacity Ratio | DCR | 0.88 | ✅
+
+### shear_results_detailed_doc: Slab L1 shear check EN 1992-2004.docx
+Slab L1 shear check
+Made with mento <version>. Design code: EN 1992-2004
+Section Data
+Materials | Variable | Value | Unit
+Section Label |  | L1 | 
+Concrete strength | fck | 25 | MPa
+Steel reinforcement yield strength | fywk | 500 | MPa
+Safety factor for concrete | γc | 1.5 | 
+Safety factor for steel | γs | 1.15 | 
+Coefficient for long term effects and loading effects | αcc | 0.85 | 
+Geometry | Variable | Value | Unit
+Section height | h | 20.0 | cm
+Section width | b | 100.0 | cm
+Clear cover | cc | 2.5 | cm
+Longitudinal tension rebar | As | 3.93 | cm²
+Design forces | Variable | Value | Unit
+Axial, positive for compression | NEd | 0.0 | kN
+Shear | VEd,2 | 60.0 | kN
+Limit checks
+Check | Unit | Value | Min. | Max. | Ok?
+Stirrup spacing along length | cm | 0.0 |  | 0.0 | ✅
+Stirrup spacing along width | cm | 0.0 |  | 0.0 | ✅
+Minimum shear reinforcement | cm²/m | 0.0 | 0.0 |  | ✅
+Strength Checks
+Shear reinforcement strength | Variable | Value | Unit
+Stirrup diameter | db | 0 | mm
+Stirrup spacing along length | sl | 0 | cm
+Stirrup spacing along width | sw | 0.0 | cm
+Effective height | d | 17.0 | cm
+Minimum shear reinforcing | Asw,min | 0.0 | cm²/m
+Required shear reinforcing | Asw,req | 0.0 | cm²/m
+Defined shear reinforcing | Asw | 0.0 | cm²/m
+Shear rebar strength | VRd,s | 0.0 | kN
+Shear strength | Variable | Value | Unit
+Longitudinal reinforcement ratio | ρl | 0.0038 | 
+k value | k | 2.0 | 
+Axial stress | σcd | 0.0 | MPa
+Concrete strut angle | Θ | 0.0 | deg
+Concrete strength | VRd,c | 86.8 | kN
+Maximum shear strength | VRd,max | 86.8 | kN
+Total shear strength | VRd | 86.8 | kN
+Max shear check |  | ✅ | 
+Demand Capacity Ratio | DCR | 0.69 | ✅
+
+### results
+Slab L1, $b$=100.00 cm, $h$=20.00 cm, $c_{c}$=2.50 cm,                         Concrete C25/30, Rebar B500S.
+Top longitudinal rebar: Ø10 mm/20 cm, $A_{s,top}$ = 3.93 cm², $M_{Ed}$ = -25.0 kNm, $M_{Rd}$ = 28.0 kNm → $\color{#439b00}{\text{DCR}=0.89}$ 
+
+Bottom longitudinal rebar: Ø10 mm/12 cm, $A_{s,bot}$ = 6.54 cm², $M_{Ed}$ = 40.0 kNm, $M_{Rd}$ = 45.52 kNm → $\color{#439b00}{\text{DCR}=0.88}$ 
+Shear reinforcing not assigned, $A_{sw}$=0.0 cm²/m, $V_{Ed,2}$=60.0 kN, $V_{Rd}$=86.79 kN → $\color{#439b00}{\text{DCR}=0.69}$ 
+
+### flexure_design
+Ø10 mm/20 cm
+Ø10 mm/12 cm
+
+### shear_design
+no stirrups
+
+### reinforcement.transverse
+no stirrups
+
+### warnings
+
+
+### plot
+100 cm
+20 cm
+9Ø10
+5Ø10

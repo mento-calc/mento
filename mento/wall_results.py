@@ -28,11 +28,28 @@ import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, Sequence, Tuple
 
-from mento.design_results import DesignNotRunError, format_longitudinal_rebar
-from mento.units import Quantity
+from mento.bar_sizes import bar_designation, is_us_customary
+from mento.design_results import DesignNotRunError, bar_mark, format_longitudinal_rebar, spacing_separator
+from mento.units import Quantity, cm, inch, mm
 
 if TYPE_CHECKING:
     from mento.shear_wall import ShearWall
+
+
+def mesh_callout(d_b: Quantity, s: Quantity, imperial: bool) -> str:
+    """One direction of a wall's mesh as the reports and the drawing write it.
+
+    ``Ø10/20 cm E.F.`` in SI -- the bar in mm, the spacing in whole
+    centimetres -- and ``#4@12 in E.F.`` in US customary, where the bar is its
+    ASTM size and the spacing keeps up to four significant figures.
+    """
+    if imperial:
+        spacing = f"{s.to(inch).magnitude:.4g} in"
+        bar = bar_designation(d_b)
+    else:
+        spacing = f"{s.to(cm).magnitude:.0f} cm"
+        bar = f"Ø{d_b.to(mm).magnitude:.0f}"
+    return f"{bar}{spacing_separator(imperial)}{spacing} E.F."
 
 
 @dataclass(frozen=True)
@@ -64,7 +81,9 @@ class MeshDirection:
     def __str__(self) -> str:
         if not self.has_bars:
             return "no reinforcement"
-        return f"{self.n_curtains}×" + format_longitudinal_rebar(0, f"{self.d_b:.4g~P}", f"{self.s:.4g~P}")
+        return f"{self.n_curtains}×" + format_longitudinal_rebar(
+            0, bar_mark(self.d_b), f"{self.s:.4g~P}", imperial=is_us_customary(self.d_b)
+        )
 
 
 @dataclass(frozen=True)

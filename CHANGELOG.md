@@ -21,6 +21,10 @@ stirrups Ø12 every 14 cm.
 
 ### Migration notes
 
+- Updated against 1.5.0, preserving imperial output: ASTM bar sizes, inches, kip and
+  in²/ft also apply to the added leg and spacing-limit rows. Shear Word annexes use
+  2 cm top and 1.5 cm bottom margins to fit the extra rows without reducing the font size.
+
 - `str()` of `TransverseReinforcement`, `ShearDesign` and `StirrupOption` on a beam reads
   `10 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)` instead of
   `5eØ12 mm/14 cm`, and is always English. Read `n_stirrups`, `n_legs`, `d_b`, `s_l`, `s_w`
@@ -29,8 +33,8 @@ stirrups Ø12 every 14 cm.
 - `str(beam.reinforcement)` changes in its stirrup part.
 - The `BeamSummary.check()` "Av" cell changes text (`10 legs Ø12/14` for `5eØ12/14`) and
   follows `set_language` (a program that exported it with `to_excel` sees the new text).
-  It stays in mm and cm, like the "As" cells beside it, whatever unit the `sl` column is
-  given in, and prints a spacing that is not whole as it is (`2 legs Ø6/7.5`) instead of
+  It follows the concrete unit system, like the "As" cells beside it: mm/cm in SI,
+  ASTM sizes and inches in US customary, whatever unit the `sl` column is given in, and prints a spacing that is not whole as it is (`2 legs Ø6/7.5`) instead of
   truncating it (`1eØ6/7`). The Word Beam Data table keeps `ns`, the number of closed
   stirrups.
 - The shear strength table has two more rows for every beam (`nl`, `sw`); under ACI 318-19
@@ -132,7 +136,7 @@ stirrups Ø12 every 14 cm.
   `estribo perimetral + 4 interiores` — one perimeter stirrup on the outer legs and inner
   closed stirrups on pairs of adjacent inner legs, an odd leg left as a crosstie. The
   spacings across the width are printed in the unit of `s_l`. `compact=True` is the form
-  for a narrow column, `10 legs Ø12/14`: bare numbers, mm and cm, or inches with
+  for a narrow column, `10 legs Ø12/14`: bare numbers, mm and cm, or ASTM sizes and inches with
   `imperial=True` (left unsaid, it follows the unit of `s_l`). The slab grid notation
   (`Ø10 mm/8 cm×16 cm`) is unchanged; `no stirrups` is translatable.
 - **Language scope.** `set_language` now also covers the stirrup notation and the cage
@@ -195,11 +199,107 @@ stirrups Ø12 every 14 cm.
   the 20×60 beam with two bottom layers the output shows, and the output is that beam's:
   φMn = 155.7 kNm (DCR 0.58), φVn = 203.52 kN (DCR 0.39).
 
-### Known limitations
+## [1.5.0] - 2026-10-05
 
-- On a US customary section the drawing labels the stirrups in inches, like its
-  dimensions, while the bar labels keep the bare millimetres every bar label of mento uses
-  (`2Ø32+1Ø29`), as do the flexure line of the notebook and the summary tables.
+### Added
+
+- **`Forces` holds the complete demand of a section** (#186): `V_y` and `M_z` join `N_x`,
+  `V_z`, `M_y` and `M_x`, so the six components are those of a frame model's member forces
+  (FX, FY, FZ, MX, MY, MZ). On a member `M_x` is the torsion; at a punching node, whose axes
+  are the slab's, it stays the in-plane unbalanced moment, so punching keeps its names. The
+  sign convention is written in the docstring and fixed by tests: `N_x > 0` compression,
+  `M_y > 0` compresses +z (sagging, z up), `M_z > 0` compresses −y. Beams read only `N_x`,
+  `V_z` and `M_y`, as before; `get_forces()` and `compare_to()` cover the six, and `str()`
+  shows `V_y`, `M_x` and `M_z` only when they are not zero.
+- **EN 1992-1-1 concrete: `alpha_cc`, `f_cd` and the strains of Table 3.1** (#184).
+  `Concrete_EN_1992_2004(name, f_c, alpha_cc=0.85)` takes α_cc between 0.8 and 1.0
+  (§3.1.6(1); 1.0 is the recommended value). The default stays at 0.85, so no EN result
+  moves. New properties: `f_cd`, `epsilon_c1`, `epsilon_cu1`, `epsilon_c2`,
+  `epsilon_cu2`, `n_parabola`, `epsilon_c3`.
+- **Steel design values** (#185): `Steel`, `SteelBar` and `SteelStrand` take and keep
+  `gamma_s` (1.15 by default) and `epsilon_ud` (`None`, no limit, by default), and expose
+  `f_yd = f_y/gamma_s` and `epsilon_yd = f_yd/E_s`.
+- **`force_component_not_checked` warning.** A beam, slab, footing or wall given `V_y`,
+  `M_z` or a torsion `M_x` reports it in `node.warnings`: its checks read `N_x`, `V_z` and
+  `M_y` only, so a DCR below 1 says nothing about the rest. One warning per component,
+  with the largest value given and the combinations that give it.
+
+### Changed
+
+- **EN 1992-1-1 reads γ_s from the steel.** The EN beam took it from the concrete, which
+  fixed it at 1.15; it now uses `steel_bar.gamma_s`, so `SteelBar(gamma_s=1.0)` reaches the
+  flexure and shear checks. With the default steel nothing moves.
+- The README opens with a quick start that designs a beam and shows the result, a table of
+  the elements each design code covers, the validation behind them, and a link to the
+  calculators on [mentocalc.com](https://mentocalc.com). It no longer says mento does
+  structural analysis or designs columns, which it does not yet. Its links are absolute, so
+  they also work on PyPI, and the DOI badge points to the concept DOI that resolves to the
+  latest release, as the citing guide does.
+
+### Deprecated
+
+- `Concrete_EN_1992_2004.gamma_s` warns and will be removed in 2.0: read `SteelBar.gamma_s`.
+  The concrete's `str()` no longer prints γ_s.
+
+## [1.4.0] - 2026-09-30
+
+### Changed
+
+- **A US customary section is shown in US customary units.** mento already designed a
+  section whose `f_c` is in `psi` or `ksi` in those units, but it printed the result in SI:
+  the beam and slab DataFrames, detailed printouts, Word reports and Markdown views wrote
+  cm², kNm and MPa (As 8.55 cm², Mu 162.7 kNm, Vu 177.928865 kN for a 12×24 in beam under
+  120 kip·ft and 40 kip), and the wall its geometry in cm and its bar spacings in mm. Now
+  everything shown — the unit row and values of `check_flexure()` / `check_shear()`, the
+  detailed printouts, the Word documents, `node.results`, `BeamSummary`,
+  `ShearWallSummary`, the drawings and the `DesignWarning` messages — uses in, in², in²/ft,
+  psi, ksi (fy), kip and kip·ft, and lb/ft³ for the density: As 1.33 in², Mu 120.0 kip·ft,
+  ØMn 123.91 kip·ft, Vu 40.0 kip. A wall's length and height are in ft. The SI output is
+  unchanged but for the stirrup mark below; snapshot tests of every SI output
+  (`tests/reports/test_display_snapshots.py`) guard it. The DataFrames keep their columns,
+  their order and their unit row first.
+- **US bars are written by their ASTM size.** `3#6`, `2#6+1#5`, a slab or wall curtain
+  `#4@12 in`, stirrups `1s#3@8 in` — the `@` because `#3/4 in` would read as three
+  quarters of an inch. A bar diameter that is no ASTM size reads `Ø0.70"`.
+- **The stirrup mark follows the report language.** `2sØ10 mm/15 cm` (*stirrup*) in
+  English, `2eØ10 mm/15 cm` (*estribo*) in Spanish, in both unit systems. English is the
+  default language, so the `str()` of `shear_design`, `reinforcement.transverse` and the
+  stirrup options, the summaries and the drawings now write `s` unless
+  `set_language("es")` is set.
+- **`Forces` prints in the units it is given in.** Without `unit_system`, a force in kip,
+  lbf or kip·ft is shown in kip and kip·ft (`Forces(V_z=12 * kip)` printed `53.38 kN`); one
+  in kN, or none at all, stays metric. An explicit `unit_system` still wins.
+- **CIRSOC 201-25 and EN 1992-1-1 refuse US customary units.** `Concrete_CIRSOC_201_25`
+  and `Concrete_EN_1992_2004` with an `f_c` in `psi` or `ksi` raise a `ValueError`. Before,
+  CIRSOC designed with ACI's US customary formulas under its own name, and EN failed with
+  a `ZeroDivisionError` inside a check.
+
+### Added
+
+- **`bar_designation(d_b)` and `bar_diameter(number)`**, in `mento` and `mento.rebar`: the
+  ASTM A615 size of a bar (`"#6"`) and its nominal diameter (`0.75 in`), from the one table
+  (`mento.bar_sizes.ASTM_BAR_DIAMETERS`) the rebar search designs with.
+- **US customary examples.** The single-element ACI 318-19 examples — beam check and design,
+  one-way slab check, shear wall check and design — have US customary twins in the
+  documentation (`*_imperial.ipynb`).
+- **`BeamSummary` reads a US customary list**: its unit row accepts `kip`, `kip·ft`
+  (or `kipft`), `psi` and `ksi`.
+
+### Fixed
+
+- **A `ShearWall` reads its own `V_c` and `f_yt`** (#171). Inherited from `RectangularBeam`,
+  they stayed at the zeros a beam starts with; they now return the wall's V_c
+  (ACI 318-19 §11.5.4.3) and the f_yt of its mesh from the last check, in the wall's units.
+  The other half of #171, the detailed report of a US customary wall printing its geometry
+  in cm, is the US customary output above.
+- `BeamSummary.check(capacity_check=True)` printed ØMn,top / ØMn,bot in kN·m for a US
+  customary beam.
+- `BeamSummary.check()` showed `b` and `h` in the unit they were entered in under a `cm`
+  heading; they are converted to the heading's unit now.
+- The shear line of `node.results` / `shear_results` read the transverse reinforcement of a
+  slab or footing as a beam's (count, diameter, spacing), so a footing with a Ø10 grid
+  printed "10eØ21/43.0 cm". A slab strip now writes its grid as `format_transverse_rebar`
+  does: `Ø10/21×43 cm`, `#3@8 in×12 in`. The beam label is unchanged.
 
 ## [1.3.1] - 2026-09-29
 
@@ -312,7 +412,7 @@ Nothing is removed, but four behaviours of 1.2.0 change in ways a program may no
 
 - **The release workflow publishes a test count.** After uploading to PyPI it attaches
   `stats.json` (`{"tests": N}`) to the GitHub Release and sends a `mento-release`
-  `repository_dispatch` to `mihdicaballero/mento-web`. `N` counts the tests marked
+  `repository_dispatch` to `mento-calc/mento-web`. `N` counts the tests marked
   `published_example`: the 39 whose expected numbers come from a document outside mento —
   the Calcpad sheets of the ACI and EN beam cases (kept outside the repository), the EN
   1992-1-1 shear calculators of eurocodeapplied.com, The Concrete Centre's *How to design
@@ -1108,7 +1208,7 @@ sections and trust the answer.
   the fewest legs the width admits and adds stirrups rather than only tightening the
   longitudinal spacing. Over a sweep of 168 width and demand combinations across the three
   codes, 95 designs were in violation and none are now. Closes
-  [#94](https://github.com/mihdicaballero/mento/issues/94).
+  [#94](https://github.com/mento-calc/mento/issues/94).
 - The spacing across the width was computed with whatever stirrup diameter the previous
   pass had left on the beam instead of the one being tried, so the value stored for each
   candidate was off by the difference between the two diameters.
@@ -1125,8 +1225,8 @@ sections and trust the answer.
   names, units, the design code designation and the generated file names are not
   translated. A label with no translation is written in English rather than raising. See
   [Report language](https://mento-docs.readthedocs.io/en/latest/user_guide/language.html).
-  Closes [#79](https://github.com/mihdicaballero/mento/issues/79) and
-  [#126](https://github.com/mihdicaballero/mento/issues/126).
+  Closes [#79](https://github.com/mento-calc/mento/issues/79) and
+  [#126](https://github.com/mento-calc/mento/issues/126).
 - A DOI. Releases are archived on Zenodo, and
   [10.5281/zenodo.21956634](https://doi.org/10.5281/zenodo.21956634) always resolves to the
   latest one. It is in `CITATION.cff`, in the README badge and in the citing guide.
@@ -1297,23 +1397,23 @@ First public release on PyPI: rectangular concrete beam check and design for fle
 shear under ACI 318-19 and CIRSOC 201-25, unit aware calculations, results as pandas
 DataFrames, and Word calculation reports.
 
-[Unreleased]: https://github.com/mihdicaballero/mento/compare/v1.3.1...HEAD
-[1.3.1]: https://github.com/mihdicaballero/mento/compare/v1.3.0...v1.3.1
-[1.3.0]: https://github.com/mihdicaballero/mento/compare/v1.2.0...v1.3.0
-[1.2.0]: https://github.com/mihdicaballero/mento/compare/v1.1.0...v1.2.0
-[1.1.0]: https://github.com/mihdicaballero/mento/compare/v1.0.1...v1.1.0
-[1.0.1]: https://github.com/mihdicaballero/mento/compare/v1.0.0...v1.0.1
-[1.0.0]: https://github.com/mihdicaballero/mento/compare/v0.5.2...v1.0.0
-[0.5.2]: https://github.com/mihdicaballero/mento/compare/v0.5.1...v0.5.2
-[0.5.1]: https://github.com/mihdicaballero/mento/compare/v0.5.0...v0.5.1
-[0.5.0]: https://github.com/mihdicaballero/mento/compare/v0.4.1...v0.5.0
-[0.4.1]: https://github.com/mihdicaballero/mento/compare/v0.4.0...v0.4.1
-[0.4.0]: https://github.com/mihdicaballero/mento/compare/v0.3.6...v0.4.0
-[0.3.6]: https://github.com/mihdicaballero/mento/compare/v0.3.5...v0.3.6
-[0.3.5]: https://github.com/mihdicaballero/mento/compare/v0.3.4...v0.3.5
-[0.3.4]: https://github.com/mihdicaballero/mento/compare/v0.3.0...v0.3.4
-[0.3.0]: https://github.com/mihdicaballero/mento/compare/v0.2.8...v0.3.0
-[0.2.8]: https://github.com/mihdicaballero/mento/compare/v0.2.7...v0.2.8
-[0.2.7]: https://github.com/mihdicaballero/mento/compare/v0.2.6...v0.2.7
-[0.2.6]: https://github.com/mihdicaballero/mento/compare/v0.2.5...v0.2.6
-[0.2.5]: https://github.com/mihdicaballero/mento/releases/tag/v0.2.5
+[Unreleased]: https://github.com/mento-calc/mento/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/mento-calc/mento/compare/v1.3.0...v1.3.1
+[1.3.0]: https://github.com/mento-calc/mento/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/mento-calc/mento/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/mento-calc/mento/compare/v1.0.1...v1.1.0
+[1.0.1]: https://github.com/mento-calc/mento/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/mento-calc/mento/compare/v0.5.2...v1.0.0
+[0.5.2]: https://github.com/mento-calc/mento/compare/v0.5.1...v0.5.2
+[0.5.1]: https://github.com/mento-calc/mento/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/mento-calc/mento/compare/v0.4.1...v0.5.0
+[0.4.1]: https://github.com/mento-calc/mento/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/mento-calc/mento/compare/v0.3.6...v0.4.0
+[0.3.6]: https://github.com/mento-calc/mento/compare/v0.3.5...v0.3.6
+[0.3.5]: https://github.com/mento-calc/mento/compare/v0.3.4...v0.3.5
+[0.3.4]: https://github.com/mento-calc/mento/compare/v0.3.0...v0.3.4
+[0.3.0]: https://github.com/mento-calc/mento/compare/v0.2.8...v0.3.0
+[0.2.8]: https://github.com/mento-calc/mento/compare/v0.2.7...v0.2.8
+[0.2.7]: https://github.com/mento-calc/mento/compare/v0.2.6...v0.2.7
+[0.2.6]: https://github.com/mento-calc/mento/compare/v0.2.5...v0.2.6
+[0.2.5]: https://github.com/mento-calc/mento/releases/tag/v0.2.5

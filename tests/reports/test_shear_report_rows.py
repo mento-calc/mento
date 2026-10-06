@@ -122,7 +122,7 @@ def test_a_beam_under_the_threshold_prints_the_low_row() -> None:
     assert rows[V_S_REQ][1] < rows[THRESHOLD_SI][1]
 
 
-def test_an_imperial_section_uses_the_psi_threshold_and_its_cap_in_cm() -> None:
+def test_an_imperial_section_uses_the_psi_threshold_and_its_cap_in_inches() -> None:
     beam = RectangularBeam(
         label="I1",
         concrete=Concrete_ACI_318_19(name="C4", f_c=4 * ksi),
@@ -135,7 +135,7 @@ def test_an_imperial_section_uses_the_psi_threshold_and_its_cap_in_cm() -> None:
     rows = _rows(beam._shear_reinforcement)
     assert THRESHOLD_US in rows and THRESHOLD_SI not in rows
     assert rows[HALVED][0] == ""
-    assert rows[CAP] == ("s,cap", 30.48, "cm")
+    assert rows[CAP] == ("s,cap", 12, "in")
 
 
 def test_the_row_follows_the_state_not_a_new_comparison() -> None:

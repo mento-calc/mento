@@ -8,7 +8,7 @@ explains.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 import pandas as pd
 from IPython.display import Markdown, display
@@ -17,8 +17,10 @@ from mento.units import Quantity
 from mento._version import __version__ as MENTO_VERSION
 from mento.i18n import get_language, translate
 from mento.material import Concrete_ACI_318_19
+from mento.precompute import DISPLAY, shown, unit_label
 from mento.results import DocumentBuilder, Formatter, TablePrinter
 from mento.units import mm
+from mento.wall_results import mesh_callout
 
 if TYPE_CHECKING:
     from mento.forces import Forces
@@ -46,12 +48,13 @@ def wall_flexure_results_detailed_doc(self: "ShearWall", force: Optional[Forces]
 def wall_data(self: "ShearWall") -> None:
     """Wall basic info as Markdown (length, thickness, wall height hw, materials)."""
     level_str = f"Level {self.level}, " if self.level else ""
+    units = DISPLAY[self.concrete.is_imperial]
     markdown_content = (
         f"{level_str}Shear Wall {self.label}, "
-        f"$l_w$={self.length.to('cm')}, "
-        f"$t$={self.thickness.to('cm')}, "
-        f"$h_w$={self.height.to('cm')}, "
-        f"$c_c$={self.c_c.to('cm')}, "
+        f"$l_w$={self.length.to(units['wall_length'])}, "
+        f"$t$={self.thickness.to(units['length'])}, "
+        f"$h_w$={self.height.to(units['wall_length'])}, "
+        f"$c_c$={self.c_c.to(units['length'])}, "
         f"Concrete {self.concrete.name}, Rebar {self.steel_bar.name}."
     )
     self._md_data = markdown_content
@@ -82,21 +85,15 @@ def wall_shear_results(self: "ShearWall") -> None:
     checks_pass = details.get("checks_pass", False)
     warning = "⚠️ Some checks failed, see detailed results." if not checks_pass else ""
 
-    rebar_h = (
-        f"Ø{self._d_b_h.to('mm').magnitude:.0f}/{self._s_h.to('cm').magnitude:.0f} cm E.F."
-        if self._s_h.magnitude > 0
-        else "not assigned"
-    )
-    rebar_v = (
-        f"Ø{self._d_b_v.to('mm').magnitude:.0f}/{self._s_v.to('cm').magnitude:.0f} cm E.F."
-        if self._s_v.magnitude > 0
-        else "not assigned"
-    )
+    imperial = self.concrete.is_imperial
+    rebar_h = mesh_callout(self._d_b_h, self._s_h, imperial) if self._s_h.magnitude > 0 else "not assigned"
+    rebar_v = mesh_callout(self._d_b_v, self._s_v, imperial) if self._s_v.magnitude > 0 else "not assigned"
+    force_unit = unit_label("force", imperial)
 
     markdown_content = (
         f"Horizontal rebar: {rebar_h}, $\\rho_t$={rho_t}, "
         f"Minimum vertical rebar: {rebar_v}, $\\rho_l$={rho_l}, "
-        f"$V_u$={Vu} kN, $\\phi V_n$={phi_Vn} kN → "
+        f"$V_u$={Vu} {force_unit}, $\\phi V_n$={phi_Vn} {force_unit} → "
         f"{formatter.DCR(dcr)} {warning}"
     )
     self._md_shear_results = markdown_content
@@ -168,7 +165,11 @@ def build_wall_shear_report(self: "ShearWall", force: Forces) -> pd.DataFrame:
 def _compile_wall_shear_dicts(self: "ShearWall", force: Forces) -> None:
     """Populate result dicts used by detailed output methods."""
     phi_v = _aci(self).phi_v
-    unit = "kN" if self.concrete.unit_system == "metric" else "kip"
+    imperial = self.concrete.is_imperial
+    unit = unit_label("force", imperial)
+    # One decimal in SI, as the tables always had; lengths in inches and feet
+    # read to two, and a US f'c is a whole number of psi.
+    length_digits = 2 if imperial else 1
 
     # Materials
     self._materials_shear_wall = {
@@ -182,19 +183,15 @@ def _compile_wall_shear_dicts(self: "ShearWall", force: Forces) -> None:
         "Variable": ["", "fc", "fy", "λ", "Øv"],
         "Value": [
             self.label,
-            round(self.concrete.f_c.to("MPa").magnitude, 2)
-            if self.concrete.unit_system == "metric"
-            else round(self.concrete.f_c.to("psi").magnitude, 0),
-            round(self.steel_bar.f_y.to("MPa").magnitude, 2)
-            if self.concrete.unit_system == "metric"
-            else round(self.steel_bar.f_y.to("ksi").magnitude, 2),
+            shown(self.concrete.f_c, "stress", imperial, 0 if imperial else 2),
+            shown(self.steel_bar.f_y, "steel_stress", imperial, 2),
             _aci(self).lambda_factor,
             phi_v,
         ],
         "Unit": [
             "",
-            "MPa" if self.concrete.unit_system == "metric" else "psi",
-            "MPa" if self.concrete.unit_system == "metric" else "ksi",
+            unit_label("stress", imperial),
+            unit_label("steel_stress", imperial),
             "",
             "",
         ],
@@ -210,13 +207,19 @@ def _compile_wall_shear_dicts(self: "ShearWall", force: Forces) -> None:
         ],
         "Variable": ["t", "lw", "hw", "hw/lw", "Acv"],
         "Value": [
-            round(self.thickness.to("cm").magnitude, 1),
-            round(self.length.to("cm").magnitude, 1),
-            round(self.height.to("cm").magnitude, 1),
+            shown(self.thickness, "length", imperial, length_digits),
+            shown(self.length, "wall_length", imperial, length_digits),
+            shown(self.height, "wall_length", imperial, length_digits),
             round(self._hw_lw, 3),
-            round(self._Acv.to("cm**2").magnitude, 1),
+            shown(self._Acv, "area", imperial, 1),
         ],
-        "Unit": ["cm", "cm", "cm", "", "cm²"],
+        "Unit": [
+            unit_label("length", imperial),
+            unit_label("wall_length", imperial),
+            unit_label("wall_length", imperial),
+            "",
+            unit_label("area", imperial),
+        ],
     }
 
     rho_t_ok = bool(self._rho_t >= self._rho_t_min)
@@ -228,10 +231,8 @@ def _compile_wall_shear_dicts(self: "ShearWall", force: Forces) -> None:
 
     self._all_wall_shear_checks_passed = all([rho_t_ok, rho_l_ok, Vn_max_ok, Vn_ok])
 
-    def _v(q: Quantity) -> float:
-        return (
-            round(q.to("kN").magnitude, 2) if self.concrete.unit_system == "metric" else round(q.to("kip").magnitude, 2)
-        )
+    def _v(q: Quantity) -> Any:
+        return shown(q, "force", self.concrete.is_imperial, 2)
 
     self._forces_shear_wall = {
         "Design forces": ["Shear"],
@@ -266,12 +267,12 @@ def _compile_wall_shear_dicts(self: "ShearWall", force: Forces) -> None:
             "Maximum shear capacity",
             "Total shear capacity",
         ],
-        "Unit": ["", "", "mm", "mm", unit, unit],
+        "Unit": ["", "", unit_label("spacing", imperial), unit_label("spacing", imperial), unit, unit],
         "Value": [
             round(self._rho_t.to("").magnitude, 5),
             round(self._rho_l.to("").magnitude, 5),
-            round(self._s_h.to("mm").magnitude, 1) if self._s_h > 0 * mm else 0.0,
-            round(self._s_v.to("mm").magnitude, 1) if self._s_v > 0 * mm else 0.0,
+            shown(self._s_h, "spacing", imperial, length_digits) if self._s_h > 0 * mm else 0.0,
+            shown(self._s_v, "spacing", imperial, length_digits) if self._s_v > 0 * mm else 0.0,
             _v(self._V_u),
             _v(self._V_u),
         ],
@@ -286,8 +287,8 @@ def _compile_wall_shear_dicts(self: "ShearWall", force: Forces) -> None:
         "Max.": [
             "",
             "",
-            round(self._s_h_max.to("mm").magnitude, 1),
-            round(self._s_v_max.to("mm").magnitude, 1),
+            shown(self._s_h_max, "spacing", imperial, length_digits),
+            shown(self._s_v_max, "spacing", imperial, length_digits),
             _v(self._phi_V_n_max_wall),
             _v(self._phi_V_n_wall),
         ],
@@ -306,10 +307,8 @@ def _compile_results_wall_shear(self: "ShearWall", force: Forces) -> pd.DataFram
     """Build a one-row DataFrame for this force combination."""
     phi_v = _aci(self).phi_v
 
-    def _v(q: Quantity) -> float:
-        return (
-            round(q.to("kN").magnitude, 2) if self.concrete.unit_system == "metric" else round(q.to("kip").magnitude, 2)
-        )
+    def _v(q: Quantity) -> Any:
+        return shown(q, "force", self.concrete.is_imperial, 2)
 
     row = {
         "Label": self.label,

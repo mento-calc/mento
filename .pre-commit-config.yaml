@@ -3,7 +3,10 @@ repos:
     rev: v6.0.0
     hooks:
       - id: trailing-whitespace  # Removes trailing whitespace
+        # Snapshots are mento's output byte for byte, trailing spaces included.
+        exclude: ^tests/reports/snapshots/
       - id: end-of-file-fixer    # Ensures files end with a newline
+        exclude: ^tests/reports/snapshots/
       - id: check-yaml           # Validates YAML files
         # The conda recipe is a Jinja template, not plain YAML — `{% set %}` at
         # the top of the file is not something a YAML parser can read.

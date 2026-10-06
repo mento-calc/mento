@@ -23,6 +23,22 @@ In this folder, you will find detailed examples of how to use mento.
    shear_wall_summary_ACI_318-19
    shear_wall_summary_ACI_318-19 Design
 
+US customary units
+------------------
+
+The single-element ACI 318-19 examples again, with the concrete in psi, the steel in ksi
+and the forces in kip and kip·ft. Everything mento prints follows the units of the
+concrete: in, in², in²/ft, kip·ft, and bars named by their ASTM size.
+
+.. toctree::
+   :maxdepth: 1
+
+   rectangular_beam_check_ACI_318-19_imperial
+   rectangular_beam_design_ACI_318-19_imperial
+   OneWaySlab_check_ACI_318-19_imperial
+   shear_wall_check_ACI_318-19_imperial
+   shear_wall_design_ACI_318-19_imperial
+
 Ejemplos en español
 -------------------
 

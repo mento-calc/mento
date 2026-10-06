@@ -14,7 +14,7 @@ and ``mento/codes/EN_1992_2004_beam.py`` are the two worked examples to read alo
 Before writing code
 -------------------
 
-Open a `discussion <https://github.com/mihdicaballero/mento/discussions>`_ first. Two things
+Open a `discussion <https://github.com/mento-calc/mento/discussions>`_ first. Two things
 are worth settling before you start:
 
 * **A validation source.** Every calculation has to be validated against a worked example

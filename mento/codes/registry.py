@@ -22,6 +22,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Dict, Tuple, Type
 
+from mento.precompute import unit_label
+
 if TYPE_CHECKING:
     from mento.material import Concrete
 
@@ -68,7 +70,10 @@ class DesignCode:
     #: Presentation the code owns: the symbols it names its quantities with and
     #: the unit rows of its summary tables. Not a calculation, but it is
     #: per-code, so a new code must be able to supply it without editing a
-    #: report module either.
+    #: report module either. A unit row maps each column to the *kind* of
+    #: quantity it holds (``"area"``, ``"moment"``, ... -- the keys of
+    #: :data:`mento.precompute.DISPLAY`; ``""`` for none), so one table serves
+    #: both unit systems: :func:`units_row` writes it out for either.
     flexure_symbols: Dict[str, str] = field(default_factory=dict)
     units_row_shear: Dict[str, str] = field(default_factory=dict)
     units_row_flexure: Dict[str, str] = field(default_factory=dict)
@@ -238,3 +243,8 @@ def registered_codes() -> Tuple[str, ...]:
     """Every registered code's title, for diagnostics and tests."""
     _discover()
     return tuple(sorted(_REGISTRY))
+
+
+def units_row(kinds: Dict[str, str], imperial: bool) -> Dict[str, str]:
+    """A code's unit row written out: ``{"As": "cm²"}``, or ``{"As": "in²"}`` in US customary."""
+    return {column: unit_label(kind, imperial) for column, kind in kinds.items()}

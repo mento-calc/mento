@@ -1,0 +1,71 @@
+### design
+     Level Label  Comb.         t      lw      hw        cc          Nx         Vz            My dbh  sh dbv  sv
+0  Level 1    M1  ELU 1  20.00 cm  3.00 m  3.00 m  25.00 mm     0.00 kN  264.00 kN  -172.00 kN·m   8  20  10  30
+1  Level 1    M1  ELU 2  20.00 cm  3.00 m  3.00 m  25.00 mm  -301.00 kN  152.00 kN  -234.00 kN·m   8  20  10  30
+2  Level 2    M2  ELU 1  20.00 cm  2.00 m  3.00 m  25.00 mm    55.50 kN  163.00 kN  -278.00 kN·m   8  20  10  30
+
+### check
+     Level Label   t   lw   hw Horiz.   Vert.       ρt       ρl Vu,max     ØVn    DCR Status
+0                 cm    m    m                                      kN      kN              
+1  Level 1    M1  20  3.0  3.0  Ø8/20  Ø10/30  0.00251  0.00262  264.0  1037.5  0.254      ✅
+2  Level 2    M2  20  2.0  3.0  Ø8/20  Ø10/30  0.00251  0.00262  163.0   691.7  0.236      ✅
+
+### shear_results
+  Label  Comb.  ρt,min  ρt,req       ρt  ρl,min       ρl     Vu     ØVc     ØVs      ØVn ØVn,max Vu≤ØVn,max Vu≤ØVn    DCR
+0                                                            kN      kN      kN       kN      kN                         
+1    M1  ELU 1  0.0025  0.0025  0.00251  0.0025  0.00262  264.0   562.5  475.01  1037.51  1485.0       True   True  0.254
+2    M1  ELU 2  0.0025  0.0025  0.00251  0.0025  0.00262  152.0  327.67  475.01   802.68  1485.0       True   True  0.189
+3    M2  ELU 1  0.0025  0.0025  0.00251  0.0025  0.00262  163.0   375.0  316.67   691.67   990.0       True   True  0.236
+
+### results_detailed_doc: Shear_Wall_Summary_CIRSOC 201-25.docx
+Shear Wall Summary Analysis
+Made with mento <version>. Design code: CIRSOC 201-25
+Wall Level 1 - M1 shear check
+Section Data
+Materials | Variable | Value | Unit
+Section Label |  | M1 | 
+Concrete strength | fc | 25 | MPa
+Steel reinforcement yield strength | fy | 420 | MPa
+Normalweight concrete | λ | 1 | 
+Safety factor for shear | Øv | 0.75 | 
+Geometry | Variable | Value | Unit
+Wall thickness | t | 20.0 | cm
+Wall length | lw | 300.0 | cm
+Wall height | hw | 300.0 | cm
+Aspect ratio | hw/lw | 1.0 | 
+Gross shear area | Acv | 6000.0 | cm²
+Design forces | Variable | Value | Unit
+Shear | Vu | 264.0 | kN
+Limit checks
+Check | Unit | Value | Min. | Max. | Ok?
+Horizontal reinforcement ratio |  | 0.00251 | 0.0025 |  | ✅
+Minimum vertical reinf. ratio |  | 0.00262 | 0.0025 |  | ✅
+Horizontal bar spacing (E.F.) | mm | 200.0 |  | 450.0 | ✅
+Vertical bar spacing (E.F.) | mm | 300.0 |  | 450.0 | ✅
+Maximum shear capacity | kN | 264.0 |  | 1485.0 | ✅
+Total shear capacity | kN | 264.0 |  | 1037.5 | ✅
+Strength Checks
+Shear strength | Variable | Value | Unit
+Concrete shear strength | ØVc | 562.5 | kN
+Steel shear strength | ØVs | 475.0 | kN
+Total shear strength | ØVn | 1037.5 | kN
+Maximum shear strength | ØVn,max | 1485.0 | kN
+Demand Capacity Ratio | DCR | 0.25 | 
+Summary - All Walls
+Wall Data
+Level | Label | Comb. | t | lw | hw | cc | Nx | Vz | My | dbh | sh | dbv | sv
+ |  |  | cm | m | m | mm | kN | kN | kNm | mm | cm | mm | cm
+Level 1 | M1 | ELU 1 | 20 | 3.0 | 3.0 | 25 | 0 | 264 | -172 | 8 | 20 | 12 | 15
+Level 1 | M1 | ELU 2 | 20 | 3.0 | 3.0 | 25 | -301 | 152 | -234 | 8 | 20 | 12 | 15
+Level 2 | M2 | ELU 1 | 20 | 2.0 | 3.0 | 25 | 55.5 | 163 | -278 | 0 | 0 | 0 | 0
+Shear Results
+Label | Comb. | ρt,min | ρt,req | ρt | ρl,min | ρl | Vu | ØVc | ØVs | ØVn | ØVn,max | DCR
+ |  |  |  |  |  |  | kN | kN | kN | kN | kN | 
+M1 | ELU 1 | 0.0025 | 0.0025 | 0.00251 | 0.0025 | 0.00262 | 264.0 | 562.5 | 475.0 | 1037.5 | 1485.0 | 0.25
+M1 | ELU 2 | 0.0025 | 0.0025 | 0.00251 | 0.0025 | 0.00262 | 152.0 | 327.7 | 475.0 | 802.7 | 1485.0 | 0.19
+M2 | ELU 1 | 0.0025 | 0.0025 | 0.00251 | 0.0025 | 0.00262 | 163.0 | 375.0 | 316.7 | 691.7 | 990.0 | 0.24
+Design Check Summary
+Level | Label | t | lw | hw | Horiz. | Vert. | ρt | ρl | Vu,max | ØVn | DCR | Status
+ |  | cm | m | m |  |  |  |  | kN | kN |  | 
+Level 1 | M1 | 20 | 3.0 | 3.0 | Ø8/20 | Ø10/30 | 0.00251 | 0.00262 | 264.0 | 1037.5 | 0.25 | ✅
+Level 2 | M2 | 20 | 2.0 | 3.0 | Ø8/20 | Ø10/30 | 0.00251 | 0.00262 | 163.0 | 691.7 | 0.24 | ✅

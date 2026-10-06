@@ -1,0 +1,259 @@
+### check_flexure
+  Label Comb. Position As,min As,req top As,req bot     As   MEd     MRd MEd≤MRd    DCR
+0                         cm²        cm²        cm²    cm²   kNm     kNm               
+1  V102     u   Bottom   1.22        0.0       3.19  26.11  60.0  153.31    True  0.391
+2  V102     n      Top   1.24       3.13        0.0   1.01 -60.0   19.99    True  3.002
+
+### check_shear
+  Label Comb. Av,min Av,req     Av  NEd  VEd,1  VEd,2 VRd,c VRd,s   VRd VRd,max VEd,1≤VRd,max VEd,2≤VRd    DCR
+0              cm²/m  cm²/m  cm²/m   kN     kN     kN    kN    kN    kN      kN                               
+1  V102     u    1.6   2.68   1.41  0.0  120.0  120.0   0.0  63.2  63.2  255.25          True     False  1.899
+2  V102     n    1.6    1.6   1.41  0.0   30.0   30.0   0.0  63.2  63.2  255.25          True      True  0.475
+
+### flexure_results_detailed
+===== RESULTADOS DETALLADOS DE FLEXIÓN DE VIGA =====
+Materiales                      Variable     Valor  Unidad
+-----------------------------  ----------  -------  --------
+Identificación de la sección                  V102
+Resistencia del hormigón          fck           25  MPa
+Tensión de fluencia del acero     fyk          500  MPa 
+
+Geometría                         Variable     Valor  Unidad
+-------------------------------  ----------  -------  --------
+Altura de la sección                 h            50  cm
+Ancho de la sección                  b            20  cm
+Recubrimiento geométrico             cc          2.5  cm
+Recubrimiento mecánico superior    cm,top        3.5  cm
+Recubrimiento mecánico inferior    cm,bot        4.3  cm 
+
+Solicitaciones            Variable     Valor  Unidad
+-----------------------  ----------  -------  --------
+Momento máximo superior   MEd,top        -60  kNm
+Momento máximo inferior   MEd,bot         60  kNm 
+
+Verificación                         Unidad     Valor  Mín.      Máx.  ¿Ok?
+----------------------------------  --------  -------  ------  ------  ------
+As mín/máx de la armadura superior    cm²        1.01  1.24        40  ❌
+Separación mínima superior             mm         122  30              ✅
+As mín/máx de la armadura inferior    cm²       26.11  1.22        40  ✅
+Separación mínima inferior             mm       -1.17  25              ❌ 
+
+Verificación de la armadura superior             Variable     Valor  Unidad
+----------------------------------------------  ----------  -------  --------
+Barras de la primera capa                         n1+n2         2Ø8
+Barras de la segunda capa                         n3+n4           -
+Altura útil                                         d          46.5  cm
+Relación de profundidad del bloque equivalente     c/d          0.0
+Armadura mínima                                   As,min       1.24  cm²
+Armadura superior requerida                     As,req top     3.13  cm²
+Armadura inferior requerida                     As,req bot      0.0  cm²
+Armadura superior adoptada                          As         1.01  cm²
+Cuantía de armadura longitudinal                    ρl      0.00108
+Resistencia total a flexión                        MRd        19.99  kNm
+Factor de Utilización                              DCR          3.0  ❌ 
+
+Verificación de la armadura inferior             Variable       Valor  Unidad
+----------------------------------------------  ----------  ---------  --------
+Barras de la primera capa                         n1+n2     2Ø10+5Ø25
+Barras de la segunda capa                         n3+n4             -
+Altura útil                                         d            45.7  cm
+Relación de profundidad del bloque equivalente     c/d            0.0
+Armadura mínima                                   As,min         1.22  cm²
+Armadura superior requerida                     As,req top        0.0  cm²
+Armadura inferior requerida                     As,req bot       3.19  cm²
+Armadura inferior adoptada                          As          26.11  cm²
+Cuantía de armadura longitudinal                    ρl        0.02857
+Resistencia total a flexión                        MRd         153.31  kNm
+Factor de Utilización                              DCR           0.39  ✅ 
+
+
+
+### shear_results_detailed
+===== RESULTADOS DETALLADOS DE CORTE DE VIGA =====
+Materiales                                                             Variable     Valor  Unidad
+--------------------------------------------------------------------  ----------  -------  --------
+Identificación de la sección                                                         V102
+Resistencia del hormigón                                                 fck           25  MPa
+Tensión de fluencia del acero                                            fywk         500  MPa
+Coeficiente de seguridad del hormigón                                     γc          1.5
+Coeficiente de seguridad del acero                                        γs         1.15
+Coeficiente de efectos de larga duración y de aplicación de la carga     αcc         0.85 
+
+Geometría                           Variable     Valor  Unidad
+---------------------------------  ----------  -------  --------
+Altura de la sección                   h            50  cm
+Ancho de la sección                    b            20  cm
+Recubrimiento geométrico               cc          2.5  cm
+Armadura longitudinal traccionada      As         1.01  cm² 
+
+Solicitaciones                 Variable     Valor  Unidad
+----------------------------  ----------  -------  --------
+Axil, positivo en compresión     NEd            0  kN
+Corte                           VEd,2         120  kN 
+
+Resistencia de la armadura de corte                                        Variable     Valor  Unidad
+------------------------------------------------------------------------  ----------  -------  --------
+Número de estribos                                                            ns            1
+Número de ramas                                                               nl            2
+Diámetro del estribo                                                          db            6  mm
+Separación de estribos                                                        s            40  cm
+Separación de ramas en el ancho                                               sw         14.4  cm
+Altura útil                                                                   d          45.7  cm
+Armadura mínima de corte                                                   Asw,min        1.6  cm²/m
+Armadura de corte requerida                                                Asw,req       2.68  cm²/m
+Armadura de corte adoptada                                                   Asw         1.41  cm²/m
+Resistencia de la armadura de corte                                         VRd,s        63.2  kN
+Expresión (9.6N) a lo largo: 0.75·d·(1 + cot α), tope de 400 mm de mento
+Expresión (9.8N) en el ancho: 0.75·d, como máximo 600 mm 
+
+Verificación                                          Unidad     Valor  Mín.      Máx.  ¿Ok?
+---------------------------------------------------  --------  -------  ------  ------  ------
+Separación de estribos en la dirección longitudinal     cm          40           34.27  ❌
+Separación de ramas en el ancho (§9.2.2(8))             cm        14.4           34.27  ✅
+Armadura mínima de corte                              cm²/m       1.41  1.6             ❌ 
+
+Resistencia al corte               Variable     Valor  Unidad
+--------------------------------  ----------  -------  --------
+Cuantía de armadura longitudinal      ρl         0.02
+Valor de k                            k          1.66
+Tensión axial                        σcd          0.0  MPa
+Ángulo de la biela de hormigón        Θ          21.8  deg
+Resistencia del hormigón            VRd,c         0.0  kN
+Resistencia máxima al corte        VRd,max     255.25  kN
+Resistencia total al corte           VRd         63.2  kN
+Verificación de corte máximo                       ✅
+Factor de Utilización                DCR        1.899  ❌ 
+
+
+
+### flexure_results_detailed_doc: Beam V102 flexure check EN 1992-2004.docx
+Verificación a flexión de viga V102
+Generado con mento <version>. Código de diseño: EN 1992-2004
+Datos de la sección
+Materiales | Variable | Valor | Unidad
+Identificación de la sección |  | V102 | 
+Resistencia del hormigón | fck | 25 | MPa
+Tensión de fluencia del acero | fyk | 500 | MPa
+Geometría | Variable | Valor | Unidad
+Altura de la sección | h | 50.0 | cm
+Ancho de la sección | b | 20.0 | cm
+Recubrimiento geométrico | cc | 2.5 | cm
+Recubrimiento mecánico superior | cm,top | 3.5 | cm
+Recubrimiento mecánico inferior | cm,bot | 4.3 | cm
+Solicitaciones | Variable | Valor | Unidad
+Momento máximo superior | MEd,top | -60.0 | kNm
+Momento máximo inferior | MEd,bot | 60.0 | kNm
+Verificaciones de límites
+Verificación | Unidad | Valor | Mín. | Máx. | ¿Ok?
+As mín/máx de la armadura superior | cm² | 1.01 | 1.24 | 40.0 | ❌
+Separación mínima superior | mm | 122.0 | 30.0 |  | ✅
+As mín/máx de la armadura inferior | cm² | 26.11 | 1.22 | 40.0 | ✅
+Separación mínima inferior | mm | -1.17 | 25.0 |  | ❌
+Capacidad a flexión superior
+Verificación de la armadura superior | Variable | Valor | Unidad
+Barras de la primera capa | n1+n2 | 2Ø8 | 
+Barras de la segunda capa | n3+n4 | - | 
+Altura útil | d | 46.5 | cm
+Relación de profundidad del bloque equivalente | c/d | 0.0 | 
+Armadura mínima | As,min | 1.24 | cm²
+Armadura superior requerida | As,req top | 3.13 | cm²
+Armadura inferior requerida | As,req bot | 0.0 | cm²
+Armadura superior adoptada | As | 1.01 | cm²
+Cuantía de armadura longitudinal | ρl | 0.00108 | 
+Resistencia total a flexión | MRd | 20.0 | kNm
+Factor de Utilización | DCR | 3.0 | ❌
+Capacidad a flexión inferior
+Verificación de la armadura inferior | Variable | Valor | Unidad
+Barras de la primera capa | n1+n2 | 2Ø10+5Ø25 | 
+Barras de la segunda capa | n3+n4 | - | 
+Altura útil | d | 45.7 | cm
+Relación de profundidad del bloque equivalente | c/d | 0.0 | 
+Armadura mínima | As,min | 1.22 | cm²
+Armadura superior requerida | As,req top | 0.0 | cm²
+Armadura inferior requerida | As,req bot | 3.19 | cm²
+Armadura inferior adoptada | As | 26.11 | cm²
+Cuantía de armadura longitudinal | ρl | 0.02857 | 
+Resistencia total a flexión | MRd | 153.3 | kNm
+Factor de Utilización | DCR | 0.39 | ✅
+
+### shear_results_detailed_doc: Beam V102 shear check EN 1992-2004.docx
+Verificación a corte de viga V102
+Generado con mento <version>. Código de diseño: EN 1992-2004
+Datos de la sección
+Materiales | Variable | Valor | Unidad
+Identificación de la sección |  | V102 | 
+Resistencia del hormigón | fck | 25 | MPa
+Tensión de fluencia del acero | fywk | 500 | MPa
+Coeficiente de seguridad del hormigón | γc | 1.5 | 
+Coeficiente de seguridad del acero | γs | 1.15 | 
+Coeficiente de efectos de larga duración y de aplicación de la carga | αcc | 0.85 | 
+Geometría | Variable | Valor | Unidad
+Altura de la sección | h | 50.0 | cm
+Ancho de la sección | b | 20.0 | cm
+Recubrimiento geométrico | cc | 2.5 | cm
+Armadura longitudinal traccionada | As | 1.01 | cm²
+Solicitaciones | Variable | Valor | Unidad
+Axil, positivo en compresión | NEd | 0.0 | kN
+Corte | VEd,2 | 120.0 | kN
+Verificaciones de límites
+Verificación | Unidad | Valor | Mín. | Máx. | ¿Ok?
+Separación de estribos en la dirección longitudinal | cm | 40.0 |  | 34.27 | ❌
+Separación de ramas en el ancho (§9.2.2(8)) | cm | 14.4 |  | 34.27 | ✅
+Armadura mínima de corte | cm²/m | 1.41 | 1.6 |  | ❌
+Verificaciones de resistencia
+Resistencia de la armadura de corte | Variable | Valor | Unidad
+Número de estribos | ns | 1 | 
+Número de ramas | nl | 2 | 
+Diámetro del estribo | db | 6 | mm
+Separación de estribos | s | 40 | cm
+Separación de ramas en el ancho | sw | 14.4 | cm
+Altura útil | d | 45.7 | cm
+Armadura mínima de corte | Asw,min | 1.6 | cm²/m
+Armadura de corte requerida | Asw,req | 2.68 | cm²/m
+Armadura de corte adoptada | Asw | 1.41 | cm²/m
+Resistencia de la armadura de corte | VRd,s | 63.2 | kN
+Expresión (9.6N) a lo largo: 0.75·d·(1 + cot α), tope de 400 mm de mento |  |  | 
+Expresión (9.8N) en el ancho: 0.75·d, como máximo 600 mm |  |  | 
+Resistencia al corte | Variable | Valor | Unidad
+Cuantía de armadura longitudinal | ρl | 0.02 | 
+Valor de k | k | 1.66 | 
+Tensión axial | σcd | 0.0 | MPa
+Ángulo de la biela de hormigón | Θ | 21.8 | deg
+Resistencia del hormigón | VRd,c | 0.0 | kN
+Resistencia máxima al corte | VRd,max | 255.2 | kN
+Resistencia total al corte | VRd | 63.2 | kN
+Verificación de corte máximo |  | ✅ | 
+Factor de Utilización | DCR | 1.9 | ❌
+
+### results
+Beam V102, $b$=20.00 cm, $h$=50.00 cm, $c_{c}$=2.50 cm,                         Concrete C25/30, Rebar B500S.
+Top longitudinal rebar: 2Ø8, $A_{s,top}$ = 1.01 cm², $M_{Ed}$ = -60.0 kNm, $M_{Rd}$ = 19.99 kNm → $\color{#d43e36}{\text{DCR}=3.0}$ ⚠️ Some checks failed, see detailed results.
+
+Bottom longitudinal rebar: 2Ø10+5Ø25, $A_{s,bot}$ = 26.11 cm², $M_{Ed}$ = 60.0 kNm, $M_{Rd}$ = 153.31 kNm → $\color{#439b00}{\text{DCR}=0.39}$ ⚠️ Some checks failed, see detailed results.
+Shear reinforcing 2 legs Ø6 mm @ 40 cm · 14.4 cm between legs (max 34.27 cm), $A_{sw}$=1.41 cm²/m, $V_{Ed,2}$=120.0 kN, $V_{Rd}$=63.2 kN → $\color{#d43e36}{\text{DCR}=1.9}$ ⚠️ Some checks failed, see detailed results.
+
+### flexure_design
+2Ø8 mm
+2Ø10 mm
+5Ø25 mm
+
+### shear_design
+2 legs Ø6 mm @ 40 cm · 14.4 cm between legs (max 34.27 cm)
+
+### reinforcement.transverse
+2 legs Ø6 mm @ 40 cm · 14.4 cm between legs
+
+### warnings
+As_below_min: Armadura en la cara superior: A_s = 1.01 cm² es menor que la mínima que tiene que cumplir, A_s,mín,ef = 1.24 cm².
+bars_do_not_fit: Las barras de la cara inferior no entran en el ancho de la sección.
+Av_below_min: Los estribos aportan A_v = 1.41 cm²/m, menos que el mínimo A_v,mín = 1.6 cm²/m.
+stirrup_spacing_exceeds_max: Separación de estribos a lo largo del elemento: 40 cm supera la máxima 34.3 cm.
+
+### plot
+20 cm
+50 cm
+2Ø10+5Ø25
+2Ø8
+2 ramas Ø6 mm c/40 cm
+14.4 cm entre ramas (máx. 34.27 cm)
+estribo perimetral

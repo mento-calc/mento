@@ -10,6 +10,9 @@ from mento.codes.en_1992_2004.equations import shear as en_shear_eq
 from mento.codes.registry import design_code
 from mento.precompute import CANONICAL, DISPLAY, section_floats
 from mento.units import mm, cm, inch
+from mento.bar_sizes import ASTM_BAR_DIAMETERS, bar_designation, bar_diameter
+
+__all__ = ["Rebar", "bar_designation", "bar_diameter"]
 
 if TYPE_CHECKING:
     from mento.beam import RectangularBeam
@@ -137,18 +140,8 @@ class Rebar:
             ]
             self.rebar_areas = {d: (math.pi * d**2) / 4 for d in self.rebar_diameters}
         else:
-            self.rebar_diameters = [
-                3 * inch / 8,
-                4 * inch / 8,
-                5 * inch / 8,
-                6 * inch / 8,
-                7 * inch / 8,
-                8 * inch / 8,
-                1.128 * inch,
-                1.27 * inch,
-                1.41 * inch,
-                1.693 * inch,
-            ]
+            # The ASTM A615 sizes #3 to #14, which the reports write as "#6".
+            self.rebar_diameters = list(ASTM_BAR_DIAMETERS.values())
             rebar_areas_list = [(d**2 * np.pi / 4) for d in self.rebar_diameters]
             self.rebar_areas = dict(zip(self.rebar_diameters, rebar_areas_list))
 

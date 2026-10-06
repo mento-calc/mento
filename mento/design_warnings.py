@@ -120,6 +120,13 @@ Codes
     no bar farther than 150 mm clear (CIRSOC 201-25: 15 d_b of the stirrup or
     150 mm) along the stirrup from one that does. mento does not know which
     bars the legs enclose, so a wide compression face passes it unchecked.
+``force_component_not_checked``
+    A combination gives a component no check of a beam, slab, footing or wall
+    reads: ``V_y``, ``M_z`` or the torsion ``M_x``. The check runs on
+    ``N_x``, ``V_z`` and ``M_y`` and passes over the rest, so a DCR below 1
+    says nothing about them. One warning per component, quoting the largest
+    value given and every combination that gives it; ``values`` carries
+    ``component``, its name, and ``value``.
 """
 
 from __future__ import annotations
@@ -129,6 +136,7 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
 
+from mento.bar_sizes import bar_designation, is_us_customary
 from mento.codes.check_state import to_display
 from mento.codes.registry import design_code
 from mento.i18n import translate
@@ -137,6 +145,7 @@ from mento.units import Quantity, inch, mm
 
 if TYPE_CHECKING:
     from mento.beam import RectangularBeam
+    from mento.forces import Forces
     from mento.wall_results import WallMesh, WallShearCheck
 
 
@@ -204,6 +213,9 @@ _MESSAGES: Dict[str, str] = {
         "(A_s,req = {A_s_req}); the design left A_s = {A_s}. Enlarge the section."
     ),
     "stirrups_required": "The section has no stirrups and requires shear reinforcement A_v = {A_v_req}.",
+    "force_component_not_checked": (
+        "{component} = {value} is given but not checked: this element reads only N_x, V_z and M_y."
+    ),
     "Av_below_min": "The stirrups provide A_v = {A_v}, below the minimum A_v,min = {A_v_min}.",
     "stirrup_spacing_exceeds_max_l": "Stirrup spacing along the member: {s} exceeds the maximum {s_max}.",
     "stirrup_spacing_exceeds_max_w": "Stirrup leg spacing across the width: {s} exceeds the maximum {s_max}.",
@@ -218,14 +230,14 @@ _MESSAGES: Dict[str, str] = {
     ),
     "stirrup_spacing_exceeds_compression_support": (
         "Stirrup spacing along the member: {s} exceeds the {s_max} that lateral support of the "
-        "Ø{d_b_comp} compression bars allows (16 d_b, 48 d_b of the stirrup, least dimension of the beam)."
+        "{d_b_comp} compression bars allows (16 d_b, 48 d_b of the stirrup, least dimension of the beam)."
     ),
     "stirrup_diameter_below_compression_support": (
         "Stirrup diameter {d_b} is below the minimum {d_b_min} that lateral support of "
-        "Ø{d_b_comp} compression bars requires."
+        "{d_b_comp} compression bars requires."
     ),
     "stirrups_required_for_compression_support": (
-        "The section relies on Ø{d_b_comp} compression bars and has no stirrups to brace them: "
+        "The section relies on {d_b_comp} compression bars and has no stirrups to brace them: "
         "closed stirrups of at least {d_b_min} at no more than {s_max} are required."
     ),
 }
@@ -266,6 +278,16 @@ def _fields(values: Mapping[str, Any]) -> Dict[str, str]:
             if first != second
         ):
             break
+    # A bar is named, not measured: "#6" in US customary, and a compression bar
+    # "Ø16 mm" in SI, the symbol travelling with the value so that one template
+    # serves both.
+    for name, value in items:
+        if not (name.startswith("d_b") and isinstance(value, Quantity)):
+            continue
+        if is_us_customary(value):
+            fields[name] = bar_designation(value)
+        elif name == "d_b_comp":
+            fields[name] = f"Ø{fields[name]}"
     return fields
 
 
@@ -678,6 +700,34 @@ def wall_warnings(wall: "RectangularBeam", mesh: "WallMesh", checks: Tuple["Wall
 # ---------------------------------------------------------------------------
 
 
+#: The components of a Forces that no check of a beam, slab, footing or wall reads.
+_UNREAD_COMPONENTS = ("V_y", "M_x", "M_z")
+
+
+def unread_force_warnings(force: "Forces", label: str) -> List[_Raw]:
+    """The components ``force`` gives that the check passes over, one per component.
+
+    A beam is checked for ``N_x``, ``V_z`` and ``M_y``. ``V_y``, ``M_z`` and the
+    torsion ``M_x`` are there for the full demand of a section; given to a beam
+    they are not wrong, but nothing verifies them, and a DCR below 1 would
+    otherwise read as if it did.
+    """
+    found: List[_Raw] = []
+    for name in _UNREAD_COMPONENTS:
+        value = getattr(force, name)
+        if value.magnitude != 0:
+            found.append(
+                _Raw(
+                    "force_component_not_checked",
+                    {"component": name, "value": value},
+                    None,
+                    label,
+                    severity=abs(float(value.magnitude)),
+                )
+            )
+    return found
+
+
 def collect(raws: List[_Raw]) -> Tuple[DesignWarning, ...]:
     """Collapse the raw findings into one worded warning per limit and face.
 
@@ -685,13 +735,14 @@ def collect(raws: List[_Raw]) -> Tuple[DesignWarning, ...]:
     values of the combination that misses it by most and the labels of all of
     them.
     """
-    groups: Dict[Tuple[str, Optional[str], Optional[str]], List[_Raw]] = {}
+    groups: Dict[Tuple[str, Optional[str], Optional[str], Optional[str]], List[_Raw]] = {}
     for raw in raws:
-        key = (raw.code, raw.face, raw.values.get("direction"))
+        # A force component is a limit of its own, as a direction is.
+        key = (raw.code, raw.face, raw.values.get("direction"), raw.values.get("component"))
         groups.setdefault(key, []).append(raw)
 
     warnings: List[DesignWarning] = []
-    for (code, face, direction), group in groups.items():
+    for (code, face, direction, _component), group in groups.items():
         worst = max(group, key=lambda raw: raw.severity)
         labels = tuple(dict.fromkeys(raw.combination for raw in group if raw.combination is not None))
         # The direction picks the template and stays in the values, where a

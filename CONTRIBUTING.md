@@ -25,7 +25,7 @@ By participating in this project you agree to abide by our
 
 ## Ways to contribute
 
-**Report a bug.** Open an [issue](https://github.com/mihdicaballero/mento/issues/new/choose)
+**Report a bug.** Open an [issue](https://github.com/mento-calc/mento/issues/new/choose)
 using the bug report template. A short reproducible snippet with materials, geometry and
 forces is worth more than a long description.
 
@@ -34,7 +34,7 @@ code request* template when you are asking for a new code, article or check. Tel
 standard and which clause, and point us to a worked example we can validate against.
 
 **Ask a question or share how you use mento.** Head to
-[Discussions](https://github.com/mihdicaballero/mento/discussions). Questions there often
+[Discussions](https://github.com/mento-calc/mento/discussions). Questions there often
 turn into documentation improvements.
 
 **Contribute code or documentation.** Look for issues labelled `good first issue` or
@@ -52,7 +52,7 @@ the tests and validation should cover.
 mento requires Python 3.12 or newer.
 
 ```bash
-git clone https://github.com/mihdicaballero/mento.git
+git clone https://github.com/mento-calc/mento.git
 cd mento
 python -m venv venv
 source venv/bin/activate      # Windows: venv\Scripts\activate
@@ -331,4 +331,4 @@ mento is built with, and grateful to:
 - [Sphinx](https://www.sphinx-doc.org/) and [Read the Docs](https://readthedocs.org/) for documentation
 - [pint](https://pint.readthedocs.io/) for units
 - [CalcPad](https://github.com/Proektsoftbg/Calcpad) for calculation validation
-- [GitHub Discussions](https://github.com/mihdicaballero/mento/discussions) for community support
+- [GitHub Discussions](https://github.com/mento-calc/mento/discussions) for community support

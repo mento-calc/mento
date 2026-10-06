@@ -1,0 +1,256 @@
+### check_flexure
+  Label Comb. Position As,min As,req top As,req bot    As    Mu    ØMn Mu≤ØMn    DCR
+0                         cm²        cm²        cm²   cm²   kNm    kNm              
+1    L1     u   Bottom    3.6        0.0       6.51  7.07  40.0  43.29   True  0.924
+2    L1   neg      Top    3.6       4.01        0.0  4.52 -25.0  28.14   True  0.889
+
+### check_shear
+  Label Comb. Av,min Av,req     Av    Vu   Nu    ØVc  ØVs    ØVn   ØVmax Vu≤ØVmax Vu≤ØVn    DCR
+0              cm²/m  cm²/m  cm²/m    kN   kN     kN   kN     kN      kN                       
+1    L1     u    0.0    0.0    0.0  60.0  0.0  67.39  0.0  67.39  485.67     True   True   0.89
+2    L1   neg    0.0    0.0    0.0  40.0  0.0  58.08  0.0  58.08  476.35     True   True  0.689
+
+### flexure_results_detailed
+===== RESULTADOS DETALLADOS DE FLEXIÓN DE LOSA =====
+Materiales                      Variable     Valor  Unidad
+-----------------------------  ----------  -------  --------
+Identificación de la sección                    L1
+Resistencia del hormigón           fc           25  MPa
+Tensión de fluencia del acero      fy          420  MPa 
+
+Geometría                         Variable     Valor  Unidad
+-------------------------------  ----------  -------  --------
+Altura de la sección                 h            20  cm
+Ancho de la sección                  b           100  cm
+Recubrimiento geométrico             cc          2.5  cm
+Recubrimiento mecánico superior    cm,top        3.1  cm
+Recubrimiento mecánico inferior    cm,bot        3.1  cm 
+
+Solicitaciones            Variable     Valor  Unidad
+-----------------------  ----------  -------  --------
+Momento máximo superior    Mu,top        -25  kNm
+Momento máximo inferior    Mu,bot         40  kNm 
+
+Verificación                         Unidad     Valor  Mín.      Máx.  ¿Ok?
+----------------------------------  --------  -------  ------  ------  ------
+As mín/máx de la armadura superior    cm²        4.52  3.6      31.66  ✅
+Separación mínima superior             mm         250  42              ✅
+As mín/máx de la armadura inferior    cm²        7.07  3.6      29.95  ✅
+Separación mínima inferior             mm         160  37              ✅ 
+
+Verificación de la armadura superior             Variable          Valor  Unidad
+----------------------------------------------  ----------  ------------  --------
+Barras de la primera capa                         Ø1/s1     Ø12 mm/25 cm
+Barras de la segunda capa                         Ø3/s3                -
+Altura útil                                         d               16.9  cm
+Relación de profundidad del bloque equivalente     c/d            0.0551
+Armadura mínima                                   As,min             3.6  cm²
+Armadura superior requerida                     As,req top          4.01  cm²
+Armadura inferior requerida                     As,req bot           0.0  cm²
+Armadura superior adoptada                          As              4.52  cm²
+Cuantía de armadura longitudinal                    ρl           0.00268
+Resistencia total a flexión                        ØMn             28.14  kNm
+Factor de Utilización                              DCR              0.89  ✅ 
+
+Verificación de la armadura inferior             Variable          Valor  Unidad
+----------------------------------------------  ----------  ------------  --------
+Barras de la primera capa                         Ø1/s1     Ø12 mm/16 cm
+Barras de la segunda capa                         Ø3/s3                -
+Altura útil                                         d               16.9  cm
+Relación de profundidad del bloque equivalente     c/d            0.0896
+Armadura mínima                                   As,min             3.6  cm²
+Armadura superior requerida                     As,req top           0.0  cm²
+Armadura inferior requerida                     As,req bot          6.51  cm²
+Armadura inferior adoptada                          As              7.07  cm²
+Cuantía de armadura longitudinal                    ρl           0.00418
+Resistencia total a flexión                        ØMn             43.29  kNm
+Factor de Utilización                              DCR              0.92  ✅ 
+
+
+
+### shear_results_detailed
+===== RESULTADOS DETALLADOS DE CORTE DE LOSA =====
+Materiales                            Variable     Valor  Unidad
+-----------------------------------  ----------  -------  --------
+Identificación de la sección                          L1
+Resistencia del hormigón                 fc           25  MPa
+Tensión de fluencia del acero            fy          420  MPa
+Densidad del hormigón                    wc       2500.0  kg/m³
+Hormigón de densidad normal              λ             1
+Coeficiente de seguridad para corte      Øv         0.75 
+
+Geometría                           Variable     Valor  Unidad
+---------------------------------  ----------  -------  --------
+Altura de la sección                   h            20  cm
+Ancho de la sección                    b           100  cm
+Recubrimiento geométrico               cc          2.5  cm
+Armadura longitudinal traccionada      As         4.52  cm² 
+
+Solicitaciones                 Variable     Valor  Unidad
+----------------------------  ----------  -------  --------
+Axil, positivo en compresión      Nu            0  kN
+Corte                             Vu           60  kN 
+
+Resistencia de la armadura de corte                                Variable     Valor  Unidad
+----------------------------------------------------------------  ----------  -------  --------
+Diámetro del estribo                                                  db            0  mm
+Separación de estribos en la dirección longitudinal                   sl            0  cm
+Separación de estribos en la dirección transversal                    sw            0  cm
+Altura útil                                                           d          16.9  cm
+Armadura mínima de corte                                            Av,min          0  cm²/m
+Armadura de corte requerida                                         Av,req          0  cm²/m
+Armadura de corte adoptada                                            Av            0  cm²/m
+Resistencia de la armadura de corte                                  ØVs            0  kN
+Corte nominal que deben resistir los estribos (Vu/φ − Vc)           Vs,req          0  kN
+Umbral de la Tabla 9.7.6.2.2 (0.33√f'c·bw·d)                        Vs,lim     278.85  kN
+Vs,req ≤ Vs,lim → Tabla 9.7.6.2.2: d/2 a lo largo, d en el ancho
+Tope absoluto de la Tabla 9.7.6.2.2 en esta fila                    s,cap          40  cm 
+
+Verificación                                                           Unidad     Valor  Mín.      Máx.  ¿Ok?
+--------------------------------------------------------------------  --------  -------  ------  ------  ------
+Separación de estribos en la dirección longitudinal                      cm           0            8.45  ✅
+Separación de estribos en la dirección transversal (Tabla 9.7.6.2.2)     cm           0            16.9  ✅
+Armadura mínima de corte                                               cm²/m          0  0               ✅
+Diámetro mínimo de barra                                                 mm           0  0               ✅ 
+
+Resistencia al corte                     Variable     Valor  Unidad
+--------------------------------------  ----------  -------  --------
+Área efectiva de corte                     Acv       1690.0  cm²
+Cuantía de armadura longitudinal            ρw      0.00418
+Factor de modificación por tamaño           λs          1.0
+Tensión axial                              σNu          0.0  MPa
+Tensión de corte efectiva del hormigón      kc         0.53  MPa
+Resistencia del hormigón                   ØVc        67.39  kN
+Resistencia máxima al corte               ØVmax      485.67  kN
+Resistencia total al corte                 ØVn        67.39  kN
+Verificación de corte máximo                             ✅
+Factor de Utilización                      DCR         0.89  ✅ 
+
+
+
+### flexure_results_detailed_doc: Slab L1 flexure check CIRSOC 201-25.docx
+Verificación a flexión de losa L1
+Generado con mento <version>. Código de diseño: CIRSOC 201-25
+Datos de la sección
+Materiales | Variable | Valor | Unidad
+Identificación de la sección |  | L1 | 
+Resistencia del hormigón | fc | 25 | MPa
+Tensión de fluencia del acero | fy | 420 | MPa
+Geometría | Variable | Valor | Unidad
+Altura de la sección | h | 20.0 | cm
+Ancho de la sección | b | 100.0 | cm
+Recubrimiento geométrico | cc | 2.5 | cm
+Recubrimiento mecánico superior | cm,top | 3.1 | cm
+Recubrimiento mecánico inferior | cm,bot | 3.1 | cm
+Solicitaciones | Variable | Valor | Unidad
+Momento máximo superior | Mu,top | -25.0 | kNm
+Momento máximo inferior | Mu,bot | 40.0 | kNm
+Verificaciones de límites
+Verificación | Unidad | Valor | Mín. | Máx. | ¿Ok?
+As mín/máx de la armadura superior | cm² | 4.52 | 3.6 | 31.66 | ✅
+Separación mínima superior | mm | 250.0 | 42.0 |  | ✅
+As mín/máx de la armadura inferior | cm² | 7.07 | 3.6 | 29.95 | ✅
+Separación mínima inferior | mm | 160.0 | 37.0 |  | ✅
+Capacidad a flexión superior
+Verificación de la armadura superior | Variable | Valor | Unidad
+Barras de la primera capa | Ø1/s1 | Ø12 mm/25 cm | 
+Barras de la segunda capa | Ø3/s3 | - | 
+Altura útil | d | 16.9 | cm
+Relación de profundidad del bloque equivalente | c/d | 0.0551 | 
+Armadura mínima | As,min | 3.6 | cm²
+Armadura superior requerida | As,req top | 4.01 | cm²
+Armadura inferior requerida | As,req bot | 0.0 | cm²
+Armadura superior adoptada | As | 4.52 | cm²
+Cuantía de armadura longitudinal | ρl | 0.00268 | 
+Resistencia total a flexión | ØMn | 28.1 | kNm
+Factor de Utilización | DCR | 0.89 | ✅
+Capacidad a flexión inferior
+Verificación de la armadura inferior | Variable | Valor | Unidad
+Barras de la primera capa | Ø1/s1 | Ø12 mm/16 cm | 
+Barras de la segunda capa | Ø3/s3 | - | 
+Altura útil | d | 16.9 | cm
+Relación de profundidad del bloque equivalente | c/d | 0.0896 | 
+Armadura mínima | As,min | 3.6 | cm²
+Armadura superior requerida | As,req top | 0.0 | cm²
+Armadura inferior requerida | As,req bot | 6.51 | cm²
+Armadura inferior adoptada | As | 7.07 | cm²
+Cuantía de armadura longitudinal | ρl | 0.00418 | 
+Resistencia total a flexión | ØMn | 43.3 | kNm
+Factor de Utilización | DCR | 0.92 | ✅
+
+### shear_results_detailed_doc: Slab L1 shear check CIRSOC 201-25.docx
+Verificación a corte de losa L1
+Generado con mento <version>. Código de diseño: CIRSOC 201-25
+Datos de la sección
+Materiales | Variable | Valor | Unidad
+Identificación de la sección |  | L1 | 
+Resistencia del hormigón | fc | 25 | MPa
+Tensión de fluencia del acero | fy | 420 | MPa
+Densidad del hormigón | wc | 2500.0 | kg/m³
+Hormigón de densidad normal | λ | 1 | 
+Coeficiente de seguridad para corte | Øv | 0.75 | 
+Geometría | Variable | Valor | Unidad
+Altura de la sección | h | 20.0 | cm
+Ancho de la sección | b | 100.0 | cm
+Recubrimiento geométrico | cc | 2.5 | cm
+Armadura longitudinal traccionada | As | 4.52 | cm²
+Solicitaciones | Variable | Valor | Unidad
+Axil, positivo en compresión | Nu | 0.0 | kN
+Corte | Vu | 60.0 | kN
+Verificaciones de límites
+Verificación | Unidad | Valor | Mín. | Máx. | ¿Ok?
+Separación de estribos en la dirección longitudinal | cm | 0.0 |  | 8.45 | ✅
+Separación de estribos en la dirección transversal (Tabla 9.7.6.2.2) | cm | 0.0 |  | 16.9 | ✅
+Armadura mínima de corte | cm²/m | 0.0 | 0.0 |  | ✅
+Diámetro mínimo de barra | mm | 0.0 | 0 |  | ✅
+Verificaciones de resistencia
+Resistencia de la armadura de corte | Variable | Valor | Unidad
+Diámetro del estribo | db | 0 | mm
+Separación de estribos en la dirección longitudinal | sl | 0 | cm
+Separación de estribos en la dirección transversal | sw | 0.0 | cm
+Altura útil | d | 16.9 | cm
+Armadura mínima de corte | Av,min | 0.0 | cm²/m
+Armadura de corte requerida | Av,req | 0.0 | cm²/m
+Armadura de corte adoptada | Av | 0.0 | cm²/m
+Resistencia de la armadura de corte | ØVs | 0.0 | kN
+Corte nominal que deben resistir los estribos (Vu/φ − Vc) | Vs,req | 0.0 | kN
+Umbral de la Tabla 9.7.6.2.2 (0.33√f'c·bw·d) | Vs,lim | 278.9 | kN
+Vs,req ≤ Vs,lim → Tabla 9.7.6.2.2: d/2 a lo largo, d en el ancho |  |  | 
+Tope absoluto de la Tabla 9.7.6.2.2 en esta fila | s,cap | 40.0 | cm
+Resistencia al corte | Variable | Valor | Unidad
+Área efectiva de corte | Acv | 1690.0 | cm²
+Cuantía de armadura longitudinal | ρw | 0.00418 | 
+Factor de modificación por tamaño | λs | 1.0 | 
+Tensión axial | σNu | 0.0 | MPa
+Tensión de corte efectiva del hormigón | kc | 0.53 | MPa
+Resistencia del hormigón | ØVc | 67.4 | kN
+Resistencia máxima al corte | ØVmax | 485.7 | kN
+Resistencia total al corte | ØVn | 67.4 | kN
+Verificación de corte máximo |  | ✅ | 
+Factor de Utilización | DCR | 0.89 | ✅
+
+### results
+Slab L1, $b$=100.00 cm, $h$=20.00 cm, $c_{c}$=2.50 cm,                         Concrete H25, Rebar ADN 420.
+Top longitudinal rebar: Ø12 mm/25 cm, $A_{s,top}$ = 4.52 cm², $M_u$ = -25.0 kNm, $\phi M_n$ = 28.14 kNm → $\color{#439b00}{\text{DCR}=0.89}$ 
+
+Bottom longitudinal rebar: Ø12 mm/16 cm, $A_{s,bot}$ = 7.07 cm², $M_u$ = 40.0 kNm, $\phi M_n$ = 43.29 kNm → $\color{#439b00}{\text{DCR}=0.92}$ 
+Shear reinforcing not assigned, $A_v$=0.0 cm²/m, $V_u$=60.0 kN, $\phi V_n$=67.39 kN → $\color{#439b00}{\text{DCR}=0.89}$ 
+
+### flexure_design
+Ø12 mm/25 cm
+Ø12 mm/16 cm
+
+### shear_design
+no stirrups
+
+### reinforcement.transverse
+no stirrups
+
+### warnings
+
+
+### plot
+100 cm
+20 cm
+7Ø12
+4Ø12

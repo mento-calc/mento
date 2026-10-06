@@ -98,7 +98,7 @@ Symbols
      - ``_theta``
    * - :math:`\varepsilon_{cu2}`
      - Ultimate concrete strain (Table 3.1)
-     - ``_epsilon_cu2``
+     - ``epsilon_cu2``
 
 Flexure
 -------

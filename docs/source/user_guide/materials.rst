@@ -53,6 +53,23 @@ To create concrete compliant with the ACI 318-19 standard with a
     concrete = Concrete_EN_1992_2004(name="C25", f_c=25 * MPa)
     print(concrete)
 
+EN 1992-1-1 design values
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+:math:`\alpha_{cc}` is a parameter of the EN concrete. EN 1992-1-1 §3.1.6(1) recommends
+1.0 and lets each National Annex choose between 0.8 and 1.0; mento defaults to 0.85, the
+UK National Annex value its EN beams are validated with. Pass the value your annex adopts:
+
+.. code-block:: python
+
+    concrete = Concrete_EN_1992_2004(name="C30", f_c=30 * MPa, alpha_cc=1.0)
+    concrete.f_cd          # α_cc·f_ck/γ_c = 20 MPa
+    concrete.epsilon_c2    # 0.002, Table 3.1
+    concrete.epsilon_cu2   # 0.0035
+    concrete.n_parabola    # 2.0, the exponent of the parabola-rectangle diagram
+
+``epsilon_c1``, ``epsilon_cu1``, ``epsilon_c3`` and ``epsilon_cu3`` complete Table 3.1.
+
 Steel Models
 ------------
 
@@ -69,6 +86,11 @@ Key properties of steel include:
 * **Modulus of elasticity (E_s)**: Steel’s elastic modulus,
   typically around 200 GPa.
 * **Density**: Steel’s density, generally taken as 7850 kg/m³.
+* **Partial factor (gamma_s)** and **design yield strength (f_yd = f_y/γ_s)**: the steel
+  keeps its own γ_s, 1.15 by default (EN 1992-1-1 Table 2.1N). ACI 318-19 and CIRSOC
+  201-25 put the safety in φ and never read it.
+* **Design strain limit (epsilon_ud)**: EN 1992-1-1 §3.2.7(2). ``None`` by default, the
+  horizontal top branch, which needs no limit; pass 0.01 or 0.9·ε_uk to bound it.
 
 Example: Creating Reinforcing Steel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -80,6 +102,10 @@ To create reinforcing steel with a yield strength of 420 MPa:
 
     steel_bar = SteelBar(name="ADN 420", f_y=420 * MPa)
     print(steel_bar)
+
+    # EN 1992-1-1, accidental situation, strain bounded at 10 ‰
+    b500 = SteelBar(name="B500S", f_y=500 * MPa, gamma_s=1.0, epsilon_ud=0.01)
+    b500.f_yd        # 500 MPa
 
 Accessing Material Properties
 -----------------------------

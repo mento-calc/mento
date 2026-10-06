@@ -163,7 +163,7 @@ def test_a_whole_bar_count_given_as_a_float_reads_as_a_whole_number(beam: Rectan
     "2.0Ø16 mm + 1.0Ø12 mm". A beam is detailed by a whole number of bars
     (see :class:`RebarLayer`), so its layers carry a whole count. The label
     itself printed a float count with its decimals in PR #164
-    (``format_longitudinal_rebar(2.0, "16")`` -> "2.0Ø16"): a whole count
+    (``format_longitudinal_rebar(2.0, "Ø16")`` -> "2.0Ø16"): a whole count
     now reads whole whatever its type. A slab layer keeps its fractional
     count and its spacing label.
     """
@@ -174,7 +174,7 @@ def test_a_whole_bar_count_given_as_a_float_reads_as_a_whole_number(beam: Rectan
     assert [type(layer.n) for layer in bottom.layers] == [int, int]
     assert bottom.n_bars == 3
     assert str(RebarLayer(n=2.0, d_b=16 * mm)) == "2Ø16 mm"
-    assert format_longitudinal_rebar(2.0, "16") == "2Ø16"
+    assert format_longitudinal_rebar(2.0, "Ø16") == "2Ø16"
     assert str(RebarLayer(n=100 / 12, d_b=10 * mm, s=12 * cm)) == "Ø10 mm/12 cm"
 
 

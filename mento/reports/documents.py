@@ -71,7 +71,10 @@ def flexure_report_doc(self: "RectangularBeam", force: Optional[Forces] = None) 
                 round(self._limiting_case_flexure_top_details["forces"]["Value"][0], 2),
                 round(self._limiting_case_flexure_bot_details["forces"]["Value"][1], 2),
             ],
-            "Unit": ["kNm", "kNm"],
+            "Unit": [
+                self._limiting_case_flexure_top_details["forces"]["Unit"][0],
+                self._limiting_case_flexure_bot_details["forces"]["Unit"][1],
+            ],
         }
         min_max_result = {
             "Check": [
@@ -80,7 +83,10 @@ def flexure_report_doc(self: "RectangularBeam", force: Optional[Forces] = None) 
                 "Min/Max As rebar bottom",
                 "Minimum spacing bottom",
             ],
-            "Unit": ["cm²", "mm", "cm²", "mm"],
+            "Unit": [
+                *self._limiting_case_flexure_top_details["min_max"]["Unit"][:2],
+                *self._limiting_case_flexure_bot_details["min_max"]["Unit"][2:4],
+            ],
             "Value": [
                 round(
                     self._limiting_case_flexure_top_details["min_max"]["Value"][0],
@@ -194,6 +200,9 @@ def shear_report_doc(self: "RectangularBeam", force: Optional[Forces] = None) ->
 
     # Create a document builder instance
     doc_builder = DocumentBuilder(title=self._report_text["shear_doc_title"], language=get_language())
+    # The leg and spacing-limit rows need more room than the former three-row
+    # reinforcement table. Keep the annex readable at its normal font size.
+    doc_builder.set_margins(top=2.0, bottom=1.5)
 
     # Add first section and table
     doc_builder.add_heading(self._report_text["shear_heading"], level=1, label=self.label)

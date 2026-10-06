@@ -136,8 +136,9 @@ reads the same without the maximum: it has not been checked.
 An explicit ``language`` must be one of :func:`mento.available_languages`; anything else
 raises ``ValueError``, as :func:`mento.set_language` does. The compact form prints bare
 numbers, the bar in mm and the spacing in cm; ``notation(compact=True, imperial=True)``
-prints both in inches. Left unsaid, it follows the unit of ``s_l``. The "Av" cell of
-``BeamSummary.check()`` is always in mm and cm, like the "As" cells beside it.
+prints ASTM bar sizes and spacings in inches (``2 legs #3@6``). Left unsaid, it follows
+the unit of ``s_l``. The "Av" cell of ``BeamSummary.check()`` follows the concrete
+unit system, like the "As" cells beside it: mm/cm in SI, ASTM/in in US customary.
 
 The limits are envelopes, the tightest of every combination checked. ``s_max_l`` is the
 along-length limit the stirrups are held to: Table 9.7.6.2.2 (``s_max_l_table``) or, on a

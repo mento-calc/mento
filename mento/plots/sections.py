@@ -27,6 +27,8 @@ from matplotlib.transforms import Bbox
 from mento.units import Quantity
 
 from mento.design_results import GRID, DesignNotRunError, format_transverse_rebar, placed_bars
+from mento.bar_sizes import bar_designation, is_us_customary
+from mento.precompute import DISPLAY
 from mento.results import CUSTOM_COLORS
 from mento.section_geometry import BarPosition, Crosstie, SectionGeometry
 
@@ -178,6 +180,11 @@ def _format_rebar_layer_text(
     """
 
     mode = getattr(self, "mode", "beam")
+    imperial = self.concrete.is_imperial
+
+    def mark(d_b: Quantity) -> str:
+        # A bar is its diameter in mm in SI and its ASTM size in US customary.
+        return bar_designation(d_b) if imperial else f"Ø{d_b.to('mm').magnitude:.0f}"
 
     # -------------------------------
     # MODO SLAB: siempre combinar
@@ -189,37 +196,32 @@ def _format_rebar_layer_text(
 
         # Tomar el diámetro "no nulo"
         if n1 > 0 and d_b1 is not None:
-            phi = d_b1.to("mm").magnitude
+            d_b = d_b1
         elif n2 > 0 and d_b2 is not None:
-            phi = d_b2.to("mm").magnitude
+            d_b = d_b2
         else:
             return ""  # por seguridad
 
-        return f"{total_bars}Ø{phi:.0f}"
+        return f"{total_bars}{mark(d_b)}"
 
     # -------------------------------
     # MODO BEAM
     # -------------------------------
     # Si n1 y n2 tienen el mismo diámetro y ambos > 0 → combinar
     if n1 > 0 and n2 > 0 and d_b1 is not None and d_b2 is not None:
-        phi1 = d_b1.to("mm").magnitude
-        phi2 = d_b2.to("mm").magnitude
-
         # Igualdad con una pequeña tolerancia
-        if abs(phi1 - phi2) < 1e-6:
+        if abs(d_b1.to("mm").magnitude - d_b2.to("mm").magnitude) < 1e-6:
             total_bars = n1 + n2
-            return f"{total_bars}Ø{phi1:.0f}"
+            return f"{total_bars}{mark(d_b1)}"
 
     # Caso general: como lo tenías antes
     parts: list[str] = []
 
     if n1 > 0 and d_b1 is not None:
-        phi1 = d_b1.to("mm").magnitude
-        parts.append(f"{n1}Ø{phi1:.0f}")
+        parts.append(f"{n1}{mark(d_b1)}")
 
     if n2 > 0 and d_b2 is not None:
-        phi2 = d_b2.to("mm").magnitude
-        parts.append(f"{n2}Ø{phi2:.0f}")
+        parts.append(f"{n2}{mark(d_b2)}")
 
     return "+".join(parts) if parts else ""
 
@@ -288,13 +290,18 @@ def _annotate_stirrups_text(
 
     transverse = self.reinforcement.transverse
     # Bare magnitudes, as the drawing has always shown them: mm for the bar,
-    # cm for the spacings, no unit suffix.
+    # cm for the spacings, no unit suffix. The shape of the label is the
+    # element's, which is what format_transverse_rebar decides.
+    imperial = self.concrete.is_imperial
+    length = DISPLAY[imperial]["length"]
+    bar = bar_designation(self._stirrup_d_b) if imperial else f"Ø{self._stirrup_d_b.to('mm').magnitude:.0f}"
     text = format_transverse_rebar(
         transverse.layout,
         transverse.n_stirrups,
-        f"{self._stirrup_d_b.to('mm').magnitude:.0f}",
-        f"{self._stirrup_s_l.to('cm').magnitude:.0f}",
-        f"{transverse.s_w.to('cm').magnitude:.0f}",
+        bar,
+        f"{self._stirrup_s_l.to(length).magnitude:.0f}",
+        f"{transverse.s_w.to(length).magnitude:.0f}",
+        imperial=imperial,
     )
 
     x_text = width_cm + 0.1 * width_cm
@@ -432,15 +439,15 @@ def _plot_bars(ax: "Axes", geometry: SectionGeometry) -> None:
         )
 
 
-def _layer_text(bars: Tuple[BarPosition, ...]) -> str:
+def _layer_text(bars: Tuple[BarPosition, ...], imperial: bool = False) -> str:
     """``2Ø16+3Ø10`` for the bars of one layer, from their groups; one group when they share a diameter."""
     groups: Dict[int, List[BarPosition]] = {}
     for bar in bars:
         groups.setdefault(bar.group, []).append(bar)
-    counts = [(len(members), round(members[0].d_b.to("mm").magnitude)) for _, members in sorted(groups.items())]
+    counts = [(len(members), members[0].d_b) for _, members in sorted(groups.items())]
     if len(counts) == 2 and counts[0][1] == counts[1][1]:
         counts = [(counts[0][0] + counts[1][0], counts[0][1])]
-    return "+".join(f"{n}Ø{d:.0f}" for n, d in counts)
+    return "+".join(f"{n}{bar_designation(d)}" if imperial else f"{n}Ø{d.to('mm').magnitude:.0f}" for n, d in counts)
 
 
 def _annotate_layers(ax: "Axes", geometry: SectionGeometry) -> List[Tuple["Text", float]]:
@@ -464,7 +471,7 @@ def _annotate_layers(ax: "Axes", geometry: SectionGeometry) -> List[Tuple["Text"
             label = ax.text(
                 x_text,
                 anchor,
-                _layer_text(bars),
+                _layer_text(bars, is_us_customary(geometry.width)),
                 ha="left",
                 va="center",
                 color=CUSTOM_COLORS["dark_gray"],
@@ -502,7 +509,7 @@ def _separate_labels(ax: "Axes", labels: Sequence[Tuple["Text", float]]) -> None
     """Move the layer labels apart where two would print over one another, at the current scale."""
     if len(labels) < 2:
         return
-    to_points = 72.0 / ax.figure.dpi
+    to_points = 72.0 / cast(Figure, ax.figure).dpi
     ordered = sorted(labels, key=lambda pair: pair[1])
     anchors = [ax.transData.transform((0.0, anchor))[1] * to_points for _, anchor in ordered]
     pitch = max(label.get_window_extent().height for label, _ in ordered) * to_points + 1.0
@@ -525,7 +532,7 @@ def _fit_texts(ax: "Axes", labels: Sequence[Tuple["Text", float]] = (), margin_p
         ax.apply_aspect()
         _separate_labels(ax, labels)
         extents = [text.get_window_extent() for text in ax.texts if text.get_text()]
-        pad = margin_pt * ax.figure.dpi / 72.0
+        pad = margin_pt * cast(Figure, ax.figure).dpi / 72.0
         union = Bbox.union(extents)
         need = Bbox.from_extents(union.x0 - pad, union.y0 - pad, union.x1 + pad, union.y1 + pad)
         box = ax.get_window_extent()

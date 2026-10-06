@@ -107,3 +107,13 @@ def _nominal_moment_simple_in_pint(beam: RectangularBeam, A_s: Quantity, d: Quan
         "moment",
         imperial,
     )
+
+
+def us(value: float, metric_unit: str, us_unit: str) -> float:
+    """A reference quoted in SI, in the US customary unit an imperial section's tables print.
+
+    The imperial beam tests were written when those tables printed SI, so their
+    references are in cm² and kN; converting the reference, rather than
+    rewriting it, keeps the validated number in sight.
+    """
+    return float(Quantity(value, metric_unit).to(us_unit).magnitude)

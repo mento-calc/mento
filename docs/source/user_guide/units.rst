@@ -58,6 +58,88 @@ The following units are available in `mento`:
   * Force: `lb`, `kip`
   * Stress: `psi`, `ksi`
 
+US customary output
+-------------------
+
+A section is designed in the unit system of its concrete: an ``f_c`` in ``psi``
+or ``ksi`` makes it US customary, and then everything mento shows is written in
+US customary units too -- the unit rows and values of the DataFrames, the
+detailed printouts, the Word reports, the Markdown views, the summaries, the
+drawings and the warning messages. Only ACI 318-19 is written for these units:
+``Concrete_CIRSOC_201_25`` and ``Concrete_EN_1992_2004`` raise a ``ValueError``
+for an ``f_c`` in ``psi`` or ``ksi``.
+
+.. code-block:: python
+
+    from mento import psi, ksi, inch, ft, kip
+    from mento import Concrete_ACI_318_19, SteelBar, RectangularBeam, Node, Forces
+
+    concrete = Concrete_ACI_318_19(name="4000", f_c=4000 * psi)
+    steel = SteelBar(name="Gr60", f_y=60 * ksi)
+    beam = RectangularBeam(
+        label="B1", concrete=concrete, steel_bar=steel,
+        width=12 * inch, height=24 * inch, c_c=1.5 * inch,
+    )
+    node = Node(section=beam, forces=[Forces(label="1.2D+1.6L", M_y=120 * kip * ft, V_z=40 * kip)])
+    node.design()
+    print(node.check_flexure().to_string())
+    print(node.check_shear().to_string())
+
+.. code-block:: text
+
+      Label      Comb. Position As,min As,req top As,req bot    As      Mu     ØMn Mu≤ØMn    DCR
+    0                              in²        in²        in²   in²  kip·ft  kip·ft
+    1    B1  1.2D+1.6L   Bottom   0.87        0.0       1.28  1.33   120.0  123.91   True  0.968
+      Label      Comb.  Av,min  Av,req      Av    Vu   Nu    ØVc    ØVs    ØVn  ØVmax Vu≤ØVmax Vu≤ØVn    DCR
+    0                   in²/ft  in²/ft  in²/ft   kip  kip    kip    kip    kip    kip
+    1    B1  1.2D+1.6L    0.12   0.187   0.331  40.0  0.0  24.76  27.02  51.79  123.8     True   True  0.772
+
+The units each quantity is shown in:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Quantity
+     - SI
+     - US customary
+   * - f'c / fy
+     - MPa / MPa
+     - psi / ksi
+   * - Section dimensions, d, cover, stirrup spacing
+     - cm
+     - in (two decimals)
+   * - Bar diameter, clear spacing between bars
+     - mm
+     - ASTM size (``#6``) / in
+   * - Wall length and height
+     - cm (m in the summary)
+     - ft
+   * - Steel area per face
+     - cm²
+     - in² (two decimals)
+   * - Steel area per length (stirrups, slabs, wall mesh)
+     - cm²/m
+     - in²/ft (three decimals)
+   * - Force / moment
+     - kN / kNm
+     - kip / kip·ft
+   * - Concrete density
+     - kg/m³
+     - lb/ft³
+
+A US bar is named by its ASTM A615 size and its spacing follows an ``@``, as on a
+US drawing: ``3#6`` and ``2#6+1#5`` for the bars of a face, ``#4@12 in`` for a slab
+or a wall curtain, ``1s#3@8 in`` for stirrups. The stirrup count is marked in the
+report language, ``s`` (*stirrup*) in English and ``e`` (*estribo*) in Spanish,
+in both unit systems: ``1sØ10 mm/22 cm`` / ``1eØ10 mm/22 cm``.
+
+The table of ASTM sizes is public, so a program can use the same one::
+
+    from mento import bar_designation, bar_diameter, inch, mm
+    bar_designation(0.75 * inch)   # "#6"
+    bar_diameter(6)                # 0.75 inch
+    bar_designation(16 * mm)       # 'Ø0.63"' -- a diameter that is no ASTM size
+
 Unit Formatting
 ---------------
 
