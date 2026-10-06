@@ -196,6 +196,17 @@ class _Raw:
 #: The English wording of each code; the text is also the key of the Spanish
 #: catalog in :mod:`mento.i18n`. ``{face}`` is filled with the translated face.
 _MESSAGES: Dict[str, str] = {
+    "skin_reinforcement_required": (
+        "Longitudinal skin reinforcement is required on both side faces (§9.7.2.3), "
+        "at spacing no greater than {s_max}. See detailing_geometry for the supplementary proposal; "
+        "it is excluded from resistance."
+    ),
+    "skin_reinforcement_pending": "Skin reinforcement is pending: verify flexure to identify the tension face.",
+    "skin_detailing_invalid": "The skin reinforcement preference cannot satisfy the detailing limits.",
+    "skin_en_required": "EN §7.3.3(3): longitudinal skin steel is required; minimum {area} per side, adjusted maximum diameter {diameter}. Excluded from resistance.",
+    "skin_en_service_pending": "EN skin detailing is pending: supply cracked-service steel stress and neutral-axis depth; ultimate forces cannot replace them.",
+    "skin_en_axial_unsupported": "EN skin detailing with axial force is not supported; the pure-bending skin proposal cannot be used.",
+    "skin_en_surface_pending": "EN Annex J surface reinforcement outside the links requires a separate check for large bars or cover greater than 70 mm; longitudinal skin bars do not replace it.",
     "As_below_min": (
         "Steel on the {face}: A_s = {A_s} is below the minimum it has to meet, A_s,min,eff = {A_s_min_eff}."
     ),
@@ -764,3 +775,35 @@ def collect(raws: List[_Raw]) -> Tuple[DesignWarning, ...]:
             )
         )
     return tuple(warnings)
+
+
+def skin_warnings(beam: "RectangularBeam") -> List[_Raw]:
+    """Flag the supplementary requirement even when a strength DCR is below 1."""
+    from mento.cage_detailing import CageDetailingError
+    from mento.skin_reinforcement import skin_requirement
+
+    try:
+        requirement = skin_requirement(beam)
+    except CageDetailingError:
+        return [_Raw("skin_detailing_invalid", {})]
+    if requirement.status == "not_applicable":
+        return []
+    result: List[_Raw] = []
+    if beam.concrete.design_code == "EN 1992-2004":
+        if beam.c_c + beam._stirrup_d_b > 70 * mm or any(bar.d_b > 32 * mm for bar in beam.section_geometry.bars):
+            result.append(_Raw("skin_en_surface_pending", {}))
+        if requirement.pending_reason == "service":
+            result.append(_Raw("skin_en_service_pending", {}))
+        elif requirement.pending_reason == "axial":
+            result.append(_Raw("skin_en_axial_unsupported", {}))
+        elif requirement.status == "required":
+            result.append(
+                _Raw("skin_en_required", {"area": requirement.area_min_per_side, "diameter": requirement.diameter_max})
+            )
+        elif requirement.status == "pending":
+            result.append(_Raw("skin_reinforcement_pending", {}))
+    elif requirement.status == "required":
+        result.append(_Raw("skin_reinforcement_required", {"s_max": requirement.s_max}))
+    elif requirement.status == "pending":
+        result.append(_Raw("skin_reinforcement_pending", {}))
+    return result

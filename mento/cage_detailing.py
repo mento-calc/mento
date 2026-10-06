@@ -157,9 +157,11 @@ def build_cage_detailing(beam: RectangularBeam) -> SectionGeometry:
     This does not mutate the beam or include mounting bars in its resistance.
     ``bars`` remain the resistant bars; ``mounting_bars`` are additional steel.
     """
+    from mento.skin_reinforcement import add_skin_bars
+
     geometry = build_section_geometry(beam)
     if not geometry.stirrups:
-        return geometry
+        return add_skin_bars(beam, geometry)
     settings = beam.settings
     assert settings is not None
     diameter = settings.mounting_bar_diameter
@@ -213,7 +215,8 @@ def build_cage_detailing(beam: RectangularBeam) -> SectionGeometry:
 
     # Retained second layers must also fit; added mounting bars may not clash
     # with bars of the opposite face or a second layer.
-    all_bars = bars + mounting_bars
+    geometry = add_skin_bars(beam, replace(geometry, bars=tuple(bars), mounting_bars=tuple(mounting_bars)))
+    all_bars = bars + mounting_bars + list(geometry.skin_bars)
     for index, bar in enumerate(all_bars):
         radius = _mm(bar.d_b) / 2
         if not radius <= _mm(bar.y) <= _mm(geometry.height) - radius:
@@ -236,4 +239,4 @@ def build_cage_detailing(beam: RectangularBeam) -> SectionGeometry:
                 raise CageDetailingError(
                     "The supported cage leaves insufficient clear spacing between longitudinal bars."
                 )
-    return replace(geometry, bars=tuple(bars), mounting_bars=tuple(mounting_bars))
+    return geometry

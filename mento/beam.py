@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, Callable, FrozenSet, Iterator, NamedTuple
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
+    from mento.skin_reinforcement import SkinReinforcementRequirement
 from mento.units import Quantity
 import numpy as np
 import pandas as pd
@@ -26,6 +27,7 @@ from mento.design_warnings import (
     shear_warnings,
     shortfall_warnings,
     spacing_warnings,
+    skin_warnings,
     unread_force_warnings,
 )
 from mento.forces import Forces
@@ -550,7 +552,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         compression: set[str] = set()
         for force in forces:
             state = self._run_flexure_check(force, report=False)
-            check = capture_flexure_check(self, force.label, state)
+            check = capture_flexure_check(self, force.label, state, has_axial_force=force.N_x.magnitude != 0)
             worst = max(worst, check.bottom.DCR, check.top.DCR)
             clean = clean and not flexure_warnings(self, force.label, state)
             tension = "bot" if force._M_y > 0 * kN * m else "top" if force._M_y < 0 * kN * m else None
@@ -1230,7 +1232,9 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         self._compression_faces = set()
         for position, force in enumerate(forces, 1):
             state = self._run_flexure_check(force, report=False)
-            self._flexure_checks.append(capture_flexure_check(self, force.label, state))
+            self._flexure_checks.append(
+                capture_flexure_check(self, force.label, state, has_axial_force=force.N_x.magnitude != 0)
+            )
             self._flexure_warnings.extend(flexure_warnings(self, combination_label(force.label, position), state))
             self._flexure_warnings.extend(unread_force_warnings(force, combination_label(force.label, position)))
             self._note_compression_face(force, state)
@@ -1374,7 +1378,9 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             # The result is a value of the check itself, not a reading of the
             # attributes it left on the beam -- those describe the last
             # combination only, and are on their way out with them.
-            self._flexure_checks.append(capture_flexure_check(self, force.label, state))
+            self._flexure_checks.append(
+                capture_flexure_check(self, force.label, state, has_axial_force=force.N_x.magnitude != 0)
+            )
             self._flexure_warnings.extend(flexure_warnings(self, combination_label(force.label, position), state))
             self._flexure_warnings.extend(unread_force_warnings(force, combination_label(force.label, position)))
 
@@ -1736,7 +1742,12 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         """
         needed: Dict[str, Quantity] = {}
         for force in forces:
-            check = capture_flexure_check(self, force.label, self._run_flexure_check(force, report=False))
+            check = capture_flexure_check(
+                self,
+                force.label,
+                self._run_flexure_check(force, report=False),
+                has_axial_force=force.N_x.magnitude != 0,
+            )
             for face, result in (("bot", check.bottom), ("top", check.top)):
                 if result.DCR > 1.0 and result.A_s_req is not None:
                     needed[face] = max(needed[face], result.A_s_req) if face in needed else result.A_s_req
@@ -1811,6 +1822,18 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         return build_cage_detailing(self)
 
     @property
+    def skin_reinforcement(self) -> "SkinReinforcementRequirement":
+        """Skin-steel requirement and proposed spacing, separate from resistance.
+
+        Read after a flexure check/design to identify the tension faces. A
+        deep unchecked beam reports pending; unsupported codes report unsupported.
+        Only detailing_geometry validates the proposed bars against the cage.
+        """
+        from mento.skin_reinforcement import skin_requirement
+
+        return skin_requirement(self)
+
+    @property
     def flexure_design(self) -> FlexureDesign:
         """Longitudinal reinforcement of this beam, as plain data.
 
@@ -1844,6 +1867,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         """
         raws = list(self._flexure_warnings) if self._flexure_checked else []
         raws += spacing_warnings(self)
+        raws += skin_warnings(self)
         raws += shortfall_warnings(self)
         raws += list(self._shear_warnings) if self._shear_checked else []
         return collect(raws)

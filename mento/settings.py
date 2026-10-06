@@ -85,6 +85,10 @@ class BeamSettings:
         "max_diameter_diff": 5 * mm,
         "minimum_longitudinal_diameter": 8 * mm,
         "mounting_bar_diameter": 10 * mm,
+        "skin_bar_diameter": 10 * mm,
+        "skin_service_steel_stress": None,
+        "skin_service_neutral_axis": None,
+        "skin_crack_width": 0.3 * mm,
         "max_longitudinal_diameter": 32 * mm,
         "max_bars_per_layer": 12,
         "design_options": 3,
@@ -98,6 +102,10 @@ class BeamSettings:
         "max_diameter_diff": 0.25 * inch,
         "minimum_longitudinal_diameter": 3 / 8 * inch,
         "mounting_bar_diameter": 3 / 8 * inch,
+        "skin_bar_diameter": 3 / 8 * inch,
+        "skin_service_steel_stress": None,
+        "skin_service_neutral_axis": None,
+        "skin_crack_width": 0.3 * mm,
         "max_longitudinal_diameter": 1.693 * inch,
         "max_bars_per_layer": 12,
         "design_options": 3,
@@ -115,6 +123,14 @@ class BeamSettings:
     max_bars_per_layer: Any = field(default=_NOT_SET)
     design_options: Any = field(default=_NOT_SET)
     mounting_bar_diameter: Any = field(default=_NOT_SET)
+    # Skin-steel detailing preference, not a code minimum or resistant steel.
+    skin_bar_diameter: Any = field(default=_NOT_SET)
+    # EN service inputs: envelope stress and actual neutral-axis depth from
+    # the compression face, independently assessed in cracked SLS analysis.
+    # Depth may be a quantity shared by both signs or a bottom/top mapping.
+    skin_service_steel_stress: Any = field(default=_NOT_SET)
+    skin_service_neutral_axis: Any = field(default=_NOT_SET)
+    skin_crack_width: Any = field(default=_NOT_SET)
 
     def __post_init__(self) -> None:
         defaults = self._imperial_defaults if self.unit_system == "imperial" else self._metric_defaults

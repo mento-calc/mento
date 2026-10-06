@@ -182,6 +182,16 @@ class DesignCode:
     #: states no such limit, read as every layout admissible.
     flexure_admissible: Callable[..., bool] | None = None
 
+    #: Depth above which §9.7.2.3 requires longitudinal skin reinforcement.
+    #: None means unsupported, not an exemption. ACI: 900 mm / 36 in.;
+    #: CIRSOC: 900 mm regardless of display units.
+    skin_reinforcement_threshold: Callable[..., Any] | None = None
+    #: §24.3.2 using clear cover to a SIDE face, not to flexural bars.
+    #: (section, side_cover) -> Quantity. EN uses skin_requirement instead.
+    max_skin_bar_spacing: Callable[..., Any] | None = None
+    #: A code-specific requirement when the ACI spacing-only rule does not apply.
+    skin_requirement: Callable[..., Any] | None = None
+
     def requires(self, hook: str) -> Callable[..., Any]:
         """The hook, or a clear error naming the code that lacks it."""
         value = getattr(self, hook)

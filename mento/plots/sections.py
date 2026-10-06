@@ -433,15 +433,16 @@ def _plot_stirrups_in_section(ax: "Axes", geometry: SectionGeometry) -> None:
 
 def _plot_bars(ax: "Axes", geometry: SectionGeometry) -> None:
     """Resistant steel in gray; supplementary mounting bars in orange."""
-    for bar in (*geometry.bars, *geometry.mounting_bars):
+    for bar in (*geometry.bars, *geometry.mounting_bars, *geometry.skin_bars):
         mounting = bar in geometry.mounting_bars
+        skin = bar in geometry.skin_bars
         ax.add_patch(
             Circle(
                 (_cm(bar.x), _cm(bar.y)),
                 _cm(bar.d_b) / 2.0,
-                color="#ad641b" if mounting else CUSTOM_COLORS["dark_gray"],
+                color="#228877" if skin else "#ad641b" if mounting else CUSTOM_COLORS["dark_gray"],
                 fill=True,
-                gid="mounting_bar" if mounting else "resistant_bar",
+                gid="skin_bar" if skin else "mounting_bar" if mounting else "resistant_bar",
             )
         )
 
@@ -792,6 +793,35 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
                 "Montaje en naranja · sin aporte resistente"
                 if get_language() == "es"
                 else "Orange: mounting steel · excluded from resistance"
+            )
+        if geometry.skin_bars:
+            skin = self.skin_reinforcement
+            assert skin.spacing is not None
+            unit = "inch" if self.concrete.is_imperial else "cm"
+            notation = _layer_text(tuple(b for b in geometry.skin_bars if b.face == "left"), self.concrete.is_imperial)
+            lines.append(
+                f"Piel: {notation} por lateral · s={skin.spacing.to(unit):.3g~P} · sin aporte resistente"
+                if get_language() == "es"
+                else f"Skin: {notation} per side · s={skin.spacing.to(unit):.3g~P} · excluded from resistance"
+            )
+        try:
+            pending_requirement = self.skin_reinforcement
+            skin_pending = pending_requirement.status == "pending"
+            service_pending = pending_requirement.pending_reason == "service"
+        except CageDetailingError:
+            skin_pending = False
+            service_pending = False
+        if skin_pending and service_pending:
+            lines.append(
+                "Piel EN pendiente · faltan datos de servicio"
+                if get_language() == "es"
+                else "EN skin pending · service inputs missing"
+            )
+        elif skin_pending:
+            lines.append(
+                "Armadura de piel pendiente · sin verificación de flexión"
+                if get_language() == "es"
+                else "Skin reinforcement pending · no flexure verification"
             )
         if detail_error:
             lines.append(

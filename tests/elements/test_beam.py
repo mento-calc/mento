@@ -761,7 +761,8 @@ def test_wide_cirsoc_beam_takes_five_stirrups_for_the_across_width_limit() -> No
     threshold = 0.33 * math.sqrt(25) * beam._A_cv.to("mm**2").magnitude / 1000
     assert threshold == pytest.approx(3568.95, abs=0.01)
     assert shear.DCR == pytest.approx(0.9904, abs=1e-4)
-    assert node.warnings == ()
+    # Strength passes; the deep beam still requires supplementary web steel.
+    assert tuple(w.code for w in node.warnings) == ("skin_reinforcement_required",)
 
 
 def test_check_state_records_the_row_of_table_9_7_6_2_2() -> None:
@@ -3028,19 +3029,21 @@ def test_plot_draws_every_stirrup_at_the_legs_the_check_assumes() -> None:
     assert gaps == pytest.approx([15.8667] * 9, abs=1e-4)
 
     circles = [p for p in ax.patches if isinstance(p, Circle)]
-    assert len(circles) == 22
+    assert len(circles) == 28
     assert len([c for c in circles if c.get_gid() == "resistant_bar"]) == 12
     assert len([c for c in circles if c.get_gid() == "mounting_bar"]) == 10
-    all_bars = geometry.bars + geometry.mounting_bars
+    assert len([c for c in circles if c.get_gid() == "skin_bar"]) == 6
+    all_bars = geometry.bars + geometry.mounting_bars + geometry.skin_bars
     assert [c.get_center()[0] for c in circles] == pytest.approx([b.x.to("cm").magnitude for b in all_bars])
     assert [c.get_center()[1] for c in circles] == pytest.approx([b.y.to("cm").magnitude for b in all_bars])
 
     texts = [t.get_text() for t in ax.texts]
-    assert texts[-4:] == [
+    assert texts[-5:] == [
         "10 legs Ø12 mm @ 14 cm",
         "15.87 cm between legs (max 20 cm)",
         "perimeter stirrup + 4 inner stirrups",
         "Orange: mounting steel · excluded from resistance",
+        "Skin: 3Ø10 per side · s=25 cm · excluded from resistance",
     ]
     assert "12Ø32" in texts
     plt.close()
@@ -3108,8 +3111,9 @@ def test_plot_follows_the_language() -> None:
     beam.plot()
     texts = [t.get_text() for t in beam._ax.texts]
     assert "estribo perimetral + 4 interiores" in texts
-    assert texts[-1] == "Montaje en naranja · sin aporte resistente"
-    assert texts[-4].startswith("10 ramas")
+    assert "Montaje en naranja · sin aporte resistente" in texts
+    assert texts[-1] == "Piel: 3Ø10 por lateral · s=25 cm · sin aporte resistente"
+    assert any(text.startswith("10 ramas") for text in texts)
     plt.close()
 
 

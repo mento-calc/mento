@@ -267,3 +267,103 @@ and negative moments verify both tension faces:
 
 On a US customary section the dimensions and the stirrup text are in inches and the
 bar labels use ASTM sizes (for example ``3#6`` and ``2#3 (mounting)``).
+
+Longitudinal skin reinforcement
+***********************************
+
+ACI 318-19 / CIRSOC 201-25 §9.7.2.3 requires supplementary longitudinal
+steel on both lateral faces when h exceeds 900 mm (ACI in-lb: 36 in.).
+The proposal covers h/2 measured from every tension face found in the
+flexure checks. Reversing moments cover both halves; the pair at mid-height
+is shared. Clear cover to side bars is c_c plus the stirrup diameter,
+and Table 24.3.2 supplies the cap with f_s = 2f_y/3 (§24.3.2.1).
+
+``beam.skin_reinforcement`` publishes status, tension_faces, d_b,
+side_cover, s_max, spacing and n_per_side. Status ``required`` describes
+an obligation and a proposal, not a check of independently supplied skin steel.
+``beam.detailing_geometry.skin_bars`` validates the proposed supplementary bars
+against the supported cage. They are shown in green and labelled per lateral
+face. Centres are uniformly spaced from the tension-face boundary up to h/2;
+first-row clearance to flexural layers and steel intersections are checked.
+If the layout cannot fit, it raises ``CageDetailingError`` and the plot
+explicitly falls back to calculation geometry.
+
+The diameter is independently configurable from mounting steel:
+
+.. code-block:: python
+
+    beam.settings.skin_bar_diameter = 10*mm  # default; 8 mm permitted by default settings
+    node.check_flexure()                     # or node.check() / node.design()
+    requirement = beam.skin_reinforcement
+    print(requirement.status, requirement.n_per_side, requirement.s_max)
+    geometry = beam.detailing_geometry
+    print(geometry.to_dict("mm")["skin_bars"])
+    beam.plot()
+
+No skin bars are credited to flexural or shear capacity, areas or centroids.
+The original ``section_geometry`` remains the calculation model.
+``skin_reinforcement_required`` warns that the strength model requires
+supplementary steel. Before flexure verification a deep beam reports ``pending``;
+no tension face is assumed. EN uses the separate rule documented below.
+Slab strips are not applicable.
+This feature does not implement strut-and-tie design, anchorage, splice lengths,
+seismic detailing, a full bending schedule or checking manually supplied skin bars.
+
+For a 30 x 120 cm CIRSOC beam with four Ø20 bars on each horizontal face,
+Ø8 stirrups and 30 mm cover, +100/-80 kNm bending requires five Ø10 skin
+bars per lateral face at 20 cm: three per half with the middle bar shared.
+With positive bending alone, three Ø10 per lateral face cover the lower half.
+
+.. image:: /_static/beam_skin_reversal.png
+   :alt: Actual Mento output with four bottom and top bars and five green skin bars per lateral face.
+
+EN 1992-1-1:2004 skin steel
+--------------------------------
+
+The separate EN rule applies from h >= 1000 mm (§7.3.3(3)). For rectangular
+pure bending, Eq. (7.1) uses k_c=0.4, k=0.5, f_ct,eff=f_ctm and sigma_s=f_yk.
+A_ct=b*h/2 is the tensile area immediately before cracking; the additional
+area is divided equally between the lateral faces. Main flexural bars are
+not credited to this supplementary minimum.
+
+EN needs an independently assessed cracked-service steel stress and neutral
+axis. Mento's ultimate force checks do not supply them. Specify the maximum
+main tension-steel stress and the cracked-service neutral-axis depth from the
+compression face. A scalar depth assumes the same depth for both bending signs;
+otherwise supply a mapping with bottom and top entries. These axes must describe
+the service analysis used for the stress assessment:
+
+.. code-block:: python
+
+    # Illustrative SLS inputs, NOT calculated from the ultimate moments:
+    beam.settings.skin_service_steel_stress = 400*MPa
+    beam.settings.skin_service_neutral_axis = 240*mm
+    beam.settings.skin_crack_width = 0.3*mm
+    beam.settings.skin_bar_diameter = 10*mm
+
+The proposal uses the diameter route of Table 7.2N, with half the supplied
+main-steel stress. Stress is rounded up to a tabulated row; values below
+160 MPa use that first row. The tabulated diameter is corrected using
+Eq. (7.7N), h_cr=h/2 before cracking and h-d to the outer tension layer.
+Available crack widths are 0.2, 0.3 and 0.4 mm; the 0.3 mm default is a
+preference to review against exposure and the applicable National Annex,
+not a universal limit. This implementation assumes high-bond reinforcement
+and f_ct,eff=f_ctm; early-age restraint is outside its scope.
+
+Bars are uniformly distributed inside the links between the tension layer
+and the supplied service neutral axis. With moment reversal, a single grid
+covers the union, with enough area inside EACH tension zone. Extra bars in
+compression receive no strength credit. The requirement publishes
+area_min_per_side, area_per_side, diameter_max and actual rows.
+The spacing describes the proposal; s_max is None because the selected
+diameter method does not introduce a separate code spacing cap.
+
+Missing service inputs produce pending and no skin bars. Invalid inputs,
+an excessive diameter or a physical clash raise CageDetailingError.
+Axial-force combinations explicitly report unsupported: the pure-bending
+minimum cannot be reused for them. Surface mesh outside the links (Annex J)
+is a different detail; large bars or cover above 70 mm produce a separate
+warning even for a beam below 1000 mm. This proposal does not verify that mesh.
+
+.. image:: /_static/beam_skin_en.png
+   :alt: Actual EN Mento output with supplementary green skin bars using explicit service inputs.

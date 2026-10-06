@@ -261,6 +261,8 @@ def test_all_exports_in_all() -> None:
         "DesignNotRunError",
         "NotABeamError",
         "SectionGeometry",
+        "CageDetailingError",
+        "SkinReinforcementRequirement",
         "bar_designation",
         "bar_diameter",
     ]

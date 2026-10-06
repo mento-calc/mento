@@ -12,6 +12,23 @@ from the release history and are summaries rather than complete lists.
 
 ## [Unreleased]
 
+### Added
+
+- Beam skin-steel detailing proposals for ACI 318-19 / CIRSOC 201-25
+  §9.7.2.3: lateral bars in the h/2 tension zones, including bending
+  reversals, with §24.3.2 spacing based on their actual side cover.
+  `skin_reinforcement` exposes the requirement, and `detailing_geometry.skin_bars`
+  / `plot()` keep them separate from resistant and mounting bars.
+  The configurable `skin_bar_diameter` defaults to 10 mm / No. 3.
+  Pending and unsupported requirements are explicit; infeasible fit is rejected.
+
+- EN 1992-1-1:2004 §7.3.3(3) skin proposals from h >= 1000 mm,
+  with Eq. (7.1) minimum area and adjusted Table 7.2N diameter control.
+  Explicit cracked-service stress and neutral-axis inputs are required;
+  ultimate checks cannot substitute for them. Bending signs share one
+  uniform grid with the minimum area in each tension zone. Axial cases
+  are unsupported and Annex J surface mesh remains a separate check.
+
 ### Fixed
 
 - Cross-section detailing applies the tension-bar spacing cap only to faces

@@ -141,3 +141,31 @@ The attributes of the settings class are as follows:
   - minimum_longitudinal_diameter
   - max_longitudinal_diameter
   - max_bars_per_layer
+
+Skin bar diameter
+-----------------
+
+``skin_bar_diameter`` selects the supplementary longitudinal skin bar diameter:
+10 mm in metric and 3/8 in. (No. 3) in imperial defaults. This is a preference,
+not a minimum imposed by §9.7.2.3. It must be a positive finite length and meet
+``minimum_longitudinal_diameter``. It is checked when required skin steel is
+read; 8 mm is permitted with the default metric minimum. Under ACI/CIRSOC
+the spacing cap is independent of diameter. Under EN the selected diameter
+controls the required count and is checked against the adjusted crack-control
+limit.
+
+EN skin service inputs
+-----------------------
+
+``skin_service_steel_stress`` and ``skin_service_neutral_axis`` default to None.
+The former is the maximum main-steel stress in cracked service analysis; the
+latter is the cracked-service neutral-axis depth from the compression face.
+A single quantity applies to both signs; a mapping with bottom and top entries
+allows different axes. Use axes from the same SLS assessment as the stress.
+``skin_crack_width`` defaults to 0.3 mm; choose 0.2, 0.3 or 0.4 mm according
+to the project and National Annex. These settings do not change the resistant
+model or perform the global service analysis; see the beams guide.
+
+For asymmetric bending signs, for example::
+
+    beam.settings.skin_service_neutral_axis = {"bottom": 240*mm, "top": 320*mm}

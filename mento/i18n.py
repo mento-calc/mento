@@ -351,6 +351,27 @@ ES.update(
 
 # English is the source language, so its catalog is empty: every lookup falls
 # through to the key itself.
+ES.update(
+    {
+        "Longitudinal skin reinforcement is required on both side faces (§9.7.2.3), "
+        "at spacing no greater than {s_max}. See detailing_geometry for the supplementary proposal; "
+        "it is excluded from resistance.": "Se requiere armadura longitudinal de piel en ambos laterales (§9.7.2.3), "
+        "con separación no mayor que {s_max}. Ver la propuesta complementaria en detailing_geometry; "
+        "no se computa en la resistencia.",
+        "Skin reinforcement is pending: verify flexure to identify the tension face.": "Armadura de piel pendiente: verificar flexión para identificar la cara traccionada.",
+        "The skin reinforcement preference cannot satisfy the detailing limits.": "La configuración de armadura de piel no permite cumplir los límites del detalle.",
+    }
+)
+
+ES.update(
+    {
+        "EN §7.3.3(3): longitudinal skin steel is required; minimum {area} per side, adjusted maximum diameter {diameter}. Excluded from resistance.": "EN §7.3.3(3): se requiere piel longitudinal; mínimo {area} por lateral, diámetro máximo corregido {diameter}. Sin aporte resistente.",
+        "EN skin detailing is pending: supply cracked-service steel stress and neutral-axis depth; ultimate forces cannot replace them.": "Detalle de piel EN pendiente: indicar tensión del acero y profundidad del eje neutro en servicio fisurado; los esfuerzos últimos no los reemplazan.",
+        "EN skin detailing with axial force is not supported; the pure-bending skin proposal cannot be used.": "La piel EN con esfuerzo axial no está implementada; no corresponde aplicar la propuesta de flexión pura.",
+        "EN Annex J surface reinforcement outside the links requires a separate check for large bars or cover greater than 70 mm; longitudinal skin bars do not replace it.": "La armadura superficial EN del Anexo J, exterior a los estribos, requiere una comprobación aparte para barras grandes o recubrimiento mayor que 70 mm; las barras longitudinales de piel no la reemplazan.",
+    }
+)
+
 _CATALOGS: Dict[str, Dict[str, str]] = {
     "en": {},
     "es": ES,

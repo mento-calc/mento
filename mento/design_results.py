@@ -254,6 +254,8 @@ class FlexureCheck:
     label: str
     bottom: FlexureFaceCheck
     top: FlexureFaceCheck
+    # Demand metadata, not a claim that flexure includes axial interaction.
+    has_axial_force: bool = False
 
     @property
     def complies(self) -> bool:
@@ -396,7 +398,7 @@ def envelope_shear(checks: Sequence[ShearCheck]) -> ShearCheck:
     )
 
 
-def capture_flexure_check(beam: RectangularBeam, label: str, state: Any) -> FlexureCheck:
+def capture_flexure_check(beam: RectangularBeam, label: str, state: Any, has_axial_force: bool = False) -> FlexureCheck:
     """The flexure result of the combination just run.
 
     Reads the ``state`` the design code returned, so nothing has to have been
@@ -422,7 +424,7 @@ def capture_flexure_check(beam: RectangularBeam, label: str, state: Any) -> Flex
             admissible=suffix not in over,
         )
 
-    return FlexureCheck(label=label, bottom=face("bot"), top=face("top"))
+    return FlexureCheck(label=label, bottom=face("bot"), top=face("top"), has_axial_force=has_axial_force)
 
 
 def capture_shear_check(beam: RectangularBeam, label: str, state: Any) -> ShearCheck:

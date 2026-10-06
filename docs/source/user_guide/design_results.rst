@@ -394,3 +394,30 @@ described here are the supported way to read a result from code.
 One difference worth noting: ``_stirrup_n`` counts stirrups, while the area ``A_v`` is
 computed from the legs that cross the shear plane. The public object exposes both, as
 ``n_stirrups`` and ``n_legs``, so there is nothing to infer.
+
+Skin-steel requirements and geometry
+----------------------------------------
+
+``beam.skin_reinforcement`` is a ``SkinReinforcementRequirement``. Its status
+is ``required``, ``pending`` a flexure verification or EN service inputs, ``not_required`` under
+the supported clause, ``unsupported`` by the code implementation, or
+``not_applicable`` to the element. Unsupported never means exempt.
+It supplies the diameter preference, clear side cover, spacing limit, uniform
+proposed spacing, tension faces and number per lateral face. The proposal is
+validated for physical fit only when ``detailing_geometry`` is read.
+
+The geometry and its ``to_dict()`` include a separate ``skin_bars`` tuple/list.
+These bars use ``face="left"`` or ``"right"``, ``layer=0`` and ``group=0``.
+They are excluded from ``bars_on()``, ``reinforcement``, ``flexure_design`` and
+``shear_design``. Reading or drawing them does not mutate any strength result.
+
+EN additionally supplies ``area_min_per_side``, ``area_per_side``,
+``diameter_max`` and explicit ``rows``. Its diameter method has no independent
+spacing limit (``s_max=None``). ``pending_reason`` distinguishes missing service
+inputs from an unsupported axial case. The total proposed area may include
+extra bars outside a tension zone; each zone is independently sized to its
+minimum.
+
+``FlexureCheck.has_axial_force`` records a nonzero axial demand so the EN
+pure-bending skin rule cannot be applied to a combined axial case. It does
+not claim that the flexural check includes axial interaction.

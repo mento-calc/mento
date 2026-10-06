@@ -14,6 +14,7 @@ from mento.codes.EN_1992_2004_beam import (
 )
 from mento.codes.EN_1992_2004_punching import check_punching_EN_1992_2004
 from mento.codes.registry import DesignCode, register
+from mento.codes.en_1992_2004.skin import requirement as _skin_requirement
 from mento.material import Concrete_EN_1992_2004
 from mento.units import cm, kN, kNm, mm, MPa
 
@@ -224,5 +225,6 @@ EN_1992_2004 = register(
         min_thickness_on_soil=_min_thickness_on_soil,
         # A_s,max caps either face, §9.2.1.1(3): what a layout is held to.
         flexure_admissible=_flexure_admissible_EN_1992_2004,
+        skin_requirement=_skin_requirement,
     )
 )

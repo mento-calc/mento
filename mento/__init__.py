@@ -94,6 +94,7 @@ __all__ = [
     "NotABeamError",
     "SectionGeometry",
     "CageDetailingError",
+    "SkinReinforcementRequirement",
     "bar_designation",
     "bar_diameter",
 ]
@@ -126,6 +127,7 @@ if TYPE_CHECKING:
     from mento.shear_wall import NotABeamError
     from mento.section_geometry import SectionGeometry
     from mento.cage_detailing import CageDetailingError
+    from mento.skin_reinforcement import SkinReinforcementRequirement
     from mento.bar_sizes import bar_designation, bar_diameter
 
 
@@ -174,6 +176,7 @@ def __getattr__(name: str) -> object:
         "NotABeamError": "shear_wall",
         "SectionGeometry": "section_geometry",
         "CageDetailingError": "cage_detailing",
+        "SkinReinforcementRequirement": "skin_reinforcement",
     }
 
     if name in module_mapping:
