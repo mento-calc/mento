@@ -12,6 +12,13 @@ from the release history and are summaries rather than complete lists.
 
 ## [Unreleased]
 
+### Added
+
+- Beam transverse reinforcement accepts keyword-only `n_legs` and beam-summary
+  tables accept an explicit `n_legs` column. Legacy `n_stirrups` and `ns` keep
+  counting two-leg stirrups; paired inputs must agree. Invalid counts are
+  rejected, and design/export preserve the supplied count-column convention.
+
 ### Fixed
 
 - Cross-section detailing applies the tension-bar spacing cap only to faces

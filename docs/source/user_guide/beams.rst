@@ -80,7 +80,7 @@ For example, if a positive moment is so large that the section must be reinforce
     beam.set_longitudinal_rebar_top(n1=2, d_b1=16*mm)
 
     # Set transverse reinforcement (stirrups)
-    beam.set_transverse_rebar(n_stirrups=1, d_b=10*mm, s_l=20*cm)
+    beam.set_transverse_rebar(n_legs=2, d_b=10*mm, s_l=20*cm)
 
 3. Assigning Forces to the Beam
 *******************************
@@ -113,6 +113,17 @@ When you run `node.results`, the output includes:
 - **Applied moments and shear forces**.
 - **Design capacity ratios (DCR)**.
 - **Warnings** (if any).
+
+Transverse reinforcement can be entered directly as an even number of legs:
+
+.. code-block:: python
+
+    beam.set_transverse_rebar(n_legs=4, d_b=8*mm, s_l=20*cm)
+
+Legacy ``n_stirrups=2`` still means four legs, including positional calls.
+If both counts are provided they must satisfy ``n_legs = 2*n_stirrups``;
+conflicting, fractional, negative or odd leg counts raise an error. Zero
+legs with zero diameter and spacing clears the reinforcement.
 
 The output is formatted using LaTeX math notation for clarity and precision.
 

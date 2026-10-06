@@ -53,11 +53,20 @@ The Excel file should contain the following columns:
 - **Nx**: Axial force in kN.
 - **Vz**: Shear force in kN.
 - **My**: Moment in kNm.
-- **ns**: Number of closed stirrups; each has 2 legs.
+- **n_legs**: Even number of shear legs (recommended count column).
+- **ns**: Legacy number of closed stirrups; each has 2 legs.
 - **dbs**: Stirrup diameter in mm.
 - **sl**: Stirrup spacing in cm.
 - **n1, n2, n3, n4**: Number of longitudinal bars per group.
 - **db1, db2, db3, db4**: Diameter of longitudinal bars in mm.
+
+Use either ``n_legs`` or legacy ``ns``; both count columns have blank units
+cells. Existing Excel files retain their meaning: ``ns=2`` means four legs.
+If both columns are filled, ``n_legs`` must equal ``2*ns``. A blank paired
+cell is derived from the supplied count. Non-integer, negative, odd leg
+counts or inconsistent paired counts are rejected before processing.
+Design and Excel export retain the count columns supplied in the input,
+updating both consistently when both are present.
 
 Bottom reinforcement is checked against positive bending moments; top reinforcement
 against negative bending moments.
