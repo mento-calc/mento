@@ -266,3 +266,4 @@ stirrup_spacing_exceeds_max: Separación de estribos a lo largo del elemento: 40
 2 ramas Ø6 mm c/40 cm
 14.4 cm entre ramas (máx. 40 cm)
 estribo perimetral
+Solo modelo de cálculo · jaula no detallable

@@ -266,3 +266,4 @@ stirrup_spacing_exceeds_max: Stirrup spacing along the member: 40 cm exceeds the
 2 legs Ø6 mm @ 40 cm
 14.4 cm between legs (max 40 cm)
 single perimeter stirrup
+Calculation model only · cage detailing not feasible

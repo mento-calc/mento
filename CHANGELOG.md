@@ -12,6 +12,25 @@ from the release history and are summaries rather than complete lists.
 
 ## [Unreleased]
 
+### Fixed
+
+- Cross-section detailing applies the tension-bar spacing cap only to faces
+  put in tension by verified combinations. An unchecked drawing marks that
+  check pending instead of assuming both faces are in tension. The existing
+  calculation/report checks remain in place; mounting steel cannot replace
+  resistant bars, including the face-width check for a single tension bar.
+
+- Beam section drawings now use a supported cage layout. `detailing_geometry`
+  places the calculated bars at stirrup corners and records supplementary
+  `mounting_bars` separately when a face has too few bars, including upper
+  mounting steel on a singly reinforced beam. The additional bars are orange
+  and labelled in the drawing; they are not credited in resistance. The
+  calculated bar counts, sizes, vertical centroids and shear leg spacing are
+  preserved. Clearances, available bar-spacing caps and rounded stirrup bends
+  are checked. An unsuccessful layout raises `CageDetailingError`; `plot()`
+  warns and explicitly labels its fallback as calculation geometry. Mounting
+  diameter is a setting (10 mm or No. 3), rather than a claimed code minimum.
+
 Nothing is removed, but the stirrup text and some report rows change. `str()` of a result
 and the report text are presentation, not API; a program should read the fields.
 
@@ -143,18 +162,14 @@ stirrups Ø12 every 14 cm.
   description asked for through `notation()` / `arrangement()`. `str()` of the results of
   `mento.design_results` stays English; a `DesignWarning`, whose `str()` is its message,
   follows the language as its message always did.
-- **The section drawing is the checked section.** `beam.plot()` draws from
-  `beam.section_geometry`: the perimeter stirrup and every inner stirrup at the legs the
-  shear check assumes, and the bars where the clear-spacing model puts them — each layer
-  one clear gap apart across the whole layer, where the old drawing spread the `n1` and
-  `n2` groups separately, with unequal gaps (and, with three or more `n1` bars set by hand,
-  bars on top of each other). The corner bars are drawn where the model has them, faces
-  on the legs, without the 0.43·d_st push into the bend the drawing used to add (the
-  model's corner is square; placing bars in the bends is for a later release). A group
-  given bars but no diameter is left out of the label (`2Ø16`, not `2Ø16+1Ø0`) and drawn
-  with no circle. The legs are not tied to the bars, so an inner leg may be drawn where
-  there is no bar: that is the model, shown as it is. An inner stirrup whose legs are
-  closer than its two bends need is drawn as a hairpin. A slab strip keeps its drawing.
+- **The section drawing preserves the checked cage and supplies its supports.**
+  `beam.plot()` draws the supported `beam.detailing_geometry`: the perimeter stirrup
+  and every inner stirrup at the legs the shear check assumes, with calculated bars
+  supporting their rounded corners and supplementary mounting bars shown separately.
+  The uniformly spaced `beam.section_geometry` remains available as calculation data.
+  A group given bars but no diameter is omitted from the label and drawn with no circle.
+  Unsupported layouts use an explicitly labelled calculation view and issue a warning,
+  including stirrups too narrow to accommodate their bends. A slab strip keeps its drawing.
 - **The drawing's text.** A layer's label sits at the height of its bars, and two labels
   that would print over one another are moved apart. The stirrup text is three lines under
   the section, below its width — `10 legs Ø12 mm @ 14 cm`, `15.87 cm between legs (max 20

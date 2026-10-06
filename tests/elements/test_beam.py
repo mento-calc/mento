@@ -2957,9 +2957,8 @@ def test_plot_single_bar_layer_is_centered() -> None:
 def test_plot_annotates_stirrups_and_draws_two_legs() -> None:
     beam = _plot_beam(n_stirrups=2, d_b_stirrup=6 * mm, s_l=20 * cm)
 
-    texts = [t.get_text() for t in beam._ax.texts]
-    # Unchecked: the configuration, with no maximum; three lines.
-    assert texts[-3:] == [
+    # Unchecked: the configuration, with no maximum; three cage lines.
+    assert [text.get_text() for text in beam._ax.texts if text.get_gid() == "stirrup_text"][:3] == [
         "4 legs Ø6 mm @ 20 cm",
         f"{beam.reinforcement.transverse.s_w.to('cm'):.4g~P} between legs",
         "perimeter stirrup + 1 inner stirrup",
@@ -2972,7 +2971,8 @@ def test_plot_annotates_stirrups_and_draws_two_legs() -> None:
 
 
 def test_plot_three_stirrups_adds_two_inner_ones() -> None:
-    beam = _plot_beam(n_stirrups=3, d_b_stirrup=6 * mm, s_l=15 * cm)
+    with pytest.warns(UserWarning, match="Cage detailing is not feasible"):
+        beam = _plot_beam(n_stirrups=3, d_b_stirrup=6 * mm, s_l=15 * cm)
 
     fancy_bboxes = [p for p in beam._ax.patches if isinstance(p, FancyBboxPatch)]
     assert len(fancy_bboxes) == 6, "Outer stirrup plus two inner stirrups."
@@ -3015,7 +3015,7 @@ def test_plot_draws_every_stirrup_at_the_legs_the_check_assumes() -> None:
     Node(section=beam, forces=[Forces(label="C1", M_y=5000 * kNm, V_z=5000 * kN)]).design()
     beam.plot()
     ax = beam._ax
-    geometry = beam.section_geometry
+    geometry = beam.detailing_geometry
 
     fancy = [p for p in ax.patches if isinstance(p, FancyBboxPatch)]
     assert len(fancy) == 10
@@ -3028,15 +3028,19 @@ def test_plot_draws_every_stirrup_at_the_legs_the_check_assumes() -> None:
     assert gaps == pytest.approx([15.8667] * 9, abs=1e-4)
 
     circles = [p for p in ax.patches if isinstance(p, Circle)]
-    assert len(circles) == 12
-    assert [c.get_center()[0] for c in circles] == pytest.approx([b.x.to("cm").magnitude for b in geometry.bars])
-    assert [c.get_center()[1] for c in circles] == pytest.approx([b.y.to("cm").magnitude for b in geometry.bars])
+    assert len(circles) == 22
+    assert len([c for c in circles if c.get_gid() == "resistant_bar"]) == 12
+    assert len([c for c in circles if c.get_gid() == "mounting_bar"]) == 10
+    all_bars = geometry.bars + geometry.mounting_bars
+    assert [c.get_center()[0] for c in circles] == pytest.approx([b.x.to("cm").magnitude for b in all_bars])
+    assert [c.get_center()[1] for c in circles] == pytest.approx([b.y.to("cm").magnitude for b in all_bars])
 
     texts = [t.get_text() for t in ax.texts]
-    assert texts[-3:] == [
+    assert texts[-4:] == [
         "10 legs Ø12 mm @ 14 cm",
         "15.87 cm between legs (max 20 cm)",
         "perimeter stirrup + 4 inner stirrups",
+        "Orange: mounting steel · excluded from resistance",
     ]
     assert "12Ø32" in texts
     plt.close()
@@ -3057,7 +3061,7 @@ def test_plot_of_the_aci_beam_keeps_its_legs_within_30_cm() -> None:
     assert len(fancy) == 6
     gaps = _drawn_leg_gaps(beam._ax, beam._stirrup_d_b.to("cm").magnitude)
     assert max(gaps) == pytest.approx(28.48, abs=0.005)
-    assert [t.get_text() for t in beam._ax.texts][-2] == "28.48 cm between legs (max 30 cm)"
+    assert "28.48 cm between legs (max 30 cm)" in [t.get_text() for t in beam._ax.texts]
     plt.close()
 
 
@@ -3103,8 +3107,9 @@ def test_plot_follows_the_language() -> None:
     mento.set_language("es")
     beam.plot()
     texts = [t.get_text() for t in beam._ax.texts]
-    assert texts[-1] == "estribo perimetral + 4 interiores"
-    assert texts[-3].startswith("10 ramas")
+    assert "estribo perimetral + 4 interiores" in texts
+    assert texts[-1] == "Montaje en naranja · sin aporte resistente"
+    assert texts[-4].startswith("10 ramas")
     plt.close()
 
 
@@ -3155,7 +3160,8 @@ def test_plot_text_of_a_flat_beam_does_not_overlap() -> None:
     # The stirrup text reads under the section.
     section_bottom = beam._ax.transData.transform((0.0, 0.0))[1]
     stirrup_lines = [t for t in beam._ax.texts if t.get_gid() == "stirrup_text"]
-    assert len(stirrup_lines) == 3
+    assert len(stirrup_lines) == 4
+    assert stirrup_lines[-1].get_text() == "Tension-bar spacing pending · no flexure verification"
     assert all(t.get_window_extent().y1 < section_bottom for t in stirrup_lines)
     # A label with room stays at its layer: the top layer's is at the middle of its bars.
     top = beam.section_geometry.bars_on("top", 1)
@@ -3175,11 +3181,11 @@ def test_plot_spread_keeps_labels_with_room_and_parts_those_without() -> None:
     assert _spread([0.0, 4.0, 12.0], 10.0) == pytest.approx([16 / 3 - 10, 16 / 3, 16 / 3 + 10])
 
 
-def test_plot_narrow_inner_stirrup_is_a_hairpin() -> None:
+def test_plot_narrow_cage_falls_back_to_labelled_calculation_geometry() -> None:
     """ACI 20x30, Vu 100 kN: two Ø10 stirrups, legs 4.67 cm apart, less than the 5·d_st two bends take.
 
-    The rounding of each line is capped at half its width, so the inner
-    stirrup is drawn as the hairpin it would be instead of a crossed arch.
+    The calculation view caps its arcs at half the width, but explicitly
+    says that it is not a supported cage detail.
     """
     beam = RectangularBeam(
         label="N",
@@ -3192,7 +3198,9 @@ def test_plot_narrow_inner_stirrup_is_a_hairpin() -> None:
     Node(section=beam, forces=[Forces(label="C1", V_z=100 * kN)]).design()
     assert beam.shear_design.n_stirrups == 2
     assert beam.shear_design.s_w.to("cm").magnitude < 5 * beam._stirrup_d_b.to("cm").magnitude
-    beam.plot()
+    with pytest.warns(UserWarning, match="Cage detailing is not feasible"):
+        beam.plot()
+    assert "Calculation model only · cage detailing not feasible" in [text.get_text() for text in beam._ax.texts]
     fancy = [p for p in beam._ax.patches if isinstance(p, FancyBboxPatch)]
     assert len(fancy) == 4
     for line in fancy:

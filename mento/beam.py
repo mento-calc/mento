@@ -1799,6 +1799,18 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         return build_section_geometry(self)
 
     @property
+    def detailing_geometry(self) -> SectionGeometry:
+        """A supported cage, with supplementary mounting steel listed separately.
+
+        The calculated bar areas and vertical coordinates are preserved. Bars
+        are placed at the cage corners, and mounting bars fill missing supports.
+        Raises ``CageDetailingError`` if the layout cannot satisfy spacing.
+        """
+        from mento.cage_detailing import build_cage_detailing
+
+        return build_cage_detailing(self)
+
+    @property
     def flexure_design(self) -> FlexureDesign:
         """Longitudinal reinforcement of this beam, as plain data.
 

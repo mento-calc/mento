@@ -142,6 +142,10 @@ class SectionGeometry:
     slab strip, which has no cage, publishes none (see the module docstring).
     ``stirrups`` come perimeter first, and ``bars`` bottom layer 1, bottom
     layer 2, top layer 1, top layer 2, each left to right.
+
+    ``mounting_bars`` is empty in calculation geometry. ``detailing_geometry``
+    supplies supplementary corner supports there, separate from ``bars`` and
+    excluded from ``bars_on()`` and the calculated reinforcement areas.
     """
 
     width: Quantity
@@ -155,6 +159,9 @@ class SectionGeometry:
     stirrups: Tuple[ClosedStirrup, ...]
     crossties: Tuple[Crosstie, ...]
     bars: Tuple[BarPosition, ...]
+    # Supplementary steel supplied by beam.detailing_geometry, never counted
+    # in bars_on(), the resistant steel areas or the moment resistance.
+    mounting_bars: Tuple[BarPosition, ...] = ()
 
     def arrangement(self, language: Optional[str] = None) -> str:
         """The cage in words (see :func:`mento.design_results.describe_stirrup_cage`); empty on a slab strip."""
@@ -222,6 +229,17 @@ class SectionGeometry:
                     "group": bar.group,
                 }
                 for bar in self.bars
+            ],
+            "mounting_bars": [
+                {
+                    "x": f(bar.x),
+                    "y": f(bar.y),
+                    "d_b": f(bar.d_b),
+                    "face": bar.face,
+                    "layer": bar.layer,
+                    "group": bar.group,
+                }
+                for bar in self.mounting_bars
             ],
         }
 

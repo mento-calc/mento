@@ -9,8 +9,9 @@ These are module functions taking the beam, the same shape the design-code
 modules use. They still write ``_fig`` and ``_ax`` back onto it, because that
 is what the notebook views and the Word reports pick the figure up from.
 
-A beam is drawn from its public :class:`~mento.section_geometry.SectionGeometry`
--- the legs, stirrups and bars where the checks assume them -- by helpers that
+A beam is drawn from its public ``detailing_geometry``: its calculated steel
+at supported cage corners, with supplementary mounting steel shown separately.
+An unsuccessful layout falls back to labelled calculation geometry. Helpers
 take the axes and the geometry, not the beam. A slab strip, which the geometry
 gives no bars, keeps the drawing it always had.
 """
@@ -18,6 +19,7 @@ gives no bars, keeps the drawing it always had.
 from __future__ import annotations
 
 import math
+import warnings
 from typing import TYPE_CHECKING, Dict, List, Sequence, Tuple, cast
 
 import matplotlib.pyplot as plt
@@ -31,6 +33,9 @@ from mento.bar_sizes import bar_designation, is_us_customary
 from mento.precompute import DISPLAY
 from mento.results import CUSTOM_COLORS
 from mento.section_geometry import BarPosition, Crosstie, SectionGeometry
+from mento.cage_detailing import CageDetailingError
+from mento.codes.registry import design_code
+from mento.i18n import get_language
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -427,14 +432,16 @@ def _plot_stirrups_in_section(ax: "Axes", geometry: SectionGeometry) -> None:
 
 
 def _plot_bars(ax: "Axes", geometry: SectionGeometry) -> None:
-    """One circle per bar, where the check's clear-spacing model puts it."""
-    for bar in geometry.bars:
+    """Resistant steel in gray; supplementary mounting bars in orange."""
+    for bar in (*geometry.bars, *geometry.mounting_bars):
+        mounting = bar in geometry.mounting_bars
         ax.add_patch(
             Circle(
                 (_cm(bar.x), _cm(bar.y)),
                 _cm(bar.d_b) / 2.0,
-                color=CUSTOM_COLORS["dark_gray"],
+                color="#ad641b" if mounting else CUSTOM_COLORS["dark_gray"],
                 fill=True,
+                gid="mounting_bar" if mounting else "resistant_bar",
             )
         )
 
@@ -475,6 +482,19 @@ def _annotate_layers(ax: "Axes", geometry: SectionGeometry) -> List[Tuple["Text"
                 ha="left",
                 va="center",
                 color=CUSTOM_COLORS["dark_gray"],
+            )
+            labels.append((label, anchor))
+        mounting = tuple(bar for bar in geometry.mounting_bars if bar.face == face)
+        if mounting:
+            anchor = sum(_cm(bar.y) for bar in mounting) / len(mounting)
+            suffix = "montaje" if get_language() == "es" else "mounting"
+            label = ax.text(
+                x_text,
+                anchor,
+                f"{_layer_text(mounting, is_us_customary(geometry.width))} ({suffix})",
+                ha="left",
+                va="center",
+                color="#ad641b",
             )
             labels.append((label, anchor))
     return labels
@@ -705,14 +725,16 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
     """
     Plots the rectangular section with a dark gray border, light gray hatch, and dimensions.
 
-    A beam is drawn from its :attr:`~mento.beam.RectangularBeam.section_geometry`:
-    every stirrup of the cage at the legs the shear check assumes, every bar
-    where the clear-spacing model puts it, the label of each layer on the
+    A beam is drawn from its :attr:`~mento.beam.RectangularBeam.detailing_geometry`:
+    every stirrup of the cage at the legs the shear check assumes, resistant
+    bars at supported cage corners, supplementary mounting bars in orange,
+    the label of each layer on the
     right, and the stirrup text in three lines under the section -- the legs,
     bar and spacing; the spacing of the legs across the width with its
     maximum; and the arrangement of the cage. The limits are then widened
     until every text fits inside the figure at its default size. A slab
-    strip keeps the drawing it always had.
+    strip keeps the drawing it always had. If no supported layout is found,
+    a warning and a figure caption explicitly identify calculation geometry.
     """
 
     # Convert dimensions to consistent units (cm)
@@ -734,7 +756,15 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
     )
     ax.add_patch(rect)
 
-    geometry = self.section_geometry
+    detail_error = None
+    try:
+        geometry = self.detailing_geometry
+    except CageDetailingError as error:
+        geometry = self.section_geometry
+        detail_error = str(error)
+        warnings.warn(
+            f"Cage detailing is not feasible: {error}. Showing calculation geometry only.", UserWarning, stacklevel=2
+        )
     if geometry.layout != GRID:
         _plot_stirrups_in_section(ax, geometry)
 
@@ -756,7 +786,29 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
     else:
         _plot_bars(ax, geometry)
         labels = _annotate_layers(ax, geometry)
-        _annotate_cage_text(ax, _cage_lines(self))
+        lines = _cage_lines(self)
+        if geometry.mounting_bars:
+            lines.append(
+                "Montaje en naranja · sin aporte resistente"
+                if get_language() == "es"
+                else "Orange: mounting steel · excluded from resistance"
+            )
+        if detail_error:
+            lines.append(
+                "Solo modelo de cálculo · jaula no detallable"
+                if get_language() == "es"
+                else "Calculation model only · cage detailing not feasible"
+            )
+        if geometry.stirrups and design_code(self.concrete).max_bar_spacing_tension is not None:
+            try:
+                self.flexure_design
+            except DesignNotRunError:
+                lines.append(
+                    "Separación por tracción pendiente · sin verificación de flexión"
+                    if get_language() == "es"
+                    else "Tension-bar spacing pending · no flexure verification"
+                )
+        _annotate_cage_text(ax, lines)
     _fit_texts(ax, labels)
 
     # Store the section figure

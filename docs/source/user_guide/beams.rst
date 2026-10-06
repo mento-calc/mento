@@ -200,17 +200,70 @@ You can use the method `plot()` to visualize the beam's cross-section and reinfo
 The `plot()` method generates a graphical representation of the beam, including its geometry and reinforcement details.
 This can be useful for verifying the input data and for presentation purposes.
 
-The drawing is the section the checks assume, read from ``beam.section_geometry`` (see
-:ref:`user_guide/design_results`): every stirrup of the cage at the legs the shear check
-spreads across the width, the bars where the clear-spacing model puts them, the label of
+The drawing reads ``beam.detailing_geometry`` (see :ref:`user_guide/design_results`):
+every stirrup of the cage at the legs the shear check spreads across the width,
+the resistant bars placed to support the corners, the label of
 each layer on the right, and under the section the stirrup text in three lines -- legs,
 bar and spacing; the spacing of the legs with its maximum once a shear check has run; and
 the arrangement of the cage -- in the language of ``mento.set_language``. The limits of the
 drawing are widened until every text fits the figure at its default size, and two layer
-labels that would print over one another are moved apart. The legs are not tied to the
-bars, so an inner leg may be drawn where there is no bar. An inner stirrup whose legs are
-closer than its two bends need is drawn as a hairpin.
+labels that would print over one another are moved apart. Where calculated bars are
+insufficient to support all corners, additional mounting bars are drawn in orange and
+labelled separately. Their diameter is ``settings.mounting_bar_diameter`` (10 mm or
+No. 3 by default). These bars are not credited in the calculated resistance.
 
-On a US customary section the dimensions and the stirrup text are in inches, while the
-bar labels keep the bare millimetres every bar label of mento uses (``2Ø32+1Ø29``), as in
-the flexure line of the notebook and the summary tables.
+The supported layout preserves the calculated bar counts, diameters and vertical
+coordinates, and the shear leg spacing. It checks clear spacing, the existing code's
+centre-distance cap, and intersections with the branches and rounded bends. If no
+supported layout is found, ``detailing_geometry`` raises ``CageDetailingError``;
+``plot()`` issues a warning and draws the calculation model with an explicit caption.
+A narrow stirrup is not presented as a valid hairpin by squeezing its bends.
+
+The tension-bar spacing limit is applied only to faces put in tension by the
+verified load combinations. If flexure has not been checked, the drawing checks
+physical fit and labels tension-bar spacing as pending; it does not infer tension
+on both faces. ``Node.check_flexure()`` / ``Node.check()`` already report excessive
+spacing on the tension face of each combination, and the detailing layout also
+checks the moved resistant bars. Mounting bars cannot satisfy that limit in place
+of resistant steel. For a single resistant bar, the face width is checked against
+the available limit.
+
+This is a cross-section layout, rather than a complete bending schedule: development
+lengths, hook details and seismic detailing are not added by this operation. The
+original, uniformly spaced calculation geometry remains ``beam.section_geometry``.
+
+For example, a 50 x 60 cm beam with seven bottom bars, three top bars and four
+stirrup legs receives one supplementary upper mounting bar. The default Ø10
+mounting bar is shown separately from the three Ø16 resistant bars. Positive
+and negative moments verify both tension faces:
+
+.. code-block:: python
+
+    from mento import (
+        Concrete_CIRSOC_201_25, RectangularBeam, SteelBar, Forces, Node,
+        MPa, cm, mm, kN, kNm,
+    )
+
+    beam = RectangularBeam(
+        label="7 bottom + 3 top / 4 legs",
+        concrete=Concrete_CIRSOC_201_25(name="H25", f_c=25*MPa),
+        steel_bar=SteelBar(name="ADN420", f_y=420*MPa),
+        width=50*cm, height=60*cm, c_c=30*mm,
+    )
+    beam.set_longitudinal_rebar_bot(n1=7, d_b1=20*mm)
+    beam.set_longitudinal_rebar_top(n1=3, d_b1=16*mm)
+    beam.set_transverse_rebar(n_stirrups=2, d_b=8*mm, s_l=20*cm)
+    Node(section=beam, forces=[
+        Forces(label="Positive", M_y=100*kNm, V_z=100*kN),
+        Forces(label="Negative", M_y=-80*kNm, V_z=100*kN),
+    ]).check()
+    beam.plot()
+    # Optional preference before producing a new drawing:
+    # beam.settings.mounting_bar_diameter = 8*mm
+
+.. image:: /_static/beam_detailing_7_3_4.png
+   :alt: Seven Ø20 lower bars, three Ø16 upper bars, one orange Ø10 mounting bar and four stirrup legs.
+
+
+On a US customary section the dimensions and the stirrup text are in inches and the
+bar labels use ASTM sizes (for example ``3#6`` and ``2#3 (mounting)``).

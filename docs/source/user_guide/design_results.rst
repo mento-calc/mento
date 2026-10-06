@@ -247,7 +247,40 @@ a quantity in the display unit of the section (cm, or in). The positions are the
   stirrups placed.
 
 The legs are not tied to the bars -- the checks do not do that either -- so an inner leg
-may sit where there is no bar. That is the model, shown as it is.
+may sit where there is no bar. That is the calculation model.
+
+For a supported cross-section use ``beam.detailing_geometry``. It keeps the shear legs
+and the resistant bars' counts, diameters, groups and vertical coordinates, while placing
+the nearest-face bars at stirrup corners. Extra bars are spread between those supports.
+Where a face has too few bars, ``mounting_bars`` supplies the missing corner supports,
+including an otherwise empty upper face. Their diameter is controlled by
+``settings.mounting_bar_diameter`` (10 mm or No. 3 by default).
+
+.. code-block:: python
+
+    from mento import CageDetailingError
+
+    detail = beam.detailing_geometry
+    detail.bars                    # resistant bars, including both layers
+    detail.mounting_bars           # supplementary steel, excluded from resistance
+    detail.to_dict("cm")           # separate bars and mounting_bars collections
+
+This does not mutate the beam, its reinforcement or its check results. ``bars_on()``
+continues to return only resistant steel. A layout must satisfy the configured clear
+spacing and vibrator allowance, the code's available centre-distance cap, and clearance
+from the stirrup branches and bends. If the layout cannot be produced, the property raises
+``CageDetailingError``. ``plot()`` then identifies its fallback as calculation geometry
+and issues a warning. The cross-section check does not supply development lengths,
+hooks, seismic detailing, or strength credit for mounting bars.
+
+The tension-bar spacing limit is applied only to faces put in tension by the
+verified load combinations. If flexure has not been checked, the drawing checks
+physical fit and labels tension-bar spacing as pending; it does not infer tension
+on both faces. ``Node.check_flexure()`` / ``Node.check()`` already report excessive
+spacing on the tension face of each combination, and the detailing layout also
+checks the moved resistant bars. Mounting bars cannot satisfy that limit in place
+of resistant steel. For a single resistant bar, the face width is checked against
+the available limit.
 
 A slab strip (``OneWaySlab``, ``Footing``) publishes the section, its cover and ``s_w``, with
 no bars and no legs: it is detailed by spacings, its bars per strip need not be whole, and

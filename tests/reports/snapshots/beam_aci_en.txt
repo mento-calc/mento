@@ -263,3 +263,4 @@ Shear reinforcing 2 legs Ø10 mm @ 22 cm · 14 cm between legs (max 45.55 cm), $
 2 legs Ø10 mm @ 22 cm
 14 cm between legs (max 45.55 cm)
 single perimeter stirrup
+Calculation model only · cage detailing not feasible
