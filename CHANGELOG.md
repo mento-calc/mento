@@ -43,6 +43,11 @@ from the release history and are summaries rather than complete lists.
 
 ### Fixed
 
+- Beam and slab summary Excel files retain both reinforcement faces, including
+  compression steel when every combination has the same moment sign. Design
+  tables add complete `*_bot` and `*_top` reinforcement blocks; these take
+  precedence on import, while files without them keep the original sign-based
+  interpretation. Partial explicit blocks are rejected.
 - A slab summary reads a second reinforcement layer given on its own, and rejects a
   layer with only its diameter or its spacing instead of silently ignoring it.
 

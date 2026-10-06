@@ -62,6 +62,23 @@ The Excel file should contain the following columns:
 Bottom reinforcement is checked against positive bending moments; top reinforcement
 against negative bending moments.
 
+Preserving both reinforcement faces in Excel
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``design()`` keeps the original ``n1``-``db4`` columns for the face selected by
+each row's moment sign, and adds complete ``*_bot`` and ``*_top`` blocks
+(``n1_bot, db1_bot, ... n4_bot, db4_bot`` and the corresponding ``_top`` columns).
+These blocks preserve both faces even when all moments have one sign and the
+opposite face needs compression steel. The number and order of load rows stay
+unchanged.
+
+On import, each explicit face block takes precedence over the original columns,
+independently of the moment sign. Edit the explicit blocks to change reinforcement
+in a designed file. Supply every column of a block, including zeros for unused
+groups; an all-zero block clears that face. Conflicting declarations within a
+beam are rejected. Diameters carry their own column units, including on re-export.
+Files without explicit blocks keep the original sign-based interpretation.
+
 One beam, several combinations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

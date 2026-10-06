@@ -159,6 +159,20 @@ class BeamSummary:
         # Convert NaN in units to "dimensionless"
         self.units_row = ["" if pd.isna(unit) else unit for unit in self.units_row]
 
+        # An explicit face is a complete block, including zeros for unused
+        # layers. Partial blocks would silently fall back to the legacy face.
+        for suffix in ("bot", "top"):
+            columns = [f"{column}_{suffix}" for column in self._FACE_COLUMNS]
+            present = [column in data.columns for column in columns]
+            if any(present) and not all(present):
+                raise ValueError(f"The {suffix} reinforcement needs all columns: {', '.join(columns)}.")
+            for column, base in zip(columns, self._FACE_COLUMNS):
+                if column in data.columns:
+                    unit = self.units_row[data.columns.get_loc(column)]
+                    base_unit = self.units_row[data.columns.get_loc(base)]
+                    if bool(unit) != bool(base_unit):
+                        raise ValueError(f"Column {column!r} needs the same kind of unit as {base!r}.")
+
         # Validate the units row
         self.validate_units(self.units_row)
 
@@ -172,6 +186,7 @@ class BeamSummary:
             data[col] = pd.to_numeric(data[col], errors="coerce").fillna(0)
         # Convert specific columns to int and others to float
         columns_to_int = ["ns", "n1", "n2", "n3", "n4"]
+        columns_to_int += [f"n{i}_{suffix}" for suffix in ("bot", "top") for i in range(1, 5)]
         for col in columns_to_int:
             if col in data.columns:
                 data[col] = data[col].astype(int)
@@ -290,6 +305,14 @@ class BeamSummary:
         bottom_rows = [row for row in rows if row["My"] >= 0 * kNm]
         top_rows = [row for row in rows if row["My"] < 0 * kNm]
         for face, face_rows in (("bottom", bottom_rows), ("top", top_rows)):
+            suffix = "bot" if face == "bottom" else "top"
+            columns = tuple(f"{column}_{suffix}" for column in self._FACE_COLUMNS)
+            if all(column in self.data.columns for column in columns):
+                # Explicit faces are independent of the demand sign. An
+                # all-zero block clears starter bars instead of keeping them.
+                bars = _declared(rows, columns, label, f"{face} bars", element)
+                self._set_face(section, face, bars if bars is not None else tuple(rows[0][c] for c in columns))
+                continue
             bars = _declared(face_rows, self._FACE_COLUMNS, label, f"{face} bars", element)
             if bars is not None:
                 self._set_face(section, face, bars)
@@ -516,6 +539,8 @@ class BeamSummary:
         with the suggested designs for shear and flexure. Each beam is designed
         for the envelope of its rows, and every row of it gets the same
         stirrups and the bars of the face its moment puts in tension.
+        Explicit ``*_bot`` and ``*_top`` columns also preserve both faces,
+        including compression reinforcement with no opposite-sign moment.
 
         Returns
         -------
@@ -525,15 +550,29 @@ class BeamSummary:
 
         # Copy the processed data to avoid overwriting self.data
         design_df = self.data.reset_index(drop=True).copy()
+        units = dict(zip(self.beam_list.columns, self.units_row))
+        for suffix in ("bot", "top"):
+            for column in self._FACE_COLUMNS:
+                # Object dtype accepts both counts and unit-bearing lengths.
+                design_df[f"{column}_{suffix}"] = pd.Series([0] * len(design_df), dtype=object)
 
         for node, positions in zip(self.nodes, self._node_rows):
             # For the envelope of the beam's combinations. Each row takes the
             # bars of the face its moment puts in tension, so every row of a
             # beam reads back as the same section.
             faces, transverse = self._designed(node)
+            explicit = {
+                f"{column}_{suffix}": value
+                for face, suffix in (("bottom", "bot"), ("top", "top"))
+                for column, value in faces[face].items()
+            }
+            for column, value in explicit.items():
+                unit_str = units.get(column, units[column.rsplit("_", 1)[0]])
+                if hasattr(value, "magnitude") and unit_str:
+                    explicit[column] = value.to(self.get_unit_variable(unit_str))
             for i in positions:
                 face = "bottom" if design_df.loc[i, "My"].magnitude >= 0 else "top"
-                for column, value in {**faces[face], **transverse}.items():
+                for column, value in {**faces[face], **transverse, **explicit}.items():
                     design_df.loc[i, column] = value
 
         # store for export
@@ -668,13 +707,18 @@ class BeamSummary:
         # quantities in whatever unit mento computed them in (a slab spacing
         # in mm under a column in cm), and the file holds bare numbers.
         df_numeric = self.design_data.copy()
-        for col, unit_str in zip(df_numeric.columns, self.units_row):
+        units = dict(zip(self.beam_list.columns, self.units_row))
+        design_units = []
+        for col in df_numeric.columns:
+            base = col.rsplit("_", 1)[0] if col.endswith(("_bot", "_top")) else col
+            unit_str = units[col] if col in units else units[base]
+            design_units.append(unit_str)
             unit = self.get_unit_variable(unit_str) if unit_str else None
             df_numeric[col] = df_numeric[col].apply(lambda x, u=unit: _in_unit(x, u))
         # Recombine units + data before exporting
         df_export = pd.concat(
             [
-                pd.DataFrame([self.units_row], columns=self.beam_list.columns),
+                pd.DataFrame([design_units], columns=df_numeric.columns),
                 df_numeric,
             ],
             ignore_index=True,

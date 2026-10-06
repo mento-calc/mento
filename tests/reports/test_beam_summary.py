@@ -1809,3 +1809,65 @@ def test_rows_with_no_label_stay_beams_of_their_own(
         ]
     )
     assert len(BeamSummary(sample_concrete, sample_steel, rows).nodes) == 2
+
+
+@pytest.mark.parametrize("moment", [220, -220, 150])
+def test_excel_preserves_both_faces_with_one_moment_sign(
+    sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar, tmp_path: Path, moment: int
+) -> None:
+    summary = BeamSummary(
+        sample_concrete, sample_steel, _beam_rows([{"Label": "V1", "Comb.": "U", "My": moment, "Vz": 10}])
+    )
+    summary.design()
+    placed = summary.nodes[0].section.reinforcement
+    checked = summary.check()
+    if abs(moment) == 220:
+        assert checked[VERDICT_COLUMN][1] == PASS_MARK
+        assert placed.top.A_s > 0 * cm**2 and placed.bottom.A_s > 0 * cm**2
+    path = tmp_path / "both_faces.xlsx"
+    summary.export_design(str(path))
+    summary.import_design(str(path))
+    assert summary.nodes[0].section.reinforcement == placed
+    pd.testing.assert_frame_equal(summary.check(), checked)
+
+
+@pytest.mark.parametrize("unit", [None, ""])
+def test_incomplete_explicit_face_is_rejected(
+    sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar, unit: Optional[str]
+) -> None:
+    rows = _beam_rows([{"Label": "V1", "Comb.": "U", "My": 40}])
+    if unit is None:
+        rows["n1_top"] = ["", 2]
+        message = "top reinforcement needs all columns"
+    else:
+        for column in ("n1", "db1", "n2", "db2", "n3", "db3", "n4", "db4"):
+            rows[f"{column}_top"] = ["", 0]
+        message = "same kind of unit"
+    with pytest.raises(ValueError, match=message):
+        BeamSummary(sample_concrete, sample_steel, rows)
+
+
+def test_explicit_faces_override_legacy_and_keep_units_on_reexport(
+    sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar, tmp_path: Path
+) -> None:
+    rows = _beam_rows([{"Label": "V1", "Comb.": "U", "My": 220, "Vz": 10}])
+    summary = BeamSummary(sample_concrete, sample_steel, rows)
+    summary.design()
+    path = tmp_path / "edited.xlsx"
+    summary.export_design(str(path))
+    frame = pd.read_excel(path)
+    # Explicit face columns are authoritative; legacy values may be stale.
+    frame.loc[1, "n1"] = 99
+    frame.loc[0, "db1_top"] = "cm"
+    frame.loc[1, "db1_top"] /= 10
+    imported = BeamSummary(sample_concrete, sample_steel, frame)
+    assert imported.nodes[0].section.reinforcement == summary.nodes[0].section.reinforcement
+    imported.design()
+    imported.export_design(str(path))
+    frame = pd.read_excel(path)
+    assert frame.loc[0, "db1_top"] == "cm"
+    assert frame.loc[1, "db1_top"] == pytest.approx(1.2)
+    with pytest.raises(ValueError, match="different top bars"):
+        conflicting = pd.concat([frame, frame.iloc[[1]]], ignore_index=True)
+        conflicting.loc[2, "n1_top"] = 3
+        BeamSummary(sample_concrete, sample_steel, conflicting)

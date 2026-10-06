@@ -77,3 +77,12 @@ The methods are those of the beam summary:
 ``design()`` designs the flexural reinforcement only. A one-way slab is detailed
 without stirrups, so ``check()`` reports its shear against the concrete alone: a slab
 whose shear DCR is above one needs to be thicker.
+
+Excel files produced after ``design()`` also include ``db1_bot, s1_bot,
+db3_bot, s3_bot`` and the corresponding ``_top`` columns. These complete blocks
+preserve both faces, including compression layers when every moment has the same
+sign. Their diameter and spacing units follow the corresponding original columns
+unless explicitly changed in the file. On import they take precedence over the
+original sign-based columns: edit the explicit blocks to change the layers, and
+use zeros in every column of a block to clear that face. A partial block is
+rejected. Older files without these blocks remain supported.

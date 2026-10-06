@@ -154,6 +154,24 @@ def test_a_designed_slab_reads_back_as_the_same_slab(
     pd.testing.assert_frame_equal(summary.check(), before)
 
 
+@pytest.mark.parametrize("moment", [160, -160, 130])
+def test_excel_preserves_compression_layers_without_opposite_moment(
+    concrete: Any, steel: SteelBar, tmp_path: Path, moment: int
+) -> None:
+    summary = OneWaySlabSummary(concrete, steel, _slab_rows([{"Label": "L1", "Comb.": "U", "My": moment, "Vz": 10}]))
+    summary.design()
+    placed = summary.nodes[0].section.reinforcement
+    checked = summary.check()
+    assert checked[VERDICT_COLUMN][1] == PASS_MARK
+    if abs(moment) == 160:
+        assert placed.top.A_s > 0 * cm**2 and placed.bottom.A_s > 0 * cm**2
+    path = tmp_path / "compression_layers.xlsx"
+    summary.export_design(str(path))
+    summary.import_design(str(path))
+    assert summary.nodes[0].section.reinforcement == placed
+    pd.testing.assert_frame_equal(summary.check(), checked)
+
+
 def test_the_file_holds_each_number_in_its_columns_unit(concrete: Any, steel: SteelBar, tmp_path: Path) -> None:
     """A spacing in a column declared in mm is written in mm, whatever unit the design computed it in."""
     rows = _slab_rows([{"Label": "L1", "Comb.": "U", "Vz": 30, "My": 30}], units={**_UNITS, "s1": "mm", "s3": "mm"})
