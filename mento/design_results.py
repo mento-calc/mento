@@ -18,18 +18,17 @@ section's concrete, so a value can be converted with ``.to()`` as usual.
 from __future__ import annotations
 
 import math
-from numbers import Integral
 from dataclasses import dataclass
+from numbers import Integral
 from typing import TYPE_CHECKING, Any, Optional, Sequence, Tuple, cast
-
-from mento.units import Quantity, ureg
 
 from mento.bar_sizes import bar_designation, is_us_customary
 from mento.codes.check_state import to_display
 from mento.codes.registry import design_code
+from mento.design_warnings import steel_above_maximum
 from mento.i18n import checked_language, translate
 from mento.precompute import DISPLAY
-from mento.design_warnings import steel_above_maximum
+from mento.units import Quantity, ureg
 
 if TYPE_CHECKING:
     from mento.beam import RectangularBeam
@@ -509,7 +508,7 @@ GRID = "grid"
 def format_transverse_rebar(
     layout: str,
     n_stirrups: int,
-    d_b: str,
+    bar: str,
     s_l: str,
     s_w: str,
     *,
@@ -542,7 +541,8 @@ def format_transverse_rebar(
     checked_language(language)
     if n_stirrups == 0:
         return translate("no stirrups", language)
-    bar = d_b if d_b.startswith(("Ø", "#")) else f"Ø{d_b}"
+    d_b = bar.removeprefix("Ø")
+    bar = bar if bar.startswith(("Ø", "#")) else f"Ø{bar}"
     if layout == GRID:
         return f"{bar}{spacing_separator(imperial)}{s_l}×{s_w}"
     legs = 2 * n_stirrups if n_legs is None else n_legs

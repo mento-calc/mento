@@ -90,8 +90,8 @@ left as they are:
   code and stay identical in every language. This is why a summary table translates
   ``Beam`` and ``Position`` but leaves ``As,bot`` and ``DCRv`` alone.
 - **Units and numbers** — ``cm``, ``MPa``, ``kNm``.
-- **Bar notation** — ``Ø16``, ``#6``, ``@``. Only the stirrup mark is the language's:
-  ``1sØ10/22`` (*stirrup*) in English, ``1eØ10/22`` (*estribo*) in Spanish.
+- **Bar notation** — ``Ø16`` and ``#6`` stay unchanged. ``notation()`` translates
+  the transverse label: ``2 legs Ø10 @ 22`` / ``2 ramas Ø10 c/22``.
 - **The design code designation** — ``CIRSOC 201-25`` keeps its official name.
 - **Generated file names** — a project keeps one naming scheme regardless of the language
   its reports are written in.

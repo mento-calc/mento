@@ -534,7 +534,7 @@ def test_shear_line_writes_a_slab_grid_as_a_bar_and_two_spacings() -> None:
 
     slab.shear_results
 
-    assert slab._md_shear_results.startswith("Shear reinforcing Ø10 mm/7 cm×15 cm, ")
+    assert slab._md_shear_results.startswith("Shear reinforcing Ø10/7×15 cm, ")
 
 
 def test_shear_line_writes_an_imperial_slab_grid_with_a_unit_per_spacing() -> None:

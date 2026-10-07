@@ -229,6 +229,17 @@ centre-distance cap, and intersections with the branches and rounded bends. If n
 supported layout is found, ``detailing_geometry`` raises ``CageDetailingError``;
 ``plot()`` issues a warning and draws the calculation model with an explicit caption.
 A narrow stirrup is not presented as a valid hairpin by squeezing its bends.
+Its rejected stirrups are omitted from the fallback drawing. Invalid mounting
+diameter preferences raise ``ValueError`` rather than being presented as a
+physically infeasible cage.
+
+The inside bend diameter comes from the code: ACI/CIRSOC Table 25.3.2 uses
+four bar diameters through 16 mm (No. 5 in US customary units), then six
+through 25 mm (No. 8); larger transverse bars are not supported by this
+table. EN Table 8.1N uses its recommended values of four diameters through
+16 mm and seven above. Using four diameters for CIRSOC 6/8 mm stirrups is
+a Mento extrapolation, since its bend table starts at 10 mm. These mandrel
+sizes do not verify concrete failure at bends (EN Eq. 8.1), hooks or anchorage.
 
 The tension-bar spacing limit is applied only to faces put in tension by the
 verified load combinations. If flexure has not been checked, the drawing checks

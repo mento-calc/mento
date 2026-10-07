@@ -3184,8 +3184,8 @@ def test_plot_spread_keeps_labels_with_room_and_parts_those_without() -> None:
 def test_plot_narrow_cage_falls_back_to_labelled_calculation_geometry() -> None:
     """ACI 20x30, Vu 100 kN: two Ø10 stirrups, legs 4.67 cm apart, less than the 5·d_st two bends take.
 
-    The calculation view caps its arcs at half the width, but explicitly
-    says that it is not a supported cage detail.
+    The calculation view omits rejected bends and explicitly says that it
+    is not a supported cage detail.
     """
     beam = RectangularBeam(
         label="N",
@@ -3202,14 +3202,7 @@ def test_plot_narrow_cage_falls_back_to_labelled_calculation_geometry() -> None:
         beam.plot()
     assert "Calculation model only · cage detailing not feasible" in [text.get_text() for text in beam._ax.texts]
     fancy = [p for p in beam._ax.patches if isinstance(p, FancyBboxPatch)]
-    assert len(fancy) == 4
-    for line in fancy:
-        rounding = line.get_boxstyle().rounding_size
-        assert rounding <= min(line.get_width(), line.get_height()) / 2 + 1e-12
-    # The perimeter stirrup keeps its full bend: 2·d_st inside, 3·d_st outside.
-    d = beam._stirrup_d_b.to("cm").magnitude
-    assert fancy[0].get_boxstyle().rounding_size == pytest.approx(3 * d)
-    assert fancy[1].get_boxstyle().rounding_size == pytest.approx(2 * d)
+    assert not fancy
     plt.close()
 
 

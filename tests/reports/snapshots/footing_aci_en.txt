@@ -232,7 +232,7 @@ Slab Z1, $b$=100.00 cm, $h$=50.00 cm, $c_{c}$=5.00 cm,                         C
 Top longitudinal rebar: -, $A_{s,top}$ = 0.0 cm², $M_u$ = 0.0 kNm, $\phi M_n$ = 0.0 kNm → $\color{#439b00}{\text{DCR}=0}$ 
 
 Bottom longitudinal rebar: Ø16 mm/220 mm, $A_{s,bot}$ = 9.14 cm², $M_u$ = 100.0 kNm, $\phi M_n$ = 146.12 kNm → $\color{#439b00}{\text{DCR}=0.68}$ 
-Shear reinforcing Ø10 mm/21 cm×43 cm, $A_v$=8.7 cm²/m, $V_u$=150.0 kN, $\phi V_n$=393.76 kN → $\color{#439b00}{\text{DCR}=0.38}$ 
+Shear reinforcing Ø10/21×43 cm, $A_v$=8.7 cm²/m, $V_u$=150.0 kN, $\phi V_n$=393.76 kN → $\color{#439b00}{\text{DCR}=0.38}$ 
 
 ### flexure_design
 Ø16 mm/220 mm

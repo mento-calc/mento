@@ -277,6 +277,9 @@ from the stirrup branches and bends. If the layout cannot be produced, the prope
 ``CageDetailingError``. ``plot()`` then identifies its fallback as calculation geometry
 and issues a warning. The cross-section check does not supply development lengths,
 hooks, seismic detailing, or strength credit for mounting bars.
+The bend diameter is supplied by the code's mandrel-size rule; it does not
+verify concrete failure at a bend. ``to_dict()`` without a unit uses the
+section's display unit, including inches for a US customary section.
 
 The tension-bar spacing limit is applied only to faces put in tension by the
 verified load combinations. If flexure has not been checked, the drawing checks

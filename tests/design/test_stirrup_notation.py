@@ -38,6 +38,13 @@ from mento.units import MPa, cm, inch, kN, kNm, ksi, mm
 pytestmark = pytest.mark.filterwarnings("ignore::UserWarning")
 
 
+def test_formatter_keeps_the_published_bar_keyword() -> None:
+    assert (
+        format_transverse_rebar(layout=STIRRUPS, n_stirrups=1, bar="8", s_l="20", s_w="14")
+        == "2 legs Ø8 @ 20 · 14 between legs"
+    )
+
+
 def _wide_cirsoc_beam(concrete: object = None, **kwargs: object) -> RectangularBeam:
     """The wide CIRSOC beam: 150x150 cm, c_c 30 mm, CIRSOC 201-25 H-25 unless another concrete is given."""
     return RectangularBeam(
@@ -439,7 +446,7 @@ def test_the_notebook_shear_line_of_a_slab_reads_its_grid() -> None:
     Node(section=slab, forces=[Forces(label="C1", M_y=40 * kNm, V_z=250 * kN)]).check()
     slab.shear_results
     line = slab._md_shear_results
-    assert line.startswith("Shear reinforcing Ø10 mm/8 cm×16 cm, ")
+    assert line.startswith("Shear reinforcing Ø10/8×16 cm, ")
     assert f"={round(slab._A_v.to('cm**2/m').magnitude, 2)} cm²/m" in line
 
 

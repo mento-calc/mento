@@ -26,16 +26,16 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.patches import Circle, FancyBboxPatch, Rectangle
 from matplotlib.transforms import Bbox
-from mento.units import Quantity
 
-from mento.design_results import GRID, DesignNotRunError, format_transverse_rebar, placed_bars
 from mento.bar_sizes import bar_designation, is_us_customary
+from mento.cage_detailing import CageDetailingError
+from mento.codes.registry import design_code
+from mento.design_results import GRID, DesignNotRunError, format_transverse_rebar, placed_bars
+from mento.i18n import translate
 from mento.precompute import DISPLAY
 from mento.results import CUSTOM_COLORS
 from mento.section_geometry import BarPosition, Crosstie, SectionGeometry
-from mento.cage_detailing import CageDetailingError
-from mento.codes.registry import design_code
-from mento.i18n import get_language
+from mento.units import Quantity
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -439,8 +439,8 @@ def _plot_bars(ax: "Axes", geometry: SectionGeometry) -> None:
             Circle(
                 (_cm(bar.x), _cm(bar.y)),
                 _cm(bar.d_b) / 2.0,
-                color="#ad641b" if mounting else CUSTOM_COLORS["dark_gray"],
-                fill=True,
+                color=CUSTOM_COLORS["mounting"] if mounting else CUSTOM_COLORS["dark_gray"],
+                fill=not mounting,
                 gid="mounting_bar" if mounting else "resistant_bar",
             )
         )
@@ -487,14 +487,14 @@ def _annotate_layers(ax: "Axes", geometry: SectionGeometry) -> List[Tuple["Text"
         mounting = tuple(bar for bar in geometry.mounting_bars if bar.face == face)
         if mounting:
             anchor = sum(_cm(bar.y) for bar in mounting) / len(mounting)
-            suffix = "montaje" if get_language() == "es" else "mounting"
+            suffix = translate("mounting")
             label = ax.text(
                 x_text,
                 anchor,
                 f"{_layer_text(mounting, is_us_customary(geometry.width))} ({suffix})",
                 ha="left",
                 va="center",
-                color="#ad641b",
+                color=CUSTOM_COLORS["mounting"],
             )
             labels.append((label, anchor))
     return labels
@@ -761,11 +761,11 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
         geometry = self.detailing_geometry
     except CageDetailingError as error:
         geometry = self.section_geometry
-        detail_error = str(error)
+        detail_error = error
         warnings.warn(
             f"Cage detailing is not feasible: {error}. Showing calculation geometry only.", UserWarning, stacklevel=2
         )
-    if geometry.layout != GRID:
+    if geometry.layout != GRID and (detail_error is None or detail_error.reason != "bend"):
         _plot_stirrups_in_section(ax, geometry)
 
     # Set plot limits with some padding
@@ -788,26 +788,14 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
         labels = _annotate_layers(ax, geometry)
         lines = _cage_lines(self)
         if geometry.mounting_bars:
-            lines.append(
-                "Montaje en naranja · sin aporte resistente"
-                if get_language() == "es"
-                else "Orange: mounting steel · excluded from resistance"
-            )
+            lines.append(translate("Orange: mounting steel · excluded from resistance"))
         if detail_error:
-            lines.append(
-                "Solo modelo de cálculo · jaula no detallable"
-                if get_language() == "es"
-                else "Calculation model only · cage detailing not feasible"
-            )
+            lines.append(translate("Calculation model only · cage detailing not feasible"))
         if geometry.stirrups and design_code(self.concrete).max_bar_spacing_tension is not None:
             try:
                 self.flexure_design
             except DesignNotRunError:
-                lines.append(
-                    "Separación por tracción pendiente · sin verificación de flexión"
-                    if get_language() == "es"
-                    else "Tension-bar spacing pending · no flexure verification"
-                )
+                lines.append(translate("Tension-bar spacing pending · no flexure verification"))
         _annotate_cage_text(ax, lines)
     _fit_texts(ax, labels)
 

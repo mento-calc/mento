@@ -4,8 +4,18 @@ import math
 
 import matplotlib.pyplot as plt
 import pytest
+from matplotlib.patches import FancyBboxPatch
 
-from mento import Concrete_ACI_318_19, Concrete_CIRSOC_201_25, Forces, Node, RectangularBeam, SteelBar, set_language
+from mento import (
+    Concrete_ACI_318_19,
+    Concrete_CIRSOC_201_25,
+    Concrete_EN_1992_2004,
+    Forces,
+    Node,
+    RectangularBeam,
+    SteelBar,
+    set_language,
+)
 from mento.cage_detailing import CageDetailingError
 from mento.section_geometry import SectionGeometry
 from mento.units import MPa, cm, ft, inch, kip, kN, kNm, ksi, mm, psi
@@ -35,7 +45,11 @@ def _assert_supported(geometry: SectionGeometry) -> None:
                 assert any(
                     _mm(bar.x - leg)
                     == pytest.approx(
-                        side * max(2.5 * _mm(geometry.stirrup_d_b), (_mm(bar.d_b) + _mm(geometry.stirrup_d_b)) / 2)
+                        side
+                        * max(
+                            (_mm(geometry.stirrup_bend_inner_diameter) + _mm(geometry.stirrup_d_b)) / 2,
+                            (_mm(bar.d_b) + _mm(geometry.stirrup_d_b)) / 2,
+                        )
                     )
                     and abs(_mm(bar.y - branch)) == pytest.approx((_mm(geometry.stirrup_d_b) + _mm(bar.d_b)) / 2)
                     for bar in candidates
@@ -150,8 +164,10 @@ def test_invalid_mounting_diameter_is_rejected(diameter: object) -> None:
     beam = _beam()
     beam.set_transverse_rebar(1, 8 * mm, 20 * cm)
     beam.settings.mounting_bar_diameter = diameter  # type: ignore[union-attr]
-    with pytest.raises(CageDetailingError):
+    with pytest.raises(ValueError, match="mounting_bar_diameter"):
         _ = beam.detailing_geometry
+    with pytest.raises(ValueError, match="mounting_bar_diameter"):
+        beam.plot()
 
 
 def test_no_stirrups_has_no_added_mounting_steel() -> None:
@@ -324,3 +340,107 @@ def test_canonical_aci_design_has_a_supported_drawing() -> None:
         assert not any("calculation model only" in text or "jaula no detallable" in text for text in texts)
     finally:
         plt.close(figure)
+
+
+@pytest.mark.parametrize(
+    "concrete_type,factor", [(Concrete_ACI_318_19, 6), (Concrete_CIRSOC_201_25, 6), (Concrete_EN_1992_2004, 7)]
+)
+def test_manual_large_stirrup_uses_its_code_mandrel_in_geometry_and_detail(concrete_type, factor) -> None:
+    beam = RectangularBeam(
+        concrete=concrete_type(name="C25", f_c=25 * MPa),
+        steel_bar=SteelBar(name="S420", f_y=420 * MPa),
+        width=80 * cm,
+        height=80 * cm,
+        c_c=30 * mm,
+    )
+    beam.set_longitudinal_rebar_bot(n1=2, d_b1=25 * mm)
+    beam.set_longitudinal_rebar_top(n1=2, d_b1=25 * mm)
+    beam.set_transverse_rebar(1, 20 * mm, 15 * cm)
+    original = beam.section_geometry
+    assert original.to_dict("mm")["stirrup_bend_inner_diameter"] == pytest.approx(factor * 20)
+    detail = beam.detailing_geometry
+    _assert_supported(detail)
+    assert beam.section_geometry == original
+
+
+def test_large_inner_stirrup_that_cannot_be_bent_is_not_drawn_as_a_hairpin() -> None:
+    beam = _beam(100, 100)
+    beam.set_longitudinal_rebar_bot(n1=8, d_b1=25 * mm)
+    beam.set_transverse_rebar(4, 20 * mm, 15 * cm)
+    with pytest.raises(CageDetailingError, match="too narrow") as caught:
+        _ = beam.detailing_geometry
+    assert caught.value.reason == "bend"
+    with pytest.warns(UserWarning, match="too narrow"):
+        figure = beam.plot()
+    try:
+        assert not any(isinstance(patch, FancyBboxPatch) for patch in figure.axes[0].patches)
+        assert any(
+            "not feasible" in text.get_text() or "jaula no detallable" in text.get_text()
+            for text in figure.axes[0].texts
+        )
+    finally:
+        plt.close(figure)
+
+
+def test_imperial_detail_default_export_keeps_inches_and_mounting_bars() -> None:
+    beam = RectangularBeam(
+        concrete=Concrete_ACI_318_19(name="4000", f_c=4000 * psi),
+        steel_bar=SteelBar(name="Gr60", f_y=60 * ksi),
+        width=12 * inch,
+        height=24 * inch,
+        c_c=1.5 * inch,
+    )
+    beam.set_longitudinal_rebar_bot(n1=2, d_b1=0.75 * inch)
+    beam.set_longitudinal_rebar_top(n1=0, d_b1=0 * mm)
+    beam.set_transverse_rebar(1, 0.375 * inch, 8 * inch)
+    data = beam.detailing_geometry.to_dict()
+    assert data["unit"] == "in"
+    assert data["width"] == pytest.approx(12)
+    assert data["mounting_bars"][0]["d_b"] == pytest.approx(0.375)
+    assert beam.section_geometry.to_dict("cm")["width"] == pytest.approx(30.48)
+    figure = beam.plot()
+    try:
+        mounting = [p for p in figure.axes[0].patches if p.get_gid() == "mounting_bar"]
+        resistant = [p for p in figure.axes[0].patches if p.get_gid() == "resistant_bar"]
+        assert mounting and resistant
+        assert all(not p.get_fill() for p in mounting)
+        assert all(p.get_fill() for p in resistant)
+    finally:
+        plt.close(figure)
+
+
+@pytest.mark.parametrize(
+    "concrete_type,diameter,bend",
+    [
+        (Concrete_ACI_318_19, 16 * mm, 64 * mm),
+        (Concrete_ACI_318_19, 25.4 * mm, 152.4 * mm),
+        (Concrete_CIRSOC_201_25, 25 * mm, 150 * mm),
+        (Concrete_EN_1992_2004, 16 * mm, 64 * mm),
+        (Concrete_EN_1992_2004, 32 * mm, 224 * mm),
+    ],
+)
+def test_bend_table_boundary_values(concrete_type, diameter, bend) -> None:
+    """Tabulated mandrel-size cases; hook lengths and EN Eq. 8.1 are outside this check."""
+    beam = RectangularBeam(
+        concrete=concrete_type(name="C25", f_c=25 * MPa),
+        steel_bar=SteelBar(name="S420", f_y=420 * MPa),
+        width=80 * cm,
+        height=80 * cm,
+        c_c=30 * mm,
+    )
+    beam.set_transverse_rebar(1, diameter, 15 * cm)
+    assert _mm(beam.section_geometry.stirrup_bend_inner_diameter) == pytest.approx(_mm(bend))
+
+
+@pytest.mark.parametrize("concrete_type", [Concrete_ACI_318_19, Concrete_CIRSOC_201_25])
+def test_transverse_bars_beyond_the_bend_table_are_rejected(concrete_type) -> None:
+    beam = RectangularBeam(
+        concrete=concrete_type(name="C25", f_c=25 * MPa),
+        steel_bar=SteelBar(name="S420", f_y=420 * MPa),
+        width=80 * cm,
+        height=80 * cm,
+        c_c=30 * mm,
+    )
+    beam.set_transverse_rebar(1, 32 * mm, 15 * cm)
+    with pytest.raises(ValueError, match="bend table"):
+        _ = beam.section_geometry
