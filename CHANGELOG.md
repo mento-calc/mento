@@ -18,7 +18,7 @@ from the release history and are summaries rather than complete lists.
   reportes; un DCR favorable no aprueba el armado.
 - Entrada preferida `legs`, con alias compatible `n_legs` y validación de
   contradicciones. Ramas impares y trabas individuales siguen fuera del modelo.
-- Ambas caras físicas en Word y cc en mm o pulgadas según el sistema.
+- Ambas caras físicas en Word; cc en mm o pulgadas en la tabla Beam Data.
 - Rechazo explícito de zapatas EN con axil, antes de modificar el armado:
   caso todavía no soportado por Mento, no prohibición normativa.
 
@@ -72,7 +72,7 @@ from the release history and are summaries rather than complete lists.
   range are rejected rather than assigned an unverified bend diameter.
 - The Word shear appendix uses 2 cm top, 1.5 cm bottom and 1.6 cm side margins.
   Leg-spacing and compression-support rows name the applicable clauses;
-  the support row remains informative and does not alter the shear verdict.
+  the support row is mandatory detailing, assessed separately from resistance.
 
 ### Fixed
 
@@ -99,7 +99,7 @@ from the release history and are summaries rather than complete lists.
 - Human-readable `str()` output and Word/Excel summary cells change. Consumers
   should use result fields rather than parse notation. Compared with 1.5.0,
   `str()` of transverse results is now always English; use `notation()` for
-  language-dependent output. The Word Beam Data count header is `n_legs`.
+  language-dependent output. Word Beam Data shows both physical faces and transverse notation.
 - Geometry exports without an explicit unit use the section's unit. Detail
   geometry is a cross-section proposal, not a construction-ready bar schedule.
 - Reinforcement design and resistance results are unchanged by the drawing
