@@ -94,6 +94,8 @@ __all__ = [
     "NotABeamError",
     "SectionGeometry",
     "CageDetailingError",
+    "CompressionDetailing",
+    "CompressionFaceDetail",
     "SkinReinforcementRequirement",
     "SkinServiceCase",
     "SkinDistributionReview",
@@ -106,6 +108,7 @@ if TYPE_CHECKING:
     from mento.beam import RectangularBeam
     from mento.beam_summary import BeamSummary
     from mento.cage_detailing import CageDetailingError
+    from mento.compression_detailing import CompressionDetailing, CompressionFaceDetail
     from mento.codes import ACI_318_19_beam, EN_1992_2004_beam
     from mento.column import Column
     from mento.design_results import DesignNotRunError, RebarOption, StirrupOption
@@ -177,6 +180,8 @@ def __getattr__(name: str) -> object:
         "NotABeamError": "shear_wall",
         "SectionGeometry": "section_geometry",
         "CageDetailingError": "cage_detailing",
+        "CompressionDetailing": "compression_detailing",
+        "CompressionFaceDetail": "compression_detailing",
         "SkinReinforcementRequirement": "skin_reinforcement",
         "SkinServiceCase": "skin_service",
         "SkinDistributionReview": "skin_reinforcement",

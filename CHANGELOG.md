@@ -12,6 +12,9 @@ from the release history and are summaries rather than complete lists.
 
 ## [Unreleased]
 
+- Required compression bars expose cross-section support checks, failures and
+  pending detailing, without changing strength or the global shear verdict.
+
 - Geometry exports mark unsupported bend placeholders with `bend_supported=false`;
   the retained 4*d_st number is calculation geometry, not a normative mandrel.
 

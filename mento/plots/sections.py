@@ -882,6 +882,10 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
                 self.flexure_design
             except DesignNotRunError:
                 lines.append(translate("Tension-bar spacing pending · no flexure verification"))
+        compression = self.compression_detailing
+        if compression.status in ("failed", "pending") and compression.reason != "flexure_not_checked":
+            lines.append(translate("Required compression-bar support: {status}", status=translate(compression.status)))
+            warnings.warn("Required compression-bar support: " + compression.status, UserWarning, stacklevel=2)
         _annotate_cage_text(ax, lines)
     _fit_texts(ax, labels)
 

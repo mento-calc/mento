@@ -503,3 +503,25 @@ def translate_dataframe(df: "pd.DataFrame", language: Optional[str] = None) -> "
     out[label_column] = [translate(v, language) if isinstance(v, str) else v for v in out[label_column]]
     out.columns = Index([translate(str(c), language) for c in out.columns])
     return out
+
+
+# Required compression-bar support; statuses and reasons are localized.
+ES.update(
+    {
+        "Required compression-bar support fails (§9.7.6.4.4): {reason}.": "No cumple el arriostramiento de barras requeridas por compresión (§9.7.6.4.4): {reason}.",
+        "Required compression-bar support is not fully verified (§9.7.6.4.4): {reason}.": "El arriostramiento de barras requeridas por compresión no está completamente verificado (§9.7.6.4.4): {reason}.",
+        "Required compression-bar support: {status}": "Arriostramiento de barras requeridas por compresión: {status}",
+        "failed": "no cumple",
+        "pending": "pendiente",
+        "A corner bar is not braced by a stirrup corner": "Una barra de esquina no está arriostrada por una esquina de estribo",
+        "Two successive compression bars lack corner support": "Dos barras comprimidas consecutivas carecen de arriostramiento por esquina",
+        "A required compression bar lies outside the closed stirrup": "Una barra requerida por compresión queda fuera del estribo cerrado",
+        "The clear distance on a side exceeds the permitted limit": "La distancia libre a uno de los lados supera el límite permitido",
+        "The 15 d_be and 150 mm limits give different outcomes; interpretation pending": "Los límites 15 d_be y 150 mm dan resultados distintos; interpretación pendiente",
+        "Second-row compression support requires a separate detail": "El arriostramiento de la segunda capa comprimida requiere un detalle específico",
+        "Crosstie anchorage is not verified": "El anclaje de los estribos suplementarios no está verificado",
+        "The required first compression row is missing": "Falta la primera capa requerida por compresión",
+        "Required compression steel has no closed stirrups": "La armadura requerida por compresión no tiene estribos cerrados",
+        "The stirrup bend is outside the supported model": "El doblado del estribo queda fuera del modelo admitido",
+    }
+)

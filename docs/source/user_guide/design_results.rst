@@ -439,3 +439,21 @@ Bend provenance
 ``SectionGeometry.bend_supported`` is exported by ``to_dict()``. A False value
 marks the 4*d_st calculation placeholder used when no supported mandrel is
 available. That diameter is not a code requirement or a feasible bend detail.
+
+
+Required compression-bar support
+-------------------------------
+
+``beam.compression_detailing`` checks the required compression faces identified
+by the flexure calculation, not mounting steel or every bar incidentally in
+compression. It exposes the status, supported first-row bar indices, maximum
+clear distance on both sides, limits and reasons. ACI 318-19 §9.7.6.4.4 uses
+150 mm (6 in in the in-lb edition). CIRSOC 201-25 §9.7.6.4.4 prints 15 times
+the stirrup diameter or 150 mm: differing outcomes remain pending until that
+interpretation is resolved. Second-row support and crosstie anchorage are not
+approved by this first-row model. Missing/unavailable cages cannot pass.
+
+Warnings and the plot identify failed or pending compression support. The
+check does not change resistant steel, capacities, the shear verdict, or the
+separate pending policy for §9.7.6.4.3. Hooks, longitudinal extent and seismic
+detailing require separate verification. No extra stirrups are silently added.
