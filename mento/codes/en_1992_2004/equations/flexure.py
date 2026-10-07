@@ -85,8 +85,7 @@ def crack_control_coefficient_k(h: float) -> float:
     the restraint is taken by them and the less by the reinforcement.
 
     Args:
-        h: Overall depth of the section (mm); for a flange or web the clause
-            takes the smaller of the width and the height instead.
+        h: Web depth or flange width (mm), as applicable under §7.3.2(2).
 
     Returns:
         k, dimensionless: 1.0 for h <= 300 mm, 0.65 for h >= 800 mm, linear in
@@ -108,7 +107,8 @@ def crack_control_min_reinforcement(k_c: float, k: float, f_ct_eff: float, A_ct:
 
     Args:
         k_c: Stress distribution coefficient — 0.4 for a rectangular section in
-            pure bending, 1.0 in pure tension.
+            pure bending (derived from Eq. (7.2) with sigma_c = 0), 1.0 in pure tension.
+            With axial load, use Eq. (7.2); flanges use Eq. (7.3).
         k: Coefficient from :func:`crack_control_coefficient_k`.
         f_ct_eff: Tensile strength of the concrete at the moment cracking is
             expected, taken as f_ctm (MPa).

@@ -879,7 +879,7 @@ def test_flexure_check_EN_1992_2004_04(
     assert results.iloc[1]["Label"] == "B_Example_EN_03"
     assert results.iloc[1]["Position"] == "Top"
     # Table 3.1 C60: fctm=2.12*ln(1+68/10)=4.354742 MPa.
-    # §9.2.1.1: .26*fctm/400 * 300 * 451.5 = 383.404 mm², shown in cm².
+    # §9.2.1.1: .26*fctm/400 * 300 * 451.5 = 383.402 mm², shown in cm².
     assert results.iloc[1]["As,min"] == pytest.approx(3.83, abs=0.005)
     # f_ck = 60 MPa: lambda = 0.775, eta = 0.95. Same lever-arm correction as
     # test_flexure_check_EN_1992_2004_01 (was 25.639).
