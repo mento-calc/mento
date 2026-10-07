@@ -159,6 +159,11 @@ Maximum shear strength | ØVmax | 351.4 | kN
 Total shear strength | ØVn | 42.1 | kN
 Max shear check |  | ✅ | 
 Demand Capacity Ratio | DCR | 0.59 | ✅
+Resistance and detailing
+Label | Resistance | Detailing (modelled checks)
+L1 | Pass (modelled checks) | Pass (modelled checks)
+L2 | Pass (modelled checks) | Pass (modelled checks)
+L3 | Pass (modelled checks) | Pass (modelled checks)
 Summary - All Slabs
 Slab Sections
 Label | b×h | cc | As,top | As,bot

@@ -154,6 +154,11 @@ Maximum shear strength | VRd,max | 259.2 | kN
 Total shear strength | VRd | 75.5 | kN
 Max shear check |  | ✅ | 
 Demand Capacity Ratio | DCR | 0.27 | ✅
+Resistance and detailing
+Label | Resistance | Detailing (modelled checks)
+V101 | Pass (modelled checks) | Pass (modelled checks)
+V102 | Pass (modelled checks) | Pass (modelled checks)
+V103 | Pass (modelled checks) | Pass (modelled checks)
 Summary - All Beams
 Beam Sections
 Label | b×h | cc | As,top | As,bot | Av

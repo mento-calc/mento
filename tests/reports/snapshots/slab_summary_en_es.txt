@@ -157,6 +157,11 @@ Resistencia máxima al corte | VRd,max | 61.9 | kN
 Resistencia total al corte | VRd | 61.9 | kN
 Verificación de corte máximo |  | ✅ | 
 Factor de Utilización | DCR | 0.4 | ✅
+Resistencia y detallado
+Etiqueta | Resistencia | Detallado (chequeos modelados)
+L1 | Cumple (chequeos modelados) | Cumple (chequeos modelados)
+L2 | Cumple (chequeos modelados) | Cumple (chequeos modelados)
+L3 | Cumple (chequeos modelados) | Cumple (chequeos modelados)
 Resumen - Todas las losas
 Secciones de losas
 Etiqueta | b×h | cc | As,top | As,bot

@@ -366,6 +366,21 @@ def beam_summary_doc(self: "_FlexuralSummary", index: Any = 1) -> None:
         df_shear_all = _without_dropped_columns(self, self.shear_results(capacity_check=False))
         builder.add_table_data(df_shear_all, column_widths=SHEAR_SUMMARY_WIDTHS, font_size=SUMMARY_FONT_SIZE)
 
+    self.check()
+    from mento.verification import status_text
+
+    doc_builder.add_heading("Resistance and detailing", level=3)
+    verification_rows = []
+    for checked_node in self.nodes:
+        state = checked_node.section.verification_status
+        verification_rows.append(
+            {
+                "Label": checked_node.section.label,
+                "Resistance": status_text(state["resistance"]),
+                "Detailing (modelled checks)": status_text(state["detailing"]),
+            }
+        )
+    doc_builder.add_table_data(pd.DataFrame(verification_rows))
     _all_sections(self, doc_builder, per_combination, VERDICT_COLUMN)
     _save(self, doc_builder)
 

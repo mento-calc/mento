@@ -122,6 +122,11 @@ Total shear strength                 ØVn       160.52  kN
 Max shear check                                    ✅
 Demand Capacity Ratio                DCR         0.93  ✅ 
 
+Verification                         Status
+---------------------------  ----------------------
+Resistance                   Pass (modelled checks)
+Detailing (modelled checks)  Pass (modelled checks) 
+
 
 
 ### flexure_results_detailed_doc: Beam V101 flexure check ACI 318-19.docx
@@ -220,6 +225,10 @@ Maximum shear strength | ØVmax | 283.5 | kN
 Total shear strength | ØVn | 160.5 | kN
 Max shear check |  | ✅ | 
 Demand Capacity Ratio | DCR | 0.93 | ✅
+Resistance and detailing
+Verification | Status
+Resistance | Pass (modelled checks)
+Detailing (modelled checks) | Pass (modelled checks)
 
 ### results
 Beam V101, $b$=20.00 cm, $h$=50.00 cm, $c_{c}$=2.50 cm,                         Concrete H25, Rebar ADN 420.

@@ -157,6 +157,11 @@ Resistencia máxima al corte | ØVmax | 288.2 | kN
 Resistencia total al corte | ØVn | 94.9 | kN
 Verificación de corte máximo |  | ✅ | 
 Factor de Utilización | DCR | 0.21 | ✅
+Resistencia y detallado
+Etiqueta | Resistencia | Detallado (chequeos modelados)
+V101 | Cumple (chequeos modelados) | Cumple (chequeos modelados)
+V102 | Cumple (chequeos modelados) | Cumple (chequeos modelados)
+V103 | Cumple (chequeos modelados) | Cumple (chequeos modelados)
 Resumen - Todas las vigas
 Secciones de vigas
 Etiqueta | b×h | cc | As,top | As,bot | Av
