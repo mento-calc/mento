@@ -343,6 +343,6 @@ solo admite pares de ramas de estribos cerrados; no define una traba suelta
 ni su anclaje. Una disposición arbitraria de siete ramas requiere ampliar
 el modelo, no redondear silenciosamente la cantidad ingresada.
 
-El Word muestra ambas caras físicas y cc en mm (métrico) o pulgadas
+El Word muestra ambas caras físicas y cc en la tabla Beam Data en mm (métrico) o pulgadas
 (imperial). Las zapatas EN con axil no nulo se rechazan como caso todavía
 no soportado por Mento; no es una prohibición del Eurocódigo.

@@ -128,7 +128,7 @@ def test_en_footing_axial_rejection_is_explained_in_spanish():
             height=50 * cm,
             c_c=50 * mm,
         )
-        with pytest.raises(NotImplementedError, match="Todavía no se admite esfuerzo axial"):
+        with pytest.raises(NotImplementedError, match="Mento todavía no modela el axil"):
             beam.check_flexure([Forces(N_x=1 * kN)])
     finally:
         set_language(language)

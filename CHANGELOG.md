@@ -33,6 +33,8 @@ from the release history and are summaries rather than complete lists.
   Material mismatch errors report the actual properties being compared.
 
 ### Migration notes
+- EN footings with nonzero axial force now raise `NotImplementedError`: Mento does not model that scope; this is not a Eurocode prohibition. Version 1.5.0 accepted these cases.
+
 
 **This release needs a major version under the policy above: the summaries read a
 different input.** `BeamSummary`, `OneWaySlabSummary` and `ShearWallSummary` read two
