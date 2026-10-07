@@ -53,7 +53,9 @@ The Excel file should contain the following columns:
 - **Nx**: Axial force in kN.
 - **Vz**: Shear force in kN.
 - **My**: Moment in kNm.
-- **ns**: Number of stirrup legs.
+- **ns**: Number of closed stirrups at each longitudinal station. Each
+  closed stirrup contributes two shear legs: ``ns = 1`` means two legs,
+  and ``ns = 2`` means four legs. This legacy column is not a leg count.
 - **dbs**: Stirrup diameter in mm.
 - **sl**: Stirrup spacing in cm.
 - **n1, n2, n3, n4**: Number of longitudinal bars per group.
