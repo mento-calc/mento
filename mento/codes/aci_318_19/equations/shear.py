@@ -264,7 +264,7 @@ def min_shear_reinforcement_threshold_stress(
 
     Returns:
         The stress to compare V_u/(phi_v*A_cv) against (MPa, or psi). Below it,
-        the clause waives both A_v_min and A_v_req.
+        the clause waives A_v_min only; required shear strength remains a separate check.
     """
     coeff = (1 if is_imperial else 0.083) if coefficient is None else coefficient
     return coeff * lambda_factor * math.sqrt(f_c)

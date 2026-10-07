@@ -133,7 +133,7 @@ def max_bar_spacing_crack_control(f_s: float, c_c: float, *, is_imperial: bool =
         380 * (280 / f_s) - 2.5 * c_c        and        300 * (280 / f_s)     [mm, MPa]
         15 * (40,000 / f_s) - 2.5 * c_c      and        12 * (40,000 / f_s)   [in, psi]
 
-    Read off the printed table: ACI 318-19 SI p. 462, in-lb p. 462;
+    Read off the printed table: ACI 318-19 SI p. 460 (PDF 462), in-lb p. 460 (PDF 462);
     CIRSOC 201-25 Cap. 24-435. The rows for prestressed reinforcement are not
     carried, since mento designs none.
 
