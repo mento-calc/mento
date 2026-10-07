@@ -12,6 +12,10 @@ from the release history and are summaries rather than complete lists.
 
 ## [Unreleased]
 
+### Migration notes
+- EN footings with nonzero axial force now raise `NotImplementedError`: Mento does not model that scope; this is not a Eurocode prohibition. Version 1.5.0 accepted these cases.
+
+
 ### Decisiones de entrega
 
 - Estados independientes de resistencia y detallado modelado, visibles en
@@ -196,8 +200,6 @@ from the release history and are summaries rather than complete lists.
 ## [1.3.0] - 2026-09-27
 
 ### Migration notes
-- EN footings with nonzero axial force now raise `NotImplementedError`: Mento does not model that scope; this is not a Eurocode prohibition. Version 1.5.0 accepted these cases.
-
 
 Nothing is removed, but four behaviours of 1.2.0 change in ways a program may notice:
 
