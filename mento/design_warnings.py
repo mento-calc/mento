@@ -1,7 +1,9 @@
 """Structured warnings: the detailing limits a section does not meet.
 
-The detailed reports mark these with a ❌ in their limit tables and a line of
-text. A program reading a design needs them as data, so every check and design
+The detailed reports mark their supported limits with a ❌ in their limit
+tables and a line of text. Skin-steel requirements and distribution reviews
+are currently exposed through this API and section plots, not Word reports.
+A program reading a design needs warnings as data, so every check and design
 also records them here::
 
     node.design()

@@ -305,7 +305,7 @@ side_cover, s_max, spacing and n_per_side. Status ``required`` describes
 an obligation and a proposal, not a check of independently supplied skin steel.
 ``beam.detailing_geometry.skin_bars`` validates the proposed supplementary bars
 against the supported cage. They are shown in green and labelled per lateral
-face. Centres are uniformly spaced from the tension-face boundary up to h/2;
+face. Centres are uniformly spaced from the actual tension-layer anchor up to h/2;
 first-row clearance to flexural layers and steel intersections are checked.
 If the layout cannot fit, it raises ``CageDetailingError`` and the plot
 explicitly falls back to calculation geometry.
@@ -324,8 +324,13 @@ The diameter is independently configurable from mounting steel:
 
 No skin bars are credited to flexural or shear capacity, areas or centroids.
 The original ``section_geometry`` remains the calculation model.
-``skin_reinforcement_required`` warns that the strength model requires
-supplementary steel. Before flexure verification a beam above the height threshold reports ``pending``;
+The current Word flexure/shear reports and summary tables do not include the
+skin proposal or its distribution review. An OK in those reports verifies
+their stated checks, not this supplementary detailing. Read
+``beam.skin_reinforcement``, ``beam.warnings`` and the actual section plot
+separately; adding skin information to Word is outside this proposal.
+``skin_reinforcement_required`` identifies a supplementary detailing requirement
+beside the strength checks. Before flexure verification a beam above the height threshold reports ``pending``;
 no tension face is assumed. EN uses the separate rule documented below.
 Slab strips are not applicable.
 This feature does not implement strut-and-tie design, anchorage, splice lengths,
@@ -343,7 +348,7 @@ the concrete face. The ``spacing`` result is the largest pitch if the two
 halves differ; explicit ``rows`` retains the actual levels.
 
 .. image:: /_static/beam_skin_reversal.png
-   :alt: Actual Mento output with four bottom and top bars and five green skin bars per lateral face.
+   :alt: Actual Mento output with four bottom and top bars and three green skin bars per lateral face.
 
 EN 1992-1-1:2004 skin steel
 --------------------------------

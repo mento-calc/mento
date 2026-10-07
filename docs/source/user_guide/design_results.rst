@@ -418,6 +418,9 @@ The geometry and its ``to_dict()`` include a separate ``skin_bars`` tuple/list.
 These bars use ``face="left"`` or ``"right"``, ``layer=0`` and ``group=0``.
 They are excluded from ``bars_on()``, ``reinforcement``, ``flexure_design`` and
 ``shear_design``. Reading or drawing them does not mutate any strength result.
+Current Word reports and summary tables do not include these skin requirements
+or distribution warnings. Consult this API, ``beam.warnings`` and the section
+plot alongside the strength report; its pass mark is not a skin-steel verdict.
 
 EN additionally supplies ``area_min_per_side``, ``area_per_side``,
 ``diameter_max`` and explicit ``rows``. Its diameter method has no independent
