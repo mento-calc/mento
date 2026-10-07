@@ -56,6 +56,13 @@ The Excel file should contain the following columns:
 - **ns**: Number of closed stirrups at each longitudinal station. Each
   closed stirrup contributes two shear legs: ``ns = 1`` means two legs,
   and ``ns = 2`` means four legs. This legacy column is not a leg count.
+- **n_legs**: Optional explicit shear-leg count, which can replace ``ns``.
+  It must be a nonnegative even integer with no unit. If both columns are
+  supplied, their declarations must agree: ``n_legs = 2*ns``. Blank paired
+  cells are filled from the supplied count; conflicting values raise an
+  error instead of silently doubling the reinforcement. Export preserves
+  ``n_legs`` when present and also provides the canonical legacy ``ns``.
+  One-way slab summaries do not require either transverse count column.
 - **dbs**: Stirrup diameter in mm.
 - **sl**: Stirrup spacing in cm.
 - **n1, n2, n3, n4**: Number of longitudinal bars per group.

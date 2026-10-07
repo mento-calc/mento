@@ -1,4 +1,5 @@
 import copy
+import math
 from collections import OrderedDict
 from typing import Any, Dict, List, Optional
 
@@ -163,6 +164,47 @@ class BeamSummary:
         # Convert NaN in units to "dimensionless"
         self.units_row = ["" if pd.isna(unit) else unit for unit in self.units_row]
 
+        # Normalize beam counts before numeric coercion can hide fractions,
+        # typos or inconsistent declarations. Slab summaries have no
+        # transverse columns and must not acquire a stirrup requirement.
+        if self._TRANSVERSE_COLUMNS:
+            columns = [c for c in ("ns", "n_legs") if c in data.columns]
+            if not columns:
+                raise ValueError("BeamSummary requires 'n_legs' or legacy 'ns'.")
+            for column in columns:
+                if self.units_row[data.columns.get_loc(column)]:
+                    raise ValueError(f"Column {column!r} must be dimensionless.")
+            counts = []
+            for _, row in data.iterrows():
+                supplied: Dict[str, int] = {}
+                for column in columns:
+                    value = row[column]
+                    if pd.isna(value) or value == "":
+                        continue
+                    if isinstance(value, bool) or type(value).__name__ in ("bool", "bool_"):
+                        raise ValueError(f"Beam {row['Label']!r}: {column!r} must be a whole nonnegative count.")
+                    try:
+                        number = float(value)
+                    except (TypeError, ValueError) as error:
+                        raise ValueError(f"Beam {row['Label']!r}: invalid count in {column!r}.") from error
+                    if not math.isfinite(number) or number < 0 or not number.is_integer():
+                        raise ValueError(f"Beam {row['Label']!r}: {column!r} must be a whole nonnegative count.")
+                    supplied[column] = int(number)
+                if "n_legs" in supplied and supplied["n_legs"] % 2:
+                    raise ValueError(f"Beam {row['Label']!r}: 'n_legs' must be even (two legs per closed stirrup).")
+                if "ns" in supplied and "n_legs" in supplied and 2 * supplied["ns"] != supplied["n_legs"]:
+                    raise ValueError(f"Beam {row['Label']!r}: 'ns' and 'n_legs' give different reinforcement.")
+                counts.append(supplied.get("ns", supplied.get("n_legs", 0) // 2))
+            if "ns" not in data.columns:
+                # Keep a canonical internal count without changing the caller's
+                # DataFrame or reinterpreting its explicit leg count.
+                self.beam_list = self.beam_list.copy()
+                self.beam_list["ns"] = ["", *counts]
+                self.units_row.append("")
+            data["ns"] = counts
+            if "n_legs" in columns:
+                data["n_legs"] = [2 * count for count in counts]
+
         # An explicit face is a complete block, including zeros for unused
         # layers. Partial blocks would silently fall back to the legacy face.
         for suffix in ("bot", "top"):
@@ -189,7 +231,7 @@ class BeamSummary:
         for col in data.columns[2:]:
             data[col] = pd.to_numeric(data[col], errors="coerce").fillna(0)
         # Convert specific columns to int and others to float
-        columns_to_int = ["ns", "n1", "n2", "n3", "n4"]
+        columns_to_int = ["ns", "n_legs", "n1", "n2", "n3", "n4"]
         columns_to_int += [f"n{i}_{suffix}" for suffix in ("bot", "top") for i in range(1, 5)]
         for col in columns_to_int:
             if col in data.columns:
@@ -366,6 +408,8 @@ class BeamSummary:
         faces = self._current_faces(beam)
         placed = beam.reinforcement.transverse
         transverse = {"ns": placed.n_stirrups, "dbs": placed.d_b, "sl": placed.s_l}
+        if "n_legs" in self.data.columns:
+            transverse["n_legs"] = placed.n_legs
         return faces, transverse
 
     def _current_faces(self, section: RectangularBeam) -> Dict[str, Dict[str, Any]]:
