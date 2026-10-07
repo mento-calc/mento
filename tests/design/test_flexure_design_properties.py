@@ -321,6 +321,7 @@ def test_a_round_whose_bars_do_not_fit_is_not_the_closest() -> None:
     assert beam._stirrup_d_b.to("mm").magnitude == pytest.approx(10.0)
     assert beam.flexure_design.top.DCR == pytest.approx(1.092, abs=0.0005)
     assert [(w.code, w.face) for w in node.warnings] == [
+        ("compression_detailing_pending", None),
         ("cage_detailing_infeasible", None),
         ("As_below_required", "top"),
     ]

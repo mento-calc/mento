@@ -262,6 +262,8 @@ def test_all_exports_in_all() -> None:
         "NotABeamError",
         "SectionGeometry",
         "CageDetailingError",
+        "CompressionDetailing",
+        "CompressionFaceDetail",
         "SkinReinforcementRequirement",
         "SkinServiceCase",
         "SkinDistributionReview",
