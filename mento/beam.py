@@ -1258,7 +1258,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         on the face opposite the one it puts in tension (see
         :meth:`_compression_face_of`). The shear design and the shear warnings read
         the faces so recorded through the code's ``stirrup_compression_support``.
-        A code whose state does not say (EN 1992-1-1) records nothing.
+        EN records the face whose compression steel its resistance credits.
         """
         face = self._compression_face_of(force, state)
         if face is not None:
@@ -1281,6 +1281,8 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         are what make that admissible. ``None`` otherwise, and for a code
         whose state does not say.
         """
+        if hasattr(state, "compression_face"):
+            return state.compression_face
         if not hasattr(state, "doubly_reinforced") or force._M_y == 0 * kN * m:
             return None
         tension = "bot" if force._M_y > 0 * kN * m else "top"

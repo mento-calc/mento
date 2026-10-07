@@ -603,6 +603,8 @@ class ENFlexureCheckState:
     rho_l_top: float
     DCR_bot: float
     DCR_top: float
+    # Cara cuya armadura comprimida acredita la resistencia EN.
+    compression_face: str | None = None
 
     def face_quantities(self, face: str, imperial: bool) -> tuple[Any, Any, Any, Any, Any, Any, Any]:
         """``(A_s_req, A_s_min, A_s_max, M_Rd, A_s_calc, A_s_min_eff, A_s_max_eff)`` of one face.

@@ -481,3 +481,10 @@ reproduce; the regression rows, whose only reference is a Calcpad sheet, are tes
    * - Never raises on an unfittable section
      - ``test_design_flexure_EN_1992_2004_infeasible_does_not_crash``
      - Public contract
+
+Compression-bar support
+-----------------------
+
+When the EN resistance credits compression reinforcement, its lateral
+support under §9.2.1.2(3) (maximum 15 bar diameters) is not verified by
+mento. The detailing state remains pending; it is not an exemption.

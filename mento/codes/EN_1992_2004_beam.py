@@ -629,6 +629,19 @@ def _determine_nominal_moment_EN_1992_2004(self: "RectangularBeam", st: ENFlexur
     st.M_Rd_top = _simple_determine_nominal_moment_EN_1992_2004(
         self, sec.A_s_top, sec.d_top, sec.A_s_bot, sec.c_mec_bot
     )
+    # Registrar la rama doblemente armada real, sin cambiar su resistencia.
+    st.compression_face = None
+    if force._M_y != 0 * kNm:
+        d = sec.d_bot if tension_at_bottom else sec.d_top
+        area = sec.A_s_bot if tension_at_bottom else sec.A_s_top
+        opposite = sec.A_s_top if tension_at_bottom else sec.A_s_bot
+        f_yd = sec.f_y / self.steel_bar.gamma_s
+        f_cd = self.concrete.alpha_cc * sec.f_c / self.concrete.gamma_c
+        eta = self.concrete._eta_factor()
+        depth = flexure_eq.compression_block_depth_for_steel(area, f_yd, eta, f_cd, sec.width)
+        _, limit = _compression_zone_limits_EN_1992_2004(self, d)
+        if opposite > 0 and depth > limit:
+            st.compression_face = "top" if tension_at_bottom else "bot"
     return None
 
 
