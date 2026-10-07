@@ -65,7 +65,7 @@ print(beam.reinforcement)
 bottom: 2Ø20 mm + 1Ø16 mm / top: no reinforcement / stirrups: 2 legs Ø10 mm @ 22 cm · 14 cm between legs
 ```
 
-<img width="360" alt="Designed section of beam B101" src="docs/source/_static/readme/beam_section.png" />
+<img width="360" alt="Designed section of beam B101" src="https://raw.githubusercontent.com/mento-calc/mento/main/docs/source/_static/readme/beam_section.png" />
 
 From there:
 

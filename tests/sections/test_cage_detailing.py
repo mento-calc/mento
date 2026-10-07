@@ -36,6 +36,18 @@ def _mm(value: object) -> float:
     return float(value.to("mm").magnitude)  # type: ignore[attr-defined]
 
 
+def test_unsupported_bend_diameter_preserves_calculation_geometry_and_plot():
+    beam = _beam()
+    beam.set_transverse_rebar(1, 40 * mm, 15 * cm)
+    assert beam.section_geometry.stirrup_d_b == 40 * mm
+    with pytest.raises(CageDetailingError) as raised:
+        beam.detailing_geometry
+    assert raised.value.reason == "bend"
+    with pytest.warns(UserWarning, match="Cage detailing is not feasible"):
+        figure = beam.plot(show=False)
+    plt.close(figure)
+
+
 def _assert_supported(geometry: SectionGeometry) -> None:
     all_bars = geometry.bars + geometry.mounting_bars
     for stirrup in geometry.stirrups:
@@ -443,4 +455,5 @@ def test_transverse_bars_beyond_the_bend_table_are_rejected(concrete_type) -> No
     )
     beam.set_transverse_rebar(1, 32 * mm, 15 * cm)
     with pytest.raises(ValueError, match="bend table"):
-        _ = beam.section_geometry
+        _ = beam.detailing_geometry
+    assert beam.section_geometry.stirrup_d_b == 32 * mm

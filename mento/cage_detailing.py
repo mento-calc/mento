@@ -172,8 +172,13 @@ def build_cage_detailing(beam: RectangularBeam) -> SectionGeometry:
     if diameter < settings.minimum_longitudinal_diameter:
         raise ValueError("mounting_bar_diameter is below minimum_longitudinal_diameter.")
     d_st = _mm(geometry.stirrup_d_b)
-    if design_code(beam.concrete).stirrup_bend_inner_diameter is None:
+    bend_hook = design_code(beam.concrete).stirrup_bend_inner_diameter
+    if bend_hook is None:
         raise CageDetailingError("This code has no supported stirrup-bend rule.", reason="bend")
+    try:
+        bend_hook(beam.concrete, geometry.stirrup_d_b)
+    except ValueError as error:
+        raise CageDetailingError(str(error), reason="bend") from error
     bend_radius = (_mm(geometry.stirrup_bend_inner_diameter) + d_st) / 2
     for stirrup in geometry.stirrups:
         if min(_mm(stirrup.x_right - stirrup.x_left), _mm(stirrup.y_top - stirrup.y_bottom)) / 2 < bend_radius - 1e-8:
