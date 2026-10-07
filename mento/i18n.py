@@ -477,6 +477,7 @@ def translate_dataframe(df: "pd.DataFrame", language: Optional[str] = None) -> "
 # Required compression-bar support; statuses and reasons are localized.
 ES.update(
     {
+        "EN compression-bar support (§9.2.1.2(3), 15φ) is not verified by Mento.": "Mento no verifica la sujeción de barras comprimidas EN (§9.2.1.2(3), 15φ).",
         "Required compression-bar support fails (§9.7.6.4.4): {reason}.": "No cumple el arriostramiento de barras requeridas por compresión (§9.7.6.4.4): {reason}.",
         "Required compression-bar support is not fully verified (§9.7.6.4.4): {reason}.": "El arriostramiento de barras requeridas por compresión no está completamente verificado (§9.7.6.4.4): {reason}.",
         "Required compression-bar support: {status}": "Arriostramiento de barras requeridas por compresión: {status}",
