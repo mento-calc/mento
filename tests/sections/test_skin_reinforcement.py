@@ -306,7 +306,8 @@ def test_en_keeps_its_distribution_and_warns_with_the_actual_zone_intervals(heig
         for language in ("en", "es"):
             set_language(language)
             warning = next(w for w in b.warnings if w.code == "skin_distribution_review")
-            assert warning.face == "bottom"
+            assert warning.face is None
+            assert warning.values["cases"] == 1
             assert warning.values["rows"] == rows
             assert warning.values["gap"].to("mm").magnitude == pytest.approx(gap)
             assert ("not an additional code" if language == "en" else "no un límite normativo") in warning.message
