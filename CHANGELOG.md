@@ -179,7 +179,7 @@ What else changes for a program:
   themselves; they now run on a copy.
 - **Labels with spaces or written as numbers.** `"V4 "` and `"V4"` were two beams, and
   `101` read back as `101.0`.
-- **The slab table is validated**: a second layer without the first, a spacing without
+- **The slab table is validated**: positions are preserved even for a lone second layer; a spacing without
   its bar, negative values, stirrup columns or a beam table given to the slab summary raise
   an error naming the column, where they were dropped or raised a `KeyError`.
 - **Text in a numeric column is an error**, where it was read as 0 without a word.

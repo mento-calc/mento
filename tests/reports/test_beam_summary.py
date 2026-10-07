@@ -37,9 +37,9 @@ from mento import (
 from mento.beam_summary import BeamSummary
 from mento.i18n import translate
 from mento.reports.summaries import SUMMARY_FONT_SIZE
+from mento.results import FAIL_MARK, PASS_MARK, VERDICT_COLUMN, DocumentBuilder
 from mento.shear_wall_summary import ShearWallSummary
 from mento.slab_summary import OneWaySlabSummary
-from mento.results import FAIL_MARK, PASS_MARK, VERDICT_COLUMN, DocumentBuilder
 from mento.summary_base import GoverningDemand, SectionVerdict
 from mento.summary_tables import SummaryInputError, SummaryInputWarning
 from tests.reports.summary_data import (
@@ -1123,6 +1123,28 @@ def test_from_nodes_writes_what_the_nodes_are(sample_concrete: Any, sample_steel
 
     summary.to_excel(tmp_path / "nodes.xlsx")
     assert BeamSummary.from_excel(sample_concrete, sample_steel, tmp_path / "nodes.xlsx").check().equals(table)
+
+
+@pytest.mark.parametrize("gamma_s,epsilon_ud", [(1.0, None), (1.15, 0.01)])
+def test_from_nodes_does_not_replace_a_steel_design_diagram(sample_concrete, sample_steel, gamma_s, epsilon_ud):
+    other = SteelBar(name=sample_steel.name, f_y=sample_steel.f_y, gamma_s=gamma_s, epsilon_ud=epsilon_ud)
+    beam = RectangularBeam(
+        label="V1", concrete=sample_concrete, steel_bar=other, width=20 * cm, height=40 * cm, c_c=25 * mm
+    )
+    with pytest.raises(SummaryInputError, match="gamma_s") as raised:
+        BeamSummary.from_nodes(sample_concrete, sample_steel, [Node(beam, [])])
+    assert raised.value.code == "mixed_materials"
+
+
+def test_from_nodes_does_not_replace_en_concrete_partial_parameters(sample_steel):
+    source = Concrete_EN_1992_2004(name="C25", f_c=25 * MPa, alpha_cc=1.0)
+    target = Concrete_EN_1992_2004(name="C25", f_c=25 * MPa, alpha_cc=0.85)
+    beam = RectangularBeam(
+        label="V1", concrete=source, steel_bar=sample_steel, width=20 * cm, height=40 * cm, c_c=25 * mm
+    )
+    with pytest.raises(SummaryInputError) as raised:
+        BeamSummary.from_nodes(target, sample_steel, [Node(beam, [])])
+    assert raised.value.code == "mixed_materials"
 
 
 def test_from_nodes_rejects_what_a_row_cannot_hold(sample_concrete: Any, sample_steel: SteelBar) -> None:

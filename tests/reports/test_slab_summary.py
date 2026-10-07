@@ -25,7 +25,7 @@ from mento import (
     mm,
     psi,
 )
-from mento.results import DocumentBuilder, FAIL_MARK, PASS_MARK, VERDICT_COLUMN
+from mento.results import FAIL_MARK, PASS_MARK, VERDICT_COLUMN, DocumentBuilder
 from mento.summary_tables import SummaryInputError, SummaryInputWarning
 from tests.reports.summary_data import GEOMETRY_UNITS, SLAB_UNITS, beams, forces, slabs
 
@@ -201,9 +201,8 @@ def test_slab_shear_capacity_by_hand(concrete: Any, steel: SteelBar) -> None:
 
 
 def test_slab_table_validation(concrete: Any, steel: SteelBar) -> None:
-    """A layer given in part, the second layer without the first, a negative spacing or diameter: named errors."""
+    """A layer given in part, a negative spacing or diameter: named errors."""
     cases = [
-        ({"db3_bot": 10, "s3_bot": 20}, "incomplete_group", "db3_bot is given without db1_bot"),
         ({"s1_bot": 20}, "incomplete_group", "s1_bot is given without db1_bot"),
         ({"db1_bot": 12}, "incomplete_group", "db1_bot is given without s1_bot"),
         ({"db1_bot": 12, "s1_bot": -20}, "negative_value", "s1_bot of 'L1' is -20"),
@@ -267,6 +266,26 @@ def test_a_us_customary_list_is_written_in_its_units() -> None:
     assert result["As,bot"][1] == "#4@8"
     assert summary.nodes[0].forces[0].M_y.to(kip * ft).magnitude == pytest.approx(6)
     assert summary.sections_table.iloc[0]["db1_top"] == "in"  # the default of a US customary list
+
+
+@pytest.mark.parametrize("face", ["bot", "top"])
+def test_from_nodes_and_excel_preserve_a_lone_second_layer(concrete, steel, tmp_path, face):
+    slab = OneWaySlab(label="L1", concrete=concrete, steel_bar=steel, width=100 * cm, height=25 * cm, c_c=20 * mm)
+    setter = slab.set_slab_longitudinal_rebar_bot if face == "bot" else slab.set_slab_longitudinal_rebar_top
+    setter(d_b1=0 * mm, s_b1=0 * mm, d_b3=12 * mm, s_b3=18 * cm)
+    node = Node(slab, [Forces(label="C", M_y=(30 if face == "bot" else -30) * kNm)])
+    summary = OneWaySlabSummary.from_nodes(concrete, steel, [node], units={f"s3_{face}": "mm"})
+    row = summary.sections_table.iloc[1]
+    assert [row[f"db1_{face}"], row[f"s1_{face}"], row[f"db3_{face}"], row[f"s3_{face}"]] == [0, 0, 12, 180]
+    source_depth = slab._d_bot if face == "bot" else slab._d_top
+    path = tmp_path / "second_only.xlsx"
+    summary.export_design(str(path))
+    imported = OneWaySlabSummary.from_excel(concrete, steel, str(path))
+    rebuilt = imported.nodes[0].section
+    assert (rebuilt._d_bot if face == "bot" else rebuilt._d_top) == source_depth
+    node.check()
+    imported.check()
+    assert rebuilt.flexure_checks == slab.flexure_checks
 
 
 def test_from_nodes_writes_a_slab(concrete: Any, steel: SteelBar) -> None:

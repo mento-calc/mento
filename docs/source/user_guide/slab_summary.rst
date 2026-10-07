@@ -22,8 +22,9 @@ One row per strip, each face a bar diameter and a spacing per layer, and no stir
 - **db1_bot, s1_bot, db3_bot, s3_bot**: the same at the bottom.
 - **Notes** (optional).
 
-A zero is no bars. A layer is a diameter **and** a spacing: one without the other, or a
-second layer without the first, is an error that names the strip. A strip is detailed
+A zero is no bars. A layer is a diameter **and** a spacing: one without the
+other is an error that names the strip. Layer positions
+are retained even when only the second layer is supplied. A strip is detailed
 without stirrups, so a sections table with ``legs``, ``dbs`` or ``sl`` is an error, and so
 is a beam's table given to the slab summary.
 

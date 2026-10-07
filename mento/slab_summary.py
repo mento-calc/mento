@@ -106,18 +106,12 @@ class OneWaySlabSummary(_FlexuralSummary):
 
     def _validate_section_row(self, key: Key, row: Mapping[str, Any]) -> None:
         for face in FACES:
-            placed = {}
             for layer in LAYERS:
                 d_b, s = f"db{layer}_{face}", f"s{layer}_{face}"
                 has_d, has_s = _given(row.get(d_b)), _given(row.get(s))
                 if has_d != has_s:
                     given, missing = (d_b, s) if has_d else (s, d_b)
                     raise SummaryInputError("incomplete_group", label=repr(key_text(key)), given=given, missing=missing)
-                placed[layer] = has_d
-            if placed[3] and not placed[1]:
-                raise SummaryInputError(
-                    "incomplete_group", label=repr(key_text(key)), given=f"db3_{face}", missing=f"db1_{face}"
-                )
 
     def _section(self, key: Key, row: Mapping[str, Any]) -> OneWaySlab:
         slab = OneWaySlab(
@@ -132,24 +126,25 @@ class OneWaySlabSummary(_FlexuralSummary):
             ("top", slab.set_slab_longitudinal_rebar_top),
             ("bot", slab.set_slab_longitudinal_rebar_bot),
         ):
-            if _given(row.get(f"db1_{face}")):
-                setter(
-                    d_b1=row[f"db1_{face}"],
-                    s_b1=row[f"s1_{face}"],
-                    d_b3=row[f"db3_{face}"] if _given(row.get(f"db3_{face}")) else 0 * mm,
-                    s_b3=row[f"s3_{face}"] if _given(row.get(f"s3_{face}")) else 0 * mm,
-                )
+            setter(
+                d_b1=row[f"db1_{face}"] if _given(row.get(f"db1_{face}")) else 0 * mm,
+                s_b1=row[f"s1_{face}"] if _given(row.get(f"s1_{face}")) else 0 * mm,
+                d_b3=row[f"db3_{face}"] if _given(row.get(f"db3_{face}")) else 0 * mm,
+                s_b3=row[f"s3_{face}"] if _given(row.get(f"s3_{face}")) else 0 * mm,
+            )
         return slab
 
     def _section_row(self, section: OneWaySlab) -> Dict[str, Any]:
         zero = 0 * unit_of("in" if self.concrete.is_imperial else "mm")
         row: Dict[str, Any] = {"b": section.width, "h": section.height, "cc": section.c_c}
-        placed = section.reinforcement
-        for face, reinforcement in (("top", placed.top), ("bot", placed.bottom)):
-            layers = list(reinforcement.layers) + [None, None]
-            for layer, position in zip(layers, LAYERS):
-                row[f"db{position}_{face}"] = layer.d_b if layer is not None else zero
-                row[f"s{position}_{face}"] = layer.s if layer is not None else zero
+        # The public layers view omits empty groups. Preserve the setter's
+        # positional slots so a lone second layer is not moved to the edge.
+        for face, suffix in (("top", "t"), ("bot", "b")):
+            for position in LAYERS:
+                diameter = getattr(section, f"_d_b{position}_{suffix}")
+                spacing = getattr(section, f"_s_b{position}_{suffix}")
+                row[f"db{position}_{face}"] = diameter if diameter.magnitude > 0 else zero
+                row[f"s{position}_{face}"] = spacing if diameter.magnitude > 0 else zero
         return row
 
     def _rebar_labels(self, section: OneWaySlab) -> Tuple[str, str, str]:
@@ -172,7 +167,8 @@ class OneWaySlabSummary(_FlexuralSummary):
         node.design()
         slab: OneWaySlab = node.section  # type: ignore[assignment]
         if slab._stirrup_n > 0:
-            slab.set_slab_transverse_rebar(0 * mm, 0 * cm, 0 * cm)
+            with slab._design_in_progress():
+                slab.set_slab_transverse_rebar(0 * mm, 0 * cm, 0 * cm)
             self._designed_short.append(key_text(key))
         return node
 

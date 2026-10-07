@@ -39,10 +39,14 @@ from mento.node import Node
 from mento.precompute import shown, unit_label
 from mento.results import FAIL_MARK, PASS_MARK, VERDICT_COLUMN
 from mento.summary_tables import (
+    FORCE_NAMES,
+    FORCES_SHEET,
+    SECTIONS_SHEET,
+    UNITS,
     SummaryInputError,
     SummaryInputWarning,
-    UNITS,
     TableSpec,
+    _listed,
     key_text,
     label_of,
     looks_like_single_table,
@@ -53,10 +57,6 @@ from mento.summary_tables import (
     unit_of,
     write_table,
     write_workbook,
-    FORCE_NAMES,
-    SECTIONS_SHEET,
-    FORCES_SHEET,
-    _listed,
 )
 from mento.units import Quantity
 
@@ -543,6 +543,7 @@ class _TwoTableSummary:
             type(concrete) is type(self.concrete)
             and concrete.design_code == self.concrete.design_code
             and concrete.f_c == self.concrete.f_c
+            and concrete.get_properties() == self.concrete.get_properties()
         )
         if not same_concrete:
             raise SummaryInputError(
@@ -551,12 +552,12 @@ class _TwoTableSummary:
                 its_material=f"{type(concrete).__name__} f'c = {concrete.f_c}",
                 material=f"{type(self.concrete).__name__} f'c = {self.concrete.f_c}",
             )
-        if type(steel) is not type(self.steel_bar) or steel.f_y != self.steel_bar.f_y:
+        if type(steel) is not type(self.steel_bar) or steel.get_properties() != self.steel_bar.get_properties():
             raise SummaryInputError(
                 "mixed_materials",
                 label=label,
-                its_material=f"{type(steel).__name__} fy = {steel.f_y}",
-                material=f"{type(self.steel_bar).__name__} fy = {self.steel_bar.f_y}",
+                its_material=f"{type(steel).__name__} fy = {steel.f_y}, gamma_s = {steel.gamma_s}, epsilon_ud = {steel.epsilon_ud}",
+                material=f"{type(self.steel_bar).__name__} fy = {self.steel_bar.f_y}, gamma_s = {self.steel_bar.gamma_s}, epsilon_ud = {self.steel_bar.epsilon_ud}",
             )
         reason = self._not_representable(key, section)
         if reason is None and any(force._M_x.magnitude != 0 for force in node.forces):
