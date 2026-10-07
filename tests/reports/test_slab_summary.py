@@ -288,6 +288,14 @@ def test_from_nodes_and_excel_preserve_a_lone_second_layer(concrete, steel, tmp_
     assert rebuilt.flexure_checks == slab.flexure_checks
 
 
+def test_from_nodes_rejects_a_slab_diameter_without_spacing(concrete, steel):
+    slab = OneWaySlab(label="L1", concrete=concrete, steel_bar=steel, width=100 * cm, height=25 * cm, c_c=20 * mm)
+    slab.set_slab_longitudinal_rebar_top(d_b1=10 * mm, s_b1=0 * mm)
+    with pytest.raises(SummaryInputError) as raised:
+        OneWaySlabSummary.from_nodes(concrete, steel, [Node(slab, [])])
+    assert raised.value.code == "incomplete_group"
+
+
 def test_from_nodes_writes_a_slab(concrete: Any, steel: SteelBar) -> None:
     slab = OneWaySlab(label="L1", concrete=concrete, steel_bar=steel, width=100 * cm, height=15 * cm, c_c=20 * mm)
     slab.set_slab_longitudinal_rebar_bot(d_b1=10 * mm, s_b1=15 * cm, d_b3=8 * mm, s_b3=30 * cm)

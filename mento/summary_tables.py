@@ -768,6 +768,12 @@ def _split_walls(data: List[Dict[str, Any]], units: Dict[str, str]) -> Tuple[Dat
                         f"Wall {key_text(key)!r}: its rows give different values of {name!r}; a wall is one "
                         "section, so give it one geometry."
                     )
+            mesh = {name: _num(row, name) for name in ("dbh", "sh", "dbv", "sv")}
+            if any(mesh.values()):
+                previous = {name: _num(sections[key], name) for name in mesh}
+                if any(previous.values()) and mesh != previous:
+                    raise ValueError(f"Wall {key_text(key)!r}: its rows give different meshes.")
+                sections[key].update(mesh)
         else:
             sections[key] = {
                 "Level": level,

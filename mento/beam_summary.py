@@ -19,8 +19,8 @@ from mento.precompute import shown
 from mento.reports.summaries import BEAM_REPORT
 from mento.summary_base import Key, _FlexuralSummary, section_dimension, translated
 from mento.summary_tables import (
-    TableColumn,
     SummaryInputError,
+    TableColumn,
     TableSpec,
     count,
     forces_columns,
@@ -158,8 +158,9 @@ class BeamSummary(_FlexuralSummary):
                 if n == 0 and has_d:
                     raise _incomplete(key, f"db{group}_{face}", f"n{group}_{face}")
                 placed[group] = n > 0
-            # The second group of a layer needs the first, and the second layer the first.
-            for group, needs in ((2, 1), (3, 1), (4, 3)):
+            # A second diameter group needs the first group of the same layer.
+            # A second layer may exist on its own, retaining its physical position.
+            for group, needs in ((2, 1), (4, 3)):
                 if placed[group] and not placed[needs]:
                     raise _incomplete(key, f"n{group}_{face}", f"n{needs}_{face}")
 

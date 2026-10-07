@@ -12,6 +12,15 @@ from the release history and are summaries rather than complete lists.
 
 ## [Unreleased]
 
+### Audit corrections
+
+- `from_nodes()` rejects unsupported nonzero Mx, Vy and Mz instead of dropping
+  them, and validates labels, named combination uniqueness and bar groups.
+  Isolated second beam layers retain their position through Excel round trips.
+- Axial loads outside the beam's scope prevent a passing section verdict.
+- Legacy wall conversion reads mesh from any row and rejects conflicting meshes.
+  Material mismatch errors report the actual properties being compared.
+
 ### Migration notes
 
 **This release needs a major version under the policy above: the summaries read a

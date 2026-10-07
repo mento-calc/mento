@@ -1178,6 +1178,57 @@ def test_from_nodes_rejects_what_a_row_cannot_hold(sample_concrete: Any, sample_
     assert raised.value.code == "wrong_unit"
 
 
+@pytest.mark.parametrize("component, value", [("M_x", 5 * kNm), ("V_y", 10 * kN), ("M_z", 20 * kNm)])
+def test_from_nodes_never_discards_an_unsupported_force_component(sample_concrete, sample_steel, component, value):
+    beam = RectangularBeam(
+        label="V1", concrete=sample_concrete, steel_bar=sample_steel, width=20 * cm, height=50 * cm, c_c=25 * mm
+    )
+    node = Node(beam, [Forces(label="C1", M_y=10 * kNm, **{component: value})])
+    with pytest.raises(SummaryInputError, match=component) as raised:
+        BeamSummary.from_nodes(sample_concrete, sample_steel, [node])
+    assert raised.value.code == "node_not_representable"
+
+
+def test_from_nodes_requires_a_label_and_unique_named_combinations(sample_concrete, sample_steel):
+    beam = RectangularBeam(
+        label="", concrete=sample_concrete, steel_bar=sample_steel, width=20 * cm, height=50 * cm, c_c=25 * mm
+    )
+    with pytest.raises(SummaryInputError) as raised:
+        BeamSummary.from_nodes(sample_concrete, sample_steel, [Node(beam, [])])
+    assert raised.value.code == "missing_label"
+    beam.label = "V1"
+    with pytest.raises(SummaryInputError) as raised:
+        BeamSummary.from_nodes(sample_concrete, sample_steel, [Node(beam, [Forces(label="C1"), Forces(label="C1")])])
+    assert raised.value.code == "duplicate_combination"
+
+
+def test_axial_scope_warning_prevents_a_positive_section_verdict(h25, sample_steel):
+    summary = BeamSummary(
+        h25,
+        sample_steel,
+        beams([{"Label": "V1", "n1_bot": 3, "db1_bot": 16}], units={**GEOMETRY_UNITS, "db1_bot": "mm", "n1_bot": ""}),
+        forces([{"Label": "V1", "Comb.": "AXIAL", "Nx": 500, "My": 10, "Vz": 1}]),
+    )
+    summary.check()
+    record = summary.results[0]
+    assert record.passes is False
+    warning = next(w for w in record.warnings if w.code == "axial_load_beyond_beam")
+    assert warning.combinations == ("AXIAL",)
+
+
+def test_from_nodes_preserves_an_isolated_second_beam_layer_through_excel(sample_concrete, sample_steel, tmp_path):
+    beam = RectangularBeam(
+        label="V1", concrete=sample_concrete, steel_bar=sample_steel, width=20 * cm, height=50 * cm, c_c=25 * mm
+    )
+    beam.set_longitudinal_rebar_bot(n1=0, d_b1=0 * mm, n3=2, d_b3=16 * mm)
+    summary = BeamSummary.from_nodes(sample_concrete, sample_steel, [Node(beam, [Forces(label="C1", M_y=10 * kNm)])])
+    target = tmp_path / "second-layer.xlsx"
+    summary.to_excel(target)
+    restored = BeamSummary.from_excel(sample_concrete, sample_steel, target)
+    assert restored.sections_table.equals(summary.sections_table)
+    assert restored.check().equals(summary.check())
+
+
 def test_to_excel_accepts_a_buffer(h25: Any, sample_steel: SteelBar) -> None:
     """For the web: a buffer in, the same summary out."""
     summary = BeamSummary(h25, sample_steel, *one_continuous_section())

@@ -24,7 +24,7 @@ from __future__ import annotations
 import copy
 import math
 import warnings as _warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import IO, TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, Sequence, Tuple, Union
 
 import pandas as pd
@@ -477,7 +477,7 @@ class _TwoTableSummary:
         summary rebuilds each section from the row it writes, so its
         ``check()`` is ``node.check()`` of every node; a node the table cannot
         hold -- settings other than the defaults, an out-of-plane moment
-        ``M_x``, other materials, a stirrup diameter without stirrups -- raises
+        ``M_x``, ``V_y`` or ``M_z``, other materials, a stirrup diameter without stirrups -- raises
         :class:`~mento.summary_tables.SummaryInputError` rather than come back
         as another section. ``units`` sets the unit of a column of the tables
         it writes (``{"sl": "mm"}``).
@@ -490,6 +490,8 @@ class _TwoTableSummary:
         for node in nodes:
             section = node.section
             key = (label_of(getattr(section, "level", None)), label_of(section.label))
+            if not key[1]:
+                raise SummaryInputError("missing_label", table="sections", row=len(keys) + 1, nth=str(len(keys) + 1))
             summary._representable(key, node)
             if key in keys:
                 raise SummaryInputError(
@@ -497,8 +499,23 @@ class _TwoTableSummary:
                     label=repr(key_text(key)),
                     rows=", ".join(str(i + 1) for i, k in enumerate(keys + [key]) if k == key),
                 )
+            row = summary._section_row(section)
+            summary._validate_section_row(key, row)
+            combinations: Dict[str, List[int]] = {}
+            for position, force in enumerate(node.forces, start=1):
+                name = label_of(force.label)
+                if name:
+                    combinations.setdefault(name, []).append(position)
+            for name, positions in combinations.items():
+                if len(positions) > 1:
+                    raise SummaryInputError(
+                        "duplicate_combination",
+                        combination=repr(name),
+                        label=repr(key_text(key)),
+                        rows=", ".join(map(str, positions)),
+                    )
             keys.append(key)
-            rebuilt = summary._section(key, summary._section_row(section))
+            rebuilt = summary._section(key, row)
             forces = [
                 Forces(label=force.label, N_x=force._N_x, V_z=force._V_z, M_y=force._M_y) for force in node.forces
             ]
@@ -549,8 +566,8 @@ class _TwoTableSummary:
             raise SummaryInputError(
                 "mixed_materials",
                 label=label,
-                its_material=f"{type(concrete).__name__} f'c = {concrete.f_c}",
-                material=f"{type(self.concrete).__name__} f'c = {self.concrete.f_c}",
+                its_material=f"{type(concrete).__name__} ({concrete.design_code}), properties = {concrete.get_properties()}",
+                material=f"{type(self.concrete).__name__} ({self.concrete.design_code}), properties = {self.concrete.get_properties()}",
             )
         if type(steel) is not type(self.steel_bar) or steel.get_properties() != self.steel_bar.get_properties():
             raise SummaryInputError(
@@ -560,8 +577,11 @@ class _TwoTableSummary:
                 material=f"{type(self.steel_bar).__name__} fy = {self.steel_bar.f_y}, gamma_s = {self.steel_bar.gamma_s}, epsilon_ud = {self.steel_bar.epsilon_ud}",
             )
         reason = self._not_representable(key, section)
-        if reason is None and any(force._M_x.magnitude != 0 for force in node.forces):
-            reason = "an out-of-plane moment M_x, which the forces table has no column for"
+        if reason is None:
+            for name in ("M_x", "V_y", "M_z"):
+                if any(getattr(force, "_" + name).magnitude != 0 for force in node.forces):
+                    reason = f"an unsupported force component {name}, which the forces table has no column for"
+                    break
         if reason is None:
             fresh = self._section(key, self._section_row(section))
             if fresh.settings != section.settings:
@@ -751,7 +771,27 @@ class _TwoTableSummary:
         if not self._has_reinforcement(node.section):
             return SectionVerdict(key, "no_reinforcement", None, None, None, (), None)
         node.check()
-        return self._check_record(key, node)
+        record = self._check_record(key, node)
+        limit = self._axial_limit(node.section)
+        if limit is not None:
+            names = tuple(
+                name
+                for name, force in zip(self._combination_names(node), node.forces)
+                if force._N_x >= limit or math.isclose(force._N_x.to("kN").magnitude, limit.to("kN").magnitude)
+            )
+            if names:
+                warning = DesignWarning(
+                    code="axial_load_beyond_beam",
+                    message=str(
+                        SummaryInputWarning(
+                            "axial_load_beyond_beam", pairs=_listed([f"{key_text(key)} / {name}" for name in names])
+                        )
+                    ),
+                    values={"N_limit": limit},
+                    combinations=names,
+                )
+                record = replace(record, warnings=(*record.warnings, warning), passes=False)
+        return record
 
     def _check_record(self, key: Key, node: Node) -> SectionVerdict:  # pragma: no cover - every subclass sets it
         raise NotImplementedError
