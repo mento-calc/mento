@@ -460,6 +460,9 @@ class ShearWall(RectangularBeam):
     def skin_service_cases(self) -> NoReturn:  # type: ignore[override]
         self._not_a_beam("beam skin service cases")
 
+    def set_skin_service_cases(self, cases: list[Any]) -> NoReturn:
+        self._not_a_beam("beam skin service cases")
+
     @property
     def flexure_design(self) -> NoReturn:  # type: ignore[override]
         """Not available on a wall: flexure is not implemented (Phase 0). Raises :class:`NotABeamError`."""

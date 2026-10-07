@@ -4,7 +4,17 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from mento import BeamSettings, Concrete_EN_1992_2004, Forces, RectangularBeam, SkinServiceCase, SteelBar
+from mento import (
+    BeamSettings,
+    Concrete_ACI_318_19,
+    Concrete_EN_1992_2004,
+    Forces,
+    NotABeamError,
+    RectangularBeam,
+    ShearWall,
+    SkinServiceCase,
+    SteelBar,
+)
 from mento.units import MPa, cm, kNm, mm
 
 
@@ -104,3 +114,22 @@ def test_material_change_does_not_reuse_service_reference():
     b.set_skin_service_cases(cases())
     b.steel_bar = SteelBar(name="B400", f_y=400 * MPa)
     assert b.skin_service_cases == ()
+
+
+def test_wall_does_not_publish_beam_skin_results_or_service_inputs():
+    wall = ShearWall(
+        label="W",
+        concrete=Concrete_ACI_318_19(name="H25", f_c=25 * MPa),
+        steel_bar=SteelBar(name="ADN420", f_y=420 * MPa),
+        thickness=25 * cm,
+        length=400 * cm,
+        height=350 * cm,
+        c_c=20 * mm,
+    )
+    for name in ("skin_reinforcement", "skin_service_cases"):
+        assert not hasattr(wall, name)
+        assert getattr(wall, name, None) is None
+        with pytest.raises(NotABeamError):
+            getattr(wall, name)
+    with pytest.raises(NotABeamError):
+        wall.set_skin_service_cases(cases())
