@@ -70,6 +70,8 @@ def check_compression_detailing(
 ) -> CompressionDetailing:
     """Read required faces from flexure; never infer them from mere bar presence."""
     code = beam.concrete.design_code
+    if code == "EN 1992-2004" and beam._compression_faces:
+        return CompressionDetailing("pending", reason="EN §9.2.1.2(3): compression-bar support (15φ) is not verified")
     if code not in ("ACI 318-19", "CIRSOC 201-25") or beam._stirrups_optional:
         return CompressionDetailing("not_applicable")
     if not beam._compression_faces:

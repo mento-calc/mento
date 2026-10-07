@@ -189,6 +189,7 @@ class _Raw:
 #: The English wording of each code; the text is also the key of the Spanish
 #: catalog in :mod:`mento.i18n`. ``{face}`` is filled with the translated face.
 _MESSAGES: Dict[str, str] = {
+    "compression_detailing_en_pending": "EN compression-bar support (§9.2.1.2(3), 15φ) is not verified by Mento.",
     "compression_detailing_failed": "Required compression-bar support fails (§9.7.6.4.4): {reason}.",
     "compression_detailing_pending": "Required compression-bar support is not fully verified (§9.7.6.4.4): {reason}.",
     "skin_reinforcement_required": (
@@ -840,6 +841,8 @@ def compression_detailing_warnings(beam: "RectangularBeam") -> List[_Raw]:
     result = beam.compression_detailing
     if result.status not in ("failed", "pending"):
         return []
+    if beam.concrete.design_code == "EN 1992-2004":
+        return [_Raw("compression_detailing_en_pending", {})]
     if result.reason == "flexure_not_checked":
         return []  # Existing plot caption says verification is pending.
     if not result.faces:

@@ -537,3 +537,10 @@ Axial cases explicitly report unsupported. Informative Annex J surface
 mesh outside the links remains a separate project/National Annex review.
 Equation/table regression tests for this feature must not be mistaken for
 independent published beam validation or a direct calculated w_k check.
+
+Compression-bar support
+-----------------------
+
+When the EN resistance credits compression reinforcement, its lateral
+support under §9.2.1.2(3) (maximum 15 bar diameters) is not verified by
+mento. The detailing state remains pending; it is not an exemption.
