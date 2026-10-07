@@ -12,7 +12,8 @@ from mento import (
     RectangularBeam,
     SteelBar,
 )
-from mento.units import cm, inch, kN, mm, MPa
+from mento.i18n import get_language, set_language
+from mento.units import MPa, cm, inch, kN, mm
 
 
 def beam(concrete_type=Concrete_ACI_318_19):
@@ -130,3 +131,40 @@ def test_summary_rejects_conflicting_counts():
     b = beam()
     with pytest.raises(ValueError, match="equal"):
         BeamSummary(b.concrete, b.steel_bar, frame)
+
+
+@pytest.mark.parametrize("language", ["en", "es"])
+@pytest.mark.parametrize("convention", ["legacy", "legs", "blank_legacy", "blank_legs"])
+def test_summary_word_reports_normalized_legs_without_changing_input(tmp_path, monkeypatch, language, convention):
+    from docx import Document
+
+    frame = table()
+    if convention == "legs":
+        frame = frame.rename(columns={"ns": "n_legs"})
+        frame.loc[1, "n_legs"] = 4
+    elif convention in ("blank_legacy", "blank_legs"):
+        frame["n_legs"] = ["", 4]
+        frame.loc[1, "ns" if convention == "blank_legacy" else "n_legs"] = None
+    original = frame.copy(deep=True)
+    b = beam()
+    summary = BeamSummary(b.concrete, b.steel_bar, frame)
+    processed = summary.data.copy(deep=True)
+    monkeypatch.chdir(tmp_path)
+    previous_language = get_language()
+    try:
+        set_language(language)
+        summary.results_detailed_doc()
+    finally:
+        set_language(previous_language)
+    paths = list(tmp_path.glob("*.docx"))
+    assert len(paths) == 1
+    document = Document(paths[0])
+    data_table = next(t for t in document.tables if "n_legs" in [c.text for c in t.rows[0].cells])
+    header = [c.text for c in data_table.rows[0].cells]
+    assert "ns" not in header
+    assert data_table.rows[1].cells[header.index("n_legs")].text == ""
+    assert data_table.rows[2].cells[header.index("n_legs")].text == "4"
+    assert data_table.rows[1].cells[header.index("dbs")].text == "mm"
+    assert data_table.rows[2].cells[header.index("dbs")].text == "8"
+    pd.testing.assert_frame_equal(frame, original)
+    pd.testing.assert_frame_equal(summary.data, processed)

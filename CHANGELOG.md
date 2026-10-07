@@ -21,6 +21,13 @@ from the release history and are summaries rather than complete lists.
 
 ### Fixed
 
+- Beam-summary Word reports accept input containing only `n_legs`, and the
+  Beam Data table displays the validated number of legs for either input
+  convention, including blank paired count cells. Excel keeps its input columns.
+- Supported cage layouts require the vibrator clearance on the upper face
+  only, consistently with the existing rebar selector and report checks.
+  Bottom bars retain the minimum clear spacing and diameter checks.
+
 - Cross-section detailing applies the tension-bar spacing cap only to faces
   put in tension by verified combinations. An unchecked drawing marks that
   check pending instead of assuming both faces are in tension. The existing

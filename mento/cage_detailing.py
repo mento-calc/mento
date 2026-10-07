@@ -192,7 +192,10 @@ def build_cage_detailing(beam: RectangularBeam) -> SectionGeometry:
             1,
             0,
         )
-        clear = max(_mm(settings.clear_spacing), _mm(settings.vibrator_size), _mm(diameter), *(_mm(b.d_b) for b in row))
+        # Match the rebar selector: the vibrator enters through the upper face.
+        clear = max(_mm(settings.clear_spacing), _mm(diameter), *(_mm(b.d_b) for b in row))
+        if face == "top":
+            clear = max(clear, _mm(settings.vibrator_size))
         # Mounting bars cannot disguise excessive spacing of resistant steel.
         # A face with no resistant steel has no tension-spacing cap to apply.
         face_cap = max_gap if face in tension_faces else math.inf

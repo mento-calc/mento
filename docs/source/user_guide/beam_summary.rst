@@ -62,6 +62,8 @@ The Excel file should contain the following columns:
 
 Use either ``n_legs`` or legacy ``ns``; both count columns have blank units
 cells. Existing Excel files retain their meaning: ``ns=2`` means four legs.
+The Word report's Beam Data table always displays ``n_legs``, including
+when the input uses legacy ``ns``. Excel export preserves the input convention.
 If both columns are filled, ``n_legs`` must equal ``2*ns``. A blank paired
 cell is derived from the supplied count. Non-integer, negative, odd leg
 counts or inconsistent paired counts are rejected before processing.

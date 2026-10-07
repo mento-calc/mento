@@ -40,7 +40,7 @@ BEAM_DATA_COLUMNS = (
     "b",
     "h",
     "cc",
-    "ns",
+    "n_legs",
     "dbs",
     "sl",
     "n1",
@@ -258,7 +258,12 @@ def beam_summary_doc(self: "BeamSummary", index: int = 1) -> None:
     # Geometry and reinforcement only: the demands each beam was checked for
     # are reported by the flexure and shear tables below, per combination,
     # which is where they mean something.
-    beam_data_out = self.beam_list.fillna("")[list(BEAM_DATA_COLUMNS)]
+    beam_data_out = self.beam_list.fillna("").copy()
+    # Keep the declared display units, but take the count from validated data:
+    # the paired input cell may be blank, and legacy ns counts two-leg stirrups.
+    legs = self.data["n_legs"] if "n_legs" in self.data else 2 * self.data["ns"]
+    beam_data_out["n_legs"] = ["", *legs.tolist()]
+    beam_data_out = beam_data_out[list(BEAM_DATA_COLUMNS)]
     doc_builder.add_table_data(
         beam_data_out,
         column_widths=BEAM_DATA_WIDTHS,

@@ -8,7 +8,7 @@ import pytest
 from mento import Concrete_ACI_318_19, Concrete_CIRSOC_201_25, Forces, Node, RectangularBeam, SteelBar, set_language
 from mento.cage_detailing import CageDetailingError
 from mento.section_geometry import SectionGeometry
-from mento.units import MPa, cm, ft, inch, kN, kNm, kip, ksi, mm, psi
+from mento.units import MPa, cm, ft, inch, kip, kN, kNm, ksi, mm, psi
 
 
 def _beam(width: float = 60, height: float = 60) -> RectangularBeam:
@@ -269,3 +269,58 @@ def test_single_tension_bar_is_checked_against_face_width_despite_mounting_suppo
     assert any(warning.code == "bar_spacing_exceeds_max" for warning in beam.warnings)
     with pytest.raises(CageDetailingError, match="mounting steel cannot replace"):
         _ = beam.detailing_geometry
+
+
+@pytest.mark.parametrize("face", ["bottom", "top"])
+def test_vibrator_clearance_is_required_on_the_upper_face_only(face: str) -> None:
+    beam = RectangularBeam(
+        label="V101",
+        concrete=Concrete_ACI_318_19(name="C25", f_c=25 * MPa),
+        steel_bar=SteelBar(name="S420", f_y=420 * MPa),
+        width=20 * cm,
+        height=50 * cm,
+        c_c=25 * mm,
+    )
+    getattr(beam, f"set_longitudinal_rebar_{'bot' if face == 'bottom' else 'top'}")(
+        n1=2, d_b1=20 * mm, n2=1, d_b2=16 * mm
+    )
+    beam.set_transverse_rebar(1, 10 * mm, 15 * cm)
+    original = beam.section_geometry
+    if face == "top":
+        with pytest.raises(CageDetailingError, match="required spacing"):
+            _ = beam.detailing_geometry
+    else:
+        detail = beam.detailing_geometry
+        _assert_supported(detail)
+        row = detail.bars_on("bottom", 1)
+        gaps = [_mm(right.x - left.x) - (_mm(left.d_b) + _mm(right.d_b)) / 2 for left, right in zip(row, row[1:])]
+        assert min(gaps) >= 25
+        assert min(gaps) < 30
+    assert beam.section_geometry == original
+
+
+def test_canonical_aci_design_has_a_supported_drawing() -> None:
+    beam = RectangularBeam(
+        label="V101",
+        concrete=Concrete_ACI_318_19(name="C25", f_c=25 * MPa),
+        steel_bar=SteelBar(name="S420", f_y=420 * MPa),
+        width=20 * cm,
+        height=50 * cm,
+        c_c=25 * mm,
+    )
+    Node(
+        section=beam,
+        forces=[
+            Forces(label="1.2D+1.6L", M_y=120 * kNm, V_z=150 * kN),
+            Forces(label="neg", M_y=-80 * kNm, V_z=90 * kN, N_x=20 * kN),
+        ],
+    ).design()
+    original = beam.section_geometry
+    _assert_supported(beam.detailing_geometry)
+    assert beam.section_geometry == original
+    figure = beam.plot()
+    try:
+        texts = [text.get_text().lower() for text in figure.axes[0].texts]
+        assert not any("calculation model only" in text or "jaula no detallable" in text for text in texts)
+    finally:
+        plt.close(figure)
