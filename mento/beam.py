@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 from pandas import DataFrame
 import math
+
+from mento.compression_detailing import CompressionDetailing
 # from devtools import debug
 
 from mento.rectangular import RectangularSection
@@ -22,6 +24,7 @@ from mento.design_warnings import (
     collect,
     combination_label,
     flexure_warnings,
+    compression_detailing_warnings,
     shear_warnings,
     shortfall_warnings,
     spacing_warnings,
@@ -1804,6 +1807,25 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         return build_section_geometry(self)
 
     @property
+    def compression_detailing(self) -> "CompressionDetailing":
+        """Required compression-steel support in the modelled cross-section.
+
+        Status is passed, failed, pending, not_required or not_applicable.
+        Does not change resistance or the pending global-verdict policy.
+        """
+        from mento.compression_detailing import check_compression_detailing
+        from mento.cage_detailing import CageDetailingError, build_cage_detailing
+
+        scope = check_compression_detailing(self)
+        if scope.reason != "base_cage_unavailable":
+            return scope
+        try:
+            geometry = build_cage_detailing(self)
+        except (CageDetailingError, ValueError) as error:
+            return check_compression_detailing(self, unavailable=str(error))
+        return check_compression_detailing(self, geometry)
+
+    @property
     def detailing_geometry(self) -> SectionGeometry:
         """A supported cage, with supplementary mounting steel listed separately.
 
@@ -1849,6 +1871,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         """
         raws = list(self._flexure_warnings) if self._flexure_checked else []
         raws += spacing_warnings(self)
+        raws += compression_detailing_warnings(self)
         raws += shortfall_warnings(self)
         raws += list(self._shear_warnings) if self._shear_checked else []
         return collect(raws)

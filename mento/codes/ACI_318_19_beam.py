@@ -349,13 +349,11 @@ def _stirrup_compression_support_ACI_318_19(
     §9.7.6.4.1 of both codes asks for lateral support of the longitudinal
     compression reinforcement, wherever it is required, by closed stirrups
     per §9.7.6.4.2 through §9.7.6.4.4. This reads the first two: the size of
-    §9.7.6.4.2 and the spacing of §9.7.6.4.3. §9.7.6.4.4 is not checked --
-    every corner and alternate compression bar enclosed by a stirrup corner
-    of at most 135°, and no bar farther than 150 mm clear along the stirrup
-    from an enclosed one (ACI 318-19 SI p. 148; CIRSOC 201-25 Cap. 9 p. 179
-    reads 15 d_b of the stirrup or 150 mm) -- because the section does not
-    say which bars the legs enclose: a wide compression face whose middle
-    bars sit far from the corners passes it silently. Which bars are
+    §9.7.6.4.2 and the spacing of §9.7.6.4.3. The geometric check of
+    §9.7.6.4.4 is separate: ``RectangularBeam.compression_detailing`` reads
+    the modelled first-row corner supports and the clear distance on both
+    sides; second rows and crosstie anchorage remain pending.
+    Which bars are
     compression reinforcement is the flexure check's to say: a combination
     that needs compression steel to carry its moment (``doubly_reinforced``),
     or whose tension steel is admissible only through it (past A_s,max,
