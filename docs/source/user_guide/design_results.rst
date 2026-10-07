@@ -442,7 +442,7 @@ available. That diameter is not a code requirement or a feasible bend detail.
 
 
 Required compression-bar support
--------------------------------
+--------------------------------
 
 ``beam.compression_detailing`` checks the required compression faces identified
 by the flexure calculation, not mounting steel or every bar incidentally in
