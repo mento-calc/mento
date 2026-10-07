@@ -49,12 +49,11 @@ def min_reinforcement_ratio(f_ctm: float, f_yk: float) -> float:
 def foundation_min_reinforcement_ratio(f_yk: float) -> float:
     """Geometric minimum for a foundation, per direction — EHE-08 Tabla 42.3.5, note (1).
 
-    A footing or raft bears on the ground, so the brittle-failure mechanism the
-    non-fragility minimum of EN 1992-1-1 §9.2.1.1 guards against cannot
-    develop: the soil keeps carrying the element after the section cracks.
-    EN 1992-1-1 itself prints no foundation minimum: §9.8.1 (pile caps) and
-    §9.8.2.1 (column and wall footings) ask only for a minimum bar diameter,
-    phi_min, 8 mm recommended. The numbers are the Spanish code's, EHE-08
+    This is an adopted detailing practice, not an EN 1992-1-1 requirement
+    or an exemption from its strength and crack-control checks. EN §9.8.1(3)
+    refers to minimum reinforcement in pile caps, and §9.8.2.1(1) specifies
+    anchorage and a minimum bar diameter (8 mm recommended). Neither
+    supplies the two geometric ratios used here. The numbers are EHE-08's,
     Tabla 42.3.5: a slab carries 2.0 per mille (f_y = 400 MPa) or 1.8 per
     mille (500 MPa) of the GROSS section, and note (1) gives footings and
     foundation slabs half of it in each direction, on the bottom face. mento
@@ -67,7 +66,8 @@ def foundation_min_reinforcement_ratio(f_yk: float) -> float:
     Returns:
         A_s,min/(b*h), dimensionless: 1.0 per mille at f_yk = 400 MPa and
         0.9 per mille at f_yk = 500 MPa, the two grades the rule is tabulated
-        for, interpolated linearly between them and held flat outside.
+        for. Linear interpolation and holding the value flat outside those
+        grades are Mento choices, not prescriptions of EHE-08 Table 42.3.5.
     """
     ratio_400, ratio_500 = 0.0010, 0.0009
     if f_yk <= 400.0:
@@ -144,9 +144,12 @@ def neutral_axis_depth_limit_ratio(
 ) -> float:
     """Neutral axis depth limit x_u/d — EN 1992-1-1 §5.5(4), Eqs. (5.10a)/(5.10b).
 
-    Two limits apply and the smaller governs: the redistribution limit
-    ``(delta - k_1)/k_2`` (``k_3``/``k_4`` above C50/60), and the 0.45
-    ductility cap of the same clause. Both are written on the NEUTRAL AXIS, so
+    The redistribution limit is ``(delta - k_1)/k_2`` (``k_3``/``k_4``
+    above C50/60), from the cited expressions. Mento additionally caps the
+    result at 0.45 as a design choice; §5.5(4) does not prescribe that cap.
+    The 0.45/0.35 limits in §5.6.3(2) concern yielding hinges with a rotation
+    check and are not implemented by this helper. Both limits used here are
+    written on the NEUTRAL AXIS, so
     the result must be multiplied by ``lambda`` before it can be used as a
     stress block depth.
 

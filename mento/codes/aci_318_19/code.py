@@ -232,7 +232,11 @@ def _max_bar_spacing_tension(section: "RectangularBeam") -> Any:
 
 
 def _max_bar_spacing_for_cover(section: "RectangularBeam", cover: Any) -> Any:
-    """Table 24.3.2 with fs = 2fy/3 (§24.3.2.1) and the actual clear cover."""
+    """ACI 318-19 / CIRSOC 201-25 §24.3.2, Table 24.3.2.
+
+    Uses fs=2fy/3 permitted by §24.3.2.1 and the actual clear cover.
+    For skin steel, §9.7.2.3 defines this cover from the side face.
+    """
     imperial = section.concrete.is_imperial
     stress = psi if imperial else MPa
     length = inch if imperial else mm

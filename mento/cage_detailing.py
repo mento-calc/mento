@@ -8,6 +8,11 @@ records any supplementary mounting bars, including a missing upper face.
 A cage that cannot accommodate its bars is rejected, rather than drawn with
 unsupported corners or overlapping bars. This checks a cross-section layout,
 not development lengths, hooks, seismic detailing or a bar bending schedule.
+
+Crack-control centre-spacing limits come from the registered code (ACI 318-19
+/ CIRSOC 201-25 §24.3.2, Table 24.3.2); the positioning search and mounting-bar
+diameter are Mento choices. Rounded corners inherit the fixed 4*d_st bend
+assumption documented in SectionGeometry, with its diameter and code limits.
 """
 
 from __future__ import annotations

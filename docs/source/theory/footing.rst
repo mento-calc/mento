@@ -85,9 +85,11 @@ one.
 Geometric minimum
 ^^^^^^^^^^^^^^^^^
 
-EN 1992-1-1 prints no minimum of its own for a foundation: §9.8.1 (pile caps) and
-§9.8.2.1 (column and wall footings) ask only for a minimum bar diameter
-(:math:`\phi_{min}`, 8 mm recommended). mento takes the foundation minimum of the
+EN 1992-1-1:2004 §9.8.1(3) refers to minimum reinforcement in pile caps;
+§9.8.2.1(1) specifies anchorage and a minimum bar diameter
+(:math:`\phi_{min}`, 8 mm recommended). Neither provides the two geometric
+ratios adopted here. These ratios do not exempt a footing from EN strength
+or crack-control checks. mento takes the foundation minimum of the
 Spanish code, EHE-08 Tabla 42.3.5, note (1) — half the geometric minimum of a slab
 (2.0 ‰ with :math:`f_y = 400` MPa, 1.8 ‰ with 500 MPa, of the gross section) in each
 direction — as detailing practice under EN, written on the gross section:
@@ -101,6 +103,9 @@ direction — as detailing practice under EN, written on the gross section:
      0.0010 & f_{yk} \le 400\ \text{MPa} \\
      0.0009 & f_{yk} \ge 500\ \text{MPa}
    \end{cases}
+
+EHE-08 supplies the 400 and 500 MPa values. Interpolation between them and
+holding them constant outside those grades are mento choices.
 
 Crack control — §7.3.2(2), Eq. (7.1)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

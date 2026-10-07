@@ -133,8 +133,13 @@ class SectionGeometry:
     stirrup_d_b`` is where the check puts the faces of the bars.
     ``stirrup_bend_inner_diameter`` is the inside diameter the drawing bends
     the stirrups with, ``4·d_st``: the value of ACI 318-19 / CIRSOC 201-25
-    Table 25.3.2 up to Ø16 (No. 5), used for larger stirrups too as a
-    simplification. ``s_w`` is the spacing of the legs across the width the
+    Table 25.3.2 up to Ø16 (No. 5), also the recommended minimum of
+    EN 1992-1-1:2004 §8.3(2), Table 8.1N for bars up to Ø16. For larger
+    stirrups the fixed 4·d_st is a drawing simplification, NOT a compliant
+    minimum: ACI/CIRSOC require 6·d_st for their larger tabulated sizes,
+    and EN recommends 7·d_st above Ø16. EN §8.3(3), Eq. (8.1), can require
+    a larger mandrel to prevent concrete failure; it is not checked here.
+    ``s_w`` is the spacing of the legs across the width the
     shear check reads.
 
     ``leg_x`` holds the centrelines of the legs of the cage, left to right,

@@ -378,13 +378,12 @@ def _minimum_flexural_reinforcement_area_EN_1992_2004(self: "RectangularBeam", d
     A member spanning between supports gets the non-fragility minimum of
     §9.2.1.1, ``rho_min * b_t * d``.
 
-    A member bearing on the ground does not: the brittle failure that clause
-    guards against needs the support to disappear when the section cracks, and
-    here the soil goes on carrying it. Two rules take its place, and the larger
-    governs:
+    For support="soil", Mento instead adopts the larger of two minima. This
+    is a modelling choice, not a general EN exemption from §9.2.1.1 or an
+    assertion that soil support prevents brittle failure:
 
     * the halved geometric minimum of a foundation, on the gross section --
-      EHE-08 Tabla 42.3.5, note (1), since EN 1992-1-1 prints none; and
+      EHE-08:2008 §42.3.5, Table 42.3.5, note (1), adopted practice under EN; and
     * the crack-control minimum of §7.3.2(2), which sizes the steel that has to
       carry the tension the concrete releases at the instant it cracks.
 
@@ -429,9 +428,10 @@ def _minimum_flexural_reinforcement_area_EN_1992_2004(self: "RectangularBeam", d
 def _compression_zone_limits_EN_1992_2004(self: "RectangularBeam", d: float) -> Tuple[float, float]:
     """Compression zone at the ductility limit, as (neutral axis, block depth).
 
-    Both limits EN 1992-1-1 imposes are written on the NEUTRAL AXIS ratio
-    ``x_u/d``: the redistribution limit of 5.5(4), ``(delta - k_1)/k_2``
-    (``k_3``/``k_4`` above C50/60), and the 0.45 ductility cap. The equivalent
+    Both limits used by Mento are written on the NEUTRAL AXIS ratio
+    ``x_u/d``: the redistribution limit of EN 1992-1-1:2004 §5.5(4),
+    Eqs. (5.10a)/(5.10b), and an additional Mento design cap of 0.45.
+    The fixed cap is not prescribed by §5.5(4). The equivalent
     rectangular stress block of 3.1.7(3) is ``lambda`` times shallower than the
     neutral axis, so the conversion happens once, here, and every caller gets
     both depths already in the right units.
