@@ -639,24 +639,11 @@ def transverse_notation(
 
 
 def cage_legs(n_legs: int) -> Tuple[Tuple[Tuple[int, int], ...], Tuple[int, ...]]:
-    """How ``n_legs`` legs are tied into a cage: ``(closed_stirrups, crossties)``.
-
-    Legs are numbered 0 to ``n_legs - 1`` across the width. One perimeter
-    stirrup spans the whole section, on the outermost legs, and comes first;
-    each inner closed stirrup embraces two adjacent inner legs, (1, 2), (3, 4)
-    and so on. An odd count leaves one inner leg over, the last one, which is
-    a single crosstie. Ten legs are the perimeter stirrup (0, 9) and four
-    inner ones; nine legs, the perimeter (0, 8), three inner stirrups and a
-    crosstie on leg 7. A single leg is a lone crosstie.
-
-    mento's shear design only ever produces an even count -- closed stirrups,
-    two legs each -- so the crosstie is here for a cage described or drawn
-    from a given count, not for one the design picks.
-    """
+    """Closed stirrup pairs only; odd legs and crossties are not modelled yet."""
+    if n_legs % 2:
+        raise ValueError("odd legs and individual crosstie anchorage are not modelled yet.")
     if n_legs <= 0:
         return (), ()
-    if n_legs == 1:
-        return (), (0,)
     stirrups = [(0, n_legs - 1)]
     inner = list(range(1, n_legs - 1))
     stirrups += [(inner[i], inner[i + 1]) for i in range(0, len(inner) - 1, 2)]
@@ -669,7 +656,7 @@ def describe_stirrup_cage(n_legs: int, language: Optional[str] = None) -> str:
 
     ``perimeter stirrup + 4 inner stirrups`` for ten legs,
     ``single perimeter stirrup`` for two, ``no stirrups`` for none; a crosstie
-    is added as ``+ 1 crosstie``. In the language of the moment unless
+    is not modelled: odd counts raise ``ValueError``. In the language of the moment unless
     ``language`` says otherwise; an explicit code without a catalog raises
     ``ValueError``, as :func:`mento.set_language` does.
     """
