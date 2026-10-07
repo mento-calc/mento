@@ -415,12 +415,13 @@ tension. Supplied cases for other faces are not used. For ACI/CIRSOC the skin
 proposal does not use these EN service inputs.
 
 The proposal retains a single row when the minimum area permits it. It does
-not impose a Mento minimum of two rows. ``skin_distribution_review`` reports
-the number of rows per lateral face inside each service tension zone and its
-largest vertical interval, including gaps to the zone boundaries. This
-informative warning accompanies every EN proposal so that sparse layouts
-remain visible for engineering review. These intervals are not clear
-distances between bar surfaces or an additional EN spacing limit. The
+not impose a Mento minimum of two rows. ``skin_distribution_review`` reports one global informative warning,
+showing the largest interval among all reviewed service cases and their
+labels. It does not attribute that interval to one tension face when the
+cases cover both faces. The separate records in
+``skin_reinforcement.distribution_reviews`` retain every case and face.
+The warning gives rows per lateral side and interval including boundaries;
+these are not clear distances or an additional EN spacing limit. The
 diameter-route proposal does not directly calculate or certify crack width.
 The drawing displays this review alongside the actual skin-steel proposal.
 All service zones are checked separately for minimum area; the warning data

@@ -204,7 +204,7 @@ _MESSAGES: Dict[str, str] = {
     "skin_detailing_infeasible": "The supplementary skin proposal cannot be fitted in the cage: {reason}",
     "cage_detailing_infeasible": "The base cage cannot be detailed: {reason}",
     "skin_distribution_review": (
-        "Review skin-steel distribution for the {face} tension case: {rows} rows per side in its service zone, "
+        "Review skin-steel distribution, worst of {cases} service cases: {rows} rows per side in that zone, "
         "largest vertical interval {gap}, including zone boundaries. This is informative, not an additional code "
         "spacing limit; the diameter-route proposal does not verify crack width directly."
     ),
@@ -745,7 +745,7 @@ def unread_force_warnings(force: "Forces", label: str) -> List[_Raw]:
 
 
 def collect(raws: List[_Raw]) -> Tuple[DesignWarning, ...]:
-    """Collapse the raw findings into one worded warning per limit and face.
+    """Collapse the raw findings into one worded warning per limit and face, except the global skin-distribution review.
 
     The same limit missed under several combinations is one warning, with the
     values of the combination that misses it by most and the labels of all of
@@ -766,11 +766,13 @@ def collect(raws: List[_Raw]) -> Tuple[DesignWarning, ...]:
     for (code, face, direction, _component), group in groups.items():
         worst = max(group, key=lambda raw: raw.severity)
         if code == "skin_distribution_review":
-            face = worst.face  # Un solo aviso: conservar el caso de mayor intervalo.
+            face = None  # Aviso global: no atribuir ambas caras a una sola.
         labels = tuple(dict.fromkeys(raw.combination for raw in group if raw.combination is not None))
         # The direction picks the template and stays in the values, where a
         # program reads it; it is a word, not a number to print.
         values = dict(worst.values)
+        if code == "skin_distribution_review":
+            values["cases"] = len(group)
         template = _MESSAGES[f"{code}_{direction}" if direction else code]
         # A text value (the clause a limit comes from) is quoted as it is.
         fields = _fields({n: v for n, v in values.items() if n != "direction" and not isinstance(v, str)})

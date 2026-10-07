@@ -37,7 +37,9 @@ def test_skin_review_is_informative_and_emitted_once():
     ]
     warnings = collect(raws)
     assert len(warnings) == 1
-    assert warnings[0].face == "top"
+    assert warnings[0].face is None
+    assert "worst of 2 service cases" in warnings[0].message
+    assert "top" not in warnings[0].message and "bottom" not in warnings[0].message
     assert warnings[0].combinations == ("P", "N")
     assert warning_category(warnings[0].code) == "informative"
     assert warning_category("skin_detailing_invalid") == "pending"
