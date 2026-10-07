@@ -845,10 +845,12 @@ def skin_warnings(beam: "RectangularBeam") -> List[_Raw]:
 
 def compression_detailing_warnings(beam: "RectangularBeam") -> List[_Raw]:
     """Required compression bars: modelled §9.7.6.4.4 failures or pending checks."""
+    from mento.compression_detailing import EN_COMPRESSION_PENDING_REASON
+
     result = beam.compression_detailing
     if result.status not in ("failed", "pending"):
         return []
-    if beam.concrete.design_code == "EN 1992-2004":
+    if result.reason == EN_COMPRESSION_PENDING_REASON:
         return [_Raw("compression_detailing_en_pending", {})]
     if result.reason == "flexure_not_checked":
         return []  # Existing plot caption says verification is pending.
