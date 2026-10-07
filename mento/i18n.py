@@ -525,3 +525,21 @@ ES.update(
         "The stirrup bend is outside the supported model": "El doblado del estribo queda fuera del modelo admitido",
     }
 )
+
+
+ES.update(
+    {
+        "Resistance and detailing": "Resistencia y detallado",
+        "Verification": "Verificación",
+        "Resistance": "Resistencia",
+        "Detailing (modelled checks)": "Detallado (chequeos modelados)",
+        "Pass (modelled checks)": "Cumple (chequeos modelados)",
+        "Fail": "No cumple",
+        "Pending": "Pendiente",
+        "EN footing sections with axial force are not supported yet. Supply zero axial force or use a model that includes its effects.": "Todavía no se admite esfuerzo axial en secciones de zapata EN. Ingrese axil nulo o use un modelo que incluya sus efectos.",
+    }
+)
+
+ES["Mandatory detailing: compression-bar support spacing (§9.7.6.4.3)"] = (
+    "Detallado obligatorio: separación del arriostramiento de barras comprimidas (§9.7.6.4.3)"
+)

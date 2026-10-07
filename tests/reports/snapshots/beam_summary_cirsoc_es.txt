@@ -148,12 +148,17 @@ Resistencia total al corte | ØVn | 94.9 | kN
 Verificación de corte máximo |  | ✅ | 
 Factor de Utilización | DCR | 0.21 | ✅
 Resumen - Todas las vigas
+Resistencia y detallado
+Etiqueta | Resistencia | Detallado (chequeos modelados)
+V101 | Cumple (chequeos modelados) | Cumple (chequeos modelados)
+V102 | Cumple (chequeos modelados) | Cumple (chequeos modelados)
+V103 | Cumple (chequeos modelados) | Cumple (chequeos modelados)
 Datos de las vigas
-Etiqueta | b | h | cc | n_legs | dbs | sl | n1 | db1 | n2 | db2 | n3 | db3 | n4 | db4
- | cm | cm | mm |  | mm | cm |  | mm |  | mm |  | mm |  | mm
-V101 | 20 | 50 | 25 | 0 | 0 | 0 | 2.0 | 12 | 1.0 | 10 | 0.0 | 0 | 0 | 0
-V102 | 20 | 50 | 25 | 2 | 6 | 20 | 2 | 12 | 1 | 16 | 0.0 | 0 | 0.0 | 0
-V103 | 25 | 60 | 25 | 2 | 8 | 15 | 3.0 | 16 | 0.0 | 0 | 2.0 | 12 | 0 | 0
+Etiqueta | b | h | cc | As,bot | As,top | Av
+ | cm | cm | mm |  |  | 
+V101 | 20 | 50 | 25 | 2Ø12 mm | - | 2 ramas Ø6 mm c/23 cm · 14.4 cm entre ramas
+V102 | 20 | 50 | 25 | 2Ø12 mm | 2Ø12 mm + 1Ø10 mm | 2 ramas Ø6 mm c/23 cm · 14.4 cm entre ramas
+V103 | 25 | 60 | 25 | 2Ø16 mm | - | 2 ramas Ø6 mm c/27 cm · 19.4 cm entre ramas
 Resultados de flexión
 Etiqueta | Comb. | Posición | As,min | As,req top | As,req bot | As | Mu | ØMn | DCR
  |  |  | cm² | cm² | cm² | cm² | kNm | kNm | 

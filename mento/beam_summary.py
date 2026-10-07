@@ -9,6 +9,7 @@ from mento.material import (
     Concrete,
     SteelBar,
 )
+from mento.verification import normalize_leg_column
 from mento.forces import Forces
 from mento.beam import RectangularBeam
 from mento.design_results import _transverse_stirrup_count
@@ -65,6 +66,7 @@ class BeamSummary:
         self.convert_to_nodes()
 
     def check_and_process_input(self) -> None:
+        self.beam_list = normalize_leg_column(self.beam_list)
         # Separate the header, units, and data
         self.units_row = self.beam_list.iloc[0].tolist()  # Second row (units)
         data = self.beam_list.iloc[1:].copy()  # Data rows (after removing the units row)
@@ -129,6 +131,9 @@ class BeamSummary:
                 unit = self.get_unit_variable(unit_str)
                 col = data.columns[i]
                 data[col] = data[col].apply(lambda x: x * unit)
+
+        if "legs" in data.columns:
+            data["legs"] = data["n_legs"]
 
         # Store the processed data
         self.data = data
@@ -236,6 +241,36 @@ class BeamSummary:
 
             # Store the section and its corresponding forces
             self.nodes.append(node)
+
+    def section_data(self) -> DataFrame:
+        """Sección física completa, ambas caras y recubrimiento en mm/in."""
+        imperial = self.concrete.is_imperial
+        cover = "in" if imperial else "mm"
+        units = {
+            "Label": "",
+            "b": unit_label("length", imperial),
+            "h": unit_label("length", imperial),
+            "cc": cover,
+            "As,bot": "",
+            "As,top": "",
+            "Av": "",
+        }
+        rows = []
+        for node in self.nodes:
+            section = node.section
+            rebar = section.reinforcement
+            rows.append(
+                {
+                    "Label": section.label,
+                    "b": _section_dimension(section.width, imperial),
+                    "h": _section_dimension(section.height, imperial),
+                    "cc": round(section.c_c.to(cover).magnitude, 2),
+                    "As,bot": str(rebar.bottom) if rebar.bottom.n_bars else "-",
+                    "As,top": str(rebar.top) if rebar.top.n_bars else "-",
+                    "Av": rebar.transverse.notation() if rebar.transverse.n_stirrups else "-",
+                }
+            )
+        return DataFrame([units, *rows])
 
     def check(self, capacity_check: bool = False) -> DataFrame:
         """
@@ -467,6 +502,8 @@ class BeamSummary:
                 design_df.loc[i, "ns"] = int(shear_row["n_stir"])
             if "n_legs" in design_df.columns:
                 design_df.loc[i, "n_legs"] = 2 * int(shear_row["n_stir"])
+            if "legs" in design_df.columns:
+                design_df.loc[i, "legs"] = 2 * int(shear_row["n_stir"])
             design_df.loc[i, "dbs"] = shear_row["d_b"]
             design_df.loc[i, "sl"] = shear_row["s_l"]
 
