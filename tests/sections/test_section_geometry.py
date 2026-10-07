@@ -319,6 +319,21 @@ def test_a_slab_strip_publishes_no_bars_and_no_legs(element: type) -> None:
     assert slab.reinforcement.transverse.n_legs > 0
 
 
+@pytest.mark.parametrize("element", [OneWaySlab, Footing])
+def test_grid_bars_are_not_restricted_by_stirrup_bend_limits(element: type) -> None:
+    slab = element(
+        label="S32",
+        concrete=Concrete_ACI_318_19(name="H25", f_c=25 * MPa),
+        steel_bar=SteelBar(name="ADN 420", f_y=420 * MPa),
+        width=100 * cm,
+        height=40 * cm,
+        c_c=50 * mm,
+    )
+    slab.set_slab_transverse_rebar(d_b=32 * mm, s_long=15 * cm, s_trans=20 * cm)
+    assert slab.section_geometry.layout == "grid"
+    assert slab.section_geometry.stirrups == ()
+
+
 def test_an_imperial_section_is_in_inches() -> None:
     beam = RectangularBeam(
         label="I",

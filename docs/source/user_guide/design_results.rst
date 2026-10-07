@@ -122,6 +122,11 @@ Shear
     shear.notation("es")    # '2 ramas Ø10 mm c/27 cm · 14 cm entre ramas (máx. 55.74 cm)'
     shear.arrangement()     # 'single perimeter stirrup'
 
+Input accepts ``beam.set_transverse_rebar(n_legs=4, d_b=8*mm, s_l=20*cm)``.
+The legacy ``n_stirrups=2`` has the same meaning. In ``BeamSummary`` the
+corresponding columns are ``n_legs`` and legacy ``ns``. Only even leg counts
+are supported; conflicting paired inputs raise an error.
+
 The notation leads with the legs, which is what the shear check counts: ``n_stirrups``
 closed stirrups put ``n_legs = 2·n_stirrups`` legs across the shear plane. Then come the
 bar, the spacing along the member and the spacing of the legs across the width, with the
@@ -272,6 +277,9 @@ from the stirrup branches and bends. If the layout cannot be produced, the prope
 ``CageDetailingError``. ``plot()`` then identifies its fallback as calculation geometry
 and issues a warning. The cross-section check does not supply development lengths,
 hooks, seismic detailing, or strength credit for mounting bars.
+The bend diameter is supplied by the code's mandrel-size rule; it does not
+verify concrete failure at a bend. ``to_dict()`` without a unit uses the
+section's display unit, including inches for a US customary section.
 
 The tension-bar spacing limit is applied only to faces put in tension by the
 verified load combinations. If flexure has not been checked, the drawing checks

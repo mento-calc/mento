@@ -17,8 +17,9 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, cast
 from IPython.display import Markdown, display
 
 from mento.codes.registry import design_code
+from mento.design_results import GRID
 from mento.i18n import get_language, translate
-from mento.precompute import DISPLAY
+from mento.precompute import DISPLAY, unit_label
 from mento.results import Formatter, TablePrinter
 from mento.units import cm
 
@@ -171,6 +172,11 @@ def shear_results(self: "RectangularBeam") -> None:
         else:
             # English on purpose: the notebook summary line is (see language.rst).
             rebar_v = self.shear_design.notation(language="en")
+            if self.reinforcement.transverse.layout == GRID and not self.concrete.is_imperial:
+                # Preserve the published SI notebook format, with one unit
+                # after the two grid spacings. The data still comes from Mento.
+                rebar_v = self.shear_design.notation(language="en", compact=True, imperial=False)
+                rebar_v += f" {unit_label('length', False)}"
         # Limitng cases checks
         warning = "⚠️ Some checks failed, see detailed results." if not checks_pass else ""
         # Each code names these quantities its own way, and puts its capacity

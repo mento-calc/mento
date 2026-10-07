@@ -80,7 +80,7 @@ For example, if a positive moment is so large that the section must be reinforce
     beam.set_longitudinal_rebar_top(n1=2, d_b1=16*mm)
 
     # Set transverse reinforcement (stirrups)
-    beam.set_transverse_rebar(n_stirrups=1, d_b=10*mm, s_l=20*cm)
+    beam.set_transverse_rebar(n_legs=2, d_b=10*mm, s_l=20*cm)
 
 3. Assigning Forces to the Beam
 *******************************
@@ -113,6 +113,17 @@ When you run `node.results`, the output includes:
 - **Applied moments and shear forces**.
 - **Design capacity ratios (DCR)**.
 - **Warnings** (if any).
+
+Transverse reinforcement can be entered directly as an even number of legs:
+
+.. code-block:: python
+
+    beam.set_transverse_rebar(n_legs=4, d_b=8*mm, s_l=20*cm)
+
+Legacy ``n_stirrups=2`` still means four legs, including positional calls.
+If both counts are provided they must satisfy ``n_legs = 2*n_stirrups``;
+conflicting, fractional, negative or odd leg counts raise an error. Zero
+legs with zero diameter and spacing clears the reinforcement.
 
 The output is formatted using LaTeX math notation for clarity and precision.
 
@@ -218,6 +229,17 @@ centre-distance cap, and intersections with the branches and rounded bends. If n
 supported layout is found, ``detailing_geometry`` raises ``CageDetailingError``;
 ``plot()`` issues a warning and draws the calculation model with an explicit caption.
 A narrow stirrup is not presented as a valid hairpin by squeezing its bends.
+Its rejected stirrups are omitted from the fallback drawing. Invalid mounting
+diameter preferences raise ``ValueError`` rather than being presented as a
+physically infeasible cage.
+
+The inside bend diameter comes from the code: ACI/CIRSOC Table 25.3.2 uses
+four bar diameters through 16 mm (No. 5 in US customary units), then six
+through 25 mm (No. 8); larger transverse bars are not supported by this
+table. EN Table 8.1N uses its recommended values of four diameters through
+16 mm and seven above. Using four diameters for CIRSOC 6/8 mm stirrups is
+a Mento extrapolation, since its bend table starts at 10 mm. These mandrel
+sizes do not verify concrete failure at bends (EN Eq. 8.1), hooks or anchorage.
 
 The tension-bar spacing limit is applied only to faces put in tension by the
 verified load combinations. If flexure has not been checked, the drawing checks

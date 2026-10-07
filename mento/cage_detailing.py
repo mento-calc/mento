@@ -11,8 +11,8 @@ not development lengths, hooks, seismic detailing or a bar bending schedule.
 
 Crack-control centre-spacing limits come from the registered code (ACI 318-19
 / CIRSOC 201-25 §24.3.2, Table 24.3.2); the positioning search and mounting-bar
-diameter are Mento choices. Rounded corners inherit the fixed 4*d_st bend
-assumption documented in SectionGeometry, with its diameter and code limits.
+diameter are Mento choices. Rounded corners use the registered code mandrel rule
+documented in SectionGeometry, with its diameter and code limits.
 """
 
 from __future__ import annotations
@@ -33,6 +33,10 @@ if TYPE_CHECKING:
 class CageDetailingError(ValueError):
     """The given bars and stirrups cannot form the supported layout."""
 
+    def __init__(self, message: str, *, reason: str = "layout") -> None:
+        super().__init__(message)
+        self.reason = reason
+
 
 def _mm(value: Quantity) -> float:
     return float(value.to("mm").magnitude)
@@ -45,6 +49,7 @@ def _supported_layer(
     clear: float,
     max_gap: float,
     d_st: float,
+    bend_radius: float,
 ) -> tuple[list[BarPosition], list[BarPosition]]:
     """Place an ordered row at the cage corners, spreading spare bars between them.
 
@@ -59,8 +64,7 @@ def _supported_layer(
     def x_at(corner: int, bar: BarPosition) -> float:
         leg, side = corners[corner]
         # Tangent to the horizontal branch and clear of its rounded bend.
-        # The centreline bend radius is 2.5*d_st (inside diameter 4*d_st).
-        return leg + side * max(2.5 * d_st, (d_st + _mm(bar.d_b)) / 2)
+        return leg + side * max(bend_radius, (d_st + _mm(bar.d_b)) / 2)
 
     def steps(items: list[BarPosition]) -> list[float]:
         return [(_mm(a.d_b) + _mm(b.d_b)) / 2 + clear for a, b in zip(items, items[1:])]
@@ -171,10 +175,16 @@ def build_cage_detailing(beam: RectangularBeam) -> SectionGeometry:
     assert settings is not None
     diameter = settings.mounting_bar_diameter
     if not math.isfinite(_mm(diameter)) or _mm(diameter) <= 0:
-        raise CageDetailingError("mounting_bar_diameter must be positive and finite.")
+        raise ValueError("mounting_bar_diameter must be positive and finite.")
     if diameter < settings.minimum_longitudinal_diameter:
-        raise CageDetailingError("mounting_bar_diameter is below minimum_longitudinal_diameter.")
+        raise ValueError("mounting_bar_diameter is below minimum_longitudinal_diameter.")
     d_st = _mm(geometry.stirrup_d_b)
+    if design_code(beam.concrete).stirrup_bend_inner_diameter is None:
+        raise CageDetailingError("This code has no supported stirrup-bend rule.", reason="bend")
+    bend_radius = (_mm(geometry.stirrup_bend_inner_diameter) + d_st) / 2
+    for stirrup in geometry.stirrups:
+        if min(_mm(stirrup.x_right - stirrup.x_left), _mm(stirrup.y_top - stirrup.y_bottom)) / 2 < bend_radius - 1e-8:
+            raise CageDetailingError("The stirrup is too narrow for its required bends.", reason="bend")
     corners = sorted(
         (x, side) for stirrup in geometry.stirrups for x, side in ((_mm(stirrup.x_left), 1), (_mm(stirrup.x_right), -1))
     )
@@ -199,12 +209,15 @@ def build_cage_detailing(beam: RectangularBeam) -> SectionGeometry:
             1,
             0,
         )
-        clear = max(_mm(settings.clear_spacing), _mm(settings.vibrator_size), _mm(diameter), *(_mm(b.d_b) for b in row))
+        # Match the rebar selector: the vibrator enters through the upper face.
+        clear = max(_mm(settings.clear_spacing), _mm(diameter), *(_mm(b.d_b) for b in row))
+        if face == "top":
+            clear = max(clear, _mm(settings.vibrator_size))
         # Mounting bars cannot disguise excessive spacing of resistant steel.
         # A face with no resistant steel has no tension-spacing cap to apply.
         face_cap = max_gap if face in tension_faces else math.inf
         packing_cap = face_cap if len(row) >= len(corners) else math.inf
-        resistant, added = _supported_layer(row, corners, mounting, clear, packing_cap, d_st)
+        resistant, added = _supported_layer(row, corners, mounting, clear, packing_cap, d_st, bend_radius)
         spacing = (
             _mm(geometry.width)
             if len(resistant) == 1
@@ -229,9 +242,9 @@ def build_cage_detailing(beam: RectangularBeam) -> SectionGeometry:
         for stirrup in geometry.stirrups:
             half_w = _mm(stirrup.x_right - stirrup.x_left) / 2
             half_h = _mm(stirrup.y_top - stirrup.y_bottom) / 2
-            bend = 2.5 * d_st
+            bend = bend_radius
             if min(half_w, half_h) < bend - 1e-8:
-                raise CageDetailingError("The stirrup is too narrow for its required bends.")
+                raise CageDetailingError("The stirrup is too narrow for its required bends.", reason="bend")
             dx = abs(_mm(bar.x - (stirrup.x_left + stirrup.x_right) / 2)) - (half_w - bend)
             dy = abs(_mm(bar.y - (stirrup.y_bottom + stirrup.y_top) / 2)) - (half_h - bend)
             distance_to_line = abs(math.hypot(max(dx, 0), max(dy, 0)) + min(max(dx, dy), 0) - bend)

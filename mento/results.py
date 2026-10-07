@@ -159,6 +159,7 @@ CUSTOM_COLORS = {
     "dark_gray": "#323232",
     "light_gray": "#e3e3e3",
     "dark_blue": "#073165",
+    "mounting": "#ad641b",
 }
 
 

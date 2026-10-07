@@ -18,6 +18,7 @@ import pytest
 
 from mento import i18n
 from mento.beam import RectangularBeam
+from mento.beam_summary import BeamSummary
 from mento.forces import Forces
 from mento.i18n import (
     ES,
@@ -34,7 +35,6 @@ from mento.material import (
     Concrete_EN_1992_2004,
     SteelBar,
 )
-from mento.beam_summary import BeamSummary
 from mento.node import Node
 from mento.results import DocumentBuilder, TablePrinter
 from mento.shear_wall import ShearWall
@@ -654,3 +654,13 @@ class TestSummaryCatalogCoverage:
         assert ES["Design Check Summary"] in text
         assert "Design Check Summary" not in text
         assert saved["filename"] == "Beam_Summary_ACI 318-19.docx"
+
+
+def test_legacy_stirrup_mark_remains_available_without_driving_notation() -> None:
+    previous = i18n.get_language()
+    try:
+        for language, mark in (("en", "s"), ("es", "e")):
+            i18n.set_language(language)
+            assert i18n.stirrup_mark() == mark
+    finally:
+        i18n.set_language(previous)

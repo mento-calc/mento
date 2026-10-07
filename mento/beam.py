@@ -8,7 +8,6 @@ if TYPE_CHECKING:
     from mento.skin_reinforcement import SkinReinforcementRequirement
     from mento.skin_service import SkinServiceCase
 import math
-from numbers import Integral
 
 import numpy as np
 import pandas as pd
@@ -25,6 +24,7 @@ from mento.design_results import (
     ShearCheck,
     ShearDesign,
     StirrupOption,
+    _transverse_stirrup_count,
     build_flexure_design,
     build_reinforcement,
     build_shear_design,
@@ -798,20 +798,24 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
 
     def set_transverse_rebar(
         self,
-        n_stirrups: int = 0,
+        n_stirrups: Optional[int] = None,
         d_b: Quantity = 0 * mm,
         s_l: Quantity = 0 * cm,
+        *,
+        n_legs: Optional[int] = None,
     ) -> None:
         """Set transverse reinforcement or clear it with an all-zero input.
+
+        Use keyword-only ``n_legs`` for an even number of shear legs. Legacy
+        ``n_stirrups`` (including positional calls) still counts closed
+        stirrups, each contributing two legs. If both are supplied they must
+        agree. Zero with zero diameter and spacing clears the reinforcement.
 
         Drops the flexure and shear results of the last check or design (see
         :meth:`_drop_results`).
         """
 
-        # Reject booleans and non-integer stirrup counts.
-        if isinstance(n_stirrups, bool) or not isinstance(n_stirrups, Integral):
-            raise TypeError("n_stirrups must be an integer.")
-        n_stirrups = int(n_stirrups)
+        n_stirrups = _transverse_stirrup_count(n_stirrups, n_legs)
 
         # Diameter and spacing must be physical lengths.
         if not isinstance(d_b, Quantity) or not d_b.check("[length]"):
@@ -838,7 +842,8 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
 
         # Every non-empty reinforcement configuration must be strictly positive.
         if n_stirrups <= 0:
-            raise ValueError("n_stirrups must be greater than zero.")
+            name = "n_legs" if n_legs is not None else "n_stirrups"
+            raise ValueError(f"{name} must be greater than zero.")
         if diameter_mm <= 0:
             raise ValueError("d_b must be greater than zero.")
         if spacing_mm <= 0:

@@ -149,11 +149,11 @@ Max shear check |  | ✅ |
 Demand Capacity Ratio | DCR | 0.12 | ✅
 Summary - All Beams
 Beam Data
-Label | b | h | cc | ns | dbs | sl | n1 | db1 | n2 | db2 | n3 | db3 | n4 | db4
+Label | b | h | cc | n_legs | dbs | sl | n1 | db1 | n2 | db2 | n3 | db3 | n4 | db4
  | cm | cm | mm |  | mm | cm |  | mm |  | mm |  | mm |  | mm
 V101 | 20 | 50 | 25 | 0 | 0 | 0 | 2.0 | 12 | 1.0 | 10 | 0.0 | 0 | 0 | 0
-V102 | 20 | 50 | 25 | 1.0 | 6 | 20 | 2 | 12 | 1 | 16 | 0.0 | 0 | 0.0 | 0
-V103 | 25 | 60 | 25 | 1.0 | 8 | 15 | 3.0 | 16 | 0.0 | 0 | 2.0 | 12 | 0 | 0
+V102 | 20 | 50 | 25 | 2 | 6 | 20 | 2 | 12 | 1 | 16 | 0.0 | 0 | 0.0 | 0
+V103 | 25 | 60 | 25 | 2 | 8 | 15 | 3.0 | 16 | 0.0 | 0 | 2.0 | 12 | 0 | 0
 Flexure Results
 Label | Comb. | Position | As,min | As,req top | As,req bot | As | Mu | ØMn | DCR
  |  |  | cm² | cm² | cm² | cm² | kNm | kNm | 

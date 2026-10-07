@@ -2,6 +2,7 @@ from typing import Any, List, Dict, Optional
 from pandas import DataFrame
 import pandas as pd
 import copy
+import math
 from collections import OrderedDict
 
 from mento.material import (
@@ -10,6 +11,7 @@ from mento.material import (
 )
 from mento.forces import Forces
 from mento.beam import RectangularBeam
+from mento.design_results import _transverse_stirrup_count
 from mento.codes.registry import design_code
 from mento.i18n import translate, translate_dataframe
 from mento.precompute import shown, unit_label
@@ -73,6 +75,32 @@ class BeamSummary:
         # Validate the units row
         self.validate_units(self.units_row)
 
+        # Validate counts before numeric coercion can hide fractions or typos.
+        count_columns = [col for col in ("ns", "n_legs") if col in data.columns]
+        if not count_columns:
+            raise ValueError("BeamSummary requires 'n_legs' or legacy 'ns'.")
+        for col in count_columns:
+            if self.units_row[data.columns.get_loc(col)] != "":
+                raise ValueError(f"{col} is a count and must have a blank units cell.")
+        counts = []
+        for index, row in data.iterrows():
+            supplied: Dict[str, Optional[int]] = {}
+            for col, name in (("ns", "n_stirrups"), ("n_legs", "n_legs")):
+                value = row.get(col)
+                if pd.isna(value) or value == "":
+                    supplied[name] = None
+                    continue
+                if pd.api.types.is_bool(value):
+                    raise TypeError(f"{col} must be an integer (row {index}).")
+                try:
+                    number = pd.to_numeric(value, errors="raise")
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(f"{col} must be an integer (row {index}).") from exc
+                if not math.isfinite(number) or number != int(number):
+                    raise ValueError(f"{col} must be a finite integer (row {index}).")
+                supplied[name] = int(number)
+            counts.append(_transverse_stirrup_count(supplied["n_stirrups"], supplied["n_legs"]))
+
         # Convert NaN to 0 in the data rows.
         # Assign per-column by label (replaces the column, including its dtype)
         # rather than via `.iloc[:, 2:] =`, which writes in place and preserves
@@ -81,8 +109,11 @@ class BeamSummary:
         # dtype, and writing floats into them in place raises a TypeError.
         for col in data.columns[2:]:
             data[col] = pd.to_numeric(data[col], errors="coerce").fillna(0)
+        # Fill absent paired values from the explicit input; never reinterpret ns.
+        for col in count_columns:
+            data[col] = counts if col == "ns" else [2 * count for count in counts]
         # Convert specific columns to int and others to float
-        columns_to_int = ["ns", "n1", "n2", "n3", "n4"]
+        columns_to_int = ["ns", "n_legs", "n1", "n2", "n3", "n4"]
         for col in columns_to_int:
             if col in data.columns:
                 data[col] = data[col].astype(int)
@@ -179,7 +210,7 @@ class BeamSummary:
                 c_c=c_c,
             )
             # Set transverse rebar (stirrups) for the beam
-            n_stirrups = row["ns"]  # Number of stirrups
+            n_stirrups = _transverse_stirrup_count(row.get("ns"), row.get("n_legs"))
             d_b = row["dbs"]  # Diameter of rebar (mm)
             s_l = row["sl"]  # Spacing of stirrups (cm)
 
@@ -388,7 +419,7 @@ class BeamSummary:
     def design(self) -> DataFrame:
         """
         Run design for all beams in the summary.
-        Fills in the rebar columns (n1–n4, db1–db4, ns, dbs, sl)
+        Fills in the rebar columns (n1–n4, db1–db4, ns/n_legs, dbs, sl)
         with the suggested designs for shear and flexure.
 
         Returns
@@ -432,7 +463,10 @@ class BeamSummary:
             # --- SHEAR DESIGN ---
             node.design_shear()
             shear_row = beam.shear_design_results.iloc[0]  # take best row
-            design_df.loc[i, "ns"] = int(shear_row["n_stir"])
+            if "ns" in design_df.columns:
+                design_df.loc[i, "ns"] = int(shear_row["n_stir"])
+            if "n_legs" in design_df.columns:
+                design_df.loc[i, "n_legs"] = 2 * int(shear_row["n_stir"])
             design_df.loc[i, "dbs"] = shear_row["d_b"]
             design_df.loc[i, "sl"] = shear_row["s_l"]
 

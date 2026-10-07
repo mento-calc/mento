@@ -19,16 +19,16 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from numbers import Integral
 from typing import TYPE_CHECKING, Any, Optional, Sequence, Tuple, cast
-
-from mento.units import Quantity, ureg
 
 from mento.bar_sizes import bar_designation, is_us_customary
 from mento.codes.check_state import to_display
 from mento.codes.registry import design_code
+from mento.design_warnings import steel_above_maximum
 from mento.i18n import checked_language, translate
 from mento.precompute import DISPLAY
-from mento.design_warnings import steel_above_maximum
+from mento.units import Quantity, ureg
 
 if TYPE_CHECKING:
     from mento.beam import RectangularBeam
@@ -36,6 +36,23 @@ if TYPE_CHECKING:
 
 class DesignNotRunError(RuntimeError):
     """Raised when results are read before a check or design has been run."""
+
+
+def _transverse_stirrup_count(n_stirrups: Optional[int], n_legs: Optional[int]) -> int:
+    """Resolve legacy stirrup input and explicit legs without changing their meaning."""
+    for name, value in (("n_stirrups", n_stirrups), ("n_legs", n_legs)):
+        if value is not None:
+            if isinstance(value, bool) or not isinstance(value, Integral):
+                raise TypeError(f"{name} must be an integer.")
+            if value < 0:
+                raise ValueError(f"{name} must be non-negative.")
+    if n_legs is not None:
+        if n_legs % 2:
+            raise ValueError("n_legs must be even: the current cage model uses two legs per stirrup.")
+        if n_stirrups is not None and n_legs != 2 * n_stirrups:
+            raise ValueError("n_legs must equal 2 * n_stirrups when both are provided.")
+        return int(n_legs // 2)
+    return 0 if n_stirrups is None else int(n_stirrups)
 
 
 def spacing_separator(imperial: bool) -> str:
@@ -493,7 +510,7 @@ GRID = "grid"
 def format_transverse_rebar(
     layout: str,
     n_stirrups: int,
-    d_b: str,
+    bar: str,
     s_l: str,
     s_w: str,
     *,
@@ -526,7 +543,8 @@ def format_transverse_rebar(
     checked_language(language)
     if n_stirrups == 0:
         return translate("no stirrups", language)
-    bar = d_b if d_b.startswith(("Ø", "#")) else f"Ø{d_b}"
+    d_b = bar.removeprefix("Ø")
+    bar = bar if bar.startswith(("Ø", "#")) else f"Ø{bar}"
     if layout == GRID:
         return f"{bar}{spacing_separator(imperial)}{s_l}×{s_w}"
     legs = 2 * n_stirrups if n_legs is None else n_legs

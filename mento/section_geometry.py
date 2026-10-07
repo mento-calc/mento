@@ -51,6 +51,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple
 
+from mento.codes.registry import design_code
 from mento.design_results import GRID, cage_legs, describe_stirrup_cage, transverse_layout
 from mento.i18n import checked_language
 from mento.precompute import CANONICAL, DISPLAY, section_floats
@@ -132,13 +133,9 @@ class SectionGeometry:
     which still reserves the diameter it starts from -- so ``c_c +
     stirrup_d_b`` is where the check puts the faces of the bars.
     ``stirrup_bend_inner_diameter`` is the inside diameter the drawing bends
-    the stirrups with, ``4·d_st``: the value of ACI 318-19 / CIRSOC 201-25
-    Table 25.3.2 up to Ø16 (No. 5), also the recommended minimum of
-    EN 1992-1-1:2004 §8.3(2), Table 8.1N for bars up to Ø16. For larger
-    stirrups the fixed 4·d_st is a drawing simplification, NOT a compliant
-    minimum: ACI/CIRSOC require 6·d_st for their larger tabulated sizes,
-    and EN recommends 7·d_st above Ø16. EN §8.3(3), Eq. (8.1), can require
-    a larger mandrel to prevent concrete failure; it is not checked here.
+    the stirrups with, supplied by the registered code: ACI/CIRSOC Table
+    25.3.2 (4 or 6 diameters), EN §8.3(2) Table 8.1N (4 or 7). It does not
+    verify anchorage, hooks or concrete failure at bends (EN Eq. 8.1).
     ``s_w`` is the spacing of the legs across the width the
     shear check reads.
 
@@ -183,7 +180,7 @@ class SectionGeometry:
         """The bars on ``face`` (``"bottom"`` or ``"top"``), of one ``layer`` or of both."""
         return tuple(bar for bar in self.bars if bar.face == face and (layer is None or bar.layer == layer))
 
-    def to_dict(self, unit: str = "cm") -> Dict[str, Any]:
+    def to_dict(self, unit: Optional[str] = None) -> Dict[str, Any]:
         """The geometry as plain floats in ``unit``, for a consumer that does not speak pint.
 
         The keys are the field names, each length a float in ``unit``, plus
@@ -192,7 +189,10 @@ class SectionGeometry:
         dicts with the fields of :class:`ClosedStirrup`, :class:`Crosstie` and
         :class:`BarPosition`; leg indices count from 0, as in ``leg_x``. No
         text depends on the language: the words are :meth:`arrangement`'s.
+        With no unit supplied, lengths use the section's display unit (cm or in).
         """
+        if unit is None:
+            unit = f"{self.width.units:~}"
 
         def f(value: Quantity) -> float:
             return float(value.to(unit).magnitude)
@@ -346,13 +346,15 @@ def build_section_geometry(beam: RectangularBeam) -> SectionGeometry:
         bars = _beam_bars(beam, b, h, c_c + d_st, canonical, q)
 
     closed, ties = _cage(leg_x, y_bottom, y_top)
+    bend_hook = design_code(beam.concrete).stirrup_bend_inner_diameter
+    bend = q(4 * d_st) if layout == GRID or bend_hook is None else bend_hook(beam.concrete, q(d_st))
     return SectionGeometry(
         width=q(b),
         height=q(h),
         c_c=q(c_c),
         layout=layout,
         stirrup_d_b=q(d_st),
-        stirrup_bend_inner_diameter=q(4 * d_st),
+        stirrup_bend_inner_diameter=bend,
         s_w=q(sec.stirrup_s_w),
         leg_x=tuple(q(x) for x in leg_x),
         stirrups=tuple(

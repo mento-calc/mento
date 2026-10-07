@@ -349,6 +349,15 @@ ES.update(
     }
 )
 
+ES.update(
+    {
+        "mounting": "montaje",
+        "Orange: mounting steel · excluded from resistance": "Montaje en naranja · sin aporte resistente",
+        "Calculation model only · cage detailing not feasible": "Solo modelo de cálculo · jaula no detallable",
+        "Tension-bar spacing pending · no flexure verification": "Separación por tracción pendiente · sin verificación de flexión",
+    }
+)
+
 # English is the source language, so its catalog is empty: every lookup falls
 # through to the key itself.
 ES.update(
@@ -440,9 +449,8 @@ def get_language() -> str:
     return _language
 
 
-#: The letter a stirrup count is written with: ``2eØ10`` for *estribo*,
-#: ``2sØ10`` for *stirrup*. It is part of the notation, not of a sentence, so
-#: it lives here rather than in a catalogue that falls back to English words.
+#: Compatibility with the former count-first notation. Current transverse
+#: notation uses translated leg counts and does not call this helper.
 _STIRRUP_MARK: Dict[str, str] = {"en": "s", "es": "e"}
 
 

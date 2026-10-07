@@ -440,8 +440,8 @@ def _plot_bars(ax: "Axes", geometry: SectionGeometry) -> None:
             Circle(
                 (_cm(bar.x), _cm(bar.y)),
                 _cm(bar.d_b) / 2.0,
-                color="#228877" if skin else "#ad641b" if mounting else CUSTOM_COLORS["dark_gray"],
-                fill=True,
+                color="#228877" if skin else CUSTOM_COLORS["mounting"] if mounting else CUSTOM_COLORS["dark_gray"],
+                fill=not mounting,
                 gid="skin_bar" if skin else "mounting_bar" if mounting else "resistant_bar",
             )
         )
@@ -488,14 +488,14 @@ def _annotate_layers(ax: "Axes", geometry: SectionGeometry) -> List[Tuple["Text"
         mounting = tuple(bar for bar in geometry.mounting_bars if bar.face == face)
         if mounting:
             anchor = sum(_cm(bar.y) for bar in mounting) / len(mounting)
-            suffix = "montaje" if get_language() == "es" else "mounting"
+            suffix = translate("mounting")
             label = ax.text(
                 x_text,
                 anchor,
                 f"{_layer_text(mounting, is_us_customary(geometry.width))} ({suffix})",
                 ha="left",
                 va="center",
-                color="#ad641b",
+                color=CUSTOM_COLORS["mounting"],
             )
             labels.append((label, anchor))
     return labels
@@ -762,11 +762,11 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
         geometry = self.detailing_geometry
     except CageDetailingError as error:
         geometry = self.section_geometry
-        detail_error = str(error)
+        detail_error = error
         warnings.warn(
             f"Cage detailing is not feasible: {error}. Showing calculation geometry only.", UserWarning, stacklevel=2
         )
-    if geometry.layout != GRID:
+    if geometry.layout != GRID and (detail_error is None or detail_error.reason != "bend"):
         _plot_stirrups_in_section(ax, geometry)
 
     # Set plot limits with some padding
@@ -852,20 +852,12 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
                 else "Skin reinforcement pending · no flexure verification"
             )
         if detail_error:
-            lines.append(
-                "Solo modelo de cálculo · jaula no detallable"
-                if get_language() == "es"
-                else "Calculation model only · cage detailing not feasible"
-            )
+            lines.append(translate("Calculation model only · cage detailing not feasible"))
         if geometry.stirrups and design_code(self.concrete).max_bar_spacing_tension is not None:
             try:
                 self.flexure_design
             except DesignNotRunError:
-                lines.append(
-                    "Separación por tracción pendiente · sin verificación de flexión"
-                    if get_language() == "es"
-                    else "Tension-bar spacing pending · no flexure verification"
-                )
+                lines.append(translate("Tension-bar spacing pending · no flexure verification"))
         _annotate_cage_text(ax, lines)
     _fit_texts(ax, labels)
 

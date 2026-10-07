@@ -14,222 +14,85 @@ from the release history and are summaries rather than complete lists.
 
 ### Added
 
-- Beam skin-steel detailing proposals for ACI 318-19 / CIRSOC 201-25
-  §9.7.2.3: lateral bars in the h/2 tension zones, including bending
-  reversals, with §24.3.2 spacing based on their actual side cover.
-  `skin_reinforcement` exposes the requirement, and `detailing_geometry.skin_bars`
-  / `plot()` keep them separate from resistant and mounting bars.
-  The configurable `skin_bar_diameter` defaults to 10 mm / No. 3.
-  Pending and unsupported requirements are explicit; infeasible fit is rejected.
+- Skin-steel proposals for ACI/CIRSOC §9.7.2.3, anchored to the actual
+  tension layer, and EN §7.3.3(3) pure rectangular bending. Skin bars remain
+  separate from strength steel and mounting bars. Unsupported and pending
+  cases are explicit, and infeasible detailing carries its cause.
+- `SkinServiceCase` inputs belong to each section, keep stress and neutral
+  axis paired for each SLS case and are invalidated by reinforcement edits.
+  EN checks minimum area in every applicable service zone. Its conservative
+  diameter interpretation is documented as a Mento project rule for review;
+  sparse rows remain allowed with distribution warnings, not a w_k certificate.
+  Annex J surface mesh is independently flagged and remains outside this proposal.
 
-- EN 1992-1-1:2004 §7.3.3(3) skin proposals from h >= 1000 mm,
-  with Eq. (7.1) minimum area and adjusted Table 7.2N diameter control.
-  Explicit cracked-service stress and neutral-axis inputs are required;
-  ultimate checks cannot substitute for them. Bending signs share one
-  uniform grid with the minimum area in each tension zone. Axial cases
-  are unsupported and Annex J surface mesh remains a separate check.
-
-### Fixed
-
-- Cross-section detailing applies the tension-bar spacing cap only to faces
-  put in tension by verified combinations. An unchecked drawing marks that
-  check pending instead of assuming both faces are in tension. The existing
-  calculation/report checks remain in place; mounting steel cannot replace
-  resistant bars, including the face-width check for a single tension bar.
-
-- Beam section drawings now use a supported cage layout. `detailing_geometry`
-  places the calculated bars at stirrup corners and records supplementary
-  `mounting_bars` separately when a face has too few bars, including upper
-  mounting steel on a singly reinforced beam. The additional bars are orange
-  and labelled in the drawing; they are not credited in resistance. The
-  calculated bar counts, sizes, vertical centroids and shear leg spacing are
-  preserved. Clearances, available bar-spacing caps and rounded stirrup bends
-  are checked. An unsuccessful layout raises `CageDetailingError`; `plot()`
-  warns and explicitly labels its fallback as calculation geometry. Mounting
-  diameter is a setting (10 mm or No. 3), rather than a claimed code minimum.
-
-Nothing is removed, but the stirrup text and some report rows change. `str()` of a result
-and the report text are presentation, not API; a program should read the fields.
-
-The example used below is a 150×150 cm CIRSOC 201-25 beam (H-25, ADN 420, c_c 30 mm)
-designed for Mu = 5000 kN·m and Vu = 5000 kN: twelve Ø32 at the bottom and five closed
-stirrups Ø12 every 14 cm.
-
-### Migration notes
-
-- Updated against 1.5.0, preserving imperial output: ASTM bar sizes, inches, kip and
-  in²/ft also apply to the added leg and spacing-limit rows. Shear Word annexes use
-  2 cm top and 1.5 cm bottom margins to fit the extra rows without reducing the font size.
-
-- `str()` of `TransverseReinforcement`, `ShearDesign` and `StirrupOption` on a beam reads
-  `10 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)` instead of
-  `5eØ12 mm/14 cm`, and is always English. Read `n_stirrups`, `n_legs`, `d_b`, `s_l`, `s_w`
-  and `s_max_w` instead of parsing it; use `notation(language)` for another language.
-- `format_transverse_rebar(...)` returns the new text for the same positional call.
-- `str(beam.reinforcement)` changes in its stirrup part.
-- The `BeamSummary.check()` "Av" cell changes text (`10 legs Ø12/14` for `5eØ12/14`) and
-  follows `set_language` (a program that exported it with `to_excel` sees the new text).
-  It follows the concrete unit system, like the "As" cells beside it: mm/cm in SI,
-  ASTM sizes and inches in US customary, whatever unit the `sl` column is given in, and prints a spacing that is not whole as it is (`2 legs Ø6/7.5`) instead of
-  truncating it (`1eØ6/7`). The Word Beam Data table keeps `ns`, the number of closed
-  stirrups.
-- The shear strength table has two more rows for every beam (`nl`, `sw`); under ACI 318-19
-  and CIRSOC 201-25 it adds four rows for every element — beams, slabs and footings — and
-  under EN 1992-1-1 two for beams. The limits table gains a row where §9.7.6.4.3 applies,
-  and its across-width row is renamed. A program that reads these tables by position
-  should read them by label.
-- An explicit `language` given to `notation()`, `arrangement()` or the functions behind
-  them must be one of `available_languages()`: `notation("es-AR")` raises `ValueError`,
-  as `set_language("es-AR")` does, instead of falling back to English.
-- The example notebooks of the documentation still show the 1.3.0 notation and drawings
-  in their stored outputs until they are re-run; the user guides show the new ones.
-
-### Added
-
-- **The row of Table 9.7.6.2.2 is recorded by the check.** The ACI 318-19 / CIRSOC 201-25
-  shear equations gain `stirrup_spacing_threshold(f_c, A_cv)` — 0.33·√f'c·bw·d, 4·√f'c·bw·d
-  in psi, with the plain root (the table has no §22.5.3.1 ceiling and no λ) — and
-  `stirrup_spacing_halved(V_s_req, f_c, A_cv)`, which `max_stirrup_spacing` now calls, so
-  the row is decided in one place and every limit is the same number as before. The
-  check state keeps both (`V_s_threshold`, `spacing_halved`) beside the limits it set. On
-  the 150×150 example V_s,req = 4828.12 kN passes 3568.95 kN, which is why both limits
-  are 20 cm.
-- **The stirrup spacing limits are public.** One name, one meaning:
-  `ShearDesign.s_max_w` is the across-width limit on the legs (Table 9.7.6.2.2; EN
-  Expression (9.8N)), `s_max_l_table` the along-length limit of that same table (EN
-  (9.6N), with the 400 mm cap that is mento's own), `s_max_l_support` the §9.7.6.4.3 cap
-  on stirrups that brace compression bars (`None` where the code has no such clause or
-  the section relies on none), and `s_max_l` the along-length limit the stirrups are held
-  to, the least of the two. They are envelopes, the tightest of every combination — what
-  the warnings hold the stirrups to: on the 150×150 example checked with a second
-  combination under the threshold (1000 kN·m, 1500 kN, which runs last),
-  `shear_design.s_max_w` is 20 cm while the private `_stirrup_s_max_w` it used to be read
-  from says 40 cm. Each `ShearCheck` carries its own combination's `V_s_req`,
-  `V_s_threshold`, `spacing_halved`, `s_max_l_table` and `s_max_w` (`None` where the code
-  has no such quantity: EN has no threshold, and no limit without stirrups), and each
-  `StirrupOption` the `s_max_l` and `s_max_w` the search held it to. `envelope_shear`
-  envelopes them consistently: the tightest limits, the largest `V_s_req` with the
-  threshold it was compared with, and `spacing_halved` True when any combination took the
-  halved row. The fields are added at the end with defaults, so a result built
-  positionally with the 1.3.0 arguments still builds (ADR-0001).
-- **The section geometry is public.** `beam.section_geometry` returns a frozen
-  `SectionGeometry` (exported from `mento`; module `mento.section_geometry`, built by
-  `build_section_geometry(beam)`): the stirrup legs (`leg_x`), the closed stirrups
-  (`ClosedStirrup`, perimeter first) and crossties (`Crosstie`), and every bar
-  (`BarPosition`: centre, diameter, face, layer, group; `bars_on(face, layer)` filters
-  them), as quantities in the display unit of the section, origin at the bottom-left
-  corner, with `layout` `"stirrups"` or `"grid"`. They are the positions the checks
-  assume, not a drawing's: the legs evenly spread at the `s_w` the shear check reads
-  (`x_i = c_c + d_st/2 + i·s_w`), one perimeter stirrup plus inner stirrups on the 2nd and
-  3rd legs, the 4th and 5th… (indices `(1, 2)`, `(3, 4)`… in `ClosedStirrup.legs`, which
-  count from 0), and the bars one clear spacing apart with the first face at `c_c + d_st`
-  and the layers at the offsets of the effective depth. On the 150×150 example that is
-  ten legs 15.87 cm apart, from 3.6 to 146.4 cm, and twelve Ø32 from 5.8 to 144.2 cm.
-  `to_dict(unit)` gives the same as plain floats (plus `unit` and `layout`), for a
-  consumer that does not speak pint, and `arrangement(language)` the cage in words. A
-  slab strip publishes the section and no bars or legs: it is detailed by spacings, and
-  bars at the beam's clear-spacing rule would contradict its `Ø10/14` label. The legs are
-  not tied to the bars — the checks do not do that either — so an inner leg may sit where
-  there is no bar. A `ShearWall` raises `NotABeamError`.
-- **The shear report says how many legs, how far apart, and why the limits are what
-  they are.** The strength table of a beam gains `Number of legs` (`nl`) and `Leg spacing
-  across width` (`sw`). Under ACI 318-19 and CIRSOC 201-25 every element's table then
-  prints the nominal shear the stirrups must carry (`Vs,req`, `Vu/φ − Vc`, labelled
-  nominal because the `ØVs` row above it is factored), the threshold of Table 9.7.6.2.2
-  (`Vs,lim`, 0.33√f'c·bw·d; 4√f'c·bw·d in psi), the row of the table the check took —
-  `Vs,req > Vs,lim → Table 9.7.6.2.2: d/4 along, d/2 across`, or the `≤` row with d/2 and
-  d — and that row's absolute cap (`s,cap`: ACI 600/300 mm, CIRSOC 400/200 mm). The row is
-  read from the check state, where the equation decided it; nothing is compared again. On
-  the 150×150 example: `nl 10`, `sw 15.87 cm`, `Vs,req 4828.12 kN`, `Vs,lim 3568.95 kN`,
-  the halved row, `s,cap 20.0 cm`. Where the stirrups brace compression bars, the limits
-  table gains a §9.7.6.4.3 row — the spacing against its cap, with the verdict of the
-  warning `stirrup_spacing_exceeds_compression_support` (❌ with no stirrups, as
-  `stirrups_required_for_compression_support` says); `_all_shear_checks_passed` keeps
-  reading the four rows it always read. An EN 1992-1-1 beam prints where its limits come
-  from, one row per expression, (9.6N) with the 400 mm cap named as mento's own and
-  (9.8N). Spanish for every new row.
-- **Notation helpers.** `transverse_notation(layout, n_stirrups, d_b, s_l, s_w, s_max_w,
-  language, *, separator, compact, imperial)` is the notation of quantities that the
-  `notation()` methods call; `cage_legs(n_legs)` and `describe_stirrup_cage(n_legs,
-  language)` the cage as data and as words; `mento.i18n.checked_language(language)` the
-  check of an explicit language. `format_transverse_rebar` gains the keyword-only
-  `n_legs`, `s_max_w`, `language="en"` and `separator=" · "`: English by default, so the
-  1.3.0 call keeps an English result, where `transverse_notation` and the `notation()`
-  methods default to the current language (`None`).
+- `n_legs` input for beam transverse reinforcement and BeamSummary. Legacy
+  `n_stirrups` and `ns` retain their meaning: each counts a two-leg stirrup.
+  Counts must be whole, non-negative and consistent; odd leg counts are rejected.
+- `SectionGeometry`, `beam.section_geometry` and `to_dict()` expose calculation
+  geometry with bar layers and every shear leg. The default export unit follows
+  the section (cm or in); callers can request another length unit explicitly.
+- `beam.detailing_geometry` supplies a supported cage with separate
+  `mounting_bars`. These supplementary bars receive no strength credit and do
+  not replace resistant bars in tension-spacing checks. `mounting_bar_diameter`
+  defaults to 10 mm or No. 3 and is configurable. Its incorporation into the
+  strength model is outside this change and requires a separate proposal.
+- `notation()` and `arrangement()` on transverse reinforcement, shear designs
+  and stirrup options expose translated leg counts and cage descriptions.
+  `cage_legs`, `describe_stirrup_cage` and `transverse_notation` provide the same
+  data and presentation for consumers.
 
 ### Changed
 
-- **Stirrups are written legs first.** A beam's transverse reinforcement reads
-  `10 legs Ø12 mm @ 14 cm · 15.87 cm between legs`, and a design or check result adds the
-  limit the legs are checked against: `… (max 20 cm)`. `5eØ12/14` read like five stirrups
-  one behind the other, and said nothing of the legs or of how far apart they are across
-  the width — the spacing the CIRSOC 201-25 Tabla 9.7.6.2.2 limit forces five stirrups for
-  on the 150×150 example. `notation(language=None, *, separator=" · ", compact=False,
-  imperial=None)` and `arrangement(language=None)` on `TransverseReinforcement`,
-  `ShearDesign` and `StirrupOption` give it in the language of `set_language` (Spanish:
-  `10 ramas Ø12 mm c/14 cm · 15.87 cm entre ramas (máx. 20 cm)`) and describe the cage for
-  whoever details it: `perimeter stirrup + 4 inner stirrups` /
-  `estribo perimetral + 4 interiores` — one perimeter stirrup on the outer legs and inner
-  closed stirrups on pairs of adjacent inner legs, an odd leg left as a crosstie. The
-  spacings across the width are printed in the unit of `s_l`. `compact=True` is the form
-  for a narrow column, `10 legs Ø12/14`: bare numbers, mm and cm, or ASTM sizes and inches with
-  `imperial=True` (left unsaid, it follows the unit of `s_l`). The slab grid notation
-  (`Ø10 mm/8 cm×16 cm`) is unchanged; `no stirrups` is translatable.
-- **Language scope.** `set_language` now also covers the stirrup notation and the cage
-  description asked for through `notation()` / `arrangement()`. `str()` of the results of
-  `mento.design_results` stays English; a `DesignWarning`, whose `str()` is its message,
-  follows the language as its message always did.
-- **The section drawing preserves the checked cage and supplies its supports.**
-  `beam.plot()` draws the supported `beam.detailing_geometry`: the perimeter stirrup
-  and every inner stirrup at the legs the shear check assumes, with calculated bars
-  supporting their rounded corners and supplementary mounting bars shown separately.
-  The uniformly spaced `beam.section_geometry` remains available as calculation data.
-  A group given bars but no diameter is omitted from the label and drawn with no circle.
-  Unsupported layouts use an explicitly labelled calculation view and issue a warning,
-  including stirrups too narrow to accommodate their bends. A slab strip keeps its drawing.
-- **The drawing's text.** A layer's label sits at the height of its bars, and two labels
-  that would print over one another are moved apart. The stirrup text is three lines under
-  the section, below its width — `10 legs Ø12 mm @ 14 cm`, `15.87 cm between legs (max 20
-  cm)` (the maximum once a shear check has run) and `perimeter stirrup + 4 inner
-  stirrups` — in the current language, and the limits are widened until every text fits
-  the figure at its default size, so a plain `savefig` or `plt.show()` does not cut it.
-- **The limits row across the width names its table.** `Leg spacing across width (Table
-  9.7.6.2.2)` on an ACI 318-19 / CIRSOC 201-25 beam (ES `Separación de ramas en el ancho
-  (Tabla 9.7.6.2.2)`), `Stirrup spacing along width (Table 9.7.6.2.2)` on a slab strip, and
-  `Leg spacing across width (§9.2.2(8))` on an EN 1992-1-1 beam, where it read `Stirrup
-  spacing along width`.
+- Beam transverse reinforcement is written by legs, for example
+  `10 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)`.
+  `notation()` follows the requested/current language; `str()` is English.
+  The slab grid notation is preserved. English and Spanish labels are available.
+- Section drawings show calculated bars and their layers, every stirrup leg,
+  separate orange mounting bars, and labels that fit the figure. An infeasible
+  supported layout produces a warning and a labelled calculation view. Rejected
+  stirrup bends are omitted rather than drawn as constructible hairpins.
+- Cross-section mandrel sizes are supplied by the design code: ACI/CIRSOC
+  Table 25.3.2 (4 or 6 diameters) and EN Table 8.1N recommended values (4 or 7).
+  CIRSOC 6/8 mm bends use a declared Mento extrapolation of 4 diameters.
+  These rules do not check anchorage, hooks, EN Eq. 8.1 concrete failure or
+  seismic detailing. ACI/CIRSOC bars above their transverse-bar bend table
+  range are rejected rather than assigned an unverified bend diameter.
+- The Word shear appendix uses 2 cm vertical and 1.5 cm horizontal margins.
+  Leg-spacing and compression-support rows name the applicable clauses;
+  the support row remains informative and does not alter the shear verdict.
 
 ### Fixed
 
-- **The section drawing showed a different cage from the one checked.** It drew at most
-  three stirrups at fixed places: on the 150×150 example, five stirrups Ø12 whose ten legs
-  the check spreads 15.87 cm apart (within the 20 cm of Tabla 9.7.6.2.2) were drawn as
-  three, with legs up to 36.30 cm apart. It drew one stirrup for a beam with none. It drew
-  the second layer of bars, and its label, behind the first layer's first-group diameter
-  `d_b1` instead of behind the larger bar of the layer, as the effective depth has them:
-  with `d_b2 > d_b1` by more than the spacing between layers, a second-layer bar could
-  overlap a first-layer one.
-- The notebook shear line of a slab (`slab.shear_results`) printed `10eØ8/16.0 cm` for a
-  `Ø10/8×16` grid: it read the detail table by position, and a slab's has other rows. It
-  now prints the element's own notation, and reads `A_v` by its row label.
-- The Word shear report printed `ns 5.0`: the column of a pandas DataFrame built from a mix
-  of ints and floats is float. The detail tables are built with object columns now, and
-  `round_for_display` keeps each value's type, so the stirrup and leg counts print as the
-  whole numbers they are (`ns 5`, `nl 10`), and so does a diameter or spacing given as a
-  whole number (every designed beam: `db 12`, `s 14`); one given as a float still reads
-  `12.0`. A float column reads as before.
-- Docs: the ACI 318-19 theory page stated the threshold of Table 9.7.6.2.2 as
-  0.083λ√f'c·Acv; the table, the code and mento use 0.33√f'c·bw·d, with no λ. The page now
-  also gives the CIRSOC 201-25 caps, the leg model and the §9.7.6.4.3 cap. The EN
-  theory page and the docstring of `max_stirrup_spacing` say the 400 mm on Expression
-  (9.6N) is mento's own.
-- Docs: the BeamSummary guide called `ns` the number of stirrup legs; it is the number
-  of closed stirrups, each with two legs, so a list filled in with legs asked for twice
-  the stirrups.
-- Docs: the example of the beams guide printed φMn = 154.95 kNm and φVn = 196.24 kN for
-  a beam its code block did not build (h = 50 cm, one layer). The code block now builds
-  the 20×60 beam with two bottom layers the output shows, and the output is that beam's:
-  φMn = 155.7 kNm (DCR 0.58), φVn = 203.52 kN (DCR 0.39).
+- EN Table 3.1 tensile strength uses its logarithmic expression above C50/60.
+
+- BeamSummary Word reports accept input containing only `n_legs` and display
+  the validated leg count, including blank paired count cells. Excel preserves
+  the supplied count-column convention and the meaning of legacy files.
+- Supported cage layouts require vibrator clearance on the upper face only,
+  consistently with the existing selector and reports. Bottom clear spacing
+  and bar-diameter constraints remain in force.
+- Tension-bar spacing caps apply only to faces put in tension by checked
+  combinations. Unchecked drawings mark this check pending. A single
+  resistant tension bar is checked against the face width; mounting steel
+  cannot substitute for this check.
+- `format_transverse_rebar` keeps the published `bar` keyword. Invalid mounting
+  diameter settings raise `ValueError` and are not swallowed by the plot fallback.
+- Drawings and summaries use the element's transverse notation. Bar labels
+  follow their actual layers, and report counts remain whole numbers.
+- Guides describe `ns` as stirrups and `n_legs` as legs. ACI/CIRSOC shear-limit
+  references and the EN 400 mm implementation cap are stated explicitly.
+
+### Migration notes
+
+- This proposal is based on 1.5.0. Published release entries below are preserved.
+- Human-readable `str()` output and Word/Excel summary cells change. Consumers
+  should use result fields rather than parse notation. Compared with 1.5.0,
+  `str()` of transverse results is now always English; use `notation()` for
+  language-dependent output. The Word Beam Data count header is `n_legs`.
+- Geometry exports without an explicit unit use the section's unit. Detail
+  geometry is a cross-section proposal, not a construction-ready bar schedule.
+- Reinforcement design and resistance results are unchanged by the drawing
+  and input-alias changes. The bend-size hooks affect manual cage geometry.
 
 ## [1.5.0] - 2026-10-05
 

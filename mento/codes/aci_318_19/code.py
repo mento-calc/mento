@@ -43,6 +43,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from mento.codes.aci_318_19.equations import flexure as flexure_eq
+from mento.codes.aci_318_19.equations import shear as shear_eq
 from mento.codes.ACI_318_19_beam import (
     _check_flexure_ACI_318_19,
     _check_shear_ACI_318_19,
@@ -52,9 +54,7 @@ from mento.codes.ACI_318_19_beam import (
     _stirrup_compression_support_ACI_318_19,
 )
 from mento.codes.ACI_318_19_punching import check_punching_ACI_318_19
-from mento.codes.aci_318_19.equations import shear as shear_eq
 from mento.codes.ACI_318_19_wall import _check_shear_ACI_318_19_wall, _design_shear_ACI_318_19_wall
-from mento.codes.aci_318_19.equations import flexure as flexure_eq
 from mento.codes.check_state import (
     apply_flexure_state,
     apply_shear_state,
@@ -63,7 +63,7 @@ from mento.codes.check_state import (
 from mento.codes.registry import DesignCode, register
 from mento.material import Concrete_ACI_318_19, Concrete_CIRSOC_201_25
 from mento.precompute import shown
-from mento.units import cm, dimensionless, inch, kN, kNm, mm, MPa, psi
+from mento.units import MPa, Quantity, cm, dimensionless, inch, kN, kNm, mm, psi
 
 if TYPE_CHECKING:
     from mento.beam import RectangularBeam
@@ -451,6 +451,22 @@ def _initialize_attributes(section: "RectangularBeam") -> None:
     section._A_s_bool_top = False
 
 
+def _stirrup_bend_inner_diameter(concrete: Concrete_ACI_318_19, diameter: Quantity) -> Quantity:
+    """ACI/CIRSOC Table 25.3.2: 4 diameters through No. 16, then 6 through No. 25.
+
+    The in-lb table uses No. 5 (5/8 in) and No. 8 (1 in). CIRSOC
+    permits 6/8 mm stirrups in Table 9.7.6.4.2 but does not tabulate their
+    bends in Table 25.3.2; using 4 diameters there is a Mento extrapolation.
+    Larger manually specified bars are outside this transverse-bar table.
+    """
+    small = 0.625 * inch if concrete.is_imperial else 16 * mm
+    maximum = 25 * mm if isinstance(concrete, Concrete_CIRSOC_201_25) else 1 * inch
+    size_mm = float(diameter.to(mm).magnitude)
+    if size_mm > float(maximum.to(mm).magnitude) + 1e-8:
+        raise ValueError("Stirrup diameter exceeds the transverse-bar bend table's supported range.")
+    return (4 if size_mm <= float(small.to(mm).magnitude) + 1e-8 else 6) * diameter
+
+
 def _transverse_rebar_aci(rebar: "Rebar", V_s_req: Any, alpha: float) -> Any:
     return rebar.transverse_rebar_ACI_318_19(V_s_req)
 
@@ -471,6 +487,7 @@ _COMMON = dict(
     design_shear=_design_shear_ACI_318_19,
     design_flexure=_design_flexure_ACI_318_19,
     longitudinal_rebar=_longitudinal_rebar_aci,
+    stirrup_bend_inner_diameter=_stirrup_bend_inner_diameter,
     initialize_attributes=_initialize_attributes,
     check_shear_wall=_check_shear_ACI_318_19_wall,
     # CIRSOC 201-25 reuses the ACI wall design; its bar catalogue is
