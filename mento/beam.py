@@ -1831,7 +1831,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         """Required compression-steel support in the modelled cross-section.
 
         Status is passed, failed, pending, not_required or not_applicable.
-        Does not change resistance or the pending global-verdict policy.
+        Does not change resistance; the detailing state covers modelled checks.
         """
         from mento.compression_detailing import check_compression_detailing
         from mento.cage_detailing import CageDetailingError, build_cage_detailing
