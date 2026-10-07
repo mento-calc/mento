@@ -1678,6 +1678,19 @@ def test_second_layer_only_has_an_explicit_reinforcement_label(sample_concrete, 
     assert summary._rebar_labels(summary.nodes[0].section)[1] == "2Ø16"
 
 
+@pytest.mark.parametrize("component,unit", [("V_y", kN), ("M_x", kNm), ("M_z", kNm)])
+def test_export_rejects_unsupported_forces_added_after_construction(sample_concrete, sample_steel, component, unit):
+    beam = RectangularBeam(
+        label="V1", concrete=sample_concrete, steel_bar=sample_steel, width=20 * cm, height=50 * cm, c_c=25 * mm
+    )
+    summary = BeamSummary.from_nodes(sample_concrete, sample_steel, [Node(beam, [Forces(label="C1")])])
+    summary.nodes[0].add_forces(Forces(label="C2", **{component: 10 * unit}))
+    with pytest.raises(SummaryInputError) as raised:
+        summary.to_excel(io.BytesIO())
+    assert raised.value.code == "node_not_representable"
+    assert component in str(raised.value)
+
+
 @pytest.mark.parametrize("concrete_type", [Concrete_ACI_318_19, Concrete_CIRSOC_201_25])
 def test_axial_warning_at_the_boundary_is_localized_and_does_not_require_chapter_ten(concrete_type, sample_steel):
     concrete = concrete_type(name="C25", f_c=25 * MPa)

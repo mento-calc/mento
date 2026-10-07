@@ -705,6 +705,13 @@ class _TwoTableSummary:
         units = self._units["forces"]
         rows = []
         for key, node, notes in zip(self._keys, self._nodes, self._force_notes):
+            for component in ("M_x", "V_y", "M_z"):
+                if any(getattr(force, "_" + component).magnitude != 0 for force in node.forces):
+                    raise SummaryInputError(
+                        "node_not_representable",
+                        label=repr(key_text(key)),
+                        reason=f"an unsupported force component {component}, which the forces table has no column for",
+                    )
             for force, note in zip(node.forces, notes + [""] * (len(node.forces) - len(notes))):
                 values = {"Nx": force._N_x, "Vz": force._V_z, "My": force._M_y}
                 rows.append({"Level": key[0], "Label": key[1], "Comb.": force.label or "", "Notes": note, **values})
