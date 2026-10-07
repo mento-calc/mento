@@ -46,5 +46,6 @@ def test_word_rechecks_real_forces_after_capacity_check(monkeypatch):
         table = next(t for t in tables if any(c in ("Resistance", "Resistencia") for c in t[0]))
         row = next(row for row in table if row[0] == "V2")
         assert row[1] == "No cumple"
+        assert row[2] == "No cumple"
     finally:
         set_language("en")
