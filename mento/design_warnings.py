@@ -202,7 +202,13 @@ _MESSAGES: Dict[str, str] = {
         "it is excluded from resistance."
     ),
     "skin_reinforcement_pending": "Skin reinforcement is pending: verify flexure to identify the tension face.",
+    "skin_tension_case_pending": "Skin reinforcement is pending: the checked combinations identify no tension face. A zero-moment or capacity check does not establish an exemption.",
     "skin_detailing_invalid": "The skin reinforcement preference cannot satisfy the detailing limits.",
+    "skin_distribution_review": (
+        "Review skin-steel distribution for the {face} tension case: {rows} rows per side in its service zone, "
+        "largest vertical interval {gap}, including zone boundaries. This is informative, not an additional code "
+        "spacing limit; the diameter-route proposal does not verify crack width directly."
+    ),
     "skin_en_required": "EN §7.3.3(3): longitudinal skin steel is required; minimum {area} per side, adjusted maximum diameter {diameter}. Excluded from resistance.",
     "skin_en_service_pending": "EN skin detailing is pending: supply cracked-service steel stress and neutral-axis depth; ultimate forces cannot replace them.",
     "skin_en_axial_unsupported": "EN skin detailing with axial force is not supported; the pure-bending skin proposal cannot be used.",
@@ -789,6 +795,10 @@ def skin_warnings(beam: "RectangularBeam") -> List[_Raw]:
     if requirement.status == "not_applicable":
         return []
     result: List[_Raw] = []
+    for face, rows, gap in requirement.distribution_reviews:
+        result.append(_Raw("skin_distribution_review", {"rows": rows, "gap": gap}, face=face))
+    if requirement.pending_reason == "no_tension_case":
+        result.append(_Raw("skin_tension_case_pending", {}))
     if beam.concrete.design_code == "EN 1992-2004":
         if beam.c_c + beam._stirrup_d_b > 70 * mm or any(bar.d_b > 32 * mm for bar in beam.section_geometry.bars):
             result.append(_Raw("skin_en_surface_pending", {}))
@@ -800,10 +810,10 @@ def skin_warnings(beam: "RectangularBeam") -> List[_Raw]:
             result.append(
                 _Raw("skin_en_required", {"area": requirement.area_min_per_side, "diameter": requirement.diameter_max})
             )
-        elif requirement.status == "pending":
+        elif requirement.status == "pending" and requirement.pending_reason != "no_tension_case":
             result.append(_Raw("skin_reinforcement_pending", {}))
     elif requirement.status == "required":
         result.append(_Raw("skin_reinforcement_required", {"s_max": requirement.s_max}))
-    elif requirement.status == "pending":
+    elif requirement.status == "pending" and requirement.pending_reason != "no_tension_case":
         result.append(_Raw("skin_reinforcement_pending", {}))
     return result

@@ -102,8 +102,28 @@ def test_unchecked_deep_beam_and_zero_moment():
     plt.close(fig)
     set_language("en")
     b.check_flexure([Forces(M_y=0 * kNm)])
-    assert b.skin_reinforcement.status == "not_required"
+    assert b.skin_reinforcement.status == "pending"
+    assert b.skin_reinforcement.pending_reason == "no_tension_case"
+    assert "skin_tension_case_pending" in [w.code for w in b.warnings]
     assert not b.detailing_geometry.skin_bars
+
+
+def test_en_zero_moment_stays_pending_and_pure_axial_is_unsupported():
+    from mento.units import kN
+
+    b = en_beam()
+    b.check_flexure([Forces(M_y=0 * kNm)])
+    assert b.skin_reinforcement.status == "pending"
+    assert b.skin_reinforcement.pending_reason == "no_tension_case"
+    assert "skin_tension_case_pending" in [w.code for w in b.warnings]
+    fig = b.plot()
+    assert any("no tension case identified" in text.get_text() for text in fig.axes[0].texts)
+    assert not any("no flexure verification" in text.get_text() for text in fig.axes[0].texts)
+    plt.close(fig)
+    b.check_flexure([Forces(N_x=100 * kN, M_y=0 * kNm)])
+    assert b.skin_reinforcement.status == "unsupported"
+    assert b.skin_reinforcement.pending_reason == "axial"
+    assert "skin_en_axial_unsupported" in [w.code for w in b.warnings]
 
 
 def test_diameter_is_configurable_and_not_a_code_minimum():
@@ -223,6 +243,36 @@ def test_en_inclusive_one_metre_boundary(height, required):
     b.check_flexure([Forces(M_y=100 * kNm)])
     assert (b.skin_reinforcement.status == "required") == required
     assert bool(b.detailing_geometry.skin_bars) == required
+
+
+@pytest.mark.parametrize("height, rows, gap", [(1000, 1, 356), (1200, 2, 304)])
+def test_en_keeps_its_distribution_and_warns_with_the_actual_zone_intervals(height, rows, gap):
+    b = en_beam(height * mm)
+    b.check_flexure([Forces(M_y=100 * kNm)])
+    before = b.skin_reinforcement
+    geometry = b.detailing_geometry
+    assert before.n_per_side == rows
+    assert len(geometry.skin_bars) == 2 * rows
+    try:
+        for language in ("en", "es"):
+            set_language(language)
+            warning = next(w for w in b.warnings if w.code == "skin_distribution_review")
+            assert warning.face == "bottom"
+            assert warning.values["rows"] == rows
+            assert warning.values["gap"].to("mm").magnitude == pytest.approx(gap)
+            assert ("not an additional code" if language == "en" else "no un límite normativo") in warning.message
+            assert b.skin_reinforcement == before
+            assert b.detailing_geometry == geometry
+            fig = b.plot()
+            labels = [text.get_text() for text in fig.axes[0].texts]
+            assert any(("Review skin" if language == "en" else "Revisar piel") in text for text in labels)
+            assert any(
+                ("crack width is not calculated" if language == "en" else "no se calcula el ancho de fisura") in text
+                for text in labels
+            )
+            plt.close(fig)
+    finally:
+        set_language("en")
 
 
 def test_en_minimum_and_diameter_route_use_characteristic_strength_and_half_service_stress():

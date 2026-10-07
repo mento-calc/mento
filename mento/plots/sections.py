@@ -35,7 +35,7 @@ from mento.results import CUSTOM_COLORS
 from mento.section_geometry import BarPosition, Crosstie, SectionGeometry
 from mento.cage_detailing import CageDetailingError
 from mento.codes.registry import design_code
-from mento.i18n import get_language
+from mento.i18n import get_language, translate
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -804,14 +804,33 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
                 if get_language() == "es"
                 else f"Skin: {notation} per side · s={skin.spacing.to(unit):.3g~P} · excluded from resistance"
             )
+            for face, rows, gap in skin.distribution_reviews:
+                lines.append(
+                    translate(
+                        "Review skin ({face}): {rows} rows · max interval {gap}",
+                        face=translate(face.capitalize()),
+                        rows=rows,
+                        gap=f"{gap.to(unit):.3g~P}",
+                    )
+                )
+            if skin.distribution_reviews:
+                lines.append(translate("Informative review · crack width is not calculated"))
         try:
             pending_requirement = self.skin_reinforcement
             skin_pending = pending_requirement.status == "pending"
             service_pending = pending_requirement.pending_reason == "service"
+            tension_case_pending = pending_requirement.pending_reason == "no_tension_case"
         except CageDetailingError:
             skin_pending = False
             service_pending = False
-        if skin_pending and service_pending:
+            tension_case_pending = False
+        if skin_pending and tension_case_pending:
+            lines.append(
+                "Armadura de piel pendiente · sin caso de tracción identificado"
+                if get_language() == "es"
+                else "Skin reinforcement pending · no tension case identified"
+            )
+        elif skin_pending and service_pending:
             lines.append(
                 "Piel EN pendiente · faltan datos de servicio"
                 if get_language() == "es"

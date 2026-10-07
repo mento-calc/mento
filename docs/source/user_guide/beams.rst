@@ -358,6 +358,21 @@ area_min_per_side, area_per_side, diameter_max and actual rows.
 The spacing describes the proposal; s_max is None because the selected
 diameter method does not introduce a separate code spacing cap.
 
+The proposal retains a single row when the minimum area permits it. It does
+not impose a Mento minimum of two rows. ``skin_distribution_review`` reports
+the number of rows per lateral face inside each service tension zone and its
+largest vertical interval, including gaps to the zone boundaries. This
+informative warning accompanies every EN proposal so that sparse layouts
+remain visible for engineering review. These intervals are not clear
+distances between bar surfaces or an additional EN spacing limit. The
+diameter-route proposal does not directly calculate or certify crack width.
+The drawing displays this review alongside the actual skin-steel proposal.
+
+A zero-moment or capacity-only check on a section within the skin-steel
+scope leaves the requirement ``pending`` with reason ``no_tension_case``;
+it does not establish that skin reinforcement is unnecessary. EN axial
+cases are ``unsupported`` even when their moment is zero.
+
 Missing service inputs produce pending and no skin bars. Invalid inputs,
 an excessive diameter or a physical clash raise CageDetailingError.
 Axial-force combinations explicitly report unsupported: the pure-bending

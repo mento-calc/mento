@@ -32,6 +32,17 @@ def _length(value: object, name: str) -> float:
 
 
 def requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
+    """Web steel — EN 1992-1-1:2004 §7.3.3(3), for pure rectangular bending.
+
+    Minimum area: §7.3.2(2), Eq. (7.1), with kc=0.4 from Eq. (7.2),
+    k=0.5 and sigma_s=f_yk as specified by §7.3.3(3). Mento splits the
+    total area equally between the two sides. Diameter control uses
+    §7.3.3(2), Table 7.2N and Eq. (7.7N): §7.3.3(3) explicitly asks
+    to assume pure tension and half the main service steel stress here,
+    although the beam itself is in bending. Rounding stress up to a table
+    row and selecting an equally spaced grid are Mento detailing choices.
+    This is distinct from informative Annex J, §J.1(1)-(3), surface mesh.
+    """
     from mento.cage_detailing import CageDetailingError
     from mento.material import Concrete_EN_1992_2004
 
@@ -41,10 +52,10 @@ def requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
     if not beam._flexure_checked or not beam.flexure_checks:
         return SkinReinforcementRequirement("pending", threshold)
     faces = tuple(face for face in ("bottom", "top") if any(getattr(c, face).DCR > 0 for c in beam.flexure_checks))
-    if not faces:
-        return SkinReinforcementRequirement("not_required", threshold)
     if any(check.has_axial_force for check in beam.flexure_checks):
         return SkinReinforcementRequirement("unsupported", threshold, faces, pending_reason="axial")
+    if not faces:
+        return SkinReinforcementRequirement("pending", threshold, pending_reason="no_tension_case")
     concrete = beam.concrete
     assert isinstance(concrete, Concrete_EN_1992_2004)
     settings = beam.settings
@@ -137,6 +148,15 @@ def requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
             break
     else:
         raise CageDetailingError("The EN skin-steel envelope cannot be distributed.")
+    # Keep the diameter-route proposal, including a single row where its
+    # minimum area permits it. Expose the actual distribution for engineering
+    # review; do not invent a spacing limit from the alternative Table 7.3N.
+    reviews = []
+    for face, (a, b) in zip(faces, zones):
+        zone_rows = tuple(y for y in rows if a - 1e-9 <= y <= b + 1e-9)
+        levels = (a, *zone_rows, b)
+        largest_gap = max(right - left for left, right in zip(levels, levels[1:]))
+        reviews.append((face, len(zone_rows), largest_gap * mm))
     return SkinReinforcementRequirement(
         "required",
         threshold,
@@ -149,4 +169,5 @@ def requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
         area_min_per_side=amin * mm**2,
         area_per_side=count * abar * mm**2,
         diameter_max=dmax * mm,
+        distribution_reviews=tuple(reviews),
     )

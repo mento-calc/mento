@@ -47,6 +47,10 @@ class SkinReinforcementRequirement:
     area_per_side: Quantity | None = None
     diameter_max: Quantity | None = None
     pending_reason: str | None = None
+    # Informative layout review: (tension face, rows in its service zone,
+    # largest vertical interval, including gaps to the zone boundaries).
+    # This is not an additional code spacing limit or a crack-width check.
+    distribution_reviews: tuple[tuple[str, int, Quantity], ...] = ()
 
 
 def skin_requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
@@ -68,7 +72,7 @@ def skin_requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
         face for face in ("bottom", "top") if any(getattr(check, face).DCR > 0 for check in beam.flexure_checks)
     )
     if not faces:
-        return SkinReinforcementRequirement("not_required", threshold)
+        return SkinReinforcementRequirement("pending", threshold, pending_reason="no_tension_case")
     settings = beam.settings
     assert settings is not None
     diameter = settings.skin_bar_diameter
