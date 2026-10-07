@@ -351,7 +351,7 @@ def _min_max_flexural_reinforcement_ratio_EN_1992_2004(
 #: Stress distribution coefficient k_c of EN 1992-1-1 §7.3.2(2) for a
 #: rectangular section in pure bending, derived from Eq. (7.2) at sigma_c = 0.
 #: Axial loading requires Eq. (7.2); flanges use Eq. (7.3). This constant does
-#: not implement either case. The footing axial scope remains under review.
+#: not implement either case. EN footings with nonzero axial force are rejected as not supported by Mento.
 _K_C_BENDING = 0.4
 
 
