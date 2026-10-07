@@ -217,7 +217,7 @@ _MESSAGES: Dict[str, str] = {
     "skin_en_required": "EN §7.3.3(3): longitudinal skin steel is required; minimum {area} per side, adjusted maximum diameter {diameter}. Excluded from resistance.",
     "skin_en_service_pending": "EN skin detailing is pending: supply cracked-service steel stress and neutral-axis depth; ultimate forces cannot replace them.",
     "skin_en_axial_unsupported": "EN skin detailing with axial force is not supported; the pure-bending skin proposal cannot be used.",
-    "skin_en_surface_pending": "EN Annex J surface reinforcement outside the links requires a separate check for large bars or cover greater than 70 mm; longitudinal skin bars do not replace it.",
+    "skin_en_surface_pending": "EN surface reinforcement outside the links requires separate review: Annex J covers bars >32 mm, equivalent bundles >32 mm (bundles are not modelled; check separately), or cover >70 mm. Section 8.8(8) specifies 0.01*A_ct,ext perpendicular and 0.02*A_ct,ext parallel to large bars. Longitudinal skin bars do not replace this mesh.",
     "As_below_min": (
         "Steel on the {face}: A_s = {A_s} is below the minimum it has to meet, A_s,min,eff = {A_s_min_eff}."
     ),
@@ -790,23 +790,29 @@ def collect(raws: List[_Raw]) -> Tuple[DesignWarning, ...]:
 
 def skin_warnings(beam: "RectangularBeam") -> List[_Raw]:
     """Flag the supplementary requirement even when a strength DCR is below 1."""
-    from mento.cage_detailing import CageDetailingError
+    from mento.cage_detailing import CageDetailingError, build_cage_detailing
     from mento.skin_reinforcement import skin_requirement
 
     requirement = None
     result: List[_Raw] = []
+    base_feasible = True
+    try:
+        build_cage_detailing(beam, include_skin=False)
+    except CageDetailingError as error:
+        base_feasible = False
+        result.append(_Raw("cage_detailing_infeasible", {"reason": str(error)}))
     try:
         requirement = skin_requirement(beam)
     except CageDetailingError as error:
         result.append(_Raw("skin_detailing_invalid", {"reason": str(error)}))
     if requirement is not None and requirement.status == "not_applicable":
-        return []
+        return result
     hook = design_code(beam.concrete).skin_warnings
     if hook is not None:
         result.extend(hook(beam, requirement))
     if requirement is None:
         return result
-    if requirement.status == "required":
+    if requirement.status == "required" and base_feasible:
         try:
             beam.detailing_geometry
         except CageDetailingError as error:

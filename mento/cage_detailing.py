@@ -242,10 +242,14 @@ def build_cage_detailing(beam: RectangularBeam, *, include_skin: bool = True) ->
     if include_skin:
         geometry = add_skin_bars(beam, geometry)
     all_bars = bars + mounting_bars + list(geometry.skin_bars)
+    skin_ids = {id(bar) for bar in geometry.skin_bars}
     for index, bar in enumerate(all_bars):
         radius = _mm(bar.d_b) / 2
         if not radius <= _mm(bar.y) <= _mm(geometry.height) - radius:
-            raise CageDetailingError("The supported bars do not fit within the section height.")
+            raise CageDetailingError(
+                "The supported bars do not fit within the section height.",
+                reason="skin" if id(bar) in skin_ids else "layout",
+            )
         for stirrup in geometry.stirrups:
             half_w = _mm(stirrup.x_right - stirrup.x_left) / 2
             half_h = _mm(stirrup.y_top - stirrup.y_bottom) / 2
@@ -256,12 +260,16 @@ def build_cage_detailing(beam: RectangularBeam, *, include_skin: bool = True) ->
             dy = abs(_mm(bar.y - (stirrup.y_bottom + stirrup.y_top) / 2)) - (half_h - bend)
             distance_to_line = abs(math.hypot(max(dx, 0), max(dy, 0)) + min(max(dx, dy), 0) - bend)
             if distance_to_line < radius + d_st / 2 - 1e-8:
-                raise CageDetailingError("A longitudinal bar would intersect a stirrup branch or bend.")
+                raise CageDetailingError(
+                    "A longitudinal bar would intersect a stirrup branch or bend.",
+                    reason="skin" if id(bar) in skin_ids else "layout",
+                )
         for other in all_bars[index + 1 :]:
             distance = math.hypot(_mm(bar.x - other.x), _mm(bar.y - other.y))
             required = (_mm(bar.d_b) + _mm(other.d_b)) / 2 + _mm(settings.clear_spacing)
             if distance < required - 1e-8:
                 raise CageDetailingError(
-                    "The supported cage leaves insufficient clear spacing between longitudinal bars."
+                    "The supported cage leaves insufficient clear spacing between longitudinal bars.",
+                    reason="skin" if id(bar) in skin_ids or id(other) in skin_ids else "layout",
                 )
     return geometry

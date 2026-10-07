@@ -34,8 +34,12 @@ def _length(value: object, name: str) -> float:
 def warnings(beam: RectangularBeam, req: SkinReinforcementRequirement | None) -> list:
     """EN warnings and informative Annex J review, independent of web fit.
 
-    Annex J §J.1(1)-(3) refers to cover outside the links. Its recommended
-    thresholds and applicability must be reviewed against the National Annex.
+    J.1(1) covers bars or equivalent bundles >32 mm; J.1(3) covers
+    cover >70 mm. These are strict thresholds in the base text. Bundles
+    are not modelled and must be reviewed separately. Annex J is informative;
+    National Annex choices affect its application and areas. Section 8.8(8)
+    separately specifies 0.01*A_ct,ext perpendicular and 0.02*A_ct,ext
+    parallel to large bars. Neither surface mesh is designed here.
     """
     from mento.design_warnings import _Raw
 

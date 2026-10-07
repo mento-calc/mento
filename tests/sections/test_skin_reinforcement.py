@@ -512,3 +512,48 @@ def test_en_axial_case_has_an_explicit_unsupported_plot_caption():
     fig = b.plot()
     assert any("Skin not checked" in t.get_text() for t in fig.axes[0].texts)
     plt.close(fig)
+
+
+def test_skin_stirrup_collision_keeps_the_base_cage_mounting():
+    from mento.cage_detailing import build_cage_detailing
+
+    b = beam(
+        height=100 * cm,
+        width=60 * cm,
+        concrete=Concrete_EN_1992_2004(name="C25", f_c=25 * MPa),
+        steel=SteelBar(name="B500", f_y=500 * MPa),
+    )
+    b.set_longitudinal_rebar_top(n1=0, d_b1=0 * mm)
+    b.set_transverse_rebar(1, 20 * mm, 20 * cm)
+    b.check_flexure([Forces(M_y=100 * kNm)])
+    b.set_skin_service_cases([SkinServiceCase("SLS", "bottom", 400 * MPa, 800 * mm)])
+    base = build_cage_detailing(b, include_skin=False)
+    assert len(base.mounting_bars) == 2
+    with pytest.raises(CageDetailingError) as raised:
+        b.detailing_geometry
+    assert raised.value.reason == "skin"
+    codes = [w.code for w in b.warnings]
+    assert "skin_detailing_infeasible" in codes
+    assert "cage_detailing_infeasible" not in codes
+    with pytest.warns(UserWarning, match="skin"):
+        fig = b.plot(show=False)
+    assert sum(p.get_gid() == "mounting_bar" for p in fig.axes[0].patches) == 2
+    plt.close(fig)
+
+
+@pytest.mark.parametrize("height", [80, 120])
+def test_base_cage_warning_does_not_depend_on_required_skin(height):
+    b = beam(height=height * cm)
+    b.set_transverse_rebar(1, 40 * mm, 20 * cm)
+    b.check_flexure([Forces(M_y=100 * kNm)])
+    assert "cage_detailing_infeasible" in [w.code for w in b.warnings]
+
+
+@pytest.mark.parametrize("cover,diameter,pending", [(70, 32, False), (71, 32, True), (70, 40, True)])
+def test_en_surface_review_strict_thresholds(cover, diameter, pending):
+    from mento.codes.en_1992_2004.skin import warnings as en_warnings
+
+    b = beam(height=80 * cm, cover=cover * mm, concrete=Concrete_EN_1992_2004(name="C25", f_c=25 * MPa))
+    b.set_longitudinal_rebar_bot(n1=2, d_b1=diameter * mm)
+    codes = [w.code for w in en_warnings(b, None)]
+    assert ("skin_en_surface_pending" in codes) is pending
