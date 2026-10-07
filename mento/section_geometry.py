@@ -20,7 +20,7 @@ Each position is the check's own model, and a test ties each one to it:
 - **Cage**: one perimeter closed stirrup on the outermost legs and inner
   closed stirrups on the 2nd and 3rd legs, the 4th and 5th, and so on --
   indices ``(1, 2)``, ``(3, 4)``... in :attr:`ClosedStirrup.legs`, which
-  counts from 0; an odd leg left over is a crosstie (see
+  counts from 0; odd counts are rejected (see
   :func:`mento.design_results.cage_legs`).
 - **Bars**: each layer spread evenly between the inner faces of the outer
   legs, one clear distance apart -- the clear spacing the check reads
@@ -98,12 +98,11 @@ class ClosedStirrup:
 
 @dataclass(frozen=True)
 class Crosstie:
-    """A single leg with a hook at each end, the leftover leg of an odd count.
+    """Geometry container for a manually supplied tie.
 
-    ``hooks`` are the bend angles of its bottom and top ends in degrees: one
-    135° and one 90° hook, as ACI 318-19 §25.3.5 / CIRSOC 201-25 §25.3.5
-    describe a crosstie. mento's shear design never produces one; it is here
-    for a cage described from a given leg count.
+    Odd counts are rejected by the cage helpers. This container does not
+    imply that Mento generates or verifies an odd-leg cage or its anchorage.
+    ``hooks`` stores the supplied end angles in degrees.
     """
 
     leg: int
