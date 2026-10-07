@@ -1,19 +1,28 @@
 """Tests for ShearWallSummary class."""
 
 import math
-
-import pytest
-import pandas as pd
 import os
 
-from mento import (
-    Concrete_ACI_318_19,
-    SteelBar,
-    ShearWallSummary,
-    MPa,
-    psi,
-    ksi,
-)
+import pandas as pd
+import pytest
+
+from mento import Concrete_ACI_318_19, MPa, ShearWallSummary, SteelBar, ksi, psi
+from mento.units import cm, mm
+
+
+def test_export_converts_design_to_declared_units(tmp_path, concrete, sample_df):
+    summary = ShearWallSummary(concrete, SteelBar(name="ADN420", f_y=420 * MPa), sample_df)
+    summary.design_data = summary.data.copy()
+    # The design may produce cm while the original table declares mm.
+    summary.design_data["cc"] = 2.5 * cm
+    path = tmp_path / "mixed_units.xlsx"
+    summary.export_design(str(path))
+    exported = pd.read_excel(path)
+    assert exported.iloc[0]["cc"] == "mm"
+    assert exported.iloc[1:]["cc"].astype(float).tolist() == [25.0] * (len(exported) - 1)
+    assert summary.design_data.iloc[0]["cc"] == 25 * mm
+    imported = ShearWallSummary(concrete, summary.steel_bar, exported)
+    assert imported.data.iloc[0]["cc"] == 25 * mm
 
 
 # ------------------------------------------------------------------

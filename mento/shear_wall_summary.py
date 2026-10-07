@@ -1,22 +1,22 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List, Optional, Tuple
 from collections import OrderedDict
+from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 from pandas import DataFrame
 
+from mento import MPa, cm, ft, inch, kip, kN, kNm, m, mm
 from mento.bar_sizes import bar_designation
 from mento.beam_summary import _declared, _is_unlabelled
 from mento.design_results import spacing_separator
-from mento.material import Concrete, SteelBar
 from mento.forces import Forces
-from mento.shear_wall import ShearWall
-from mento import mm, cm, kN, m, kNm, MPa, inch, ft, kip
 from mento.i18n import translate_dataframe
+from mento.material import Concrete, SteelBar
 from mento.node import Node
 from mento.reports.summaries import wall_summary_doc
+from mento.shear_wall import ShearWall
 
 
 def _wall_passes(wall: ShearWall) -> bool:
@@ -331,8 +331,13 @@ class ShearWallSummary:
             raise AttributeError("No design data found. Run .design() before exporting.")
 
         df_numeric = self.design_data.copy()
+        units_by_column = dict(zip(self.wall_list.columns, self.units_row))
         for col in df_numeric.columns:
-            df_numeric[col] = df_numeric[col].apply(lambda x: x.magnitude if hasattr(x, "magnitude") else x)
+            unit_name = units_by_column[col]
+            unit = self.get_unit_variable(unit_name) if unit_name else None
+            df_numeric[col] = df_numeric[col].apply(
+                lambda x, u=unit: x.to(u).magnitude if hasattr(x, "magnitude") and u else x
+            )
 
         df_export = pd.concat(
             [
