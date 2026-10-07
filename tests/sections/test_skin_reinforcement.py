@@ -144,10 +144,32 @@ def test_invalid_skin_preference_is_rejected_with_labelled_plot_fallback(diamete
     b.check_flexure([Forces(M_y=100 * kNm)])
     with pytest.raises(CageDetailingError):
         _ = b.detailing_geometry
-    with pytest.warns(UserWarning, match="Cage detailing is not feasible"):
+    with pytest.warns(UserWarning, match="Skin detailing is not feasible"):
         fig = b.plot()
-    assert any("Calculation model only" in t.get_text() for t in fig.axes[0].texts)
+    assert any("Skin proposal not shown" in t.get_text() for t in fig.axes[0].texts)
     plt.close(fig)
+
+
+def test_invalid_skin_keeps_valid_mounting_steel_in_the_plot():
+    b = beam(width=60 * cm)
+    b.set_longitudinal_rebar_top(n1=0, d_b1=0 * mm)
+    b.check_flexure([Forces(M_y=100 * kNm)])
+    b.settings.skin_bar_diameter = 0 * mm
+    with pytest.warns(UserWarning, match="Skin detailing is not feasible"):
+        fig = b.plot(show=False)
+    assert any(p.get_gid() == "mounting_bar" for p in fig.axes[0].patches)
+    assert not any(p.get_gid() == "skin_bar" for p in fig.axes[0].patches)
+    assert not any("Calculation model only" in t.get_text() for t in fig.axes[0].texts)
+    plt.close(fig)
+
+
+def test_a_base_cage_failure_is_not_reported_as_a_skin_failure():
+    b = beam(width=60 * cm)
+    b.set_transverse_rebar(1, 40 * mm, 20 * cm)
+    b.check_flexure([Forces(M_y=100 * kNm)])
+    codes = [warning.code for warning in b.warnings]
+    assert "cage_detailing_infeasible" in codes
+    assert "skin_detailing_infeasible" not in codes
 
 
 def test_skin_cap_uses_actual_side_cover_without_rejecting_feasible_high_cover():

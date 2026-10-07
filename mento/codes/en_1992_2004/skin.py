@@ -119,7 +119,9 @@ def requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
             raise CageDetailingError(f"Skin service case {case.label!r}: {error}") from error
         x = _length(case.neutral_axis, "neutral_axis")
         if x >= h:
-            raise CageDetailingError("skin_service_neutral_axis must be inside the section, measured from compression.")
+            raise CageDetailingError(
+                "SkinServiceCase.neutral_axis must be inside the section, measured from compression."
+            )
         outer = [bar for bar in bars if bar.face == face and bar.layer == 1]
         if not outer:
             raise CageDetailingError("EN skin reinforcement needs an outer tension layer.")
@@ -142,7 +144,7 @@ def requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
         zones.append((low, high))
     dmax = min(caps)
     if diameter > dmax + 1e-9:
-        raise CageDetailingError("skin_bar_diameter exceeds EN Table 7.2N adjusted by Eq. (7.7N).")
+        raise CageDetailingError("skin_bar_diameter exceeds Mento's conservative EN diameter-route proposal.")
     abar = math.pi * diameter**2 / 4
     minimum_count = max(1, math.ceil(amin / abar - 1e-12))
     low, high = min(z[0] for z in zones), max(z[1] for z in zones)

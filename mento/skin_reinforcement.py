@@ -32,7 +32,8 @@ class SkinReinforcementRequirement:
     """Requirement, not a certificate that a provided cage complies.
 
     status is required, not_required, pending, unsupported or not_applicable.
-    Pending means the tension face is unknown; unsupported is NOT an exemption.
+    Pending means flexure, a tension case or independent EN service inputs
+    are missing; pending_reason identifies which. Unsupported is NOT an exemption.
     n_per_side counts supplementary bars on EACH lateral face, counting the
     shared mid-height bar once when both bending signs occur. spacing is the
     uniform spacing within each ACI h/2 zone, including its boundary gap.
@@ -62,6 +63,16 @@ class SkinReinforcementRequirement:
 
 
 def skin_requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
+    """Evaluate supplementary skin steel, keeping its failures distinguishable."""
+    from mento.cage_detailing import CageDetailingError
+
+    try:
+        return _skin_requirement(beam)
+    except CageDetailingError as error:
+        raise CageDetailingError(str(error), reason="skin") from error
+
+
+def _skin_requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
     if transverse_layout(beam) == GRID:
         return SkinReinforcementRequirement("not_applicable")
     code = design_code(beam.concrete)
@@ -133,6 +144,16 @@ def skin_requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
 
 
 def add_skin_bars(beam: RectangularBeam, geometry: SectionGeometry) -> SectionGeometry:
+    """Add skin bars, marking any infeasibility as specific to the skin proposal."""
+    from mento.cage_detailing import CageDetailingError
+
+    try:
+        return _add_skin_bars(beam, geometry)
+    except CageDetailingError as error:
+        raise CageDetailingError(str(error), reason="skin") from error
+
+
+def _add_skin_bars(beam: RectangularBeam, geometry: SectionGeometry) -> SectionGeometry:
     """Supplementary bars in the required zones; reject clashes rather than hide them.
 
     ACI starts above the lateral tension-layer bar and includes a mid-height bar; each
@@ -153,15 +174,10 @@ def add_skin_bars(beam: RectangularBeam, geometry: SectionGeometry) -> SectionGe
 
     if 2 * inset + diameter + settings.clear_spacing > geometry.width:
         raise CageDetailingError("The two lateral skin bars cannot fit within the section width.")
-    count = round(float((geometry.height / 2 / req.spacing).to("").magnitude))
-    rows: set[float] = set()
-    if "bottom" in req.tension_faces:
-        rows.update(float((req.spacing * i).to(mm).magnitude) for i in range(1, count + 1))
-    if "top" in req.tension_faces:
-        rows.update(float((geometry.height - req.spacing * i).to(mm).magnitude) for i in range(1, count + 1))
     # Round only the key used to merge the common midpoint across units.
-    if req.rows:
-        rows = {float(y.to(mm).magnitude) for y in req.rows}
+    if not req.rows:
+        raise CageDetailingError("A required skin proposal must specify its physical rows.", reason="skin")
+    rows = {float(y.to(mm).magnitude) for y in req.rows}
     ordered_rows = sorted({round(y, 9) for y in rows})
     bars = tuple(
         BarPosition(x, (y * mm).to(unit), diameter, side, 0, 0)

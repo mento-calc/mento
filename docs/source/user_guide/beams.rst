@@ -399,8 +399,20 @@ and the supplied service neutral axis. With moment reversal, a single grid
 covers the union, with enough area inside EACH tension zone. Extra bars in
 compression receive no strength credit. The requirement publishes
 area_min_per_side, area_per_side, diameter_max and actual rows.
+The reported ``diameter_max`` is evaluated for the selected skin diameter;
+it depends on that diameter's centroid and is not a solved largest bar size.
+In wide or very tall webs the two geometric corrections can both exceed one:
+the project rule then permits a diameter above the unadjusted table value.
+That domain requires review of the table assumptions; this proposal adds no
+unapproved extra cap.
 The spacing describes the proposal; s_max is None because the selected
 diameter method does not introduce a separate code spacing cap.
+
+EN service inputs are required for every face identified as tensioned by the
+last ULS flexure check. A ULS reversal with only one supplied SLS face remains
+pending; this API cannot yet declare that the other face never sees service
+tension. Supplied cases for other faces are not used. For ACI/CIRSOC the skin
+proposal does not use these EN service inputs.
 
 The proposal retains a single row when the minimum area permits it. It does
 not impose a Mento minimum of two rows. ``skin_distribution_review`` reports

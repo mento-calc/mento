@@ -763,9 +763,29 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
     except CageDetailingError as error:
         geometry = self.section_geometry
         detail_error = error
-        warnings.warn(
-            f"Cage detailing is not feasible: {error}. Showing calculation geometry only.", UserWarning, stacklevel=2
-        )
+        if error.reason == "skin":
+            from mento.cage_detailing import build_cage_detailing
+
+            try:
+                geometry = build_cage_detailing(self, include_skin=False)
+            except CageDetailingError as base_error:
+                detail_error = base_error
+                warnings.warn(
+                    f"Cage detailing is not feasible: {str(base_error).rstrip('.')}. Showing calculation geometry only.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            warnings.warn(
+                f"Skin detailing is not feasible: {str(error).rstrip('.')}. Showing the available base geometry without skin steel.",
+                UserWarning,
+                stacklevel=2,
+            )
+        else:
+            warnings.warn(
+                f"Cage detailing is not feasible: {str(error).rstrip('.')}. Showing calculation geometry only.",
+                UserWarning,
+                stacklevel=2,
+            )
     if geometry.layout != GRID and (detail_error is None or detail_error.reason != "bend"):
         _plot_stirrups_in_section(ax, geometry)
 
@@ -852,7 +872,11 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
                 else "Skin reinforcement pending · no flexure verification"
             )
         if detail_error:
-            lines.append(translate("Calculation model only · cage detailing not feasible"))
+            lines.append(
+                translate("Skin proposal not shown · skin detailing not feasible")
+                if detail_error.reason == "skin"
+                else translate("Calculation model only · cage detailing not feasible")
+            )
         if geometry.stirrups and design_code(self.concrete).max_bar_spacing_tension is not None:
             try:
                 self.flexure_design

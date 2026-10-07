@@ -4,6 +4,11 @@ Beam Summary
 The ``BeamSummary`` class lets you work with a list of beam sections and perform
 checks, design, and report generation for all of them at once.
 
+Skin-steel proposals are currently available through the individual beam's
+``skin_reinforcement``, ``warnings`` and ``plot()`` interfaces. The summary
+tables and Word annex do not yet include the skin layout or its SLS review.
+A strength result in those reports does not certify skin detailing or crack width.
+
 Creating Concrete and Steel Materials
 --------------------------------------
 

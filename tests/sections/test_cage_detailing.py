@@ -443,4 +443,5 @@ def test_transverse_bars_beyond_the_bend_table_are_rejected(concrete_type) -> No
     )
     beam.set_transverse_rebar(1, 32 * mm, 15 * cm)
     with pytest.raises(ValueError, match="bend table"):
-        _ = beam.section_geometry
+        _ = beam.detailing_geometry
+    assert beam.section_geometry.stirrup_d_b == 32 * mm

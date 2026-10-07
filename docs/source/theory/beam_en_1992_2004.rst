@@ -17,9 +17,11 @@ Scope
   stirrups and spacing limits.
 
 **Not implemented**: torsion (§6.3), punching in the beam module (see
-``PunchingSlab``), serviceability limit states — crack width (§7.3) and deflection
+``PunchingSlab``), direct crack-width calculation (§7.3.4) and deflection
 (§7.4) — anchorage and lap lengths (§8), fatigue (§6.8), and prestressing. The
 :math:`A_p` term appears in the shear reinforcement ratio but is fixed at zero.
+The limited skin-steel proposal described below uses selected §7.3 provisions;
+it does not implement a complete serviceability verification.
 
 Nationally Determined Parameters
 --------------------------------
@@ -222,7 +224,9 @@ Minimum and maximum reinforcement
    \qquad
    \rho_{max} = 0.04
 
-with :math:`f_{ctm} = 0.30\, f_{ck}^{2/3}` (Table 3.1). Unlike ACI, :math:`\rho_{min}`
+with :math:`f_{ctm} = 0.30\, f_{ck}^{2/3}` up to C50/60, and
+:math:`f_{ctm} = 2.12\ln(1+f_{cm}/10)` above C50/60, with strengths in MPa
+(Table 3.1). Unlike ACI, :math:`\rho_{min}`
 is not conditioned on the moment being non-zero, so a shear-only combination already
 receives minimum flexural steel.
 
@@ -521,6 +525,10 @@ skin bars. Mento uses the smaller of its bending-depth and web-as-tie
 interpretations; see the beams guide for both substitutions and limitations.
 Table 7.2N Note 1 assumptions and the need for evenly distributed skin
 under §7.3.3(3) still require engineering review.
+The chosen crack-width row must be justified for the project and applicable
+National Annex. ``diameter_max`` is the cap evaluated for the selected skin
+diameter: its web-as-tie cover substitution depends on that diameter, so it
+is not an independently solved maximum permitted bar size.
 
 This does not calculate crack width using §7.3.4, does not verify cracking
 of the main reinforcement, and does not implement restraint/early-age

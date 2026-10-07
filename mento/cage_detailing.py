@@ -160,7 +160,7 @@ def _geometry_unit(length: Quantity) -> Quantity:
     return (length * 0 + 1 * length.units) / float((1 * length.units).to("mm").magnitude)
 
 
-def build_cage_detailing(beam: RectangularBeam) -> SectionGeometry:
+def build_cage_detailing(beam: RectangularBeam, *, include_skin: bool = True) -> SectionGeometry:
     """Return a supported cross-section; raise if its spacing cannot be achieved.
 
     This does not mutate the beam or include mounting bars in its resistance.
@@ -170,7 +170,7 @@ def build_cage_detailing(beam: RectangularBeam) -> SectionGeometry:
 
     geometry = build_section_geometry(beam)
     if not geometry.stirrups:
-        return add_skin_bars(beam, geometry)
+        return add_skin_bars(beam, geometry) if include_skin else geometry
     settings = beam.settings
     assert settings is not None
     diameter = settings.mounting_bar_diameter
@@ -179,8 +179,13 @@ def build_cage_detailing(beam: RectangularBeam) -> SectionGeometry:
     if diameter < settings.minimum_longitudinal_diameter:
         raise ValueError("mounting_bar_diameter is below minimum_longitudinal_diameter.")
     d_st = _mm(geometry.stirrup_d_b)
-    if design_code(beam.concrete).stirrup_bend_inner_diameter is None:
+    bend_hook = design_code(beam.concrete).stirrup_bend_inner_diameter
+    if bend_hook is None:
         raise CageDetailingError("This code has no supported stirrup-bend rule.", reason="bend")
+    try:
+        bend_hook(beam.concrete, geometry.stirrup_d_b)
+    except ValueError as error:
+        raise CageDetailingError(str(error), reason="bend") from error
     bend_radius = (_mm(geometry.stirrup_bend_inner_diameter) + d_st) / 2
     for stirrup in geometry.stirrups:
         if min(_mm(stirrup.x_right - stirrup.x_left), _mm(stirrup.y_top - stirrup.y_bottom)) / 2 < bend_radius - 1e-8:
@@ -233,7 +238,9 @@ def build_cage_detailing(beam: RectangularBeam) -> SectionGeometry:
 
     # Retained second layers must also fit; added mounting bars may not clash
     # with bars of the opposite face or a second layer.
-    geometry = add_skin_bars(beam, replace(geometry, bars=tuple(bars), mounting_bars=tuple(mounting_bars)))
+    geometry = replace(geometry, bars=tuple(bars), mounting_bars=tuple(mounting_bars))
+    if include_skin:
+        geometry = add_skin_bars(beam, geometry)
     all_bars = bars + mounting_bars + list(geometry.skin_bars)
     for index, bar in enumerate(all_bars):
         radius = _mm(bar.d_b) / 2

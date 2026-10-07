@@ -42,6 +42,14 @@ def cases():
     ]
 
 
+def test_service_cases_accept_a_one_pass_iterable_without_losing_inputs():
+    b = section()
+    expected = cases()
+    b.set_skin_service_cases(case for case in expected)
+    assert b.skin_service_cases == tuple(expected)
+    assert b.skin_reinforcement.status == "required"
+
+
 def test_shared_preferences_do_not_share_service_cases():
     settings = BeamSettings()
     a, b = section(settings), section(settings)

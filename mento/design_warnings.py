@@ -208,6 +208,7 @@ _MESSAGES: Dict[str, str] = {
     "skin_detailing_invalid": "Skin detailing cannot be evaluated: {reason}",
     "skin_reinforcement_unsupported": "Skin reinforcement is not supported for this design case; this is not an exemption.",
     "skin_detailing_infeasible": "The supplementary skin proposal cannot be fitted in the cage: {reason}",
+    "cage_detailing_infeasible": "The base cage cannot be detailed: {reason}",
     "skin_distribution_review": (
         "Review skin-steel distribution for the {face} tension case: {rows} rows per side in its service zone, "
         "largest vertical interval {gap}, including zone boundaries. This is informative, not an additional code "
@@ -809,7 +810,8 @@ def skin_warnings(beam: "RectangularBeam") -> List[_Raw]:
         try:
             beam.detailing_geometry
         except CageDetailingError as error:
-            result.append(_Raw("skin_detailing_infeasible", {"reason": str(error)}))
+            code = "skin_detailing_infeasible" if error.reason == "skin" else "cage_detailing_infeasible"
+            result.append(_Raw(code, {"reason": str(error)}))
     for review in requirement.distribution_reviews:
         result.append(
             _Raw(

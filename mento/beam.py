@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any, Callable, Dict, FrozenSet, Iterator, NamedTuple, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, FrozenSet, Iterable, Iterator, NamedTuple, Optional, Tuple
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
@@ -1847,7 +1847,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
 
         return skin_requirement(self)
 
-    def set_skin_service_cases(self, cases: list["SkinServiceCase"]) -> None:
+    def set_skin_service_cases(self, cases: Iterable["SkinServiceCase"]) -> None:
         """Attach independent SLS cases to this section's current reinforcement.
 
         Data is copied, not shared through BeamSettings. Set after design;
@@ -1857,6 +1857,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
 
         from mento.skin_service import SkinServiceCase, service_reference
 
+        cases = tuple(cases)
         keys = set()
         for case in cases:
             if not isinstance(case, SkinServiceCase):
