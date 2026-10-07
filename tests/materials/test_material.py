@@ -351,8 +351,7 @@ def test_en_initialization_c30(en_concrete_c30: Concrete_EN_1992_2004) -> None:
     assert_quantity_equal(en_concrete_c30.f_ctm, 0.3 * (30) ** (2 / 3) * MPa)
     assert pytest.approx(en_concrete_c30.epsilon_cu3) == 0.0035
     assert pytest.approx(en_concrete_c30.gamma_c) == 1.5
-    assert pytest.approx(en_concrete_c30.gamma_s) == 1.15
-    assert pytest.approx(en_concrete_c30.alpha_cc) == 0.85  # As per _alpha_cc_calc
+    assert pytest.approx(en_concrete_c30.alpha_cc) == 0.85  # UK National Annex, the default
     assert pytest.approx(en_concrete_c30.Lambda_factor) == 0.8  # For f_ck <= 50 MPa
     assert pytest.approx(en_concrete_c30.Eta_factor) == 1.0  # For f_ck <= 50 MPa
 
@@ -378,7 +377,11 @@ def test_en_get_properties(en_concrete_c30: Concrete_EN_1992_2004) -> None:
     assert_quantity_equal(props["f_ctm"], en_concrete_c30.f_ctm)
     assert pytest.approx(props["epsilon_cu3"]) == en_concrete_c30.epsilon_cu3
     assert pytest.approx(props["gamma_c"]) == en_concrete_c30.gamma_c
-    assert pytest.approx(props["gamma_s"]) == en_concrete_c30.gamma_s
+    assert pytest.approx(props["gamma_s"]) == 1.15  # deprecated key, kept for readers of the dict
+    assert_quantity_equal(props["f_cd"], en_concrete_c30.f_cd)
+    assert pytest.approx(props["epsilon_c2"]) == en_concrete_c30.epsilon_c2
+    assert pytest.approx(props["epsilon_cu2"]) == en_concrete_c30.epsilon_cu2
+    assert pytest.approx(props["n_parabola"]) == en_concrete_c30.n_parabola
     assert pytest.approx(props["alpha_cc"]) == en_concrete_c30.alpha_cc
     assert pytest.approx(props["lambda_factor"]) == en_concrete_c30.Lambda_factor
     assert pytest.approx(props["eta_factor"]) == en_concrete_c30.Eta_factor
@@ -396,10 +399,67 @@ def test_en_str_representation(en_concrete_c30: Concrete_EN_1992_2004) -> None:
     assert f"  Density: {en_concrete_c30.density}" in s
     assert f"  ε_cu3: {en_concrete_c30.epsilon_cu3:.4f}" in s
     assert f"  γ_c: {en_concrete_c30.gamma_c:.2f}" in s
-    assert f"  γ_s: {en_concrete_c30.gamma_s:.2f}" in s
+    assert "γ_s" not in s  # the steel's, not the concrete's
     assert f"  α_cc: {en_concrete_c30.alpha_cc:.2f}" in s
     assert f"  λ Factor: {en_concrete_c30.Lambda_factor:.2f}" in s
     assert f"  Eta Factor: {en_concrete_c30.Eta_factor:.2f}" in s
+
+
+# Table 3.1 of EN 1992-1-1 prints ε_c2, ε_cu2 (‰) and n rounded per class.
+@pytest.mark.parametrize(
+    "f_ck, eps_c2, eps_cu2, n",
+    [
+        (30, 2.0, 3.5, 2.0),
+        (50, 2.0, 3.5, 2.0),
+        (60, 2.3, 2.9, 1.6),
+        (55, 2.2, 3.1, 1.75),
+        (70, 2.4, 2.7, 1.45),
+        (80, 2.5, 2.6, 1.4),
+        (90, 2.6, 2.6, 1.4),
+    ],
+)
+def test_en_parabola_rectangle_parameters_match_table_3_1(f_ck: float, eps_c2: float, eps_cu2: float, n: float) -> None:
+    """ε_c2, ε_cu2 and n are public and reproduce EN 1992-1-1 Table 3.1 (#184)."""
+    concrete = Concrete_EN_1992_2004(name=f"C{f_ck}", f_c=f_ck * MPa)
+    assert concrete.epsilon_c2 * 1e3 == pytest.approx(eps_c2, abs=0.05)
+    assert concrete.epsilon_cu2 * 1e3 == pytest.approx(eps_cu2, abs=0.05)
+    assert concrete.n_parabola == pytest.approx(n, abs=0.015)  # the table rounds n to 0.05
+    assert concrete.epsilon_c3 * 1e3 == pytest.approx(1.75 + 0.55 * max(f_ck - 50, 0) / 40)
+    assert concrete.epsilon_cu3 == concrete.epsilon_cu2
+
+
+def test_en_epsilon_c1_and_cu1_match_table_3_1() -> None:
+    """C30/37: ε_c1 = 0.7·38^0.31 = 2.2 ‰, ε_cu1 = 3.5 ‰; C90/105: ε_c1 = 2.8 ‰, ε_cu1 = 2.8 ‰."""
+    c30 = Concrete_EN_1992_2004(name="C30", f_c=30 * MPa)
+    c90 = Concrete_EN_1992_2004(name="C90", f_c=90 * MPa)
+    assert c30.epsilon_c1 * 1e3 == pytest.approx(2.2, abs=0.05)
+    assert c30.epsilon_cu1 * 1e3 == pytest.approx(3.5)
+    assert c90.epsilon_c1 * 1e3 == pytest.approx(2.8)
+    assert c90.epsilon_cu1 * 1e3 == pytest.approx(2.8, abs=0.05)
+
+
+def test_en_f_cd_follows_alpha_cc() -> None:
+    """f_cd = α_cc·f_ck/γ_c, with α_cc 0.85 by default and 1.0 (the recommended value) on request."""
+    default = Concrete_EN_1992_2004(name="C30", f_c=30 * MPa)
+    recommended = Concrete_EN_1992_2004(name="C30", f_c=30 * MPa, alpha_cc=1.0)
+    assert default.alpha_cc == 0.85
+    assert_quantity_equal(default.f_cd, 17.0 * MPa)
+    assert recommended.alpha_cc == 1.0
+    assert_quantity_equal(recommended.f_cd, 20.0 * MPa)
+    assert "f_cd: 20.00 MPa" in str(recommended) or "f_cd: 20.0 MPa" in str(recommended)
+
+
+@pytest.mark.parametrize("alpha_cc", [0.79, 1.01, 0.0])
+def test_en_alpha_cc_outside_the_range_of_3_1_6_is_refused(alpha_cc: float) -> None:
+    """§3.1.6(1) lets a country choose α_cc between 0.8 and 1.0, nothing outside."""
+    with pytest.raises(ValueError, match="alpha_cc must lie between 0.8 and 1.0"):
+        Concrete_EN_1992_2004(name="C30", f_c=30 * MPa, alpha_cc=alpha_cc)
+
+
+def test_en_concrete_gamma_s_is_deprecated(en_concrete_c30: Concrete_EN_1992_2004) -> None:
+    """γ_s moved to the steel; the concrete still answers, with a DeprecationWarning (#185)."""
+    with pytest.deprecated_call(match="SteelBar.gamma_s"):
+        assert en_concrete_c30.gamma_s == 1.15
 
 
 # --- Tests for Steel (Base Class) ---
@@ -411,6 +471,41 @@ def test_steel_initialization() -> None:
     assert steel.name == "Generic Steel"
     assert_quantity_equal(steel.f_y, 400 * MPa)
     assert_quantity_equal(steel.density, 7850 * kg / m**3)
+
+
+def test_steel_design_values() -> None:
+    """γ_s is kept on the steel, f_yd = f_y/γ_s, and ε_ud is unbounded unless given (#185)."""
+    steel = SteelBar(name="B500S", f_y=500 * MPa)
+    assert steel.gamma_s == 1.15
+    assert_quantity_equal(steel.f_yd.to("MPa"), (500 / 1.15) * MPa)
+    assert steel.epsilon_ud is None
+    assert steel.epsilon_yd == pytest.approx(500 / 1.15 / 200_000)
+
+    bounded = SteelBar(name="B500S", f_y=500 * MPa, gamma_s=1.0, epsilon_ud=0.01)
+    assert_quantity_equal(bounded.f_yd.to("MPa"), 500 * MPa)
+    assert bounded.epsilon_ud == 0.01
+    props = bounded.get_properties()
+    assert props["gamma_s"] == 1.0
+    assert props["epsilon_ud"] == 0.01
+    assert_quantity_equal(props["f_yd"], 500 * MPa)
+
+    strand = SteelStrand(name="Y1860", f_y=1600 * MPa, epsilon_ud=0.02)
+    assert strand.epsilon_ud == 0.02
+    assert strand.epsilon_yd == pytest.approx(1600 / 1.15 / 190_000)
+
+
+@pytest.mark.parametrize(
+    "kwargs, message",
+    [
+        ({"gamma_s": 0.0}, "gamma_s must be positive"),
+        ({"epsilon_ud": -0.01}, "epsilon_ud must be positive"),
+        ({"epsilon_ud": 0.002}, "the steel would never yield"),
+    ],
+)
+def test_steel_design_values_are_validated(kwargs: dict, message: str) -> None:
+    """A non-positive γ_s or ε_ud, or an ε_ud below the design yield strain, is refused."""
+    with pytest.raises(ValueError, match=message):
+        SteelBar(name="B500S", f_y=500 * MPa, **kwargs)
 
 
 def test_steel_initialization_custom_density() -> None:

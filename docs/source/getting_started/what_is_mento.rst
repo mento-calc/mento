@@ -1,66 +1,124 @@
-﻿What is Mento?
---------------
+What is mento?
+==============
 
-Mento is a Python package designed to simplify the structural
-analysis and design of concrete elements.
-It provides tools that are intuitive for structural engineers,
-enabling efficient design checks and generation of detailed reports.
-The package supports various design codes, allowing for flexible
-application in different regions and standards.
+mento designs and checks reinforced concrete members to **ACI 318-19**, **EN 1992-1-1:2004
+(Eurocode 2)** and **CIRSOC 201-25**. Give it a section, its materials and a set of load
+combinations; it returns the reinforcement, the demand-to-capacity ratio of every check, and a
+calculation report you can hand to a reviewer.
 
-Mento can handle the design and analysis of:
+mento does no structural analysis: the forces come from your analysis model, and mento
+designs the section that has to resist them.
 
-- **Rectangular concrete beams** for flexure and shear.
-- **One-way slabs** for flexure and shear.
-- **Footing sections** for flexure and shear, with the minimum reinforcement and
-  detailing rules a member bearing on the ground is designed to. Sectional design
-  only — mento does no geotechnical calculation.
+It is also, as far as we know, the only open source package that implements
+**CIRSOC 201-25**, the Argentinian concrete design standard.
 
-Some key features of Mento include:
+Quick start
+-----------
 
-- **Unit-sensitive design**: Variables can be input with their respective units for accurate calculations.
-- **Interactive usage**: Mento integrates seamlessly with Jupyter Notebooks, allowing engineers to build custom workflows using its modules.
-- **Results in Markdown and DataFrames**: Results are provided in markdown format and as Pandas DataFrames, facilitating the handling and presentation of multiple design checks.
-- **Report generation**: Mento can generate detailed reports in Microsoft Word and Excel, making it easy to document the results of the analysis.
-
-Mento is thoroughly tested for compliance with major design codes such as **ACI 318-19**, **EN 1992-2004**, and **CIRSOC 201-25**, ensuring reliable results that meet industry standards.
-
-Using Mento is easy and intuitive:
+Design a 20 × 50 cm beam for two load combinations:
 
 .. code-block:: python
 
-    from mento import Concrete_ACI_318_19, SteelBar, RectangularBeam
-    from mento import mm, cm, MPa
+    from mento import Concrete_ACI_318_19, SteelBar, RectangularBeam, Forces, Node
+    from mento import MPa, cm, mm, kN, kNm
 
-    # Define concrete and steel properties
-    conc= Concrete_ACI_318_19(name="C25",f_c=25*MPa)
-    steel= SteelBar(name="ADN 420", f_y=420*MPa)
-    # Define beam section
-    section = RectangularBeam(
-            label="101",concrete=conc,steel_bar=steel,width=20*cm, height=40*cm, c_c=25*mm)
-    # Display data with LaTeX formatting in a Jupyter Notebook
-    section.results
+    concrete = Concrete_ACI_318_19(name="C25", f_c=25 * MPa)
+    steel = SteelBar(name="ADN 420", f_y=420 * MPa)
+    beam = RectangularBeam(
+        label="B101", concrete=concrete, steel_bar=steel,
+        width=20 * cm, height=50 * cm, c_c=25 * mm,
+    )
 
-Expected Output
----------------
+    forces = [
+        Forces(label="1.2D+1.6L", M_y=120 * kNm, V_z=100 * kN),
+        Forces(label="1.4D", M_y=80 * kNm, V_z=70 * kN),
+    ]
+    node = Node(section=beam, forces=forces)
+    node.design()
 
-In a Jupyter notebook, this will display the beam data with LaTeX-style formatting.
-Below is the expected output:
+    print(beam.reinforcement)
 
-.. math::
+.. code-block:: text
 
-   \textsf{Beam 101}, \, b = 20.00 \, \textsf{cm}, \, h = 40.00 \, \textsf{cm}, \, c_{\text{c}} = 2.50 \, \textsf{cm}, \, \textsf{Concrete C25}, \, \textsf{Rebar ADN 420}.
+    bottom: 2Ø20 mm + 1Ø16 mm / top: no reinforcement / stirrups: 1sØ10 mm/22 cm
 
-This is an ideal way to present structural data, making the results clear and easy to read.
-The use of Jupyter Notebooks and LaTeX ensures that all units and parameters are well-formatted for structural engineering reports.
+From there:
 
-Design Principles
+- ``beam.plot()`` draws the section with its bars and stirrups.
+- ``node.check_flexure()`` and ``node.check_shear()`` return one row per combination as a
+  pandas DataFrame, with the required and provided steel, the capacity and the DCR.
+- ``node.results`` shows the formatted results in a Jupyter notebook.
+- ``node.flexure_results_detailed_doc()`` and ``node.shear_results_detailed_doc()`` write the
+  step-by-step calculation report to Word.
+- To check reinforcement you already have instead of designing it, set the bars on the beam
+  and call ``node.check()``.
+
+The :ref:`Examples <examples/index>` walk through each element and design code as a
+notebook, including US customary units.
+
+What mento covers
 -----------------
 
-Mento was developed to meet the needs of structural engineers for a flexible, code-compliant, and user-friendly design tool. The package is built with the following principles in mind:
+.. list-table::
+   :header-rows: 1
+   :widths: 40 20 20 20
 
-- **Code-compliant checks**: Mento supports multiple design codes and is easily extensible to add more in the future.
-- **Modular design**: The package’s design ensures that engineers can mix and match different sections for custom analyses.
-- **Integration with Pandas and Word**: Mento generates reports and tables that can be exported into different formats, supporting data analysis and documentation needs.
+   * - Element
+     - ACI 318-19
+     - CIRSOC 201-25
+     - EN 1992-1-1:2004
+   * - :doc:`Rectangular beam <../user_guide/beams>`, flexure and shear
+     - ✅
+     - ✅
+     - ✅
+   * - :doc:`One-way slab <../user_guide/slabs>`, flexure and shear
+     - ✅
+     - ✅
+     - ✅
+   * - :doc:`Footing section <../user_guide/footings>`, flexure and shear
+     - ✅
+     - ✅
+     - ✅
+   * - :doc:`Shear wall <../user_guide/shear_wall>`, in-plane shear
+     - ✅
+     - ✅
+     - in progress
+   * - Slab punching shear
+     - in progress
+     - in progress
+     - in progress
 
-For more detailed help getting started, see the :ref:`User Guide <user_guide/index>` and explore :ref:`Examples <examples/index>`.
+A footing is designed as a section, with the minimum reinforcement and detailing rules of a
+member bearing on the ground: mento does no geotechnical calculation.
+
+Across all of them:
+
+- **Units throughout.** Every input carries its unit. Metric and US customary are both
+  supported, and a section entered in US customary units is reported in them. See
+  :doc:`../user_guide/units`.
+- **Design gives you options.** Besides the arrangement it applies, a design keeps the next
+  best alternatives for bars and stirrups, and warns about the detailing limits a section
+  misses. See :ref:`Design results <user_guide/design_results>`.
+- **Many members at once.** :doc:`BeamSummary <../user_guide/beam_summary>` and
+  :doc:`ShearWallSummary <../user_guide/shear_wall_summary>` design or check a whole schedule,
+  and export the designed reinforcement to Excel and back.
+- **Reports.** Results come as Markdown in Jupyter, as pandas DataFrames, and as Word
+  documents.
+
+Validated against published examples
+------------------------------------
+
+The tests in
+`tests/validation <https://github.com/mihdicaballero/mento/tree/main/tests/validation>`_
+reproduce cases worked out outside mento: the CRSI *Design Guide on the ACI 318 Building
+Code*, CSI's software verification examples, ETABS runs, The Concrete Centre's Eurocode 2
+guide and eurocodeapplied.com. Each test names the example and the page its numbers come from.
+
+The :ref:`Theory <theory/index>` pages set out the equations behind each check, with the
+clause of the design code they come from.
+
+mento is a tool to assist structural engineers, not a replacement for engineering judgement:
+its results must be reviewed by a qualified engineer who takes responsibility for the design.
+
+For more detailed help, see the :ref:`User Guide <user_guide/index>` and the
+:ref:`Examples <examples/index>`.

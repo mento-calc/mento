@@ -879,7 +879,7 @@ def _initialize_dicts_EN_1992_2004_shear(self: "RectangularBeam") -> None:
             round(concrete_en.f_ck.to("MPa").magnitude, 2),
             round(self.steel_bar.f_y.to("MPa").magnitude, 2),
             concrete_en.gamma_c,
-            concrete_en._gamma_s,
+            self.steel_bar.gamma_s,
             concrete_en.alpha_cc,
         ],
         "Unit": ["", "MPa", "MPa", "", "", ""],

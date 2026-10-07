@@ -7,7 +7,7 @@ Contributions of every size are welcome, from fixing a typo in these docs to imp
 whole new design code.
 
 The full contributing guide lives in the repository, at `CONTRIBUTING.md
-<https://github.com/mihdicaballero/mento/blob/main/CONTRIBUTING.md>`__. This page summarises
+<https://github.com/mento-calc/mento/blob/main/CONTRIBUTING.md>`__. This page summarises
 what you need to get started locally. By participating you agree to abide by our
 :ref:`Code of Conduct <dev/codeofconduct>`.
 
@@ -30,12 +30,12 @@ Ways to contribute
 ------------------
 
 **Report an issue.** Bugs, wrong results, documentation problems and feature requests all go
-to the `issue tracker <https://github.com/mihdicaballero/mento/issues>`__, which has
+to the `issue tracker <https://github.com/mento-calc/mento/issues>`__, which has
 templates for each. If a design result looks wrong, include the inputs, the value Mento
 produced, and the expected value with its source.
 
 **Ask a question.** Use `Discussions
-<https://github.com/mihdicaballero/mento/discussions>`__.
+<https://github.com/mento-calc/mento/discussions>`__.
 
 **Contribute code.** Issues labelled ``good first issue`` and ``help wanted`` are the easiest
 place to start. For anything substantial, open a Discussion first so we can agree on the
@@ -48,7 +48,7 @@ Mento requires Python 3.12 or newer.
 
 .. code-block:: bash
 
-    $ git clone https://github.com/mihdicaballero/mento.git
+    $ git clone https://github.com/mento-calc/mento.git
     $ cd mento
     $ python -m venv venv
     $ source venv/bin/activate      # Windows: venv\Scripts\activate
