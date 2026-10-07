@@ -37,9 +37,9 @@ def normalize_leg_column(frame: Any) -> Any:
     if pd.notna(frame.iloc[0]["legs"]) and frame.iloc[0]["legs"] != "":
         raise ValueError("legs is a count and must have a blank units cell.")
     out = frame.copy()
-    canonical = []
+    canonical: list[int | None] = []
     for index, row in out.iloc[1:].iterrows():
-        values = []
+        values: list[int | None] = []
         for name in ("legs", "n_legs"):
             value = row.get(name)
             if pd.isna(value) or value == "":
