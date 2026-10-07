@@ -1,50 +1,49 @@
 import math
 import warnings
-from typing import Any
-
-import pytest
-import numpy as np
-import pandas as pd
 from pathlib import Path
-from pint import Quantity
+from typing import Any
 from unittest.mock import patch
 
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pytest
 from matplotlib.colors import to_rgba
-from matplotlib.patches import Circle, Rectangle, FancyBboxPatch
+from matplotlib.patches import Circle, FancyBboxPatch, Rectangle
+from pint import Quantity
 
-from mento.node import Node
 from mento.beam import RectangularBeam
-from mento.material import (
-    Concrete_ACI_318_19,
-    SteelBar,
-    Concrete_EN_1992_2004,
-    Concrete_CIRSOC_201_25,
-)
-from mento.precompute import section_floats
-from mento.codes.registry import design_code
-from mento.units import psi, kip, inch, ksi, mm, kN, cm, MPa, ft, kNm
-from mento.forces import Forces
 from mento.codes.ACI_318_19_beam import (
-    _minimum_flexural_reinforcement_ratio_ACI_318_19,
     _flexure_capacity_ACI_318_19,
     _flexure_ductile_ACI_318_19,
+    _minimum_flexural_reinforcement_ratio_ACI_318_19,
 )
-from mento.codes.flexure_design import _best_visited_pair
 from mento.codes.EN_1992_2004_beam import (
     _compression_zone_limits_EN_1992_2004,
     _initialize_variables_EN_1992_2004,
     _simple_determine_nominal_moment_EN_1992_2004,
 )
+from mento.codes.flexure_design import _best_visited_pair
+from mento.codes.registry import design_code
+from mento.forces import Forces
+from mento.material import (
+    Concrete_ACI_318_19,
+    Concrete_CIRSOC_201_25,
+    Concrete_EN_1992_2004,
+    SteelBar,
+)
+from mento.node import Node
+from mento.plots.sections import _format_rebar_layer_text
+from mento.precompute import section_floats
+from mento.rebar import Rebar
 from mento.results import CUSTOM_COLORS, DocumentBuilder
 from mento.settings import BeamSettings
-from mento.rebar import Rebar
-from mento.plots.sections import _format_rebar_layer_text
+from mento.units import MPa, cm, ft, inch, kip, kN, kNm, ksi, mm, psi
 from tests.helpers import (
-    us,
     _flexural_reinforcement_in_pint,
     _nominal_moment_double_in_pint,
     _nominal_moment_simple_in_pint,
+    us,
 )
 
 
@@ -3043,7 +3042,7 @@ def test_plot_draws_every_stirrup_at_the_legs_the_check_assumes() -> None:
         "15.87 cm between legs (max 20 cm)",
         "perimeter stirrup + 4 inner stirrups",
         "Orange: mounting steel · excluded from resistance",
-        "Skin: 3Ø10 per side · s=25 cm · excluded from resistance",
+        "Skin: 3Ø10 per side · s=23.1 cm · excluded from resistance",
     ]
     assert "12Ø32" in texts
     plt.close()
@@ -3112,7 +3111,7 @@ def test_plot_follows_the_language() -> None:
     texts = [t.get_text() for t in beam._ax.texts]
     assert "estribo perimetral + 4 interiores" in texts
     assert "Montaje en naranja · sin aporte resistente" in texts
-    assert texts[-1] == "Piel: 3Ø10 por lateral · s=25 cm · sin aporte resistente"
+    assert texts[-1] == "Piel: 3Ø10 por lateral · s=23.1 cm · sin aporte resistente"
     assert any(text.startswith("10 ramas") for text in texts)
     plt.close()
 

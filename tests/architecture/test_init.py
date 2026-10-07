@@ -263,6 +263,7 @@ def test_all_exports_in_all() -> None:
         "SectionGeometry",
         "CageDetailingError",
         "SkinReinforcementRequirement",
+        "SkinServiceCase",
         "bar_designation",
         "bar_diameter",
     ]

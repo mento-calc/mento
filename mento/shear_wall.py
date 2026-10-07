@@ -8,17 +8,17 @@ if TYPE_CHECKING:
 
 import pandas as pd
 from pandas import DataFrame
-from mento.units import Quantity
 
 from mento.beam import RectangularBeam
+from mento.codes.registry import design_code
+from mento.design_warnings import DesignWarning, collect, combination_label, unread_force_warnings, wall_warnings
 from mento.forces import Forces
 from mento.material import Concrete, SteelBar
-from mento.settings import BeamSettings
-from mento.units import cm, dimensionless, kN, mm
-
-from mento.codes.registry import design_code
+from mento.plots.walls import plot_wall_elevation
 from mento.precompute import unit_label
-from mento.design_warnings import DesignWarning, collect, combination_label, unread_force_warnings, wall_warnings
+from mento.reports import walls as wall_reports
+from mento.settings import BeamSettings
+from mento.units import Quantity, cm, dimensionless, kN, mm
 from mento.wall_results import (
     WallMesh,
     WallShearCheck,
@@ -27,8 +27,6 @@ from mento.wall_results import (
     build_wall_shear_design,
     capture_wall_shear_check,
 )
-from mento.plots.walls import plot_wall_elevation
-from mento.reports import walls as wall_reports
 
 
 class NotABeamError(AttributeError, NotImplementedError):
@@ -452,6 +450,15 @@ class ShearWall(RectangularBeam):
     def section_geometry(self) -> NoReturn:  # type: ignore[override]
         """Not available on a wall: it has no bars or stirrups to place. Raises :class:`NotABeamError`."""
         self._not_a_beam("section geometry")
+
+    @property
+    def skin_reinforcement(self) -> NoReturn:  # type: ignore[override]
+        """Beam skin proposals do not describe a wall's distributed mesh."""
+        self._not_a_beam("beam skin reinforcement")
+
+    @property
+    def skin_service_cases(self) -> NoReturn:  # type: ignore[override]
+        self._not_a_beam("beam skin service cases")
 
     @property
     def flexure_design(self) -> NoReturn:  # type: ignore[override]

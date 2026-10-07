@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field, fields
 from typing import Any, ClassVar, Dict
 
-from mento.units import mm, inch
+from mento.units import inch, mm
 
 # Sentinel to detect if user passed a value
 _NOT_SET = object()
@@ -86,8 +86,6 @@ class BeamSettings:
         "minimum_longitudinal_diameter": 8 * mm,
         "mounting_bar_diameter": 10 * mm,
         "skin_bar_diameter": 10 * mm,
-        "skin_service_steel_stress": None,
-        "skin_service_neutral_axis": None,
         "skin_crack_width": 0.3 * mm,
         "max_longitudinal_diameter": 32 * mm,
         "max_bars_per_layer": 12,
@@ -103,8 +101,6 @@ class BeamSettings:
         "minimum_longitudinal_diameter": 3 / 8 * inch,
         "mounting_bar_diameter": 3 / 8 * inch,
         "skin_bar_diameter": 3 / 8 * inch,
-        "skin_service_steel_stress": None,
-        "skin_service_neutral_axis": None,
         "skin_crack_width": 0.3 * mm,
         "max_longitudinal_diameter": 1.693 * inch,
         "max_bars_per_layer": 12,
@@ -125,11 +121,6 @@ class BeamSettings:
     mounting_bar_diameter: Any = field(default=_NOT_SET)
     # Skin-steel detailing preference, not a code minimum or resistant steel.
     skin_bar_diameter: Any = field(default=_NOT_SET)
-    # EN service inputs: envelope stress and actual neutral-axis depth from
-    # the compression face, independently assessed in cracked SLS analysis.
-    # Depth may be a quantity shared by both signs or a bottom/top mapping.
-    skin_service_steel_stress: Any = field(default=_NOT_SET)
-    skin_service_neutral_axis: Any = field(default=_NOT_SET)
     skin_crack_width: Any = field(default=_NOT_SET)
 
     def __post_init__(self) -> None:

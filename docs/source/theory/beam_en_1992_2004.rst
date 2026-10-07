@@ -25,7 +25,10 @@ Nationally Determined Parameters
 --------------------------------
 
 EN 1992-1-1 leaves several values to the National Annex. mento uses the **recommended
-values from the Eurocode text**, not those of any particular national annex:
+values from the Eurocode text** for the parameters identified below.
+The default :math:`\alpha_{cc}=0.85` is a separate Mento choice; the EN
+recommended value is 1.0 (§3.1.6(1), Note). This is not a complete national
+annex implementation:
 
 .. list-table::
    :header-rows: 1
@@ -132,8 +135,11 @@ a depth :math:`\lambda x` measured from the extreme compression fibre.
 Ductility limit
 ^^^^^^^^^^^^^^^
 
-Both limits EN 1992-1-1 imposes are written on the **neutral axis ratio**
-:math:`x_u/d`: the redistribution limit of §5.5(4) and the 0.45 cap.
+Both limits used by mento are written on the **neutral axis ratio**
+:math:`x_u/d`: the redistribution limit of §5.5(4), Eqs. (5.10a)/(5.10b),
+and an additional fixed cap of 0.45 chosen by mento. The latter is not
+prescribed by §5.5(4). The 0.45/0.35 limits in §5.6.3(2) belong to the
+rotation check of yielding hinges, which this helper does not implement.
 
 .. math::
 
@@ -498,3 +504,28 @@ reproduce; the regression rows, whose only reference is a Calcpad sheet, are tes
    * - Never raises on an unfittable section
      - ``test_design_flexure_EN_1992_2004_infeasible_does_not_crash``
      - Public contract
+
+Supplementary web reinforcement
+--------------------------------
+
+``skin_reinforcement`` implements a limited, rectangular pure-bending
+proposal under EN 1992-1-1:2004 §7.3.3(3), for h >= 1000 mm. Minimum area
+uses §7.3.2(2), Eq. (7.1), with k=0.5 and sigma_s=f_yk. Taking k_c=0.4,
+A_ct=b*h/2 and splitting additional area equally between side faces are
+Mento's rectangular-bending interpretation, not a general axial-force rule.
+
+The Table 7.2N diameter route uses half the independently supplied main
+service stress. Table 7.3N is an alternative and is not imposed cumulatively.
+The geometric substitution in Eq. (7.7N) is not specified expressly for
+skin bars. Mento uses the smaller of its bending-depth and web-as-tie
+interpretations; see the beams guide for both substitutions and limitations.
+Table 7.2N Note 1 assumptions and the need for evenly distributed skin
+under §7.3.3(3) still require engineering review.
+
+This does not calculate crack width using §7.3.4, does not verify cracking
+of the main reinforcement, and does not implement restraint/early-age
+cracking, prestressing, strut-and-tie design, torsion or seismic detailing.
+Axial cases explicitly report unsupported. Informative Annex J surface
+mesh outside the links remains a separate project/National Annex review.
+Equation/table regression tests for this feature must not be mistaken for
+independent published beam validation or a direct calculated w_k check.

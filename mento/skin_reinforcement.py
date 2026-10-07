@@ -20,6 +20,14 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
+class SkinDistributionReview:
+    tension_face: str
+    combination: str
+    rows_per_side: int
+    maximum_interval: Quantity
+
+
+@dataclass(frozen=True)
 class SkinReinforcementRequirement:
     """Requirement, not a certificate that a provided cage complies.
 
@@ -50,7 +58,7 @@ class SkinReinforcementRequirement:
     # Informative layout review: (tension face, rows in its service zone,
     # largest vertical interval, including gaps to the zone boundaries).
     # This is not an additional code spacing limit or a crack-width check.
-    distribution_reviews: tuple[tuple[str, int, Quantity], ...] = ()
+    distribution_reviews: tuple[SkinDistributionReview, ...] = ()
 
 
 def skin_requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
@@ -90,8 +98,27 @@ def skin_requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
     limit = float(cap.to(mm).magnitude)
     if not math.isfinite(limit) or limit <= 0:
         raise CageDetailingError("No positive skin-bar spacing is permitted for this cover and steel grade.")
-    zone = beam.height / 2
-    count = max(1, math.ceil(float((zone / cap).to("").magnitude) - 1e-12))
+    # ACI Fig. R9.7.2.3 / CIRSOC Fig. C 9.7.2.3 show the first interval
+    # from the lateral tension bar, not the concrete face. Start at the
+    # innermost tension layer that has lateral bars, and include h/2.
+    geometry = beam.section_geometry
+    midpoint = float((beam.height / 2).to(mm).magnitude)
+    rows: set[float] = set()
+    spacings = []
+    for face in faces:
+        second = geometry.bars_on(face, layer=2)
+        anchor_bars = second if len(second) >= 2 else geometry.bars_on(face, layer=1)
+        if not anchor_bars:
+            raise CageDetailingError("Skin reinforcement needs a lateral tension-layer anchor.")
+        level = (max if face == "bottom" else min)(float(bar.y.to(mm).magnitude) for bar in anchor_bars)
+        span = abs(midpoint - level)
+        if span <= 0 or (face == "bottom" and level >= midpoint) or (face == "top" and level <= midpoint):
+            raise CageDetailingError("The lateral tension layer must lie within its tension half.")
+        count = max(1, math.ceil(span / limit - 1e-12))
+        pitch = span / count
+        spacings.append(pitch)
+        direction = 1 if face == "bottom" else -1
+        rows.update(round(level + direction * pitch * i, 9) for i in range(1, count + 1))
     return SkinReinforcementRequirement(
         "required",
         threshold,
@@ -99,15 +126,16 @@ def skin_requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
         diameter,
         cover,
         cap,
-        zone / count,
-        count if len(faces) == 1 else 2 * count - 1,
+        max(spacings) * mm,
+        len(rows),
+        rows=tuple(y * mm for y in sorted(rows)),
     )
 
 
 def add_skin_bars(beam: RectangularBeam, geometry: SectionGeometry) -> SectionGeometry:
     """Supplementary bars in the required zones; reject clashes rather than hide them.
 
-    ACI starts above the tension face and includes a mid-height bar; each
+    ACI starts above the lateral tension-layer bar and includes a mid-height bar; each
     gap meets its spacing cap. EN supplies explicit service-zone rows.
     The flexural layers are not credited toward the supplementary proposal.
     Reversal envelopes share rows rather than duplicating or clashing them.

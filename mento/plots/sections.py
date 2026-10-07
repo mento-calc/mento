@@ -26,16 +26,16 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.patches import Circle, FancyBboxPatch, Rectangle
 from matplotlib.transforms import Bbox
-from mento.units import Quantity
 
-from mento.design_results import GRID, DesignNotRunError, format_transverse_rebar, placed_bars
 from mento.bar_sizes import bar_designation, is_us_customary
+from mento.cage_detailing import CageDetailingError
+from mento.codes.registry import design_code
+from mento.design_results import GRID, DesignNotRunError, format_transverse_rebar, placed_bars
+from mento.i18n import get_language, translate
 from mento.precompute import DISPLAY
 from mento.results import CUSTOM_COLORS
 from mento.section_geometry import BarPosition, Crosstie, SectionGeometry
-from mento.cage_detailing import CageDetailingError
-from mento.codes.registry import design_code
-from mento.i18n import get_language, translate
+from mento.units import Quantity
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -804,13 +804,18 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
                 if get_language() == "es"
                 else f"Skin: {notation} per side · s={skin.spacing.to(unit):.3g~P} · excluded from resistance"
             )
-            for face, rows, gap in skin.distribution_reviews:
+            # All service cases remain in the requirement and warnings; keep
+            # the figure readable by labelling the largest interval per face.
+            for face in dict.fromkeys(review.tension_face for review in skin.distribution_reviews):
+                review = max(
+                    (r for r in skin.distribution_reviews if r.tension_face == face), key=lambda r: r.maximum_interval
+                )
                 lines.append(
                     translate(
                         "Review skin ({face}): {rows} rows · max interval {gap}",
                         face=translate(face.capitalize()),
-                        rows=rows,
-                        gap=f"{gap.to(unit):.3g~P}",
+                        rows=review.rows_per_side,
+                        gap=f"{review.maximum_interval.to(unit):.3g~P}",
                     )
                 )
             if skin.distribution_reviews:
@@ -818,13 +823,17 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
         try:
             pending_requirement = self.skin_reinforcement
             skin_pending = pending_requirement.status == "pending"
+            skin_unsupported = pending_requirement.status == "unsupported"
             service_pending = pending_requirement.pending_reason == "service"
             tension_case_pending = pending_requirement.pending_reason == "no_tension_case"
         except CageDetailingError:
             skin_pending = False
+            skin_unsupported = False
             service_pending = False
             tension_case_pending = False
-        if skin_pending and tension_case_pending:
+        if skin_unsupported:
+            lines.append(translate("Skin not checked · unsupported design case"))
+        elif skin_pending and tension_case_pending:
             lines.append(
                 "Armadura de piel pendiente · sin caso de tracción identificado"
                 if get_language() == "es"

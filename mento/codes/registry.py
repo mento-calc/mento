@@ -191,6 +191,9 @@ class DesignCode:
     max_skin_bar_spacing: Callable[..., Any] | None = None
     #: A code-specific requirement when the ACI spacing-only rule does not apply.
     skin_requirement: Callable[..., Any] | None = None
+    #: Code-specific supplementary skin/surface warnings, including cases
+    #: where requirement could not be evaluated. (section, requirement | None).
+    skin_warnings: Callable[..., Any] | None = None
 
     def requires(self, hook: str) -> Callable[..., Any]:
         """The hook, or a clear error naming the code that lacks it."""

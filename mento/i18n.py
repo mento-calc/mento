@@ -359,6 +359,9 @@ ES.update(
         "con separación no mayor que {s_max}. Ver la propuesta complementaria en detailing_geometry; "
         "no se computa en la resistencia.",
         "Skin reinforcement is pending: verify flexure to identify the tension face.": "Armadura de piel pendiente: verificar flexión para identificar la cara traccionada.",
+        "Skin detailing cannot be evaluated: {reason}": "No se puede evaluar el detalle de piel: {reason}",
+        "Skin reinforcement is not supported for this design case; this is not an exemption.": "La armadura de piel no está implementada para este caso de diseño; esto no constituye una exención.",
+        "The supplementary skin proposal cannot be fitted in the cage: {reason}": "La propuesta complementaria de piel no entra en la jaula: {reason}",
         "The skin reinforcement preference cannot satisfy the detailing limits.": "La configuración de armadura de piel no permite cumplir los límites del detalle.",
     }
 )
@@ -371,6 +374,7 @@ ES.update(
         "Skin reinforcement is pending: the checked combinations identify no tension face. A zero-moment or capacity check does not establish an exemption.": "La armadura de piel está pendiente: las combinaciones verificadas no identifican una cara traccionada. Una comprobación con momento nulo o de capacidad no establece una exención.",
         "Review skin ({face}): {rows} rows · max interval {gap}": "Revisar piel ({face}): {rows} filas · intervalo máx. {gap}",
         "Informative review · crack width is not calculated": "Aviso informativo · no se calcula el ancho de fisura",
+        "Skin not checked · unsupported design case": "Piel no comprobada · caso de diseño no implementado",
         "Review skin-steel distribution for the {face} tension case: {rows} rows per side in its service zone, largest vertical interval {gap}, including zone boundaries. This is informative, not an additional code spacing limit; the diameter-route proposal does not verify crack width directly.": "Revisar la distribución de piel para la tracción en la cara {face}: {rows} filas por lateral en su zona de servicio, mayor intervalo vertical {gap}, incluyendo los bordes de la zona. Es informativo, no un límite normativo adicional de separación; la propuesta por diámetro no comprueba directamente el ancho de fisura.",
         "EN Annex J surface reinforcement outside the links requires a separate check for large bars or cover greater than 70 mm; longitudinal skin bars do not replace it.": "La armadura superficial EN del Anexo J, exterior a los estribos, requiere una comprobación aparte para barras grandes o recubrimiento mayor que 70 mm; las barras longitudinales de piel no la reemplazan.",
     }

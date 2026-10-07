@@ -1,42 +1,21 @@
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any, Callable, FrozenSet, Iterator, NamedTuple, Optional, Dict, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, FrozenSet, Iterator, NamedTuple, Optional, Tuple
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
+
     from mento.skin_reinforcement import SkinReinforcementRequirement
-from mento.units import Quantity
+    from mento.skin_service import SkinServiceCase
+import math
+from numbers import Integral
+
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
-import math
-from numbers import Integral
-# from devtools import debug
 
-from mento.rectangular import RectangularSection
 from mento.bar_sizes import bar_designation
 from mento.codes.registry import design_code, units_row
-from mento.precompute import refresh_section_floats
-from mento.rebar import Rebar
-from mento.units import mm, inch, kN, m, cm, dimensionless
-from mento.design_warnings import (
-    DesignWarning,
-    collect,
-    combination_label,
-    flexure_warnings,
-    shear_warnings,
-    shortfall_warnings,
-    spacing_warnings,
-    skin_warnings,
-    unread_force_warnings,
-)
-from mento.forces import Forces
-from mento.settings import BeamSettings
-from mento.reports import views
-from mento.reports.documents import flexure_report_doc, shear_report_doc
-from mento.plots.sections import plot_beam_section
-from mento.section_geometry import SectionGeometry, build_section_geometry
-from mento.reports.tables import build_flexure_report, build_shear_report
 from mento.design_results import (
     FlexureCheck,
     FlexureDesign,
@@ -52,6 +31,30 @@ from mento.design_results import (
     capture_flexure_check,
     capture_shear_check,
 )
+from mento.design_warnings import (
+    DesignWarning,
+    collect,
+    combination_label,
+    flexure_warnings,
+    shear_warnings,
+    shortfall_warnings,
+    skin_warnings,
+    spacing_warnings,
+    unread_force_warnings,
+)
+from mento.forces import Forces
+from mento.plots.sections import plot_beam_section
+from mento.precompute import refresh_section_floats
+from mento.rebar import Rebar
+
+# from devtools import debug
+from mento.rectangular import RectangularSection
+from mento.reports import views
+from mento.reports.documents import flexure_report_doc, shear_report_doc
+from mento.reports.tables import build_flexure_report, build_shear_report
+from mento.section_geometry import SectionGeometry, build_section_geometry
+from mento.settings import BeamSettings
+from mento.units import Quantity, cm, dimensionless, inch, kN, m, mm
 
 
 def _positive_or_none(value: Quantity) -> Optional[Quantity]:
@@ -297,6 +300,8 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         self._c_d_bot: float = 0
         self._shear_checked = False  # Tracks if shear check or design has been done
         self._flexure_checked = False  # Tracks if shear check or design has been done
+        self._skin_service_cases: tuple[SkinServiceCase, ...] = ()
+        self._skin_service_reference: tuple[Any, ...] | None = None
         # Depth of design calls in progress: their own bar placements keep the results.
         self._designing = 0
         self._doubly_reinforced = False  # Tracks if doubly reinforced section is used
@@ -775,6 +780,10 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         (``bars_do_not_fit``). What reads the section as it is now -- the
         reinforcement, the bar spacing -- is not a result and stays.
         """
+        # SLS results are external to the design operation. Even a design's
+        # own bar placements invalidate the section they were assessed on.
+        self._skin_service_cases = ()
+        self._skin_service_reference = None
         if getattr(self, "_designing", 0):
             return
         self._flexure_checked = False
@@ -1832,6 +1841,43 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         from mento.skin_reinforcement import skin_requirement
 
         return skin_requirement(self)
+
+    def set_skin_service_cases(self, cases: list["SkinServiceCase"]) -> None:
+        """Attach independent SLS cases to this section's current reinforcement.
+
+        Data is copied, not shared through BeamSettings. Set after design;
+        any subsequent reinforcement placement requires fresh service inputs.
+        """
+        from copy import deepcopy
+
+        from mento.skin_service import SkinServiceCase, service_reference
+
+        keys = set()
+        for case in cases:
+            if not isinstance(case, SkinServiceCase):
+                raise ValueError("Every skin service case must be a SkinServiceCase.")
+            key = (case.label, case.tension_face)
+            if key in keys:
+                raise ValueError(f"Duplicate skin service case {case.label!r} for {case.tension_face} tension.")
+            keys.add(key)
+            if case.steel_stress > self.steel_bar.f_y or case.neutral_axis >= self.height:
+                raise ValueError(
+                    f"Skin service case {case.label!r}: stress exceeds f_yk or neutral axis is outside the section."
+                )
+        self._skin_service_cases = deepcopy(tuple(cases))
+        self._skin_service_reference = deepcopy(service_reference(self))
+
+    @property
+    def skin_service_cases(self) -> tuple["SkinServiceCase", ...]:
+        """Defensive copies of SLS cases; an altered section has none."""
+        from copy import deepcopy
+
+        from mento.skin_service import service_reference
+
+        if self._skin_service_reference != service_reference(self):
+            self._skin_service_cases = ()
+            self._skin_service_reference = None
+        return deepcopy(self._skin_service_cases)
 
     @property
     def flexure_design(self) -> FlexureDesign:

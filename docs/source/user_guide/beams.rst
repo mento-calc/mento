@@ -303,16 +303,22 @@ The diameter is independently configurable from mounting steel:
 No skin bars are credited to flexural or shear capacity, areas or centroids.
 The original ``section_geometry`` remains the calculation model.
 ``skin_reinforcement_required`` warns that the strength model requires
-supplementary steel. Before flexure verification a deep beam reports ``pending``;
+supplementary steel. Before flexure verification a beam above the height threshold reports ``pending``;
 no tension face is assumed. EN uses the separate rule documented below.
 Slab strips are not applicable.
 This feature does not implement strut-and-tie design, anchorage, splice lengths,
 seismic detailing, a full bending schedule or checking manually supplied skin bars.
 
 For a 30 x 120 cm CIRSOC beam with four Ø20 bars on each horizontal face,
-Ø8 stirrups and 30 mm cover, +100/-80 kNm bending requires five Ø10 skin
-bars per lateral face at 20 cm: three per half with the middle bar shared.
-With positive bending alone, three Ø10 per lateral face cover the lower half.
+Ø8 stirrups and 30 mm cover, Mento proposes three Ø10 skin bars per lateral
+face at 27.6 cm for +100/-80 kNm bending: two per half with the middle bar
+shared. With positive bending alone, two Ø10 per side cover the lower half.
+These are proposed layouts, not a code-mandated diameter or bar count.
+Spacing starts at the innermost lateral tension-layer bar and ends at h/2,
+following ACI Fig. R9.7.2.3 / CIRSOC Fig. C 9.7.2.3. This avoids clashes with
+a second layer or large cover caused by measuring the first interval from
+the concrete face. The ``spacing`` result is the largest pitch if the two
+halves differ; explicit ``rows`` retains the actual levels.
 
 .. image:: /_static/beam_skin_reversal.png
    :alt: Actual Mento output with four bottom and top bars and five green skin bars per lateral face.
@@ -326,25 +332,36 @@ A_ct=b*h/2 is the tensile area immediately before cracking; the additional
 area is divided equally between the lateral faces. Main flexural bars are
 not credited to this supplementary minimum.
 
-EN needs an independently assessed cracked-service steel stress and neutral
-axis. Mento's ultimate force checks do not supply them. Specify the maximum
-main tension-steel stress and the cracked-service neutral-axis depth from the
-compression face. A scalar depth assumes the same depth for both bending signs;
-otherwise supply a mapping with bottom and top entries. These axes must describe
-the service analysis used for the stress assessment:
+EN needs independently assessed cracked-service steel stress and neutral
+axis for each service case. Mento's ultimate force checks do not supply them.
+Keep the stress and axis from the same SLS analysis together in a
+``SkinServiceCase``. The axis is measured from the compression face. Give
+separate cases for bottom and top tension, and additional cases if their
+service zones differ. Labels identify SLS combinations, not necessarily ULS
+combinations. Set the cases after the section has been designed:
 
 .. code-block:: python
 
     # Illustrative SLS inputs, NOT calculated from the ultimate moments:
-    beam.settings.skin_service_steel_stress = 400*MPa
-    beam.settings.skin_service_neutral_axis = 240*mm
+    from mento import SkinServiceCase
+    beam.set_skin_service_cases([
+        SkinServiceCase("SLS+", "bottom", 400*MPa, 240*mm),
+        SkinServiceCase("SLS-", "top", 300*MPa, 320*mm),
+    ])
     beam.settings.skin_crack_width = 0.3*mm
     beam.settings.skin_bar_diameter = 10*mm
 
 The proposal uses the diameter route of Table 7.2N, with half the supplied
 main-steel stress. Stress is rounded up to a tabulated row; values below
 160 MPa use that first row. The tabulated diameter is corrected using
-Eq. (7.7N), h_cr=h/2 before cracking and h-d to the outer tension layer.
+Eq. (7.7N). EN does not explicitly define the geometric substitution for
+lateral skin bars. Mento takes the smaller of two interpretations: h_cr=h/2
+with h-d to the main outer tension layer, and a web treated as a tie across
+its width, with h_cr=b and h-d to the actual skin-bar centroid from the side.
+This minimum is a conservative Mento project rule, not an additional EN
+equation. Both the uncracked tensile area b*h/2 and this geometric treatment
+must be reviewed for the project. This simplified route does not directly
+calculate w_k under §7.3.4 and does not certify its value.
 Available crack widths are 0.2, 0.3 and 0.4 mm; the 0.3 mm default is a
 preference to review against exposure and the applicable National Annex,
 not a universal limit. This implementation assumes high-bond reinforcement
@@ -367,6 +384,15 @@ remain visible for engineering review. These intervals are not clear
 distances between bar surfaces or an additional EN spacing limit. The
 diameter-route proposal does not directly calculate or certify crack width.
 The drawing displays this review alongside the actual skin-steel proposal.
+All service zones are checked separately for minimum area; the warning data
+retains their SLS labels. The drawing summarizes the largest interval per
+tension face to remain readable.
+
+Service cases belong to the beam, not to shareable ``BeamSettings``. Inputs
+and returned cases are copied defensively. Rebar setters and the design's
+own placements invalidate them; material, section or layer-spacing changes
+are also detected. Rechecking unchanged reinforcement preserves the cases.
+Missing data for either required tension face leaves the proposal pending.
 
 A zero-moment or capacity-only check on a section within the skin-steel
 scope leaves the requirement ``pending`` with reason ``no_tension_case``;

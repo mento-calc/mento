@@ -18,7 +18,7 @@ from mento.beam import RectangularBeam
 from mento.forces import Forces
 from mento.material import Concrete_ACI_318_19, Concrete_EN_1992_2004, SteelBar
 from mento.node import Node
-from mento.units import cm, kN, kNm, mm, MPa
+from mento.units import MPa, cm, kN, kNm, mm
 
 EQUATIONS_ROOT = Path(__file__).resolve().parents[2] / "mento" / "codes"
 
@@ -250,6 +250,7 @@ def test_every_public_equation_cites_its_clause(path: Path) -> None:
 #: two layers that used to branch on the code string alongside them.
 CODE_AGNOSTIC_MODULES = ELEMENT_MODULES + [
     MENTO_ROOT / "section_geometry.py",
+    MENTO_ROOT / "design_warnings.py",
     MENTO_ROOT / "rebar.py",
     MENTO_ROOT / "reports" / "views.py",
     MENTO_ROOT / "reports" / "summaries.py",

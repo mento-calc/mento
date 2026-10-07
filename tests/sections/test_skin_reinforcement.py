@@ -1,20 +1,23 @@
 """Code boundaries, sign envelopes, actual spacing, supplementary steel and fit."""
 
 import math
+
 import matplotlib.pyplot as plt
 import pytest
+
 from mento import (
     BeamSettings,
+    CageDetailingError,
     Concrete_ACI_318_19,
     Concrete_CIRSOC_201_25,
     Concrete_EN_1992_2004,
-    RectangularBeam,
-    SteelBar,
     Forces,
-    CageDetailingError,
+    RectangularBeam,
+    SkinServiceCase,
+    SteelBar,
     set_language,
 )
-from mento.units import cm, mm, MPa, inch, ksi, psi, kNm
+from mento.units import MPa, cm, inch, kNm, ksi, mm, psi
 
 
 def beam(height=120 * cm, concrete=None, cover=30 * mm, width=30 * cm, steel=None):
@@ -77,11 +80,11 @@ def test_each_tension_half_and_reversal_envelope(moments, faces):
         ys = sorted(x.y.to("mm").magnitude for x in g.skin_bars if x.face == side)
         assert len(ys) == len(set(ys))
         if faces == ("bottom",):
-            assert ys == pytest.approx([200, 400, 600])
+            assert ys == pytest.approx([324, 600])
         elif faces == ("top",):
-            assert ys == pytest.approx([600, 800, 1000])
+            assert ys == pytest.approx([600, 876])
         else:
-            assert ys == pytest.approx([200, 400, 600, 800, 1000])
+            assert ys == pytest.approx([324, 600, 876])
         assert all(y2 - y1 <= r.s_max.to("mm").magnitude for y1, y2 in zip(ys, ys[1:]))
     assert b.section_geometry == original
     assert not original.skin_bars
@@ -147,7 +150,7 @@ def test_invalid_skin_preference_is_rejected_with_labelled_plot_fallback(diamete
     plt.close(fig)
 
 
-def test_skin_cap_uses_actual_side_cover_and_rejects_impossible_cover():
+def test_skin_cap_uses_actual_side_cover_without_rejecting_feasible_high_cover():
     b = beam(cover=80 * mm, width=50 * cm)
     b.check_flexure([Forces(M_y=100 * kNm)])
     assert b.skin_reinforcement.s_max.to("mm").magnitude == pytest.approx(160)
@@ -155,8 +158,8 @@ def test_skin_cap_uses_actual_side_cover_and_rejects_impossible_cover():
     assert b.detailing_geometry.skin_bars
     b = beam(cover=110 * mm, width=50 * cm)
     b.check_flexure([Forces(M_y=100 * kNm)])
-    with pytest.raises(CageDetailingError):
-        _ = b.detailing_geometry
+    assert b.skin_reinforcement.n_per_side == 6
+    assert b.detailing_geometry.skin_bars
 
 
 def test_no_stirrups_still_supplies_skin_and_leaves_shear_unchanged():
@@ -173,10 +176,30 @@ def test_plot_has_separate_skin_artists_and_notation():
     b = beam()
     b.check_flexure([Forces(M_y=100 * kNm), Forces(M_y=-80 * kNm)])
     fig = b.plot()
-    assert len([p for p in fig.axes[0].patches if p.get_gid() == "skin_bar"]) == 10
+    assert len([p for p in fig.axes[0].patches if p.get_gid() == "skin_bar"]) == 6
     assert len([p for p in fig.axes[0].patches if p.get_gid() == "resistant_bar"]) == 8
-    assert any("Skin: 5Ø10 per side" in t.get_text() for t in fig.axes[0].texts)
+    assert any("Skin: 3Ø10 per side" in t.get_text() for t in fig.axes[0].texts)
     plt.close(fig)
+
+
+def test_skin_grid_starts_after_the_lateral_second_layer_instead_of_clashing_with_it():
+    b = beam(cover=40 * mm, width=40 * cm, steel=SteelBar(name="ADN500", f_y=500 * MPa))
+    b.set_transverse_rebar(1, 10 * mm, 20 * cm)
+    b.set_longitudinal_rebar_bot(n1=4, d_b1=25 * mm, n3=2, d_b3=25 * mm)
+    b.check_flexure([Forces(M_y=100 * kNm)])
+    before = b.reinforcement
+    ys = [bar.y.to(mm).magnitude for bar in b.detailing_geometry.skin_bars if bar.face == "left"]
+    assert ys == pytest.approx([275, 437.5, 600])
+    assert b.reinforcement == before
+
+
+def test_aci_ground_cover_can_have_a_feasible_uniform_skin_grid():
+    b = beam(height=100 * cm, cover=75 * mm, width=60 * cm, concrete=Concrete_ACI_318_19(name="H25", f_c=25 * MPa))
+    b.set_transverse_rebar(1, 12 * mm, 20 * cm)
+    b.set_longitudinal_rebar_bot(n1=4, d_b1=25 * mm)
+    b.check_flexure([Forces(M_y=100 * kNm)])
+    ys = [bar.y.to(mm).magnitude for bar in b.detailing_geometry.skin_bars if bar.face == "left"]
+    assert ys == pytest.approx([233, 366.5, 500])
 
 
 def test_en_requires_service_inputs():
@@ -228,12 +251,16 @@ def test_cirsoc_skin_equation_is_si_with_imperial_length_inputs():
     assert b.skin_reinforcement.s_max.to("mm").magnitude == pytest.approx(380 - 2.5 * (38.1 + 8))
 
 
+def service_cases(b, axes=None, stress=400 * MPa):
+    axes = {"bottom": 240 * mm, "top": 240 * mm} if axes is None else axes
+    b.set_skin_service_cases([SkinServiceCase(f"SLS-{face}", face, stress, axis) for face, axis in axes.items()])
+
+
 def en_beam(height=1200 * mm, fy=500 * MPa):
     b = beam(
         height=height, concrete=Concrete_EN_1992_2004(name="C25", f_c=25 * MPa), steel=SteelBar(name="B500", f_y=fy)
     )
-    b.settings.skin_service_steel_stress = 400 * MPa
-    b.settings.skin_service_neutral_axis = 240 * mm
+    service_cases(b)
     return b
 
 
@@ -282,7 +309,10 @@ def test_en_minimum_and_diameter_route_use_characteristic_strength_and_half_serv
     fct = 0.3 * 25 ** (2 / 3)
     assert r.area_min_per_side.to("mm**2").magnitude == pytest.approx(0.4 * 0.5 * fct * 300 * 1200 / 2 / 500 / 2)
     # Main sigma=400 -> skin sigma=200 -> Table7.2N phi*=25mm.
-    assert r.diameter_max.to("mm").magnitude == pytest.approx(25 * fct / 2.9 * 600 / (8 * 48))
+    # Conservative web-as-tie interpretation: 300mm width and actual skin
+    # centroid 43mm from the side. Hand-evaluated Eq. (7.7N), not the old
+    # bending-depth interpretation (34.55mm).
+    assert r.diameter_max.to("mm").magnitude == pytest.approx(19.28351, abs=0.0001)
     assert r.n_per_side == 2
     assert r.area_per_side >= r.area_min_per_side
     assert r.s_max is None  # EN diameter route does NOT invent a spacing cap.
@@ -306,7 +336,7 @@ def test_en_sign_envelope_preserves_resistant_model(moments):
 
 def test_en_reversal_disjoint_zones_each_receive_minimum_area():
     b = en_beam()
-    b.settings.skin_service_neutral_axis = 800 * mm
+    service_cases(b, {"bottom": 800 * mm, "top": 800 * mm})
     b.check_flexure([Forces(M_y=100 * kNm), Forces(M_y=-80 * kNm)])
     r = b.skin_reinforcement
     ys = [bar.y.to("mm").magnitude for bar in b.detailing_geometry.skin_bars if bar.face == "left"]
@@ -330,24 +360,27 @@ def test_en_reversal_disjoint_zones_each_receive_minimum_area():
 )
 def test_en_rejects_invalid_or_inconsistent_service_inputs(field, value):
     b = en_beam()
-    setattr(b.settings, field, value)
-    b.check_flexure([Forces(M_y=100 * kNm)])
-    with pytest.raises(CageDetailingError):
+    with pytest.raises(ValueError):
+        if field == "skin_service_steel_stress":
+            service_cases(b, stress=value)
+        elif field == "skin_service_neutral_axis":
+            service_cases(b, {"bottom": value, "top": value})
+        else:
+            setattr(b.settings, field, value)
+        b.check_flexure([Forces(M_y=100 * kNm)])
         _ = b.skin_reinforcement
 
 
 def test_en_rounds_service_stress_up_and_applies_crack_width_selection():
     b = en_beam(fy=600 * MPa)
-    b.settings.skin_service_steel_stress = 600 * MPa  # skin300 -> conservative table320.
+    service_cases(b, stress=600 * MPa)  # skin300 -> conservative table320.
     b.settings.skin_crack_width = 0.2 * mm
     b.check_flexure([Forces(M_y=100 * kNm)])
     with pytest.raises(CageDetailingError, match="diameter"):
         _ = b.detailing_geometry
     b.settings.skin_bar_diameter = 8 * mm
-    assert b.skin_reinforcement.diameter_max.to("mm").magnitude == pytest.approx(
-        6 * (0.3 * 25 ** (2 / 3)) / 2.9 * 600 / (8 * 48)
-    )
-    assert b.detailing_geometry.skin_bars
+    with pytest.raises(CageDetailingError, match="diameter"):
+        _ = b.detailing_geometry
 
 
 def test_en_axial_envelope_is_explicitly_unsupported_and_can_be_rechecked():
@@ -370,7 +403,7 @@ def test_en_annex_j_cover_warning_is_independent_of_one_metre_threshold():
 
 def test_en_pending_service_is_visible_and_bilingual():
     b = en_beam()
-    b.settings.skin_service_steel_stress = None
+    b.set_skin_service_cases([])
     b.check_flexure([Forces(M_y=100 * kNm)])
     set_language("es")
     try:
@@ -393,7 +426,7 @@ def test_en_pending_service_is_visible_and_bilingual():
 )
 def test_en_service_axes_can_differ_by_bending_sign(moments, axes, expected):
     b = en_beam()
-    b.settings.skin_service_neutral_axis = axes
+    service_cases(b, axes)
     b.check_flexure([Forces(M_y=m * kNm) for m in moments])
     ys = [bar.y.to("mm").magnitude for bar in b.detailing_geometry.skin_bars if bar.face == "left"]
     assert ys == pytest.approx(expected)
@@ -401,10 +434,11 @@ def test_en_service_axes_can_differ_by_bending_sign(moments, axes, expected):
 
 def test_en_service_axes_must_cover_both_checked_signs():
     b = en_beam()
-    b.settings.skin_service_neutral_axis = {"bottom": 240 * mm}
+    service_cases(b, {"bottom": 240 * mm})
     b.check_flexure([Forces(M_y=100 * kNm), Forces(M_y=-80 * kNm)])
-    with pytest.raises(CageDetailingError, match="top"):
-        _ = b.skin_reinforcement
+    assert b.skin_reinforcement.status == "pending"
+    assert b.skin_reinforcement.pending_reason == "service"
+    assert not b.detailing_geometry.skin_bars
 
 
 def test_en_readonly_check_retains_axial_scope_without_mutating_section():
@@ -429,3 +463,30 @@ def test_en_slab_strip_does_not_take_beam_surface_warnings():
     )
     assert b.skin_reinforcement.status == "not_applicable"
     assert "skin_en_surface_pending" not in [w.code for w in b.warnings]
+
+
+def test_en_annex_j_is_not_hidden_by_invalid_skin_inputs_and_keeps_the_cause():
+    b = en_beam()
+    b.c_c = 80 * mm
+    b.settings.skin_crack_width = 0.25 * mm
+    b.check_flexure([Forces(M_y=100 * kNm)])
+    service_cases(b)
+    warnings = {w.code: w for w in b.warnings}
+    assert "skin_en_surface_pending" in warnings
+    assert "skin_detailing_invalid" in warnings
+    assert "skin_crack_width" in warnings["skin_detailing_invalid"].values["reason"]
+
+
+def test_en_annex_j_uses_cover_outside_the_links_not_the_sum_with_their_diameter():
+    b = beam(height=800 * mm, width=50 * cm, cover=68 * mm, concrete=Concrete_EN_1992_2004(name="C25", f_c=25 * MPa))
+    assert "skin_en_surface_pending" not in [w.code for w in b.warnings]
+
+
+def test_en_axial_case_has_an_explicit_unsupported_plot_caption():
+    from mento.units import kN
+
+    b = en_beam()
+    b.check_flexure([Forces(M_y=100 * kNm, N_x=10 * kN)])
+    fig = b.plot()
+    assert any("Skin not checked" in t.get_text() for t in fig.axes[0].texts)
+    plt.close(fig)

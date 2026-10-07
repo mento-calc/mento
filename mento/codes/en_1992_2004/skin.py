@@ -9,12 +9,11 @@ Annex J surface mesh is a separate detail outside the links.
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
 from mento.codes.en_1992_2004.equations.flexure import crack_control_min_reinforcement
-from mento.skin_reinforcement import SkinReinforcementRequirement
-from mento.units import Quantity, mm, MPa
+from mento.skin_reinforcement import SkinDistributionReview, SkinReinforcementRequirement
+from mento.units import MPa, Quantity, mm
 
 if TYPE_CHECKING:
     from mento.beam import RectangularBeam
@@ -28,6 +27,31 @@ def _length(value: object, name: str) -> float:
     result = float(value.to(mm).magnitude)
     if not math.isfinite(result) or result <= 0:
         raise CageDetailingError(f"{name} must be finite and positive.")
+    return result
+
+
+def warnings(beam: RectangularBeam, req: SkinReinforcementRequirement | None) -> list:
+    """EN warnings and informative Annex J review, independent of web fit.
+
+    Annex J §J.1(1)-(3) refers to cover outside the links. Its recommended
+    thresholds and applicability must be reviewed against the National Annex.
+    """
+    from mento.design_warnings import _Raw
+
+    result = []
+    layers = beam.reinforcement.bottom.layers + beam.reinforcement.top.layers
+    if beam.c_c > 70 * mm or any(layer.d_b > 32 * mm for layer in layers):
+        result.append(_Raw("skin_en_surface_pending", {}))
+    if req is None:
+        return result
+    if req.pending_reason == "service":
+        result.append(_Raw("skin_en_service_pending", {}))
+    elif req.pending_reason == "axial":
+        result.append(_Raw("skin_en_axial_unsupported", {}))
+    elif req.status == "required":
+        result.append(_Raw("skin_en_required", {"area": req.area_min_per_side, "diameter": req.diameter_max}))
+    elif req.status == "unsupported":
+        result.append(_Raw("skin_reinforcement_unsupported", {}))
     return result
 
 
@@ -68,16 +92,11 @@ def requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
     # §7.3.3(3) replaces k with 0.5 and sigma_s with characteristic fy.
     # Divide the total additional area equally between the two lateral faces.
     amin = crack_control_min_reinforcement(0.4, 0.5, fct, width * h / 2, fy) / 2
-    if settings.skin_service_steel_stress is None or settings.skin_service_neutral_axis is None:
+    cases = tuple(case for case in beam.skin_service_cases if case.tension_face in faces)
+    if any(not any(case.tension_face == face for case in cases) for face in faces):
         return SkinReinforcementRequirement(
             "pending", threshold, faces, area_min_per_side=amin * mm**2, pending_reason="service"
         )
-    stress = settings.skin_service_steel_stress
-    if not isinstance(stress, Quantity) or not stress.check("[pressure]"):
-        raise CageDetailingError("skin_service_steel_stress must be a stress quantity.")
-    main_stress = float(stress.to(MPa).magnitude)
-    if not math.isfinite(main_stress) or not 0 < main_stress <= fy:
-        raise CageDetailingError("skin_service_steel_stress must be positive and no greater than f_yk.")
     diameter = _length(settings.skin_bar_diameter, "skin_bar_diameter")
     if settings.skin_bar_diameter < settings.minimum_longitudinal_diameter:
         raise CageDetailingError("skin_bar_diameter is below minimum_longitudinal_diameter.")
@@ -98,23 +117,22 @@ def requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
         (400, (8, 6, 4)),
         (450, (6, 5, 0)),
     )
-    skin_stress = main_stress / 2  # §7.3.3(3), not ACI's 2fy/3.
-    row = next((limits for sigma, limits in table if sigma >= skin_stress), None)
-    if row is None or row[column] <= 0:
-        raise CageDetailingError("The requested skin crack-control case is outside Table 7.2N.")
     bars = beam.section_geometry.bars
     # h-d is the centroid distance of the OUTERMOST tension layer.
     # hcr=h/2 is the pure-bending tensile depth immediately BEFORE cracking;
     # x above describes the cracked SERVICE section and is not hcr.
     caps = []
     zones = []
-    for face in faces:
-        axes = settings.skin_service_neutral_axis
-        if isinstance(axes, Mapping):
-            if face not in axes:
-                raise CageDetailingError(f"skin_service_neutral_axis is missing the {face} tension case.")
-            axes = axes[face]
-        x = _length(axes, "skin_service_neutral_axis")
+    for case in cases:
+        face = case.tension_face
+        main_stress = float(case.steel_stress.to(MPa).magnitude)
+        if main_stress > fy:
+            raise CageDetailingError(f"Skin service case {case.label!r}: steel stress exceeds f_yk.")
+        skin_stress = main_stress / 2  # §7.3.3(3), not ACI's 2fy/3.
+        row = next((limits for sigma, limits in table if sigma >= skin_stress), None)
+        if row is None or row[column] <= 0:
+            raise CageDetailingError(f"Skin service case {case.label!r} is outside Table 7.2N.")
+        x = _length(case.neutral_axis, "neutral_axis")
         if x >= h:
             raise CageDetailingError("skin_service_neutral_axis must be inside the section, measured from compression.")
         outer = [bar for bar in bars if bar.face == face and bar.layer == 1]
@@ -123,7 +141,15 @@ def requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
         total = sum(float(bar.d_b.to(mm).magnitude) ** 2 for bar in outer)
         level = sum(float(bar.y.to(mm).magnitude) * float(bar.d_b.to(mm).magnitude) ** 2 for bar in outer) / total
         edge = level if face == "bottom" else h - level
-        caps.append(row[column] * (fct / 2.9) * (h / 2) / (8 * edge))
+        bending_cap = row[column] * (fct / 2.9) * (h / 2) / (8 * edge)
+        # Mento's conservative interpretation for lateral web reinforcement:
+        # also treat the web as a tie across its width, using the centroid of
+        # the ACTUAL skin bar rather than only the main tension layer. The
+        # minimum of these interpretations is a project rule, not an extra
+        # expression printed by EN for skin steel. Neither calculates w_k.
+        skin_edge = float((beam.c_c + beam._stirrup_d_b).to(mm).magnitude) + diameter / 2
+        tie_cap = row[column] * (fct / 2.9) * width / (8 * skin_edge)
+        caps.append(min(bending_cap, tie_cap))
         neutral = h - x if face == "bottom" else x
         low, high = sorted((level, neutral))
         if (face == "bottom" and neutral <= level) or (face == "top" and neutral >= level):
@@ -152,11 +178,11 @@ def requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
     # minimum area permits it. Expose the actual distribution for engineering
     # review; do not invent a spacing limit from the alternative Table 7.3N.
     reviews = []
-    for face, (a, b) in zip(faces, zones):
+    for case, (a, b) in zip(cases, zones):
         zone_rows = tuple(y for y in rows if a - 1e-9 <= y <= b + 1e-9)
         levels = (a, *zone_rows, b)
         largest_gap = max(right - left for left, right in zip(levels, levels[1:]))
-        reviews.append((face, len(zone_rows), largest_gap * mm))
+        reviews.append(SkinDistributionReview(case.tension_face, case.label, len(zone_rows), largest_gap * mm))
     return SkinReinforcementRequirement(
         "required",
         threshold,

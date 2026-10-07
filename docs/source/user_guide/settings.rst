@@ -157,15 +157,19 @@ limit.
 EN skin service inputs
 -----------------------
 
-``skin_service_steel_stress`` and ``skin_service_neutral_axis`` default to None.
-The former is the maximum main-steel stress in cracked service analysis; the
-latter is the cracked-service neutral-axis depth from the compression face.
-A single quantity applies to both signs; a mapping with bottom and top entries
-allows different axes. Use axes from the same SLS assessment as the stress.
+Service stress and neutral-axis depth are section results, not preferences.
+They are supplied with ``beam.set_skin_service_cases()`` and
+``SkinServiceCase`` after design, separately for each tension face and service
+combination. The beam copies the cases and invalidates them on reinforcement
+changes. ``BeamSettings`` remains shareable without sharing these SLS results.
 ``skin_crack_width`` defaults to 0.3 mm; choose 0.2, 0.3 or 0.4 mm according
 to the project and National Annex. These settings do not change the resistant
 model or perform the global service analysis; see the beams guide.
 
 For asymmetric bending signs, for example::
 
-    beam.settings.skin_service_neutral_axis = {"bottom": 240*mm, "top": 320*mm}
+    from mento import SkinServiceCase
+    beam.set_skin_service_cases([
+        SkinServiceCase("SLS+", "bottom", 400*MPa, 240*mm),
+        SkinServiceCase("SLS-", "top", 300*MPa, 320*mm),
+    ])

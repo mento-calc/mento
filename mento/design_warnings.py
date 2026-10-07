@@ -203,7 +203,9 @@ _MESSAGES: Dict[str, str] = {
     ),
     "skin_reinforcement_pending": "Skin reinforcement is pending: verify flexure to identify the tension face.",
     "skin_tension_case_pending": "Skin reinforcement is pending: the checked combinations identify no tension face. A zero-moment or capacity check does not establish an exemption.",
-    "skin_detailing_invalid": "The skin reinforcement preference cannot satisfy the detailing limits.",
+    "skin_detailing_invalid": "Skin detailing cannot be evaluated: {reason}",
+    "skin_reinforcement_unsupported": "Skin reinforcement is not supported for this design case; this is not an exemption.",
+    "skin_detailing_infeasible": "The supplementary skin proposal cannot be fitted in the cage: {reason}",
     "skin_distribution_review": (
         "Review skin-steel distribution for the {face} tension case: {rows} rows per side in its service zone, "
         "largest vertical interval {gap}, including zone boundaries. This is informative, not an additional code "
@@ -788,32 +790,43 @@ def skin_warnings(beam: "RectangularBeam") -> List[_Raw]:
     from mento.cage_detailing import CageDetailingError
     from mento.skin_reinforcement import skin_requirement
 
+    requirement = None
+    result: List[_Raw] = []
     try:
         requirement = skin_requirement(beam)
-    except CageDetailingError:
-        return [_Raw("skin_detailing_invalid", {})]
-    if requirement.status == "not_applicable":
+    except CageDetailingError as error:
+        result.append(_Raw("skin_detailing_invalid", {"reason": str(error)}))
+    if requirement is not None and requirement.status == "not_applicable":
         return []
-    result: List[_Raw] = []
-    for face, rows, gap in requirement.distribution_reviews:
-        result.append(_Raw("skin_distribution_review", {"rows": rows, "gap": gap}, face=face))
+    hook = design_code(beam.concrete).skin_warnings
+    if hook is not None:
+        result.extend(hook(beam, requirement))
+    if requirement is None:
+        return result
+    if requirement.status == "required":
+        try:
+            beam.detailing_geometry
+        except CageDetailingError as error:
+            result.append(_Raw("skin_detailing_infeasible", {"reason": str(error)}))
+    for review in requirement.distribution_reviews:
+        result.append(
+            _Raw(
+                "skin_distribution_review",
+                {"rows": review.rows_per_side, "gap": review.maximum_interval},
+                face=review.tension_face,
+                combination=review.combination,
+                severity=float(review.maximum_interval.to(mm).magnitude),
+            )
+        )
     if requirement.pending_reason == "no_tension_case":
         result.append(_Raw("skin_tension_case_pending", {}))
-    if beam.concrete.design_code == "EN 1992-2004":
-        if beam.c_c + beam._stirrup_d_b > 70 * mm or any(bar.d_b > 32 * mm for bar in beam.section_geometry.bars):
-            result.append(_Raw("skin_en_surface_pending", {}))
-        if requirement.pending_reason == "service":
-            result.append(_Raw("skin_en_service_pending", {}))
-        elif requirement.pending_reason == "axial":
-            result.append(_Raw("skin_en_axial_unsupported", {}))
-        elif requirement.status == "required":
-            result.append(
-                _Raw("skin_en_required", {"area": requirement.area_min_per_side, "diameter": requirement.diameter_max})
-            )
-        elif requirement.status == "pending" and requirement.pending_reason != "no_tension_case":
-            result.append(_Raw("skin_reinforcement_pending", {}))
-    elif requirement.status == "required":
-        result.append(_Raw("skin_reinforcement_required", {"s_max": requirement.s_max}))
-    elif requirement.status == "pending" and requirement.pending_reason != "no_tension_case":
+    if hook is None and requirement.status == "required":
+        if requirement.s_max is not None:
+            result.append(_Raw("skin_reinforcement_required", {"s_max": requirement.s_max}))
+        else:
+            result.append(_Raw("skin_reinforcement_unsupported", {}))
+    elif hook is None and requirement.status == "unsupported":
+        result.append(_Raw("skin_reinforcement_unsupported", {}))
+    if requirement.status == "pending" and requirement.pending_reason not in ("no_tension_case", "service"):
         result.append(_Raw("skin_reinforcement_pending", {}))
     return result
