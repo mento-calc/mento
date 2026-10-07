@@ -23,7 +23,8 @@ def resolve_legs(legs: int | None, n_legs: int | None) -> int | None:
     value = legs if legs is not None else n_legs
     if value is not None and (value < 0 or value % 2):
         raise ValueError(
-            "legs must be non-negative and even: odd legs and individual crosstie anchorage are not modelled yet."
+            f"{'legs' if legs is not None else 'n_legs'} must be non-negative and even: "
+            "odd legs and individual crosstie anchorage are not modelled yet."
         )
     return value
 
