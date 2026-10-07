@@ -107,8 +107,9 @@ def test_each_service_pair_is_checked_including_multiple_cases_on_one_face():
     req = b.skin_reinforcement
     assert {r.combination for r in req.distribution_reviews} == {c.label for c in supplied}
     assert all(r.rows_per_side >= 2 for r in req.distribution_reviews)
-    labels = next(w for w in b.warnings if w.code == "skin_distribution_review" and w.face == "bottom").combinations
-    assert set(labels) == {"frequent+", "rare+"}
+    warnings = [w for w in b.warnings if w.code == "skin_distribution_review"]
+    assert len(warnings) == 1
+    assert set(warnings[0].combinations) == {c.label for c in supplied}
 
 
 def test_duplicate_service_case_is_rejected():
