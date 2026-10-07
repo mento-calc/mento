@@ -68,7 +68,7 @@ def validate_supported_forces(beam: RectangularBeam, forces: Sequence[Forces]) -
         if any(force.N_x.magnitude != 0 for force in forces):
             raise NotImplementedError(
                 translate(
-                    "EN footing sections with axial force are not supported yet. Supply zero axial force or use a model that includes its effects."
+                    "Mento does not yet model axial force in EN footings (a Mento limitation, not a Eurocode prohibition). Omitting it is conservative only for compression; with tension, verify outside Mento."
                 )
             )
 

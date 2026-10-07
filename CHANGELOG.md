@@ -94,6 +94,8 @@ from the release history and are summaries rather than complete lists.
   references and the EN 400 mm implementation cap are stated explicitly.
 
 ### Migration notes
+- EN footings with nonzero axial force now raise `NotImplementedError`: Mento does not model that scope; this is not a Eurocode prohibition. Version 1.5.0 accepted these cases.
+
 
 - This proposal is based on 1.5.0. Published release entries below are preserved.
 - Human-readable `str()` output and Word/Excel summary cells change. Consumers

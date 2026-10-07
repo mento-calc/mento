@@ -506,7 +506,7 @@ ES.update(
         "Pass (modelled checks)": "Cumple (chequeos modelados)",
         "Fail": "No cumple",
         "Pending": "Pendiente",
-        "EN footing sections with axial force are not supported yet. Supply zero axial force or use a model that includes its effects.": "Todavía no se admite esfuerzo axial en secciones de zapata EN. Ingrese axil nulo o use un modelo que incluya sus efectos.",
+        "Mento does not yet model axial force in EN footings (a Mento limitation, not a Eurocode prohibition). Omitting it is conservative only for compression; with tension, verify outside Mento.": "Mento todavía no modela el axil en zapatas EN (limitación de Mento, no del Eurocódigo). Omitirlo solo es conservador si es compresión; con tracción, verificar fuera de Mento.",
     }
 )
 
