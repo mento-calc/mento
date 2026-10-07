@@ -432,3 +432,10 @@ minimum.
 ``FlexureCheck.has_axial_force`` records a nonzero axial demand so the EN
 pure-bending skin rule cannot be applied to a combined axial case. It does
 not claim that the flexural check includes axial interaction.
+
+Bend provenance
+---------------
+
+``SectionGeometry.bend_supported`` is exported by ``to_dict()``. A False value
+marks the 4*d_st calculation placeholder used when no supported mandrel is
+available. That diameter is not a code requirement or a feasible bend detail.

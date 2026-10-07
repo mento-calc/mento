@@ -12,6 +12,9 @@ from the release history and are summaries rather than complete lists.
 
 ## [Unreleased]
 
+- Geometry exports mark unsupported bend placeholders with `bend_supported=false`;
+  the retained 4*d_st number is calculation geometry, not a normative mandrel.
+
 ### Audit corrections
 
 - Skin SLS inputs accept one-pass iterables without losing their cases.
