@@ -280,15 +280,10 @@ def test_bars_on_a_face_and_a_layer() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_the_cage_helper_places_a_crosstie_for_an_odd_count() -> None:
-    closed, ties = _cage([1.0, 2.0, 3.0], 0.5, 9.5)
-    assert closed == [((0, 2), 1.0, 3.0, 0.5, 9.5, True)]
-    assert ties == [(1, 2.0, 0.5, 9.5)]
-
-    closed, ties = _cage([float(x) for x in range(9)], 0.0, 10.0)
-    assert [c[0] for c in closed] == [(0, 8), (1, 2), (3, 4), (5, 6)]
-    assert [c[5] for c in closed] == [True, False, False, False]
-    assert ties == [(7, 7.0, 0.0, 10.0)]
+@pytest.mark.parametrize("count", [1, 3, 9])
+def test_the_cage_helper_rejects_odd_counts(count) -> None:
+    with pytest.raises(ValueError, match="odd legs .*not modelled yet"):
+        _cage([float(x) for x in range(count)], 0.5, 9.5)
 
 
 def test_a_crosstie_has_a_135_and_a_90_degree_hook() -> None:

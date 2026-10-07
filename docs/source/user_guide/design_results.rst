@@ -240,8 +240,7 @@ a quantity in the display unit of the section (cm, or in). The positions are the
   ``x_i = c_c + d_st/2 + i·s_w``, with ``s_w = (b - 2·c_c - d_st)/(n_legs - 1)`` -- the
   spacing the shear check holds to Table 9.7.6.2.2.
 - **Cage**: a perimeter stirrup on the outermost legs and inner closed stirrups on the
-  2nd and 3rd legs, the 4th and 5th...; an odd leg left over would be a crosstie with a
-  135° and a 90° hook. ``ClosedStirrup.legs`` and ``Crosstie.leg`` hold the leg indices
+  2nd and 3rd legs, the 4th and 5th...; odd counts are rejected because individual crosstie anchorage is not modelled. ``ClosedStirrup.legs`` and ``Crosstie.leg`` hold the leg indices
   into ``leg_x``, counting from 0: ten legs are ``(0, 9)``, ``(1, 2)``, ``(3, 4)``,
   ``(5, 6)``, ``(7, 8)``.
   The design only ever produces even counts.
