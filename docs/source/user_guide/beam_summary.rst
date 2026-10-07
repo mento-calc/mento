@@ -291,7 +291,7 @@ The ``index`` parameter is 1-based and must be within the range of beams in the
 summary. An ``IndexError`` is raised for out-of-range values.
 
 Editing exported physical faces
-------------------------------
+-------------------------------
 
 Complete ``*_top`` and ``*_bot`` blocks may be supplied without the legacy
 active-face columns. Equivalent diameters in different units are accepted.
