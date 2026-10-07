@@ -1908,6 +1908,24 @@ def test_matching_explicit_faces_keep_units_on_reexport(
         BeamSummary(sample_concrete, sample_steel, conflicting)
 
 
+@pytest.mark.parametrize("moment", [40, -40])
+def test_explicit_imperial_diameter_matches_legacy_metric_with_roundoff(sample_concrete, sample_steel, moment):
+    # P-N52 demonstrates that exact pint equality rejects this equivalent pair.
+    assert 9.525 * mm != 0.375 * inch
+    rows = _beam_rows([{"Label": "V1", "Comb.": "U", "My": moment, "n1": 2, "db1": 9.525}])
+    for face in ("bot", "top"):
+        for group in (1, 2, 3, 4):
+            rows[f"n{group}_{face}"] = ["", 0]
+            rows[f"db{group}_{face}"] = ["mm", 0]
+    face = "bot" if moment > 0 else "top"
+    rows[f"n1_{face}"] = ["", 2]
+    rows[f"db1_{face}"] = ["in", 0.375]
+    summary = BeamSummary(sample_concrete, sample_steel, rows)
+    bars = getattr(summary.nodes[0].section.reinforcement, "bottom" if moment > 0 else "top")
+    assert bars.layers[0].n == 2
+    assert bars.layers[0].d_b.to("mm").magnitude == pytest.approx(9.525)
+
+
 def test_complete_explicit_faces_do_not_require_legacy_columns(sample_concrete, sample_steel, tmp_path):
     source = BeamSummary(
         sample_concrete, sample_steel, _beam_rows([{"Label": "V1", "Comb.": "U", "My": 220, "Vz": 10}])
