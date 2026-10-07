@@ -450,3 +450,15 @@ def shear_results_detailed(self: "RectangularBeam", force: Optional[Forces] = No
     min_max_printer.print_table_data(result_data["min_max"], headers="keys")
     concrete_printer = TablePrinter("CONCRETE STRENGTH", language)
     concrete_printer.print_table_data(result_data["shear_concrete"], headers="keys")
+    TablePrinter("Resistance and detailing", language).print_table_data(verification_table(self), headers="keys")
+
+
+def verification_table(beam: "RectangularBeam") -> Dict[str, Any]:
+    """Resumen visible; no reemplaza los DCR ni vuelve opcional el detallado."""
+    from mento.verification import status_text
+
+    state = beam.verification_status
+    return {
+        "Verification": ["Resistance", "Detailing (modelled checks)"],
+        "Status": [status_text(state["resistance"]), status_text(state["detailing"])],
+    }

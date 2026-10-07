@@ -122,6 +122,11 @@ Resistencia total al corte                 ØVn       154.91  kN
 Verificación de corte máximo                             ✅
 Factor de Utilización                      DCR         0.97  ✅ 
 
+Verificación                              Estado
+------------------------------  ---------------------------
+Resistencia                     Cumple (chequeos modelados)
+Detallado (chequeos modelados)  Cumple (chequeos modelados) 
+
 
 
 ### flexure_results_detailed_doc: Beam V101 flexure check CIRSOC 201-25.docx
@@ -220,6 +225,10 @@ Resistencia máxima al corte | ØVmax | 284.8 | kN
 Resistencia total al corte | ØVn | 154.9 | kN
 Verificación de corte máximo |  | ✅ | 
 Factor de Utilización | DCR | 0.97 | ✅
+Resistencia y detallado
+Verificación | Estado
+Resistencia | Cumple (chequeos modelados)
+Detallado (chequeos modelados) | Cumple (chequeos modelados)
 
 ### results
 Beam V101, $b$=20.00 cm, $h$=50.00 cm, $c_{c}$=2.50 cm,                         Concrete H25, Rebar ADN 420.

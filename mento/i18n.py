@@ -386,3 +386,17 @@ def translate_dataframe(df: "pd.DataFrame", language: Optional[str] = None) -> "
     out[label_column] = [translate(v, language) if isinstance(v, str) else v for v in out[label_column]]
     out.columns = Index([translate(str(c), language) for c in out.columns])
     return out
+
+
+ES.update(
+    {
+        "Resistance and detailing": "Resistencia y detallado",
+        "Verification": "Verificación",
+        "Resistance": "Resistencia",
+        "Detailing (modelled checks)": "Detallado (chequeos modelados)",
+        "Pass (modelled checks)": "Cumple (chequeos modelados)",
+        "Fail": "No cumple",
+        "Pending": "Pendiente",
+        "EN footing sections with axial force are not supported yet. Supply zero axial force or use a model that includes its effects.": "Todavía no se admite esfuerzo axial en secciones de zapata EN. Ingrese axil nulo o use un modelo que incluya sus efectos.",
+    }
+)

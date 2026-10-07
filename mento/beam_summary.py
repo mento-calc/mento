@@ -11,6 +11,7 @@ from mento.bar_sizes import bar_designation
 from mento.beam import RectangularBeam
 from mento.codes.registry import design_code
 from mento.design_results import format_transverse_rebar
+from mento.verification import normalize_leg_column
 from mento.forces import Forces
 from mento.i18n import translate, translate_dataframe
 from mento.material import (
@@ -166,6 +167,7 @@ class BeamSummary:
         self.convert_to_nodes()
 
     def check_and_process_input(self) -> None:
+        self.beam_list = normalize_leg_column(self.beam_list)
         # Explicit physical faces may be supplied without the legacy active-face
         # block. Missing legacy columns are empty, never inferred resistant bars.
         for base in self._FACE_COLUMNS:
@@ -267,6 +269,9 @@ class BeamSummary:
                 unit = self.get_unit_variable(unit_str)
                 col = data.columns[i]
                 data[col] = data[col].apply(lambda x: x * unit)
+
+        if "legs" in data.columns:
+            data["legs"] = data["n_legs"]
 
         # Store the processed data
         self.data = data
@@ -443,6 +448,8 @@ class BeamSummary:
         transverse = {"ns": placed.n_stirrups, "dbs": placed.d_b, "sl": placed.s_l}
         if "n_legs" in self.data.columns:
             transverse["n_legs"] = placed.n_legs
+        if "legs" in self.data.columns:
+            transverse["legs"] = placed.n_legs
         return faces, transverse
 
     def _current_faces(self, section: RectangularBeam) -> Dict[str, Dict[str, Any]]:
@@ -469,7 +476,7 @@ class BeamSummary:
             "Label": "",
             "b": unit_label("length", imperial),
             "h": unit_label("length", imperial),
-            "cc": unit_label("length", imperial),
+            "cc": "in" if imperial else "mm",
             "As,bot": "",
             "As,top": "",
             "Av": "",
@@ -483,7 +490,7 @@ class BeamSummary:
                     "Label": section.label,
                     "b": _section_dimension(section.width, imperial),
                     "h": _section_dimension(section.height, imperial),
-                    "cc": _section_dimension(section.c_c, imperial),
+                    "cc": round(section.c_c.to("in" if imperial else "mm").magnitude, 2),
                     "As,bot": bottom,
                     "As,top": top,
                     "Av": transverse,

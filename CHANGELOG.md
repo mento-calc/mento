@@ -12,6 +12,17 @@ from the release history and are summaries rather than complete lists.
 
 ## [Unreleased]
 
+### Decisiones de entrega
+
+- Estados independientes de resistencia y detallado modelado, visibles en
+  reportes; un DCR favorable no aprueba el armado.
+- Entrada preferida `legs`, con alias compatible `n_legs` y validación de
+  contradicciones. Ramas impares y trabas individuales siguen fuera del modelo.
+- Ambas caras físicas en Word y cc en mm o pulgadas según el sistema.
+- Rechazo explícito de zapatas EN con axil, antes de modificar el armado:
+  caso todavía no soportado por Mento, no prohibición normativa.
+
+
 ### Audit corrections
 
 - Equivalent reinforcement lengths declared in different units no longer

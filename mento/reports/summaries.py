@@ -288,6 +288,20 @@ def beam_summary_doc(self: "BeamSummary", index: int = 1) -> None:
 
     # --- SUMMARY TABLES FOR ALL BEAMS ---
     doc_builder.add_heading(report.all_heading, level=2)
+    from mento.verification import status_text
+
+    doc_builder.add_heading("Resistance and detailing", level=3)
+    verification_rows = []
+    for checked_node in self.nodes:
+        state = checked_node.section.verification_status
+        verification_rows.append(
+            {
+                "Label": checked_node.section.label,
+                "Resistance": status_text(state["resistance"]),
+                "Detailing (modelled checks)": status_text(state["detailing"]),
+            }
+        )
+    doc_builder.add_table_data(pd.DataFrame(verification_rows))
     doc_builder.add_heading(report.data_heading, level=3)
     # Geometry and reinforcement only: the demands each beam was checked for
     # are reported by the flexure and shear tables below, per combination,

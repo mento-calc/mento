@@ -122,6 +122,11 @@ Total shear strength                 ØVn         78.5  kN
 Max shear check                                    ✅
 Demand Capacity Ratio                DCR         1.53  ❌ 
 
+Verification                  Status
+---------------------------  --------
+Resistance                     Fail
+Detailing (modelled checks)    Fail 
+
 
 
 ### flexure_results_detailed_doc: Beam V102 flexure check CIRSOC 201-25.docx
@@ -220,6 +225,10 @@ Maximum shear strength | ØVmax | 284.4 | kN
 Total shear strength | ØVn | 78.5 | kN
 Max shear check |  | ✅ | 
 Demand Capacity Ratio | DCR | 1.53 | ❌
+Resistance and detailing
+Verification | Status
+Resistance | Fail
+Detailing (modelled checks) | Fail
 
 ### results
 Beam V102, $b$=20.00 cm, $h$=50.00 cm, $c_{c}$=2.50 cm,                         Concrete H25, Rebar ADN 420.
