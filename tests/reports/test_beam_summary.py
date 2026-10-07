@@ -1656,3 +1656,46 @@ def test_a_copy_of_the_summary_is_independent(h25: Any, sample_steel: SteelBar) 
     clone.design()
     assert summary.sections_table.iloc[1]["n1_top"] == 0
     assert clone.sections_table.iloc[1]["n1_top"] == 2
+
+
+def test_from_nodes_rejects_a_discarded_diameter_that_moves_the_second_layer(sample_concrete, sample_steel):
+    beam = RectangularBeam(
+        label="V1", concrete=sample_concrete, steel_bar=sample_steel, width=20 * cm, height=50 * cm, c_c=25 * mm
+    )
+    beam.set_longitudinal_rebar_bot(n1=0, d_b1=25 * mm, n3=2, d_b3=16 * mm)
+    with pytest.raises(SummaryInputError) as raised:
+        BeamSummary.from_nodes(sample_concrete, sample_steel, [Node(beam, [Forces(label="C1", M_y=10 * kNm)])])
+    assert raised.value.code == "node_not_representable"
+    assert "second layer" in str(raised.value)
+
+
+def test_second_layer_only_has_an_explicit_reinforcement_label(sample_concrete, sample_steel):
+    beam = RectangularBeam(
+        label="V1", concrete=sample_concrete, steel_bar=sample_steel, width=20 * cm, height=50 * cm, c_c=25 * mm
+    )
+    beam.set_longitudinal_rebar_bot(n1=0, d_b1=0 * mm, n3=2, d_b3=16 * mm)
+    summary = BeamSummary.from_nodes(sample_concrete, sample_steel, [Node(beam, [Forces(label="C1", M_y=10 * kNm)])])
+    assert summary._rebar_labels(summary.nodes[0].section)[1] == "2Ø16"
+
+
+@pytest.mark.parametrize("concrete_type", [Concrete_ACI_318_19, Concrete_CIRSOC_201_25])
+def test_axial_warning_at_the_boundary_is_localized_and_does_not_require_chapter_ten(concrete_type, sample_steel):
+    concrete = concrete_type(name="C25", f_c=25 * MPa)
+    beam = RectangularBeam(
+        label="V1", concrete=concrete, steel_bar=sample_steel, width=20 * cm, height=50 * cm, c_c=25 * mm
+    )
+    beam.set_longitudinal_rebar_bot(n1=3, d_b1=16 * mm)
+    summary = BeamSummary.from_nodes(
+        concrete, sample_steel, [Node(beam, [Forces(label="AX", N_x=250 * kN, M_y=10 * kNm)])]
+    )
+    try:
+        set_language("es")
+        summary.check()
+        message = next(w.message for w in summary.results[0].warnings if w.code == "axial_load_beyond_beam")
+        assert "interacción P-M" in message
+        assert "no exige el Capítulo 10" in message
+        assert "deja de aplicar" not in message
+        assert "como columna" not in message
+        assert summary.results[0].passes is False
+    finally:
+        set_language("en")

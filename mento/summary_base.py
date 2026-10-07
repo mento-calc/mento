@@ -782,10 +782,10 @@ class _TwoTableSummary:
             if names:
                 warning = DesignWarning(
                     code="axial_load_beyond_beam",
-                    message=str(
+                    message=(
                         SummaryInputWarning(
                             "axial_load_beyond_beam", pairs=_listed([f"{key_text(key)} / {name}" for name in names])
-                        )
+                        ).message
                     ),
                     values={"N_limit": limit},
                     combinations=names,

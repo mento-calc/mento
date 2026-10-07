@@ -139,7 +139,17 @@ class BeamSummary(_FlexuralSummary):
             and section._stirrup_d_b != getattr(section.settings, "stirrup_diameter_ini", None)
         ):
             reason = "a stirrup diameter without stirrups, which a row with legs = 0 does not hold"
+        if reason is None:
+            reason = self._unused_diameter_reason(section)
         return reason
+
+    def _unused_diameter_reason(self, section: RectangularBeam) -> Optional[str]:
+        for face in FACES:
+            groups = list(section._bar_groups(face))
+            if any(n > 0 for n, _ in groups[2:]):
+                if any(n == 0 and d.to("mm").magnitude > 0 for n, d in groups[:2]):
+                    return "an unused first-layer diameter shifts the second layer and cannot be stored losslessly"
+        return None
 
     def _validate_section_row(self, key: Key, row: Mapping[str, Any]) -> None:
         legs, has_dbs, has_sl = row.get("legs", 0), _given(row.get("dbs")), _given(row.get("sl"))
@@ -204,11 +214,15 @@ class BeamSummary(_FlexuralSummary):
         def face(name: str) -> str:
             groups = section._bar_groups(name)
             (n1, d1), (n2, d2), (n3, d3), (n4, d4) = ((int(round(n)), d_b) for n, d_b in groups)
-            if n1 == 0:
+            if n1 + n2 + n3 + n4 == 0:
                 return "-"
-            out = section._format_longitudinal_rebar_string(n1, d1, n2, d2)
-            if n3 != 0:
-                out += f" ++ {section._format_longitudinal_rebar_string(n3, d3, n4, d4)}"
+            layers = []
+            for na, da, nb, db in ((n1, d1, n2, d2), (n3, d3, n4, d4)):
+                if na + nb:
+                    if na == 0:
+                        na, da, nb, db = nb, db, 0, da
+                    layers.append(section._format_longitudinal_rebar_string(na, da, nb, db))
+            out = " ++ ".join(layers)
             return out
 
         return face("top"), face("bot"), _stirrups_label(section)
@@ -218,9 +232,9 @@ class BeamSummary(_FlexuralSummary):
 
         §9.5.2.1 computes φMn per §22.3 for Pu < 0.10 f'c Ag and §9.5.2.2 per
         §22.4, with the axial load, from there on (Pu positive in
-        compression); §9.3.3.1 holds to tension-controlled only the beams
-        below it. mento checks a beam's flexure without N. EN 1992-1-1 states
-        no such limit for a beam: no warning there.
+        compression). Section 9.3.3.1 uses < in ACI and <= in CIRSOC; this
+        does not change the inclusive §9.5.2.2 trigger. mento checks flexure
+        without N. This warning is implemented for ACI/CIRSOC only.
         """
         if not isinstance(section.concrete, Concrete_ACI_318_19):
             return None

@@ -435,12 +435,12 @@ ES.update(
         ),
         (
             "{pairs}: Nx >= 0.10 f'c Ag in compression. ACI 318-19 / CIRSOC 201-25 §9.5.2.2 compute the moment "
-            "strength with the axial load (§22.4), and §9.3.3.1 no longer applies; mento checks a beam in bending "
-            "alone (§22.3), so check this section as a column."
+            "strength with the axial load (§22.4, P-M interaction); closed stirrups or spirals follow Table 22.4.2.1. "
+            "R/C9.5.2.2 does not require Chapter 10. mento checks bending alone (§22.3); this case needs separate verification."
         ): (
             "{pairs}: Nx >= 0,10 f'c Ag en compresión. ACI 318-19 / CIRSOC 201-25 §9.5.2.2 calculan la resistencia "
-            "a flexión con el esfuerzo axil (§22.4), y el §9.3.3.1 deja de aplicar; mento verifica una viga solo a "
-            "flexión (§22.3), así que esta sección hay que verificarla como columna."
+            "a flexión con el axil (§22.4, interacción P-M); estribos cerrados o zunchos según la Tabla 22.4.2.1. "
+            "R/C9.5.2.2 no exige el Capítulo 10. mento verifica flexión sola (§22.3); este caso requiere verificación aparte."
         ),
         (
             "{labels}: Vu > φVc with the bars designed; more longitudinal steel, more thickness, a higher f'c, or shear "

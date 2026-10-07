@@ -123,8 +123,8 @@ TEMPLATES: Dict[str, str] = {
     ),
     "axial_load_beyond_beam": (
         "{pairs}: Nx >= 0.10 f'c Ag in compression. ACI 318-19 / CIRSOC 201-25 §9.5.2.2 compute the moment "
-        "strength with the axial load (§22.4), and §9.3.3.1 no longer applies; mento checks a beam in bending "
-        "alone (§22.3), so check this section as a column."
+        "strength with the axial load (§22.4, P-M interaction); closed stirrups or spirals follow Table 22.4.2.1. "
+        "R/C9.5.2.2 does not require Chapter 10. mento checks bending alone (§22.3); this case needs separate verification."
     ),
     "shear_reinforcement_required": (
         "{labels}: Vu > φVc with the bars designed; more longitudinal steel, more thickness, a higher f'c, or shear "

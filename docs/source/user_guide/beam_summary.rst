@@ -59,7 +59,8 @@ compression** (a tension taken from ETABS, which gives P positive in tension, ch
 sign), **My > 0 puts the bottom face in tension**, and **Vz** is taken in magnitude.
 ``Nx`` enters the shear check only: a beam's flexure is checked without it. Under ACI
 318-19 and CIRSOC 201-25, a compression of ``0.10 f'c Ag`` or more (§9.5.2.2) raises the
-warning ``axial_load_beyond_beam``: check that section as a column. A forces table with
+warning ``axial_load_beyond_beam``: verify axial-moment interaction (§22.4) and closed stirrups or spirals
+according to Table 22.4.2.1; R/C9.5.2.2 does not require Chapter 10. A forces table with
 no ``Nx`` column is read as ``N = 0``, with a warning, since a tension left out makes the
 shear check unconservative.
 
