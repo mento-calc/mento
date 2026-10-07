@@ -754,12 +754,19 @@ def collect(raws: List[_Raw]) -> Tuple[DesignWarning, ...]:
     groups: Dict[Tuple[str, Optional[str], Optional[str], Optional[str]], List[_Raw]] = {}
     for raw in raws:
         # A force component is a limit of its own, as a direction is.
-        key = (raw.code, raw.face, raw.values.get("direction"), raw.values.get("component"))
+        key = (
+            raw.code,
+            None if raw.code == "skin_distribution_review" else raw.face,
+            raw.values.get("direction"),
+            raw.values.get("component"),
+        )
         groups.setdefault(key, []).append(raw)
 
     warnings: List[DesignWarning] = []
     for (code, face, direction, _component), group in groups.items():
         worst = max(group, key=lambda raw: raw.severity)
+        if code == "skin_distribution_review":
+            face = worst.face  # Un solo aviso: conservar el caso de mayor intervalo.
         labels = tuple(dict.fromkeys(raw.combination for raw in group if raw.combination is not None))
         # The direction picks the template and stays in the values, where a
         # program reads it; it is a word, not a number to print.
