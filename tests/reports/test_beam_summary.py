@@ -5,29 +5,29 @@ This test suite provides 100% coverage of the BeamSummary class,
 testing all methods, edge cases, and error conditions.
 """
 
-import pytest
-import pandas as pd
 import copy
 import math
 import warnings
+from pathlib import Path
 from typing import Any, Optional
 
+import pandas as pd
+import pytest
 from docx.oxml.ns import qn
 from docx.shared import Cm, Emu
-from pathlib import Path
 
-from mento import MPa, mm, cm, kN, kNm, m, inch, Forces, RectangularBeam
+from mento import Forces, MPa, RectangularBeam, cm, inch, kN, kNm, m, mm
 from mento.beam_summary import BeamSummary
+from mento.material import Concrete_ACI_318_19, Concrete_EN_1992_2004, SteelBar
+from mento.node import Node
 from mento.reports.summaries import (
     BEAM_DATA_COLUMNS,
-    FLEXURE_SUMMARY_WIDTHS,
     CHECK_SUMMARY_WIDTHS,
+    FLEXURE_SUMMARY_WIDTHS,
     SHEAR_SUMMARY_WIDTHS,
     SUMMARY_FONT_SIZE,
 )
-from mento.material import Concrete_ACI_318_19, SteelBar, Concrete_EN_1992_2004
-from mento.node import Node
-from mento.results import DocumentBuilder, FAIL_MARK, PASS_MARK, VERDICT_COLUMN
+from mento.results import FAIL_MARK, PASS_MARK, VERDICT_COLUMN, DocumentBuilder
 
 # Suppress the specific ACI warning for all tests
 pytestmark = pytest.mark.filterwarnings("ignore::UserWarning")
@@ -1417,8 +1417,35 @@ def test_beam_data_lists_the_section_and_its_bars_only(
         assert dropped not in header
 
     widths = [round(Emu(cell.width).cm, 2) for cell in table.rows[0].cells]
-    assert widths == [round(Cm(w).cm, 2) for w in [2, 1, 1, 1] + [0.9] * 11]
+    assert widths == [round(Cm(w).cm, 2) for w in [2, 1, 1, 1, 4, 4, 3]]
     assert _table_width_cm(table) <= _usable_width_cm(doc) + 0.05
+
+
+def test_word_section_data_contains_both_actual_faces_after_design_and_manual_edit(
+    sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    summary = BeamSummary(
+        sample_concrete,
+        sample_steel,
+        _beam_rows(
+            [
+                {"Label": "V1", "Comb.": "A", "My": 220, "Vz": 10},
+                {"Label": "V1", "Comb.": "B", "My": 200, "Vz": 8},
+            ]
+        ),
+    )
+    original = summary.beam_list.copy(deep=True)
+    summary.design()
+    summary.nodes[0].section.set_longitudinal_rebar_top(n1=3, d_b1=20 * mm)
+    doc = _built_document(summary, monkeypatch)
+    table = doc.tables[-4]
+    assert len(table.rows) == 3  # header, units, ONE current section
+    header = [cell.text for cell in table.rows[0].cells]
+    actual = {name: cell.text for name, cell in zip(header, table.rows[2].cells)}
+    assert "3Ø20" in actual["As,top"]
+    assert actual["As,bot"] != "-"
+    assert actual["Label"] == "V1"
+    pd.testing.assert_frame_equal(summary.beam_list, original)
 
 
 def test_forces_are_reported_to_one_decimal_and_dcrs_to_two(
@@ -1870,6 +1897,15 @@ def test_matching_explicit_faces_keep_units_on_reexport(
         conflicting = pd.concat([frame, frame.iloc[[1]]], ignore_index=True)
         conflicting.loc[2, "n1_top"] = 3
         BeamSummary(sample_concrete, sample_steel, conflicting)
+
+
+def test_section_data_keeps_a_second_layer_when_the_first_is_empty(sample_concrete, sample_steel):
+    summary = BeamSummary(sample_concrete, sample_steel, _beam_rows([{"Label": "V1", "Comb.": "U"}]))
+    beam = summary.nodes[0].section
+    beam.set_longitudinal_rebar_bot(n1=0, d_b1=0 * mm, n3=2, d_b3=20 * mm)
+    assert summary.section_data().iloc[1]["As,bot"] == "2Ø20"
+    face = summary._current_faces(beam)["bottom"]
+    assert face["n1"] == 0 and face["n3"] == 2
 
 
 def test_conflicting_legacy_edit_is_rejected_instead_of_silently_ignored(

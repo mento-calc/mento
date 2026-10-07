@@ -41,27 +41,19 @@ BEAM_DATA_COLUMNS = (
     "b",
     "h",
     "cc",
-    "ns",
-    "dbs",
-    "sl",
-    "n1",
-    "db1",
-    "n2",
-    "db2",
-    "n3",
-    "db3",
-    "n4",
-    "db4",
+    "As,bot",
+    "As,top",
+    "Av",
 )
 
 #: The label needs room for a beam name and the dimensions for two digits; the
-#: eleven rebar columns hold a count or a diameter and no more.
-BEAM_DATA_WIDTHS = [Cm(2), Cm(1), Cm(1), Cm(1)] + [Cm(0.9)] * 11
+#: complete reinforcement labels have their own columns for both faces.
+BEAM_DATA_WIDTHS = [Cm(2), Cm(1), Cm(1), Cm(1), Cm(4), Cm(4), Cm(3)]
 
 #: A slab carries a diameter and a spacing per layer instead of a count and a
 #: diameter per group, and no stirrups (see OneWaySlabSummary).
-SLAB_DATA_COLUMNS = ("Label", "b", "h", "cc", "db1", "s1", "db3", "s3")
-SLAB_DATA_WIDTHS = [Cm(2), Cm(1), Cm(1), Cm(1)] + [Cm(1)] * 4
+SLAB_DATA_COLUMNS = BEAM_DATA_COLUMNS
+SLAB_DATA_WIDTHS = BEAM_DATA_WIDTHS
 
 
 @dataclass(frozen=True)
@@ -300,7 +292,9 @@ def beam_summary_doc(self: "BeamSummary", index: int = 1) -> None:
     # Geometry and reinforcement only: the demands each beam was checked for
     # are reported by the flexure and shear tables below, per combination,
     # which is where they mean something.
-    beam_data_out = self.beam_list.fillna("")[list(report.data_columns)]
+    # Report the section that was actually checked, including both faces,
+    # instead of stale, one-face input cells from before design or edits.
+    beam_data_out = self.section_data()
     doc_builder.add_table_data(
         beam_data_out,
         column_widths=report.data_widths,

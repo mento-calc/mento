@@ -1,26 +1,26 @@
-from typing import Any, List, Dict, Optional
-from pandas import DataFrame
-import pandas as pd
 import copy
 from collections import OrderedDict
+from typing import Any, Dict, List, Optional
 
+import pandas as pd
+from pandas import DataFrame
+
+from mento import MPa, cm, ft, inch, kip, kN, kNm, ksi, m, mm, psi
+from mento.bar_sizes import bar_designation
+from mento.beam import RectangularBeam
+from mento.codes.registry import design_code
+from mento.design_results import spacing_separator
+from mento.forces import Forces
+from mento.i18n import stirrup_mark, translate, translate_dataframe
 from mento.material import (
     Concrete,
     SteelBar,
 )
-from mento.forces import Forces
-from mento.beam import RectangularBeam
-from mento.bar_sizes import bar_designation
-from mento.codes.registry import design_code
-from mento.design_results import spacing_separator
-from mento.i18n import stirrup_mark, translate, translate_dataframe
-from mento.precompute import shown, unit_label
-from mento.results import FAIL_MARK, PASS_MARK, VERDICT_COLUMN
-from mento import mm, cm, kN, MPa, m, inch, ft, kNm, kip, psi, ksi
-from mento.units import Quantity
 from mento.node import Node
+from mento.precompute import shown, unit_label
 from mento.reports.summaries import BEAM_REPORT, beam_summary_doc
-
+from mento.results import FAIL_MARK, PASS_MARK, VERDICT_COLUMN
+from mento.units import Quantity
 
 #: Summary-table columns that hold words rather than a number, a symbol or a
 #: check mark. ``translate_dataframe`` already covers the first column -- the
@@ -123,15 +123,6 @@ def _in_unit(value: Any, unit: Any) -> Any:
 def _peak(values: Any) -> Any:
     """The demand of largest magnitude among the combinations, with its sign."""
     return max(values, key=abs)
-
-
-def _face_columns(result: Any) -> Dict[str, Any]:
-    """The input columns ``n1``-``db4`` of one designed face."""
-    columns: Dict[str, Any] = {"n1": result["n_1"], "db1": result["d_b1"]}
-    for layer in (2, 3, 4):
-        columns[f"n{layer}"] = result[f"n_{layer}"]
-        columns[f"db{layer}"] = result[f"d_b{layer}"] if result[f"d_b{layer}"] is not None else 0
-    return columns
 
 
 class BeamSummary:
@@ -371,26 +362,70 @@ class BeamSummary:
     def _designed(self, node: Node) -> tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
         """Design a beam for its combinations: the input columns of each face, and of its stirrups."""
         beam: RectangularBeam = node.section  # type: ignore
-        node.design_flexure()
-        faces = {
-            "bottom": _face_columns(beam.flexure_design_results_bot),
-            "top": _face_columns(beam.flexure_design_results_top),
-        }
-        node.design_shear()
-        shear_row = beam.shear_design_results.iloc[0]  # take best row
-        transverse = {"ns": int(shear_row["n_stir"]), "dbs": shear_row["d_b"], "sl": shear_row["s_l"]}
+        node.design()
+        faces = self._current_faces(beam)
+        placed = beam.reinforcement.transverse
+        transverse = {"ns": placed.n_stirrups, "dbs": placed.d_b, "sl": placed.s_l}
         return faces, transverse
+
+    def _current_faces(self, section: RectangularBeam) -> Dict[str, Dict[str, Any]]:
+        """Serialize the actual placement with its original group positions.
+
+        The current public layers tuple omits empty groups. The input adapter
+        therefore reads positional configuration here, rather than moving a
+        surviving second layer to the first during an export.
+        """
+        return {
+            face: {
+                column: getattr(section, f"_n{column[1:]}_{suffix}")
+                if column.startswith("n")
+                else getattr(section, f"_d_b{column[2:]}_{suffix}")
+                for column in self._FACE_COLUMNS
+            }
+            for face, suffix in (("bottom", "b"), ("top", "t"))
+        }
+
+    def section_data(self) -> DataFrame:
+        """Current complete sections, one row per element, for readable reports."""
+        imperial = self.concrete.is_imperial
+        units = {
+            "Label": "",
+            "b": unit_label("length", imperial),
+            "h": unit_label("length", imperial),
+            "cc": unit_label("length", imperial),
+            "As,bot": "",
+            "As,top": "",
+            "Av": "",
+        }
+        rows = []
+        for node in self.nodes:
+            section = node.section
+            top, bottom, transverse = self._rebar_labels(section)
+            rows.append(
+                {
+                    "Label": section.label,
+                    "b": _section_dimension(section.width, imperial),
+                    "h": _section_dimension(section.height, imperial),
+                    "cc": _section_dimension(section.c_c, imperial),
+                    "As,bot": bottom,
+                    "As,top": top,
+                    "Av": transverse,
+                }
+            )
+        return DataFrame([units, *rows])
 
     def _rebar_labels(self, section: RectangularBeam) -> tuple[str, str, str]:
         """The top bars, the bottom bars and the stirrups, as ``check()`` writes them."""
 
         def face(n1: Any, d1: Any, n2: Any, d2: Any, n3: Any, d3: Any, n4: Any, d4: Any) -> str:
-            if n1 == 0:
-                return "-"
-            text = section._format_longitudinal_rebar_string(n1, d1, n2, d2)
-            if n3 != 0:
-                text += f" ++ {section._format_longitudinal_rebar_string(n3, d3, n4, d4)}"
-            return text
+            labels = []
+            for a, da, b, db in ((n1, d1, n2, d2), (n3, d3, n4, d4)):
+                if a == 0 and b == 0:
+                    continue
+                if a == 0:
+                    a, da, b, db = b, db, a, da
+                labels.append(section._format_longitudinal_rebar_string(a, da, b, db))
+            return " ++ ".join(labels) or "-"
 
         b = section
         top = face(b._n1_t, b._d_b1_t, b._n2_t, b._d_b2_t, b._n3_t, b._d_b3_t, b._n4_t, b._d_b4_t)

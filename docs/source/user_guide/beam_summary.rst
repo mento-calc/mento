@@ -259,7 +259,13 @@ Detailed Word Report
 ``results_detailed_doc()`` generates a Word document (``.docx``) that contains:
 
 - Full flexure and shear detail for one selected beam.
-- Summary tables (beam data, flexure results, shear results, DCR check) for all beams.
+- Summary tables (current complete sections, flexure results, shear results, DCR check) for all beams.
+
+Beam Data contains one row per current section, both reinforcement faces and
+its transverse reinforcement, including manual edits after design. It does
+not repeat one-face input rows or stale input steel. Dimensions are shown in
+the section's display units, with a units row. Combination forces remain in
+the separate results tables.
 
 The document is saved to the current working directory with the name
 ``Beam_Summary_{design_code}.docx`` (e.g. ``Beam_Summary_ACI 318-19.docx``).

@@ -85,16 +85,25 @@ class OneWaySlabSummary(BeamSummary):
 
     def _designed(self, node: Node) -> tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
         """Design the slab's flexure for its combinations; each face as its input columns."""
-        node.design_flexure()
-        placed = node.section.reinforcement  # type: ignore[attr-defined]
+        node.design()
+        section: Any = node.section
+        # A strip remains without stirrups, even if the shared beam design
+        # proposed them. Keep its flexural layers and verify the actual strip.
+        with section._design_in_progress():
+            section.set_slab_transverse_rebar()
+        node.check()
+        return self._current_faces(section), {}
 
-        def columns(layers: Any) -> Dict[str, Any]:
-            out: Dict[str, Any] = {column: 0 for column in _SLAB_FACE_COLUMNS}
-            for (d_column, s_column), layer in zip((("db1", "s1"), ("db3", "s3")), layers):
-                out[d_column], out[s_column] = layer.d_b, layer.s
-            return out
-
-        return {"bottom": columns(placed.bottom.layers), "top": columns(placed.top.layers)}, {}
+    def _current_faces(self, section: Any) -> Dict[str, Dict[str, Any]]:
+        return {
+            face: {
+                column: getattr(section, f"_d_b{column[2:]}_{suffix}")
+                if column.startswith("db")
+                else getattr(section, f"_s_b{column[1:]}_{suffix}")
+                for column in self._FACE_COLUMNS
+            }
+            for face, suffix in (("bottom", "b"), ("top", "t"))
+        }
 
     def _rebar_labels(self, section: Any) -> tuple[str, str, str]:
         imperial = section.concrete.is_imperial
