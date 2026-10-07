@@ -320,8 +320,11 @@ def test_a_round_whose_bars_do_not_fit_is_not_the_closest() -> None:
     assert str(beam.reinforcement.top) == "2Ø10 mm + 2Ø10 mm"
     assert beam._stirrup_d_b.to("mm").magnitude == pytest.approx(10.0)
     assert beam.flexure_design.top.DCR == pytest.approx(1.092, abs=0.0005)
-    assert [(w.code, w.face) for w in node.warnings] == [("As_below_required", "top")]
-    short = node.warnings[0]
+    assert [(w.code, w.face) for w in node.warnings] == [
+        ("compression_detailing_pending", None),
+        ("As_below_required", "top"),
+    ]
+    short = next(w for w in node.warnings if w.code == "As_below_required")
     assert short.values["A_s_req"].to("cm**2").magnitude == pytest.approx(3.50, abs=0.005)
 
 

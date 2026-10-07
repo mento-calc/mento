@@ -262,6 +262,8 @@ def test_all_exports_in_all() -> None:
         "NotABeamError",
         "SectionGeometry",
         "CageDetailingError",
+        "CompressionDetailing",
+        "CompressionFaceDetail",
         "bar_designation",
         "bar_diameter",
     ]
