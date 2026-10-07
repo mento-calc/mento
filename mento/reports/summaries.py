@@ -291,6 +291,7 @@ def beam_summary_doc(self: "BeamSummary", index: int = 1) -> None:
     from mento.verification import status_text
 
     doc_builder.add_heading("Resistance and detailing", level=3)
+    self.check()  # Re-chequear todas las combinaciones reales antes de leer estados.
     verification_rows = []
     for checked_node in self.nodes:
         state = cast("RectangularBeam", checked_node.section).verification_status

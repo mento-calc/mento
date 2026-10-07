@@ -18,7 +18,7 @@ from the release history and are summaries rather than complete lists.
   reportes; un DCR favorable no aprueba el armado.
 - Entrada preferida `legs`, con alias compatible `n_legs` y validación de
   contradicciones. Ramas impares y trabas individuales siguen fuera del modelo.
-- Ambas caras físicas en Word y cc en mm o pulgadas según el sistema.
+- Ambas caras físicas en Word; cc en mm o pulgadas en la tabla Beam Data.
 - Rechazo explícito de zapatas EN con axil, antes de modificar el armado:
   caso todavía no soportado por Mento, no prohibición normativa.
 
