@@ -455,5 +455,5 @@ approved by this first-row model. Missing/unavailable cages cannot pass.
 
 Warnings and the plot identify failed or pending compression support. The
 check does not change resistant steel, capacities, the shear verdict, or the
-separate pending policy for §9.7.6.4.3. Hooks, longitudinal extent and seismic
+separate mandatory detailing assessment for §9.7.6.4.3. Hooks, longitudinal extent and seismic
 detailing require separate verification. No extra stirrups are silently added.
