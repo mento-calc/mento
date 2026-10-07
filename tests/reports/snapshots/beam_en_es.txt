@@ -123,7 +123,7 @@ Factor de Utilización                DCR        0.967  ✅
 Verificación                              Estado
 ------------------------------  ---------------------------
 Resistencia                     Cumple (chequeos modelados)
-Detallado (chequeos modelados)  Cumple (chequeos modelados) 
+Detallado (chequeos modelados)           Pendiente 
 
 
 
@@ -224,7 +224,7 @@ Factor de Utilización | DCR | 0.97 | ✅
 Resistencia y detallado
 Verificación | Estado
 Resistencia | Cumple (chequeos modelados)
-Detallado (chequeos modelados) | Cumple (chequeos modelados)
+Detallado (chequeos modelados) | Pendiente
 
 ### results
 Beam V101, $b$=20.00 cm, $h$=50.00 cm, $c_{c}$=2.50 cm,                         Concrete C25/30, Rebar B500S.

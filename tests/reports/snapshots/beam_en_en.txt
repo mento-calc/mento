@@ -123,7 +123,7 @@ Demand Capacity Ratio                DCR        0.967  ✅
 Verification                         Status
 ---------------------------  ----------------------
 Resistance                   Pass (modelled checks)
-Detailing (modelled checks)  Pass (modelled checks) 
+Detailing (modelled checks)         Pending 
 
 
 
@@ -224,7 +224,7 @@ Demand Capacity Ratio | DCR | 0.97 | ✅
 Resistance and detailing
 Verification | Status
 Resistance | Pass (modelled checks)
-Detailing (modelled checks) | Pass (modelled checks)
+Detailing (modelled checks) | Pending
 
 ### results
 Beam V101, $b$=20.00 cm, $h$=50.00 cm, $c_{c}$=2.50 cm,                         Concrete C25/30, Rebar B500S.
