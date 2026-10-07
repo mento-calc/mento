@@ -73,20 +73,56 @@ def validate_supported_forces(beam: RectangularBeam, forces: Sequence[Forces]) -
             )
 
 
+WARNING_CATEGORY: dict[str, str] = {
+    "As_below_min": "resistance",
+    "As_above_max": "resistance",
+    "not_tension_controlled": "resistance",
+    "clear_spacing_below_min": "failed",
+    "bar_spacing_below_min": "failed",
+    "bar_spacing_exceeds_max": "failed",
+    "bars_do_not_fit": "failed",
+    "As_below_required": "resistance",
+    "stirrups_required": "resistance",
+    "force_component_not_checked": "resistance",
+    "Av_below_min": "resistance",
+    "stirrup_spacing_exceeds_max_l": "failed",
+    "stirrup_spacing_exceeds_max_w": "failed",
+    "shear_exceeds_section_limit": "resistance",
+    "mesh_ratio_below_min_h": "resistance",
+    "mesh_ratio_below_min_v": "resistance",
+    "mesh_spacing_exceeds_max_h": "failed",
+    "mesh_spacing_exceeds_max_v": "failed",
+    "stirrup_spacing_exceeds_compression_support": "failed",
+    "stirrup_diameter_below_compression_support": "failed",
+    "stirrups_required_for_compression_support": "failed",
+    "axial_load_beyond_beam": "resistance",
+    "stirrup_spacing_exceeds_max": "failed",
+    "mesh_ratio_below_min": "resistance",
+    "mesh_spacing_exceeds_max": "failed",
+}
+
+
+def warning_category(code: str) -> str:
+    """Mapa explícito; un código nuevo no puede aprobarse silenciosamente."""
+    return WARNING_CATEGORY.get(code, "pending")
+
+
 def verification_status(beam: RectangularBeam) -> dict[str, str]:
     """Resistencia de las combinaciones y detallado modelado, sin aprobado global."""
     flexure, shear = beam.flexure_checks, beam.shear_checks
     strength_failed = any(not item.complies for item in flexure) or any(item.DCR > 1 for item in shear)
     warnings = beam.warnings
     outside = {"axial_load_beyond_beam", "force_component_not_checked"}
+    strength_failed = strength_failed or any(
+        warning_category(w.code) == "resistance" and w.code not in outside for w in warnings
+    )
     unknown_dcr = any(not math.isfinite(item.DCR) for item in shear) or any(
         not math.isfinite(face.DCR) for item in flexure for face in (item.bottom, item.top)
     )
     strength_pending = not flexure or not shear or unknown_dcr or any(w.code in outside for w in warnings)
     resistance = "failed" if strength_failed else "pending" if strength_pending else "passed"
-    detail_warnings = [w for w in warnings if w.code not in outside]
-    pending = [w for w in detail_warnings if "pending" in w.code or "not_verified" in w.code or "unsupported" in w.code]
-    failed = [w for w in detail_warnings if w not in pending]
+    pending = [w for w in warnings if warning_category(w.code) == "pending"]
+    failed = [w for w in warnings if warning_category(w.code) == "failed"]
     compression = getattr(beam, "compression_detailing", None)
     if compression is not None:
         compression_failed = compression.status == "failed"
