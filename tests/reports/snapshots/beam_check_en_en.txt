@@ -246,6 +246,7 @@ Shear reinforcing 2 legs Ø6 mm @ 40 cm · 14.4 cm between legs (max 34.27 cm), 
 ### warnings
 As_below_min: Steel on the top face: A_s = 1.01 cm² is below the minimum it has to meet, A_s,min,eff = 1.24 cm².
 bars_do_not_fit: The bars on the bottom face do not fit in the width of the section.
+cage_detailing_infeasible: The base cage cannot be detailed: The resistant bars cannot fit between the stirrup corners with the required spacing.
 Av_below_min: The stirrups provide A_v = 1.41 cm²/m, below the minimum A_v,min = 1.6 cm²/m.
 stirrup_spacing_exceeds_max: Stirrup spacing along the member: 40 cm exceeds the maximum 34.3 cm.
 

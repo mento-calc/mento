@@ -1793,7 +1793,8 @@ def test_design_flexure_CIRSOC_201_25_narrow_web_fits_the_bars_its_stirrup_leave
     elige 1eØ6/12 para 50 kN, y con el Ø6 el ancho libre es 5.8 cm: 2Ø16
     entran (58 - 32 = 26 mm ≥ 25 mm). El diseño completo rehace la flexion
     con el estribo con el que termina y deja 2Ø16 + 2Ø12 = 6.28 cm² abajo
-    sobre 2Ø12 arriba: DCR 0.803, sin avisos. Antes quedaba con la seccion
+    sobre 2Ø12 arriba: DCR 0.803; el detalle de jaula se advierte por separado.
+    Antes quedaba con la seccion
     declarada corta por un estribo que no lleva.
     """
     beam = RectangularBeam(
@@ -1812,7 +1813,7 @@ def test_design_flexure_CIRSOC_201_25_narrow_web_fits_the_bars_its_stirrup_leave
     assert [(layer.n, layer.d_b.to("mm").magnitude) for layer in bottom.layers] == [(2, 16), (2, 12)]
     assert bottom.A_s.to("cm**2").magnitude == pytest.approx(6.283, rel=1e-3)
     assert bottom.DCR == pytest.approx(0.803, rel=1e-3)
-    assert node.warnings == ()
+    assert [w.code for w in node.warnings] == ["cage_detailing_infeasible"]
 
 
 def test_design_flexure_CIRSOC_201_25_narrow_web_gives_the_most_that_fits() -> None:
@@ -1899,8 +1900,8 @@ def test_design_flexure_ACI_318_19_compression_bottom_exceeds_provided_bottom() 
     assert check_results.iloc[1]["Position"] == "Top"
     assert check_results.iloc[1]["ØMn"] == pytest.approx(80.06, rel=1e-3)
     assert check_results.iloc[1]["DCR"] <= 1.0
-    # Tension-controlled: nothing to warn about.
-    assert node.warnings == ()
+    # Tension-controlled strength; rounded cage fit is checked separately.
+    assert [w.code for w in node.warnings] == ["cage_detailing_infeasible"]
 
 
 def test_check_flexure_ACI_318_19_negative_moment_no_top_steel(

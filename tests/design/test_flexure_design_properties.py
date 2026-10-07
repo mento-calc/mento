@@ -186,7 +186,7 @@ def test_a_full_design_passes_its_own_check_with_the_stirrups_it_ends_with() -> 
     assert beam._stirrup_d_b.to("mm").magnitude == pytest.approx(10.0)
     assert beam.flexure_checks[0].bottom.DCR <= 1.0
     assert beam.shear_checks[0].DCR <= 1.0
-    assert node.warnings == ()
+    assert [w.code for w in node.warnings] == ["cage_detailing_infeasible"]
     assert beam.flexure_design.bottom.A_s >= beam.flexure_design.bottom.A_s_req
 
     node.design()
@@ -320,8 +320,11 @@ def test_a_round_whose_bars_do_not_fit_is_not_the_closest() -> None:
     assert str(beam.reinforcement.top) == "2Ø10 mm + 2Ø10 mm"
     assert beam._stirrup_d_b.to("mm").magnitude == pytest.approx(10.0)
     assert beam.flexure_design.top.DCR == pytest.approx(1.092, abs=0.0005)
-    assert [(w.code, w.face) for w in node.warnings] == [("As_below_required", "top")]
-    short = node.warnings[0]
+    assert [(w.code, w.face) for w in node.warnings] == [
+        ("cage_detailing_infeasible", None),
+        ("As_below_required", "top"),
+    ]
+    short = next(w for w in node.warnings if w.code == "As_below_required")
     assert short.values["A_s_req"].to("cm**2").magnitude == pytest.approx(3.50, abs=0.005)
 
 

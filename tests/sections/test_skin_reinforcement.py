@@ -557,3 +557,13 @@ def test_en_surface_review_strict_thresholds(cover, diameter, pending):
     b.set_longitudinal_rebar_bot(n1=2, d_b1=diameter * mm)
     codes = [w.code for w in en_warnings(b, None)]
     assert ("skin_en_surface_pending" in codes) is pending
+
+
+def test_invalid_skin_settings_do_not_hide_a_base_cage_failure():
+    b = beam()
+    b.set_transverse_rebar(1, 40 * mm, 20 * cm)
+    b.check_flexure([Forces(M_y=100 * kNm)])
+    b.settings.skin_bar_diameter = 0 * mm
+    codes = [w.code for w in b.warnings]
+    assert "skin_detailing_invalid" in codes
+    assert "cage_detailing_infeasible" in codes
