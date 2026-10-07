@@ -457,3 +457,13 @@ def test_transverse_bars_beyond_the_bend_table_are_rejected(concrete_type) -> No
     with pytest.raises(ValueError, match="bend table"):
         _ = beam.detailing_geometry
     assert beam.section_geometry.stirrup_d_b == 32 * mm
+
+
+def test_unsupported_bend_export_marks_the_placeholder():
+    wide_cirsoc_beam = _beam()
+    wide_cirsoc_beam.set_transverse_rebar(1, 32 * mm, 20 * cm)
+    geometry = wide_cirsoc_beam.section_geometry
+    assert geometry.bend_supported is False
+    exported = geometry.to_dict("mm")
+    assert exported["bend_supported"] is False
+    assert exported["stirrup_bend_inner_diameter"] == pytest.approx(128)

@@ -402,3 +402,10 @@ described here are the supported way to read a result from code.
 One difference worth noting: ``_stirrup_n`` counts stirrups, while the area ``A_v`` is
 computed from the legs that cross the shear plane. The public object exposes both, as
 ``n_stirrups`` and ``n_legs``, so there is nothing to infer.
+
+Bend provenance
+---------------
+
+``SectionGeometry.bend_supported`` is exported by ``to_dict()``. A False value
+marks the 4*d_st calculation placeholder used when no supported mandrel is
+available. That diameter is not a code requirement or a feasible bend detail.

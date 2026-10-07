@@ -132,7 +132,9 @@ class SectionGeometry:
     which still reserves the diameter it starts from -- so ``c_c +
     stirrup_d_b`` is where the check puts the faces of the bars.
     ``stirrup_bend_inner_diameter`` is the inside diameter the drawing bends
-    the stirrups with, supplied by the code's mandrel-size hook. This does
+    the stirrups with, supplied by the code's mandrel-size hook when
+    ``bend_supported`` is True; otherwise it is a non-normative 4*d_st
+    calculation placeholder, also flagged in ``to_dict()``. This does
     not verify anchorage, hooks or concrete failure at bends. ``s_w`` is the spacing of the legs across the width the
     shear check reads.
 
@@ -162,6 +164,8 @@ class SectionGeometry:
     # Supplementary steel supplied by beam.detailing_geometry, never counted
     # in bars_on(), the resistant steel areas or the moment resistance.
     mounting_bars: Tuple[BarPosition, ...] = ()
+    # False marks a 4*d_st calculation placeholder, not a code mandrel.
+    bend_supported: bool = True
 
     def arrangement(self, language: Optional[str] = None) -> str:
         """The cage in words (see :func:`mento.design_results.describe_stirrup_cage`); empty on a slab strip."""
@@ -199,6 +203,7 @@ class SectionGeometry:
             "c_c": f(self.c_c),
             "stirrup_d_b": f(self.stirrup_d_b),
             "stirrup_bend_inner_diameter": f(self.stirrup_bend_inner_diameter),
+            "bend_supported": self.bend_supported,
             "s_w": f(self.s_w),
             "leg_x": [f(x) for x in self.leg_x],
             "stirrups": [
@@ -330,12 +335,14 @@ def build_section_geometry(beam: RectangularBeam) -> SectionGeometry:
 
     closed, ties = _cage(leg_x, y_bottom, y_top)
     bend_hook = design_code(beam.concrete).stirrup_bend_inner_diameter
+    bend_supported = layout != GRID and bend_hook is not None
     try:
-        bend = q(4 * d_st) if layout == GRID or bend_hook is None else bend_hook(beam.concrete, q(d_st))
+        bend = q(4 * d_st) if not bend_supported else bend_hook(beam.concrete, q(d_st))
     except ValueError:
         # Calculation geometry remains available outside the supported bend table.
         # The detailing builder independently rejects unsupported diameters.
         bend = q(4 * d_st)
+        bend_supported = False
     return SectionGeometry(
         width=q(b),
         height=q(h),
@@ -343,6 +350,7 @@ def build_section_geometry(beam: RectangularBeam) -> SectionGeometry:
         layout=layout,
         stirrup_d_b=q(d_st),
         stirrup_bend_inner_diameter=bend,
+        bend_supported=bend_supported,
         s_w=q(sec.stirrup_s_w),
         leg_x=tuple(q(x) for x in leg_x),
         stirrups=tuple(
