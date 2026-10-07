@@ -289,3 +289,16 @@ The document is saved to the current working directory with the name
 
 The ``index`` parameter is 1-based and must be within the range of beams in the
 summary. An ``IndexError`` is raised for out-of-range values.
+
+Editing exported physical faces
+------------------------------
+
+Complete ``*_top`` and ``*_bot`` blocks may be supplied without the legacy
+active-face columns. Equivalent diameters in different units are accepted.
+When both formats are present they must agree on the face selected by ``My``.
+After changing the moment sign, clear the legacy block if it describes the
+formerly active face; do not silently reinterpret it as the other face.
+If both ``ns`` and ``n_legs`` are exported, edit them consistently or remove
+the legacy ``ns`` column. Each closed stirrup contributes two legs.
+The compatible summary's strength verdict is separate from ``node.warnings``;
+review those warnings as well before accepting detailing.

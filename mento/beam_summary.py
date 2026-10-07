@@ -10,9 +10,9 @@ from mento import MPa, cm, ft, inch, kip, kN, kNm, ksi, m, mm, psi
 from mento.bar_sizes import bar_designation
 from mento.beam import RectangularBeam
 from mento.codes.registry import design_code
-from mento.design_results import spacing_separator
+from mento.design_results import format_transverse_rebar
 from mento.forces import Forces
-from mento.i18n import stirrup_mark, translate, translate_dataframe
+from mento.i18n import translate, translate_dataframe
 from mento.material import (
     Concrete,
     SteelBar,
@@ -30,7 +30,7 @@ from mento.units import Quantity
 _WORD_COLUMNS = ("Position",)
 
 
-def _stirrups_label(beam: RectangularBeam) -> str:
+def _summary_transverse_label(beam: RectangularBeam) -> str:
     """The stirrups of a beam as the summary writes them: ``1eØ8/15`` (mm/cm), ``1s#3@6`` (in).
 
     A whole number of centimetres in SI, as the table has always shown them; in
@@ -45,7 +45,7 @@ def _stirrups_label(beam: RectangularBeam) -> str:
         bar, spacing_text = bar_designation(beam._stirrup_d_b), f"{spacing:.4g}"
     else:
         bar, spacing_text = f"Ø{int(beam._stirrup_d_b.to('mm').magnitude)}", f"{int(spacing)}"
-    return f"{int(beam._stirrup_n)}{stirrup_mark()}{bar}{spacing_separator(imperial)}{spacing_text}"
+    return format_transverse_rebar("stirrups", int(beam._stirrup_n), bar, spacing_text, "", imperial=imperial)
 
 
 def _section_dimension(length: Quantity, imperial: bool) -> Any:
@@ -78,6 +78,15 @@ def _is_unlabelled(label: Any) -> bool:
     return bool(pd.isna(label)) or str(label).strip() == ""
 
 
+def _same_cell(first: Any, second: Any) -> bool:
+    """Compare physical lengths in one unit; reinforcement counts remain exact."""
+    if hasattr(first, "to") and hasattr(second, "to"):
+        return math.isclose(
+            float(first.to("mm").magnitude), float(second.to("mm").magnitude), rel_tol=1e-12, abs_tol=1e-12
+        )
+    return bool(first == second)
+
+
 def _declared(
     rows: List[pd.Series],
     columns: tuple[str, ...],
@@ -107,7 +116,7 @@ def _declared(
     ]
     if not given:
         return None
-    if any(values != given[0] for values in given[1:]):
+    if any(not all(_same_cell(a, b) for a, b in zip(values, given[0])) for values in given[1:]):
         raise ValueError(
             f"{element} {label!r}: its rows give different {what}; give them once, or the same on every row."
         )
@@ -146,7 +155,7 @@ class BeamSummary:
     def __init__(self, concrete: Concrete, steel_bar: SteelBar, beam_list: DataFrame) -> None:
         self.concrete: Concrete = concrete
         self.steel_bar: SteelBar = steel_bar
-        self.beam_list: DataFrame = beam_list
+        self.beam_list: DataFrame = beam_list.copy()
         self.units_row: List[str] = []
         self.data: DataFrame = None
         self.nodes: List[Node] = []
@@ -157,6 +166,16 @@ class BeamSummary:
         self.convert_to_nodes()
 
     def check_and_process_input(self) -> None:
+        # Explicit physical faces may be supplied without the legacy active-face
+        # block. Missing legacy columns are empty, never inferred resistant bars.
+        for base in self._FACE_COLUMNS:
+            if base not in self.beam_list.columns:
+                explicit = [f"{base}_{face}" for face in ("bot", "top") if f"{base}_{face}" in self.beam_list.columns]
+                if not explicit:
+                    raise ValueError(
+                        f"Missing reinforcement column {base!r}: give the legacy block or complete explicit faces."
+                    )
+                self.beam_list[base] = [self.beam_list.iloc[0][explicit[0]]] + [0] * (len(self.beam_list) - 1)
         # Separate the header, units, and data
         self.units_row = self.beam_list.iloc[0].tolist()  # Second row (units)
         data = self.beam_list.iloc[1:].copy()  # Data rows (after removing the units row)
@@ -346,7 +365,10 @@ class BeamSummary:
         element = self._ELEMENT_COLUMN
         transverse = _declared(rows, self._TRANSVERSE_COLUMNS, label, "stirrups", element)
         if transverse is not None:
-            self._set_transverse(section, transverse)
+            try:
+                self._set_transverse(section, transverse)
+            except ValueError as error:
+                raise ValueError(f"{element} {label!r}: invalid transverse reinforcement: {error}") from error
 
         bottom_rows = [row for row in rows if row["My"] >= 0 * kNm]
         top_rows = [row for row in rows if row["My"] < 0 * kNm]
@@ -359,11 +381,22 @@ class BeamSummary:
                 # A complete face block declares absence as well as presence:
                 # an explicit zero must not inherit steel from another row.
                 bars = _declared(rows, columns, label, f"{face} bars", element, include_empty=True)
+                if bars is not None:
+                    for offset in range(0, len(bars), 2):
+                        if bool(bars[offset]) != bool(bars[offset + 1]):
+                            raise ValueError(
+                                f"{element} {label!r}: incomplete {face} reinforcement pair "
+                                f"{columns[offset]!r}, {columns[offset + 1]!r}."
+                            )
                 for row in face_rows:
                     legacy = tuple(row[c] for c in self._FACE_COLUMNS)
                     explicit = tuple(row[c] for c in columns)
-                    if any(value != 0 for value in legacy) and legacy != explicit:
-                        different = next(c for c, old, new in zip(self._FACE_COLUMNS, legacy, explicit) if old != new)
+                    if any(value != 0 for value in legacy) and not all(
+                        _same_cell(a, b) for a, b in zip(legacy, explicit)
+                    ):
+                        different = next(
+                            c for c, old, new in zip(self._FACE_COLUMNS, legacy, explicit) if not _same_cell(old, new)
+                        )
                         raise ValueError(
                             f"{element} {label!r}: legacy column {different!r} conflicts with {different + '_' + suffix!r}; "
                             "give matching reinforcement or leave the legacy block empty."
@@ -474,7 +507,7 @@ class BeamSummary:
         b = section
         top = face(b._n1_t, b._d_b1_t, b._n2_t, b._d_b2_t, b._n3_t, b._d_b3_t, b._n4_t, b._d_b4_t)
         bottom = face(b._n1_b, b._d_b1_b, b._n2_b, b._d_b2_b, b._n3_b, b._d_b3_b, b._n4_b, b._d_b4_b)
-        return top, bottom, _stirrups_label(section)
+        return top, bottom, _summary_transverse_label(section)
 
     def check(self, capacity_check: bool = False) -> DataFrame:
         """

@@ -12,6 +12,13 @@ from the release history and are summaries rather than complete lists.
 
 ## [Unreleased]
 
+### Audit corrections
+
+- Equivalent reinforcement lengths declared in different units no longer
+  conflict because of floating-point conversion. Counts remain exact.
+- Complete physical-face input may omit the legacy active-face block;
+  omitted legacy cells are empty and the caller's input table is preserved.
+
 ### Changed
 
 - **`BeamSummary` designs a beam for the envelope of its combinations.** Rows that share a

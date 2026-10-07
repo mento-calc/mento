@@ -1874,29 +1874,52 @@ def test_incomplete_explicit_face_is_rejected(
         BeamSummary(sample_concrete, sample_steel, rows)
 
 
+@pytest.mark.parametrize("moment", [220, -220])
 def test_matching_explicit_faces_keep_units_on_reexport(
-    sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar, tmp_path: Path
+    sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar, tmp_path: Path, moment: float
 ) -> None:
-    rows = _beam_rows([{"Label": "V1", "Comb.": "U", "My": 220, "Vz": 10}])
+    rows = _beam_rows([{"Label": "V1", "Comb.": "U", "My": moment, "Vz": 10}])
     summary = BeamSummary(sample_concrete, sample_steel, rows)
     summary.design()
     path = tmp_path / "edited.xlsx"
     summary.export_design(str(path))
     frame = pd.read_excel(path)
     # A physically equivalent diameter in another unit remains compatible.
+    expected_diameter_cm = frame.loc[1, "db1_top"] / 10
     frame.loc[0, "db1_top"] = "cm"
     frame.loc[1, "db1_top"] /= 10
     imported = BeamSummary(sample_concrete, sample_steel, frame)
-    assert imported.nodes[0].section.reinforcement == summary.nodes[0].section.reinforcement
+    for face in ("top", "bottom"):
+        actual = getattr(imported.nodes[0].section.reinforcement, face)
+        expected = getattr(summary.nodes[0].section.reinforcement, face)
+        assert actual.A_s.to("mm**2").magnitude == pytest.approx(expected.A_s.to("mm**2").magnitude)
+        assert [layer.n for layer in actual.layers] == [layer.n for layer in expected.layers]
+        assert [layer.d_b.to("mm").magnitude for layer in actual.layers] == pytest.approx(
+            [layer.d_b.to("mm").magnitude for layer in expected.layers]
+        )
     imported.design()
     imported.export_design(str(path))
     frame = pd.read_excel(path)
     assert frame.loc[0, "db1_top"] == "cm"
-    assert frame.loc[1, "db1_top"] == pytest.approx(1.2)
+    assert frame.loc[1, "db1_top"] == pytest.approx(expected_diameter_cm)
     with pytest.raises(ValueError, match="different top bars"):
         conflicting = pd.concat([frame, frame.iloc[[1]]], ignore_index=True)
         conflicting.loc[2, "n1_top"] = 3
         BeamSummary(sample_concrete, sample_steel, conflicting)
+
+
+def test_complete_explicit_faces_do_not_require_legacy_columns(sample_concrete, sample_steel, tmp_path):
+    source = BeamSummary(
+        sample_concrete, sample_steel, _beam_rows([{"Label": "V1", "Comb.": "U", "My": 220, "Vz": 10}])
+    )
+    source.design()
+    target = tmp_path / "explicit-only.xlsx"
+    source.export_design(str(target))
+    exported = pd.read_excel(target).drop(columns=list(source._FACE_COLUMNS))
+    before = exported.copy(deep=True)
+    imported = BeamSummary(sample_concrete, sample_steel, exported)
+    pd.testing.assert_frame_equal(exported, before)
+    assert imported.nodes[0].section.reinforcement == source.nodes[0].section.reinforcement
 
 
 def test_section_data_keeps_a_second_layer_when_the_first_is_empty(sample_concrete, sample_steel):
