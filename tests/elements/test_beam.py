@@ -2079,7 +2079,7 @@ def test_design_flexure_EN_1992_2004_waits_for_both_faces_to_settle() -> None:
     node.design_flexure()
     node.check_flexure()
     assert beam.flexure_checks[0].bottom.DCR == pytest.approx(0.907, abs=1e-3)
-    assert node.warnings == ()
+    assert [warning.code for warning in node.warnings] == ["compression_detailing_en_pending"]
 
 
 def test_design_flexure_rebar_infeasible_does_not_crash() -> None:
