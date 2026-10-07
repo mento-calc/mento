@@ -337,7 +337,7 @@ def build_section_geometry(beam: RectangularBeam) -> SectionGeometry:
     bend_hook = design_code(beam.concrete).stirrup_bend_inner_diameter
     bend_supported = layout != GRID and bend_hook is not None
     try:
-        bend = q(4 * d_st) if not bend_supported else bend_hook(beam.concrete, q(d_st))
+        bend = q(4 * d_st) if layout == GRID or bend_hook is None else bend_hook(beam.concrete, q(d_st))
     except ValueError:
         # Calculation geometry remains available outside the supported bend table.
         # The detailing builder independently rejects unsupported diameters.
