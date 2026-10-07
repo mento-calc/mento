@@ -763,7 +763,9 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
         geometry = self.section_geometry
         detail_error = error
         warnings.warn(
-            f"Cage detailing is not feasible: {str(error).rstrip('.')}. Showing calculation geometry only.", UserWarning, stacklevel=2
+            f"Cage detailing is not feasible: {str(error).rstrip('.')}. Showing calculation geometry only.",
+            UserWarning,
+            stacklevel=2,
         )
     if geometry.layout != GRID and (detail_error is None or detail_error.reason != "bend"):
         _plot_stirrups_in_section(ax, geometry)
