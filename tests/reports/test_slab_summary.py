@@ -172,6 +172,28 @@ def test_excel_preserves_compression_layers_without_opposite_moment(
     pd.testing.assert_frame_equal(summary.check(), checked)
 
 
+@pytest.mark.parametrize("edit", ["legacy", "zero_face"])
+def test_explicit_slab_layers_do_not_hide_conflicting_edits(
+    concrete: Any, steel: SteelBar, tmp_path: Path, edit: str
+) -> None:
+    summary = OneWaySlabSummary(concrete, steel, _slab_rows([{"Label": "L1", "Comb.": "U", "My": 160, "Vz": 10}]))
+    summary.design()
+    path = tmp_path / "edited_layers.xlsx"
+    summary.export_design(str(path))
+    frame = pd.read_excel(path)
+    if edit == "legacy":
+        frame.loc[1, "db1"] = 99
+        message = "L1.*db1.*conflicts.*db1_bot"
+    else:
+        frame = pd.concat([frame, frame.iloc[[1]]], ignore_index=True)
+        frame.loc[2, "Comb."] = "U2"
+        for column in ("db1", "s1", "db3", "s3"):
+            frame.loc[2, f"{column}_top"] = 0
+        message = "L1.*different top bars"
+    with pytest.raises(ValueError, match=message):
+        OneWaySlabSummary(concrete, steel, frame)
+
+
 def test_the_file_holds_each_number_in_its_columns_unit(concrete: Any, steel: SteelBar, tmp_path: Path) -> None:
     """A spacing in a column declared in mm is written in mm, whatever unit the design computed it in."""
     rows = _slab_rows([{"Label": "L1", "Comb.": "U", "Vz": 30, "My": 30}], units={**_UNITS, "s1": "mm", "s3": "mm"})

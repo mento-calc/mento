@@ -1847,7 +1847,7 @@ def test_incomplete_explicit_face_is_rejected(
         BeamSummary(sample_concrete, sample_steel, rows)
 
 
-def test_explicit_faces_override_legacy_and_keep_units_on_reexport(
+def test_matching_explicit_faces_keep_units_on_reexport(
     sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar, tmp_path: Path
 ) -> None:
     rows = _beam_rows([{"Label": "V1", "Comb.": "U", "My": 220, "Vz": 10}])
@@ -1856,8 +1856,7 @@ def test_explicit_faces_override_legacy_and_keep_units_on_reexport(
     path = tmp_path / "edited.xlsx"
     summary.export_design(str(path))
     frame = pd.read_excel(path)
-    # Explicit face columns are authoritative; legacy values may be stale.
-    frame.loc[1, "n1"] = 99
+    # A physically equivalent diameter in another unit remains compatible.
     frame.loc[0, "db1_top"] = "cm"
     frame.loc[1, "db1_top"] /= 10
     imported = BeamSummary(sample_concrete, sample_steel, frame)
@@ -1871,3 +1870,37 @@ def test_explicit_faces_override_legacy_and_keep_units_on_reexport(
         conflicting = pd.concat([frame, frame.iloc[[1]]], ignore_index=True)
         conflicting.loc[2, "n1_top"] = 3
         BeamSummary(sample_concrete, sample_steel, conflicting)
+
+
+def test_conflicting_legacy_edit_is_rejected_instead_of_silently_ignored(
+    sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar, tmp_path: Path
+) -> None:
+    summary = BeamSummary(
+        sample_concrete, sample_steel, _beam_rows([{"Label": "V1", "Comb.": "U", "My": 220, "Vz": 10}])
+    )
+    summary.design()
+    path = tmp_path / "legacy_edit.xlsx"
+    summary.export_design(str(path))
+    frame = pd.read_excel(path)
+    frame.loc[1, "n1"] = 99
+    with pytest.raises(ValueError, match="V1.*n1.*conflicts.*n1_bot"):
+        BeamSummary(sample_concrete, sample_steel, frame)
+
+
+@pytest.mark.parametrize("face", ["bot", "top"])
+def test_explicit_zero_face_on_another_row_is_not_filled_from_its_neighbour(
+    sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar, tmp_path: Path, face: str
+) -> None:
+    summary = BeamSummary(
+        sample_concrete, sample_steel, _beam_rows([{"Label": "V1", "Comb.": "U", "My": 220, "Vz": 10}])
+    )
+    summary.design()
+    path = tmp_path / "zero_face.xlsx"
+    summary.export_design(str(path))
+    frame = pd.read_excel(path)
+    frame = pd.concat([frame, frame.iloc[[1]]], ignore_index=True)
+    frame.loc[2, "Comb."] = "U2"
+    for column in ("n1", "db1", "n2", "db2", "n3", "db3", "n4", "db4"):
+        frame.loc[2, f"{column}_{face}"] = 0
+    with pytest.raises(ValueError, match=f"V1.*different {'bottom' if face == 'bot' else 'top'} bars"):
+        BeamSummary(sample_concrete, sample_steel, frame)

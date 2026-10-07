@@ -231,6 +231,18 @@ To reload an edited file and rebuild the summary with the new reinforcement:
 
     beam_summary.import_design("BeamDesign.xlsx")
 
+Exported designs contain complete ``*_bot`` and ``*_top`` reinforcement
+blocks so that compression steel survives export/import even with only one
+moment sign. All rows of the same beam must agree on each explicit face,
+including zero values. A zero face on one row cannot inherit bars from a
+different row.
+
+The legacy columns describe the face selected by that row's moment. If they
+contain reinforcement alongside an explicit block, both declarations must
+agree physically, including their units. A conflicting edit raises a
+``ValueError`` naming the beam and columns; it is not silently ignored.
+Leave the entire legacy block empty to supply only the explicit faces.
+
 Exporting Results to Excel
 ----------------------------
 

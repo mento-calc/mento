@@ -78,7 +78,13 @@ def _is_unlabelled(label: Any) -> bool:
 
 
 def _declared(
-    rows: List[pd.Series], columns: tuple[str, ...], label: Any, what: str, element: str = "Beam"
+    rows: List[pd.Series],
+    columns: tuple[str, ...],
+    label: Any,
+    what: str,
+    element: str = "Beam",
+    *,
+    include_empty: bool = False,
 ) -> Optional[tuple]:
     """The reinforcement the rows of a beam give in ``columns``, or None if none gives any.
 
@@ -87,10 +93,17 @@ def _declared(
     second layer when the first is empty. Rows that give it must agree: a beam
     has one set of stirrups and one set of bars per face, however many
     combinations it carries.
+
+    Complete explicit face blocks use ``include_empty``: zero is a declared
+    absence of steel and must agree across every row of the element.
     """
     if not columns:
         return None
-    given = [tuple(row[column] for column in columns) for row in rows if any(row[column] != 0 for column in columns)]
+    given = [
+        tuple(row[column] for column in columns)
+        for row in rows
+        if include_empty or any(row[column] != 0 for column in columns)
+    ]
     if not given:
         return None
     if any(values != given[0] for values in given[1:]):
@@ -310,7 +323,18 @@ class BeamSummary:
             if all(column in self.data.columns for column in columns):
                 # Explicit faces are independent of the demand sign. An
                 # all-zero block clears starter bars instead of keeping them.
-                bars = _declared(rows, columns, label, f"{face} bars", element)
+                # A complete face block declares absence as well as presence:
+                # an explicit zero must not inherit steel from another row.
+                bars = _declared(rows, columns, label, f"{face} bars", element, include_empty=True)
+                for row in face_rows:
+                    legacy = tuple(row[c] for c in self._FACE_COLUMNS)
+                    explicit = tuple(row[c] for c in columns)
+                    if any(value != 0 for value in legacy) and legacy != explicit:
+                        different = next(c for c, old, new in zip(self._FACE_COLUMNS, legacy, explicit) if old != new)
+                        raise ValueError(
+                            f"{element} {label!r}: legacy column {different!r} conflicts with {different + '_' + suffix!r}; "
+                            "give matching reinforcement or leave the legacy block empty."
+                        )
                 self._set_face(section, face, bars if bars is not None else tuple(rows[0][c] for c in columns))
                 continue
             bars = _declared(face_rows, self._FACE_COLUMNS, label, f"{face} bars", element)
