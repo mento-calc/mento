@@ -159,12 +159,15 @@ def test_summary_word_reports_normalized_legs_without_changing_input(tmp_path, m
     paths = list(tmp_path.glob("*.docx"))
     assert len(paths) == 1
     document = Document(paths[0])
-    data_table = next(t for t in document.tables if "n_legs" in [c.text for c in t.rows[0].cells])
+    data_table = next(t for t in document.tables if "As,bot" in [c.text for c in t.rows[0].cells])
     header = [c.text for c in data_table.rows[0].cells]
     assert "ns" not in header
-    assert data_table.rows[1].cells[header.index("n_legs")].text == ""
-    assert data_table.rows[2].cells[header.index("n_legs")].text == "4"
-    assert data_table.rows[1].cells[header.index("dbs")].text == "mm"
-    assert data_table.rows[2].cells[header.index("dbs")].text == "8"
+    assert "As,bot" in header and "As,top" in header
+    assert data_table.rows[1].cells[header.index("Av")].text == ""
+    notation = data_table.rows[2].cells[header.index("Av")].text
+    assert notation.startswith("4 legs" if language == "en" else "4 ramas")
+    assert "Ø8 mm" in notation
+    assert data_table.rows[1].cells[header.index("cc")].text == "mm"
+    assert float(data_table.rows[2].cells[header.index("cc")].text) == 25
     pd.testing.assert_frame_equal(frame, original)
     pd.testing.assert_frame_equal(summary.data, processed)
