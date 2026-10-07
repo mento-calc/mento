@@ -30,6 +30,7 @@ from mento.design_warnings import (
     spacing_warnings,
     unread_force_warnings,
 )
+from mento.verification import resolve_legs, validate_supported_forces, verification_status
 from mento.forces import Forces
 from mento.settings import BeamSettings
 from mento.reports import views
@@ -795,8 +796,13 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         s_l: Quantity = 0 * cm,
         *,
         n_legs: Optional[int] = None,
+        legs: Optional[int] = None,
     ) -> None:
         """Set transverse reinforcement or clear it with an all-zero input.
+
+        Prefer ``legs``; ``n_legs`` is a compatible alias. The current model
+        only supports even legs paired into closed stirrups, not arbitrary
+        individual crossties. Contradictory counts are rejected.
 
         Use keyword-only ``n_legs`` for an even number of shear legs. Legacy
         ``n_stirrups`` (including positional calls) still counts closed
@@ -807,6 +813,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         :meth:`_drop_results`).
         """
 
+        n_legs = resolve_legs(legs, n_legs)
         n_stirrups = _transverse_stirrup_count(n_stirrups, n_legs)
 
         # Diameter and spacing must be physical lengths.
@@ -1174,6 +1181,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         The alternatives kept for each face are verified on the section it
         leaves (see :meth:`_verify_longitudinal_options`).
         """
+        validate_supported_forces(self, forces)
         with self._design_in_progress():
             all_results = self._design_flexure(forces)
             self._verify_longitudinal_options(forces)
@@ -1188,6 +1196,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         would be work thrown away.
         """
         # Initialize limiting cases
+        validate_supported_forces(self, forces)
         max_M_y_top = 0 * kN * m  # For negative M_y (top reinforcement design)
         max_M_y_bot = 0 * kN * m  # For positive M_y (bottom reinforcement design)
         # Identify the limiting cases
@@ -1233,6 +1242,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         Nothing is written to the section on the ACI and CIRSOC path: the check
         returns its result and only the reporting path copies it back.
         """
+        validate_supported_forces(self, forces)
         self._flexure_checks = []
         self._flexure_warnings = []
         self._compression_faces = set()
@@ -1307,6 +1317,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         loop over many stations safe — see :meth:`flexure_check_results` for the
         flexure counterpart, which still writes.
         """
+        validate_supported_forces(self, forces)
         self._shear_checks = []
         self._shear_warnings = []
         for position, force in enumerate(forces, 1):
@@ -1325,6 +1336,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         :mod:`mento.reports.tables`, which still reads the element — so the
         state is copied back only when a report is wanted.
         """
+        validate_supported_forces(self, [force])
         code = design_code(self.concrete)
         state: Any = code.check_flexure(self, force)
         if report:
@@ -1340,6 +1352,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         have been written to. Building a report does need that, because the
         tables still read the element — the compatibility layer of ADR-0001.
         """
+        validate_supported_forces(self, [force])
         code = design_code(self.concrete)
         state = code.check_shear(self, force)
         if report:
@@ -1350,6 +1363,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
 
     def check_flexure(self, forces: list[Forces]) -> DataFrame:
         # Initialize variables to track limiting cases
+        validate_supported_forces(self, forces)
         max_dcr_top: float = 0
         max_dcr_bot: float = 0
         limiting_case_top = None
@@ -1532,11 +1546,13 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         -- 8 → 10 → 8 -- left the last one applied against the demand of the
         other.
         """
+        validate_supported_forces(self, forces)
         with self._design_in_progress():
             return self._design_shear(forces)
 
     def _design_shear(self, forces: list[Forces]) -> DataFrame:
         """:meth:`design_shear` without marking a design in progress."""
+        validate_supported_forces(self, forces)
         self._shear_options = ()
         self._stirrup_d_b = self._design_start_stirrup()
         self._update_longitudinal_rebar_attributes()
@@ -1576,6 +1592,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
 
     # Factory method to select the shear check method
     def check_shear(self, forces: list[Forces]) -> DataFrame:
+        validate_supported_forces(self, forces)
         self._shear_results_list = []  # Store individual results for each force
         self._shear_results_detailed_list: Dict[Any, Dict[str, Any]] = {}  # Store detailed results by force ID
         max_dcr = 0  # Track the maximum DCR to identify the limiting case
@@ -1645,6 +1662,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         last, on the section the shear design finished: its stirrup sets the
         depth the bars sit at.
         """
+        validate_supported_forces(self, forces)
         with self._design_in_progress():
             self._reset_for_design()
             self._design_flexure(forces)
@@ -1852,6 +1870,11 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             DesignNotRunError: if no flexure check or design has been run.
         """
         return build_flexure_design(self)
+
+    @property
+    def verification_status(self) -> dict[str, str]:
+        """Estados separados de resistencia y de los chequeos de detallado modelados."""
+        return verification_status(self)
 
     @property
     def warnings(self) -> Tuple[DesignWarning, ...]:

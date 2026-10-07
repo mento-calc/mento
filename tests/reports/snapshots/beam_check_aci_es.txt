@@ -128,6 +128,11 @@ Resistencia total al corte                 ØVn         78.5  kN
 Verificación de corte máximo                             ✅
 Factor de Utilización                      DCR         1.53  ❌ 
 
+Verificación                     Estado
+------------------------------  ---------
+Resistencia                     No cumple
+Detallado (chequeos modelados)  No cumple 
+
 
 
 ### flexure_results_detailed_doc: Beam V102 flexure check ACI 318-19.docx
@@ -232,6 +237,10 @@ Resistencia máxima al corte | ØVmax | 284.4 | kN
 Resistencia total al corte | ØVn | 78.5 | kN
 Verificación de corte máximo |  | ✅ | 
 Factor de Utilización | DCR | 1.53 | ❌
+Resistencia y detallado
+Verificación | Estado
+Resistencia | No cumple
+Detallado (chequeos modelados) | No cumple
 
 ### results
 Beam V102, $b$=20.00 cm, $h$=50.00 cm, $c_{c}$=2.50 cm,                         Concrete H25, Rebar ADN 420.

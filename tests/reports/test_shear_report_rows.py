@@ -39,7 +39,7 @@ V_S_REQ = "Nominal shear the stirrups must carry (Vu/φ − Vc)"
 THRESHOLD_SI = "Threshold of Table 9.7.6.2.2 (0.33√f'c·bw·d)"
 THRESHOLD_US = "Threshold of Table 9.7.6.2.2 (4√f'c·bw·d)"
 CAP = "Absolute cap of Table 9.7.6.2.2 in this row"
-SUPPORT = "Stirrup spacing, lateral support of compression bars (§9.7.6.4.3)"
+SUPPORT = "Mandatory detailing: compression-bar support spacing (§9.7.6.4.3)"
 EN_ALONG = "Expression (9.6N) along: 0.75·d·(1 + cot α), capped at 400 mm by mento"
 EN_ACROSS = "Expression (9.8N) across: 0.75·d, at most 600 mm"
 

@@ -361,7 +361,7 @@ _TABLE_9_7_6_2_2_LOW = "Vs,req ≤ Vs,lim → Table 9.7.6.2.2: d/2 along, d acro
 #: V_s,req is nominal, (Vu - φVc)/φ, where the row above it, ØVs, is factored.
 _V_S_REQ_ROW = "Nominal shear the stirrups must carry (Vu/φ − Vc)"
 #: The limits-table row of §9.7.6.4.3, on a section whose stirrups brace compression bars.
-_SUPPORT_ROW = "Stirrup spacing, lateral support of compression bars (§9.7.6.4.3)"
+_SUPPORT_ROW = "Mandatory detailing: compression-bar support spacing (§9.7.6.4.3)"
 
 
 def _spacing_table_rows(self: "RectangularBeam", state: Any) -> tuple[list[str], list[str], list[Any], list[str]]:
@@ -403,7 +403,7 @@ def _spacing_table_rows(self: "RectangularBeam", state: Any) -> tuple[list[str],
 def _support_row(self: "RectangularBeam", support: Any, support_hook: Any) -> list[Any]:
     """The limits-table row of §9.7.6.4.3: ``[label, unit, s_l, min, max, ok]``.
 
-    Its ``Ok?`` is the verdict of the warnings, for display only: the spacing
+    Its ``Ok?`` is the mandatory detailing verdict, separate from strength: the spacing
     is past the cap exactly when ``stirrup_spacing_exceeds_compression_support``
     is raised, and a section with no stirrups at all fails it, as
     ``stirrups_required_for_compression_support`` says -- quoting the cap of

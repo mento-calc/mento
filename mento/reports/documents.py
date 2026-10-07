@@ -223,5 +223,10 @@ def shear_report_doc(self: "RectangularBeam", force: Optional[Forces] = None) ->
     doc_builder.add_table_data(df_shear_reinforcement)
     doc_builder.add_table_dcr(df_shear_concrete)
 
+    from mento.reports.views import verification_table
+
+    doc_builder.add_heading("Resistance and detailing", level=2)
+    doc_builder.add_table_data(pd.DataFrame(verification_table(self)))
+
     # Save the Word doc
     doc_builder.save(self._report_file_name("shear_heading"))
