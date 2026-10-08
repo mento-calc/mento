@@ -545,7 +545,10 @@ def format_transverse_rebar(
     bar = bar if bar.startswith(("Ø", "#")) else f"Ø{bar}"
     if layout == GRID:
         return f"{bar}{spacing_separator(imperial)}{s_l}×{s_w}"
-    legs = 2 * n_stirrups if n_legs is None else n_legs
+    raw_legs = 2 * n_stirrups if n_legs is None else n_legs
+    if not math.isfinite(raw_legs) or raw_legs != int(raw_legs) or raw_legs < 2:
+        raise ValueError("The transverse count must represent an integer number of legs >= 2.")
+    legs = int(raw_legs)
     text = translate("{n_legs} legs Ø{d_b} @ {s_l}", language, n_legs=legs, d_b=d_b.removeprefix("Ø"), s_l=s_l).replace(
         "Ø#", "#"
     )
