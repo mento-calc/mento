@@ -38,7 +38,7 @@ from mento.design_results import (
     format_transverse_rebar,
     placed_bars,
 )
-from mento.i18n import get_language, translate
+from mento.i18n import translate
 from mento.precompute import DISPLAY
 from mento.results import CUSTOM_COLORS
 from mento.section_geometry import BarPosition, Crosstie, SectionGeometry
@@ -385,7 +385,7 @@ def _add_rounded_stirrup(
 
 
 def _add_crosstie(ax: "Axes", tie: Crosstie, db_cm: float) -> None:
-    """One crosstie: a leg the stirrup's thickness wide, with a short hook stub at each end.
+    """One open leg: its straight body; explicit hook metadata is optional, not designed.
 
     The leg carries ``gid="crosstie"``; the stubs, at the tie's hook angles, are
     marks of the ends rather than a detail of the bend.
@@ -618,13 +618,18 @@ def _cage_lines(self: "RectangularBeam", geometry: Optional[SectionGeometry] = N
     notation = source.notation(separator="\n")
     lines = [*notation.split("\n"), geometry.arrangement()]
     if len(geometry.leg_x) != transverse.n_legs:
-        lines.append(translate(
-            "{placed} proposed legs; A_v uses {entered}. Compression support: {status}.",
-            placed=len(geometry.leg_x), entered=transverse.n_legs,
-            status=translate(self.compression_detailing.status),
-        ))
+        lines.append(
+            translate(
+                "{placed} proposed legs; A_v uses {entered}. Compression support: {status}.",
+                placed=len(geometry.leg_x),
+                entered=transverse.n_legs,
+                status=translate(self.compression_detailing.status),
+            )
+        )
     if geometry.crossties:
-        lines.append(translate("Open-leg hooks and anchorage are outside this sectional model; verify them separately."))
+        lines.append(
+            translate("Open-leg hooks and anchorage are outside this sectional model; verify them separately.")
+        )
     return lines
 
 

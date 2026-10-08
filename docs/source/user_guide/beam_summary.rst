@@ -53,8 +53,8 @@ The Excel file should contain the following columns:
 - **Nx**: Axial force in kN.
 - **Vz**: Shear force in kN.
 - **My**: Moment in kNm.
-- **legs**: Preferred even shear-leg count; **n_legs** is a compatible alias.
-- **ns**: Legacy number of closed stirrups; each has 2 legs.
+- **legs**: Preferred integer shear-leg count (including odd counts from 3); **n_legs** is a compatible alias.
+- **ns**: Legacy integer two-leg equivalents; not a count of closed pieces.
 - **dbs**: Stirrup diameter in mm.
 - **sl**: Stirrup spacing in cm.
 - **n1, n2, n3, n4**: Number of longitudinal bars per group.
@@ -63,11 +63,11 @@ The Excel file should contain the following columns:
 Use either ``n_legs`` or legacy ``ns``; both count columns have blank units
 cells. Existing Excel files retain their meaning: ``ns=2`` means four legs.
 The Word report's Beam Data table always displays ``n_legs``, including
-when the input uses legacy ``ns``. Excel export preserves the input convention.
+when the input uses legacy ``ns``. Excel export writes a single editable ``legs`` column; legacy input remains readable.
 If both columns are filled, ``n_legs`` must equal ``2*ns``. A blank paired
-cell is derived from the supplied count. Non-integer, negative, odd leg
+cell is derived from the supplied count. Non-integer, negative, one-leg
 counts or inconsistent paired counts are rejected before processing.
-Design and Excel export retain the count columns supplied in the input,
+Design retains compatible internal counts; Excel exports canonical ``legs``,
 updating both consistently when both are present.
 
 Bottom reinforcement is checked against positive bending moments; top reinforcement

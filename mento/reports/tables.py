@@ -41,10 +41,10 @@ def _transverse_rebar_rows(
 ) -> tuple[list[str], list[str], list[Any], list[str]]:
     """The rows that identify the transverse reinforcement of a section.
 
-    A beam is a cage: the closed stirrups, the legs they put across the shear
-    plane -- two each, what ``A_v`` counts -- a diameter, a spacing along the
+    A beam reports the input legs across the shear plane (what ``A_v`` counts),
+    a diameter, a spacing along the
     length, and the spacing of the legs across the width that falls out of
-    the count, the one Table 9.7.6.2.2 limits. Five rows. A slab strip has no
+    the count, the one Table 9.7.6.2.2 limits. Four rows. A slab strip has no
     cage to count, so the count gives way to the spacing across the width,
     which is what actually detailed it: three rows. The columns of the table
     stay the same length either way.

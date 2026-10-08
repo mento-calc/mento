@@ -352,7 +352,7 @@ def _stirrup_compression_support_ACI_318_19(
     §9.7.6.4.2 and the spacing of §9.7.6.4.3. The geometric check of
     §9.7.6.4.4 is separate: ``RectangularBeam.compression_detailing`` reads
     the modelled first-row corner supports and the clear distance on both
-    sides; second rows and crosstie anchorage remain pending.
+    sides; second rows remain pending; open-leg anchorage is outside the sectional model.
     Which bars are
     compression reinforcement is the flexure check's to say: a combination
     that needs compression steel to carry its moment (``doubly_reinforced``),

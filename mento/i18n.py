@@ -50,8 +50,8 @@ ES: Dict[str, str] = {
     "passed": "cumple",
     "failed": "no cumple",
     "pending": "pendiente",
-    'Detailing proposes {placed_legs} legs instead of {input_legs}: {pieces}. Enter the proposed legs to confirm; A_v still uses {input_legs}.': 'El detallado propone {placed_legs} ramas en vez de {input_legs}: {pieces}. Ingrese las ramas propuestas para confirmar; A_v sigue usando {input_legs}.',
-    'Open-leg hooks and anchorage are outside this sectional model; verify them separately.': 'Los ganchos y anclajes de patas abiertas quedan fuera de este modelo seccional; verifíquelos aparte.',
+    "Detailing proposes {placed_legs} legs instead of {input_legs}: {pieces}. Enter the proposed legs to confirm; A_v still uses {input_legs}.": "El detallado propone {placed_legs} ramas en vez de {input_legs}: {pieces}. Ingrese las ramas propuestas para confirmar; A_v sigue usando {input_legs}.",
+    "Open-leg hooks and anchorage are outside this sectional model; verify them separately.": "Los ganchos y anclajes de patas abiertas quedan fuera de este modelo seccional; verifíquelos aparte.",
     # -- console section titles --------------------------------------------
     "===== BEAM FLEXURE DETAILED RESULTS =====": "===== RESULTADOS DETALLADOS DE FLEXIÓN DE VIGA =====",
     "===== BEAM SHEAR DETAILED RESULTS =====": "===== RESULTADOS DETALLADOS DE CORTE DE VIGA =====",

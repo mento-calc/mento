@@ -808,8 +808,8 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         Contradictory counts are rejected.
 
         Use keyword-only ``legs`` for the number of shear legs. Legacy
-        ``n_stirrups`` (including positional calls) still counts closed
-        stirrups, each contributing two legs. If both are supplied they must
+        ``n_stirrups`` (including positional calls) still accepts integer
+        two-leg equivalents, not a guaranteed number of closed pieces. If both are supplied they must
         agree. Zero with zero diameter and spacing clears the reinforcement.
 
         Drops the flexure and shear results of the last check or design (see

@@ -68,7 +68,7 @@ def test_extra_closed_pieces_are_shown_but_not_credited_in_shear():
     assert len(g.leg_x) > 3 and len(g.stirrups) > 1
     assert (b.reinforcement, b.section_geometry.to_dict("mm")) == before
     fig = b.plot(show=False)
-    assert any("placed for compression support" in t.get_text() for t in fig.axes[0].texts)
+    assert any("proposed legs; A_v uses" in t.get_text() for t in fig.axes[0].texts)
     plt.close(fig)
 
 
