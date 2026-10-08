@@ -1,10 +1,13 @@
 import pandas as pd
+import pytest
 from mento import Concrete_ACI_318_19, SteelBar, MPa, set_language
 from mento.beam_summary import BeamSummary
 from mento.results import DocumentBuilder
+from mento.units import mm
 
 
-def test_word_rechecks_real_forces_after_capacity_check(monkeypatch):
+@pytest.mark.parametrize("invalid_mounting", [False, True])
+def test_word_rechecks_real_forces_after_capacity_check(monkeypatch, invalid_mounting):
     data = pd.DataFrame(
         {
             "Label": ["", "V1", "V2"],
@@ -33,6 +36,9 @@ def test_word_rechecks_real_forces_after_capacity_check(monkeypatch):
         steel_bar=SteelBar(name="420", f_y=420 * MPa),
         beam_list=data,
     )
+    if invalid_mounting:
+        for node in summary.nodes:
+            node.section.settings.minimum_longitudinal_diameter = 12 * mm
     summary.check()
     assert summary.nodes[1].section.verification_status["resistance"] == "failed"
     summary.check(capacity_check=True)
