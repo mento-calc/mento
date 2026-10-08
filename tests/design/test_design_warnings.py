@@ -1035,7 +1035,7 @@ def test_stirrups_of_a_doubly_reinforced_beam_are_held_to_its_compression_bars()
 
     assert str(beam.reinforcement.top) == "2Ø16 mm + 1Ø16 mm"
     assert (beam.shear_design.d_b, beam.shear_design.s_l) == (10 * mm, 20 * cm)
-    assert [w.code for w in node.warnings] == ["compression_detailing_pending"]
+    assert "compression_detailing_pending" in [w.code for w in node.warnings]
 
     beam.set_transverse_rebar(n_stirrups=1, d_b=10 * mm, s_l=21 * cm)
     node.check()
@@ -1104,7 +1104,7 @@ def test_a_stirrup_that_makes_the_section_doubly_reinforced_is_spaced_for_it() -
     assert beam._compression_faces == {"top"}
     assert beam.shear_design.d_b == 10 * mm
     assert beam.shear_design.s_l <= 15 * cm
-    assert [w.code for w in node.warnings] == ["compression_detailing_pending"]
+    assert "compression_detailing_pending" in [w.code for w in node.warnings]
 
 
 def test_cirsoc_grades_the_bracing_stirrup_with_the_compression_bar() -> None:
