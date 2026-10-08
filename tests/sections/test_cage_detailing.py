@@ -235,7 +235,7 @@ def test_unchecked_cage_does_not_guess_tension_faces_and_labels_spacing_pending(
     set_language(language)
     try:
         figure = beam.plot()
-        texts = [text.get_text() for text in figure.axes[0].texts]
+        texts = [text.get_text().replace("\n", " ") for text in figure.axes[0].texts]
         expected = (
             "Separación por tracción pendiente · sin verificación de flexión"
             if language == "es"

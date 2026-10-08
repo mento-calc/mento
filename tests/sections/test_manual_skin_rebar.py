@@ -258,7 +258,7 @@ def test_summary_word_reports_insufficient_manual_skin(monkeypatch):
         set_language("es")
         summary.results_detailed_doc()
         rows = [[c.text for c in row.cells] for t in documents[0].tables for row in t.rows]
-        assert any(row[0] == "Manual" and len(row) == 3 and row[2] == "No cumple" for row in rows)
+        assert any(row[0] == "Manual" and len(row) == 4 and row[2] == "No cumple" for row in rows)
         assert summary.nodes[0].section.skin_verification_status == "failed"
     finally:
         set_language("en")
