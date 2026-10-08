@@ -322,8 +322,9 @@ class ENShearCheckState:
     DCR: float
     #: The most the section can carry however it is reinforced: V_Rd,max of
     #: Eq. (6.9) at theta = 45 deg. ``V_Rd_max`` is the strut at the angle the
-    #: demand fixed, or V_Rd,c for a section with no stirrups; this is the
-    #: same number either way, and what ``shear_exceeds_section_limit`` reads.
+    #: demand fixed, or this same limit for a section with no stirrups; this
+    #: is the same number either way, and what ``shear_exceeds_section_limit``
+    #: reads.
     section_shear_limit: float = 0.0
 
     def shear_reinforcement_quantities(self, imperial: bool) -> tuple[Any, Any]:

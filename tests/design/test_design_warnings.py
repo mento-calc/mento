@@ -650,12 +650,14 @@ def test_bars_that_do_not_fit_are_warned_after_a_design() -> None:
 
 
 def test_a_design_short_of_the_moment_is_warned_until_the_bars_reach_it() -> None:
-    """A 12x30 web takes 2Ø16 + 2Ø16 = 8.04 cm² at most beside the 1eØ6 it ends with; 60 kNm asks for 8.14 below.
+    """A 12x30 web, beside the 1eØ6 it ends with, under 60 kNm, which asks for 8.14 cm² below.
 
-    The moment needs compression steel too, 7.27 cm² above, where 2Ø12 + 2Ø12
-    = 4.52 fit. Only the face short of its moment, the bottom, is warned --
-    the top carries no moment of its own, DCR 0 -- and for as long as it
-    carries what the design left. (At 40 kNm this web used to be declared
+    2Ø16 + 2Ø16 = 8.04 cm² is the most that fits, and with what fits above it
+    is not tension-controlled, so the design keeps the closest layout within
+    that limit, 2Ø16 + 2Ø12 = 6.28 cm² (issue #169). Only the face short of
+    its moment, the bottom, is warned -- the top carries no moment of its
+    own, DCR 0 -- and for as long as it carries what the design left, with
+    ``section_too_small_for_moment`` for the section. (At 40 kNm this web used to be declared
     short because Ø16 did not fit beside the 8 mm starter stirrup; a full
     design now redoes the flexure with the stirrup the shear design chose,
     and 2Ø16 + 2Ø12 carry it.)
@@ -673,14 +675,20 @@ def test_a_design_short_of_the_moment_is_warned_until_the_bars_reach_it() -> Non
 
     short = {w.face: w for w in node.warnings if w.code == "As_below_required"}
     assert set(short) == {"bottom"}
-    assert short["bottom"].values["A_s"].to("cm**2").magnitude == pytest.approx(8.04, rel=1e-3)
+    assert short["bottom"].values["A_s"].to("cm**2").magnitude == pytest.approx(6.28, rel=1e-3)
     assert short["bottom"].values["A_s_req"].to("cm**2").magnitude == pytest.approx(8.14, rel=1e-2)
+    small = _by_code(node.warnings)["section_too_small_for_moment"]
+    assert small.face is None
+    assert small.values["M"].to("kN*m").magnitude == pytest.approx(60.0)
+    assert small.values["M_capacity"].to("kN*m").magnitude == pytest.approx(60.0 / 1.2044, rel=1e-3)
     mento.set_language("es")
     assert "agrandar la sección" in _by_code(node.warnings)["As_below_required"].message
+    small_es = _by_code(node.warnings)["section_too_small_for_moment"].message
+    assert "vibrador" in small_es and "agrandar la sección" in small_es
 
-    # Bars set by hand that reach the area clear it.
+    # Bars set by hand that reach the area clear both.
     beam.set_longitudinal_rebar_bot(2, 20 * mm, 0, None, 2, 20 * mm)
-    assert "As_below_required" not in {w.code for w in node.warnings}
+    assert not {"As_below_required", "section_too_small_for_moment"} & {w.code for w in node.warnings}
 
 
 def test_the_maximum_is_only_read_on_the_face_in_tension() -> None:
@@ -923,6 +931,35 @@ def test_clear_spacing_follows_the_stirrup_whatever_the_call_order(bars_first: b
     beam.set_transverse_rebar(n_stirrups=1, d_b=8 * mm, s_l=20 * cm)
     assert "clear_spacing_below_min" not in _by_code(beam.warnings)
     assert beam._available_s_bot.to("mm").magnitude == pytest.approx(28.67, abs=0.01)
+
+
+def test_the_vibrator_gap_on_top_is_reported_apart_from_the_clause() -> None:
+    """The same 4Ø12 on top: below §25.2.1 is one warning, below the vibrator only another (issue #169).
+
+    With a Ø16 stirrup the bars are 23.3 mm apart, short of the 25 mm of
+    §25.2.1: ``clear_spacing_below_min``, quoting 25 mm, and not the vibrator
+    as well. With a Ø8 they are 28.7 mm apart: the clause is met, the 30 mm
+    of the vibrator is not, ``clear_spacing_below_vibrator``. On the bottom
+    28.7 mm is no warning at all: the vibrator goes in from the top.
+    """
+    beam = _beam(height=50 * cm)
+    beam.set_transverse_rebar(n_stirrups=1, d_b=16 * mm, s_l=20 * cm)
+    beam.set_longitudinal_rebar_top(n1=4, d_b1=12 * mm)
+    codes = _by_code(beam.warnings)
+    assert codes["clear_spacing_below_min"].values["s_min"].to("mm").magnitude == pytest.approx(25.0)
+    assert "clear_spacing_below_vibrator" not in codes
+
+    beam.set_transverse_rebar(n_stirrups=1, d_b=8 * mm, s_l=20 * cm)
+    codes = _by_code(beam.warnings)
+    assert "clear_spacing_below_min" not in codes
+    vibrator = codes["clear_spacing_below_vibrator"]
+    assert vibrator.face == "top"
+    assert vibrator.values["s"].to("mm").magnitude == pytest.approx(28.67, abs=0.01)
+    assert vibrator.values["s_min"].to("mm").magnitude == pytest.approx(30.0)
+
+    beam.set_longitudinal_rebar_top(n1=2, d_b1=12 * mm)
+    beam.set_longitudinal_rebar_bot(n1=4, d_b1=12 * mm)
+    assert not {"clear_spacing_below_min", "clear_spacing_below_vibrator"} & set(_by_code(beam.warnings))
 
 
 def test_bars_set_by_hand_clear_the_flag_the_design_left() -> None:
