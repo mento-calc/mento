@@ -76,14 +76,14 @@ def select_wall_mesh(
         best = None  # ((score, -d_b_mm), d_b, s)
         d_min = min(candidate_bars)  # smallest bar in this tier
         for d_b in candidate_bars:
-            A_b = math.pi / 4 * d_b**2
+            A_b: Quantity = math.pi / 4 * d_b**2
             feasible = [s for s in grid if (n_c * A_b / (t * s)).to("").magnitude >= rho_req]
             if not feasible:
                 continue
             s = min(max(feasible), s_max)
-            rho_prov = (n_c * A_b / (t * s)).to("").magnitude
+            rho_prov = float((n_c * A_b / (t * s)).to("").magnitude)
             ratio_score = rho_req / rho_prov
-            diameter_score = (d_min / d_b).to("").magnitude
+            diameter_score = float((d_min / d_b).to("").magnitude)
             score = 0.80 * ratio_score + 0.20 * diameter_score
             key = (score, -d_b.to("mm").magnitude)  # tie-break: smaller bar
             if best is None or key > best[0]:
