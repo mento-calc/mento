@@ -238,7 +238,10 @@ The maximum applies to "tension or compression reinforcement", so unlike ACI's i
 caps both faces, whatever a combination does to them, and compression steel does not
 extend it. The check warns ``As_above_max`` on either face past it, and the design
 never places a layout past it: when no layout within it carries the moment, it
-leaves the most it may and warns ``As_below_required``.
+leaves the closest within it that fits the width, room for the vibrator between
+the top bars included, and warns ``As_below_required`` and
+``section_too_small_for_moment``. The order it reads "closest" in is the one the
+ACI page describes.
 
 Design bending resistance
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -304,6 +307,11 @@ with
 :math:`\max(V_{Rd,c},\ V_{Rd,c,min})`. Note that every :math:`f_{cd}` in the shear
 provisions uses :math:`\alpha_{cc} = 1.0`, not the 0.85 adopted for flexure.
 
+The report's :math:`V_{Rd,max}` row for a section without stirrups is the strut
+limit of Eq. (6.9) at :math:`\theta = 45°` (§6.2.1(6)), the most the section can
+carry however it is reinforced, and the limit ``shear_exceeds_section_limit``
+reads. :math:`V_{Rd}` is :math:`V_{Rd,c}`.
+
 Members with shear reinforcement
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -328,21 +336,37 @@ minimises the required stirrups:
 3. In between, solve for the exact angle from
    :math:`\theta = \tfrac{1}{2}\arcsin\!\left(V_{Ed}/V_{Rd,max,45°}\right)`.
 
-The stirrup contribution and the required area are then
+The stirrup contribution is
 
 .. math::
 
    V_{Rd,s} = \frac{A_{sw}}{s}\, z\, f_{ywd} \cot\theta
-   \qquad
+
+and the required area follows §6.2.1(3)-(5), the same for a section with stirrups
+and without: no calculated reinforcement while the concrete carries the shear,
+the truss past it,
+
+.. math::
+
    \left(\frac{A_{sw}}{s}\right)_{req} =
-       \max\left(\frac{V_{Ed}}{z\, f_{ywd} \cot\theta},\ \rho_{w,min} b_w \sin\alpha\right)
+   \begin{cases}
+       \rho_{w,min} b_w \sin\alpha & V_{Ed} \le V_{Rd,c} \\[4pt]
+       \max\left(\dfrac{V_{Ed}}{z\, f_{ywd} \cot\theta},\ \rho_{w,min} b_w \sin\alpha\right)
+           & V_{Ed} > V_{Rd,c}
+   \end{cases}
 
 .. note::
 
-   For a section **with** stirrups, mento reports :math:`V_{Rd} = V_{Rd,s}` — the
-   concrete term is not added, per §6.2.3(2), where the truss model replaces
-   :math:`V_{Rd,c}` rather than supplementing it. This differs from ACI, where
-   :math:`V_c` and :math:`V_s` are summed.
+   For a section **with** stirrups the concrete term is never added to the
+   stirrups', per §6.2.3(2), where the truss model replaces :math:`V_{Rd,c}` rather
+   than supplementing it. This differs from ACI, where :math:`V_c` and :math:`V_s`
+   are summed. Which of the two resists depends on the clause that decides the
+   demand: under :math:`V_{Rd,c}` the concrete alone carries the shear, so
+   :math:`V_{Rd} = \max(V_{Rd,c},\ \min(V_{Rd,s}, V_{Rd,max}))`; past it the
+   stirrups carry all of it, :math:`V_{Rd} = \min(V_{Rd,s}, V_{Rd,max})`. In a
+   shallow, heavily reinforced beam the minimum stirrups can give less than
+   :math:`V_{Rd,c}` (an EN 20x30, C20, 3Ø20: 38 kN against 38.8), and a section
+   under :math:`V_{Rd,c}` with them still passes.
 
 Minimum reinforcement and spacing
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

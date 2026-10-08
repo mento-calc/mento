@@ -42,10 +42,11 @@ of the published documentation.
 # material for users.
 # ---------------------------------------------------------------------------
 
+import math
 from dataclasses import dataclass
 
 import pandas as pd
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
 from mento.units import Quantity
 
@@ -63,6 +64,11 @@ _MAX_COMPRESSION_CANDIDATES = 40
 # Of those short of the area their depth asks for, the ones tried as well when
 # none that covers it resists.
 _MAX_SHORT_CANDIDATES = 12
+# How much closer to the moment a layout has to come, as a fraction of the
+# ratio, to replace the one a design that does not close already has.
+_CLOSER = 0.002
+# Layouts per face that search tries, spread over the range it reads.
+_MAX_CLOSEST_CANDIDATES = 16
 
 
 @dataclass
@@ -132,8 +138,8 @@ def _rebar_design_fingerprint(rebar_design: Any) -> tuple:
     """
 
     def _diam_mm(key: str) -> float:
-        q = rebar_design.get(key, 0 * mm)
-        return float(q.to("mm").magnitude) if q is not None else 0.0
+        q = rebar_design.get(key)
+        return float(q.m_as(mm)) if q is not None else 0.0
 
     return (
         int(rebar_design.get("n_1", 0)),
@@ -310,6 +316,8 @@ def _run_flexure_design(
     settings = self.settings
     assert settings is not None
 
+    layers_spacing_mm = float(settings.layers_spacing.m_as(mm))
+
     def _mech_cover(row: Any) -> Optional[Quantity]:
         """Cover to the centroid of the bars of ``row``, as the section computes it.
 
@@ -317,31 +325,26 @@ def _run_flexure_design(
         half their diameter from the stirrup, and the second layer
         ``layers_spacing`` past the thicker bar of the first. ``None`` for a
         row with no bars.
-        """
-        zero_mm = 0 * mm
 
-        def diameter(key: str) -> Quantity:
+        In floats, mm, and back to a quantity at the end (ADR-0005): the
+        searches read it off every row they rank, thousands of times in a
+        design that does not close, and in pint it was the largest single
+        cost of those.
+        """
+
+        def diameter(key: str) -> float:
             value = row.get(key)
-            return zero_mm if value is None else value
+            return 0.0 if value is None else float(value.m_as(mm))
 
         d1, d2, d3, d4 = (diameter(k) for k in ("d_b1", "d_b2", "d_b3", "d_b4"))
         n1, n2, n3, n4 = (int(row.get(k, 0)) for k in ("n_1", "n_2", "n_3", "n_4"))
-        second: Quantity = max(d1, d2) + settings.layers_spacing
-        groups: Tuple[Tuple[int, Quantity, Quantity], ...] = (
-            (n1, d1, d1 / 2),
-            (n2, d2, d2 / 2),
-            (n3, d3, second + d3 / 2),
-            (n4, d4, second + d4 / 2),
-        )
-        area: Quantity = 0 * mm**2
-        moment: Quantity = 0 * mm**3
-        for n, db, y in groups:
-            area = area + n * db**2
-            moment = moment + n * db**2 * y
-        if area.magnitude == 0:
+        second = max(d1, d2) + layers_spacing_mm
+        groups = ((n1, d1, d1 / 2), (n2, d2, d2 / 2), (n3, d3, second + d3 / 2), (n4, d4, second + d4 / 2))
+        area = sum(n * db**2 for n, db, _ in groups)
+        if area == 0:
             return None
-        centroid: Quantity = moment / area
-        return self.c_c + self._stirrup_d_b + centroid
+        centroid = sum(n * db**2 * y for n, db, y in groups) / area
+        return (float(self.c_c.m_as(mm)) + float(self._stirrup_d_b.m_as(mm)) + centroid) * mm
 
     def _compression_need(tension_face: str, tension_row: Any, d_prime: Quantity) -> Quantity:
         """Compression steel the tension steel of ``tension_row`` needs opposite
@@ -648,9 +651,194 @@ def _run_flexure_design(
         within, worst = _assess()
         return within and worst <= 1.0
 
+    def _pair_key() -> tuple:
+        """How close the layout on the section comes: faces past the limits, the worst ratio, the sum of ratios.
+
+        The sum breaks the ties of the worst ratio, so that a face moved on
+        its own counts as progress while the other face still sets the worst.
+        """
+        outside = 0
+        ratios = []
+        for face, M in demands:
+            M_R = capacity(face, M)
+            ratios.append(float((M / M_R).to("dimensionless").magnitude) if M_R.magnitude > 0 else float("inf"))
+            if admissible is not None and not admissible(face):
+                outside += 1
+        worst = max(ratios, default=0.0)
+        if not outside and worst <= 1.0:
+            return (0, 0.0, 0.0)
+        # The faces past the code's limit, counted: one face brought within
+        # it is progress while the other is still past it.
+        return (1 + outside, worst, sum(ratios))
+
+    def _depth_front(face: str, placed: Quantity) -> list:
+        """The layouts of ``face`` worth trying when nothing closes: none deeper with as much steel.
+
+        Every layout the selector lets ``face`` carry -- the bars fit the
+        width, the vibrator's gap on top included -- from two bars of the
+        smallest diameter the settings allow up to two and a half times what
+        it carries now. The bottom of that range matters: the layout the
+        loop left can be far past the tension-controlled limit, and an ACI
+        15x25 under ±90 kN·m that ended on 2Ø25 + 2Ø25, 19.6 cm², is within
+        it only below about 8. The selector searches up to ten times the
+        area it is asked for, so the range is read in windows of a decade.
+        Of those layouts, only the ones no other beats on both counts, more
+        steel and a shallower centroid: a layout behind that front gives less
+        moment for no gain in ductility. At most
+        ``_MAX_CLOSEST_CANDIDATES`` of them, spread over the range, the
+        lightest and the heaviest always among them.
+        """
+        d_min = settings.minimum_longitudinal_diameter
+        low: Quantity = (2 * math.pi / 4 * d_min**2).to(placed.units)
+        high: Quantity = 2.5 * max(placed, low)
+        rows = []
+        seen: set = set()
+        while low < high:
+            rebar = self._create_rebar_designer()
+            rebar.longitudinal_rebar(low, min(10 * low, high), None, face, tension=pulled[face])
+            low = 10 * low
+            # A window where nothing fits leaves the table empty: nothing to add.
+            for _, row in rebar._long_combos_df.iterrows():
+                cover = _mech_cover(row)
+                fingerprint = _rebar_design_fingerprint(row)
+                if cover is None or fingerprint in seen:
+                    continue
+                seen.add(fingerprint)
+                rows.append((float(row["total_as"].to("cm**2").magnitude), float(cover.to("mm").magnitude), row))
+        # Deepest first within each area, then keep a row only if it is
+        # shallower than every row with more steel.
+        rows.sort(key=lambda r: (-r[0], r[1]))
+        front: list = []
+        shallowest = float("inf")
+        for _area, depth_mm, row in rows:
+            if depth_mm < shallowest:
+                front.append(row)
+                shallowest = depth_mm
+        front.reverse()
+        if len(front) > _MAX_CLOSEST_CANDIDATES:
+            last = len(front) - 1
+            picks = sorted({round(i * last / (_MAX_CLOSEST_CANDIDATES - 1)) for i in range(_MAX_CLOSEST_CANDIDATES)})
+            front = [front[i] for i in picks]
+        return front
+
+    def _closest_admissible_pair() -> None:
+        """When no pair visited closes, the closest the layouts that fit can come, within the limits.
+
+        The Picard loop visits few layouts, and the cap it searches under is
+        the tension-controlled area of a section with no compression steel:
+        an ACI 318-19 40x25, f'c 25, c_c 40 mm, under ±91.6 kN·m, ended on
+        2Ø10 + 5Ø10 in two layers on each face, 11.0 cm² and DCR 1.47,
+        where 7Ø16 in one layer, 14.1 cm² and still tension-controlled with
+        the same bars opposite, comes to 1.09. Nothing reaches the moment:
+        the section is too small, and the warning says so. What it carries
+        meanwhile is the best the bars that fit can do while the section
+        stays within the code's limits.
+
+        So each face in turn tries the layouts of :func:`_depth_front`
+        against what the other carries, keeping one only if the pair comes
+        closer -- within the limits before past them, then the lower ratio
+        -- until a full pass changes nothing. Runs only when the design has
+        already failed, so a design that closes pays nothing for it.
+        """
+        current = {"bot": self.flexure_design_results_bot, "top": self.flexure_design_results_top}
+        # The search is a function of the stirrup, the moments and the pair it
+        # starts from; a design that goes back to an earlier round runs it
+        # again on the same three, so ``design()`` keeps what it found.
+        memo: Optional[Dict[tuple, Any]] = getattr(self, "_closest_pair_memo", None)
+        memo_key = (
+            int(self._stirrup_n),
+            float(self._stirrup_d_b.m_as(mm)),
+            float(self._stirrup_s_l.m_as(mm)),
+            float(max_M_y_bot.m_as(kNm)),
+            float(max_M_y_top.m_as(kNm)),
+            None if current["bot"] is None else _rebar_design_fingerprint(current["bot"]),
+            None if current["top"] is None else _rebar_design_fingerprint(current["top"]),
+        )
+        if memo is not None and memo_key in memo:
+            current, candidates = memo[memo_key]
+            _apply_pair(self, current["bot"], current["top"])
+            _register(current, candidates)
+            return
+        candidates = {}
+        for face, row in current.items():
+            placed = row.get("total_as", 0 * (cm**2)) if row is not None else 0 * (cm**2)
+            if placed.magnitude > 0:
+                candidates[face] = _depth_front(face, placed)
+        if not candidates:
+            return
+        # The rows on the section, by face, so that a trial puts on only the
+        # face it changes: applying a layout is most of what a trial costs.
+        on_section: Dict[str, Any] = {}
+
+        def put(pair: Dict[str, Any]) -> None:
+            for face in ("bot", "top"):
+                row = pair[face]
+                if face in on_section and on_section[face] is row:
+                    continue
+                if face == "bot":
+                    if row is not None:
+                        self._apply_longitudinal_design_bot(row)
+                elif row is not None:
+                    self._apply_longitudinal_design_top(row)
+                else:
+                    self._clear_top_longitudinal()
+                on_section[face] = row
+
+        put(current)
+        best_key = _pair_key()
+
+        def closer(key: tuple, than: tuple) -> bool:
+            """Within the limits before past them, then a ratio lower by more than ``_CLOSER``.
+
+            A gain smaller than that is no reason to change the bars: an ACI
+            12x25 under -21.27 kN·m took 2Ø12 for the 2Ø10 below its
+            compression face to bring the top from DCR 1.0920 to 1.0915.
+            """
+            if key[0] != than[0]:
+                return key[0] < than[0]
+            if key[1] < than[1] * (1 - _CLOSER):
+                return True
+            return key[1] <= than[1] * (1 + _CLOSER) and key[2] < than[2] * (1 - _CLOSER)
+
+        # A section the moment pulls both ways wants the same bars on both
+        # faces more often than not, and one face moved alone cannot lower the
+        # worst ratio the other still sets, nor bring the last face within the
+        # limit when the steel opposite it is what keeps it there: a CIRSOC
+        # 40x25 under ±90 kN·m stopped with the top past it. Those pairs are
+        # tried first, from the top's layouts: what fits there, beside the
+        # vibrator, fits below as well.
+        moves: list = []
+        if len(candidates) == 2:
+            moves = [{"bot": row, "top": row} for row in candidates["top"]]
+        for _ in range(3):
+            changed = False
+            for trial_faces in [moves] + [[{face: row} for row in rows] for face, rows in candidates.items()]:
+                for move in trial_faces:
+                    trial = dict(current, **move)
+                    put(trial)
+                    key = _pair_key()
+                    if closer(key, best_key):
+                        best_key, current, changed = key, trial, True
+                put(current)
+            if not changed:
+                break
+        if memo is not None:
+            memo[memo_key] = (current, candidates)
+        _register(current, candidates)
+
+    def _register(current: Dict[str, Any], candidates: Dict[str, list]) -> None:
+        """Leave ``current`` as the design's result, with the candidates as the alternatives of a face new to them."""
+        for face, row in current.items():
+            if row is not None and face in candidates and _rebar_design_fingerprint(row) not in tables[face]:
+                rows = candidates[face]
+                tables[face][_rebar_design_fingerprint(row)] = pd.DataFrame([row] + [r for r in rows if r is not row])
+        self.flexure_design_results_bot, self.flexure_design_results_top = current["bot"], current["top"]
+
     if not _layout_resists() and (bot_visited or top_visited):
         chosen = _best_visited_pair(self, bot_visited, top_visited, _assess)
         self.flexure_design_results_bot, self.flexure_design_results_top = chosen
+        if not _layout_resists():
+            _closest_admissible_pair()
 
     # Both faces are settled. An element whose faces are detailed as one -- a
     # footing mat -- gets the last word here, after the verification above and

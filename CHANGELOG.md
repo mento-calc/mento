@@ -12,6 +12,124 @@ from the release history and are summaries rather than complete lists.
 
 ## [Unreleased]
 
+### Added
+
+- **`section_too_small_for_moment` warning** (#169). A design that finds no layout
+  carrying the moment says so for the section, with the numbers that decide it: no
+  layout that fits the width, with room for the vibrator between the top bars, and
+  keeps within the code's limits on the reinforcement (tension-controlled under ACI
+  318-19 / CIRSOC 201-25 §9.3.3.1, the 4 % of EN 1992-1-1) carries `M`; the closest
+  carries `M_capacity`. It goes with `As_below_required`, which stays as it was.
+- **`clear_spacing_below_vibrator` warning** (#169). The clear distance between the
+  top bars of a beam that meets §25.2.1 but leaves no room for the vibrator is
+  reported apart: it used to be `clear_spacing_below_min` with the vibrator's 30 mm as
+  the minimum. `clear_spacing_below_min` now quotes the §25.2.1 minimum alone (bar
+  diameter and 25 mm / 1 in.). A design still never leaves either; a slab, detailed
+  centre to centre, keeps the two in `bar_spacing_below_min`.
+
+- Skin-steel proposals for ACI/CIRSOC §9.7.2.3, anchored to the actual
+  tension layer, and EN §7.3.3(3) pure rectangular bending. Skin bars remain
+  separate from strength steel and mounting bars. Unsupported and pending
+  cases are explicit, and infeasible detailing carries its cause.
+- `SkinServiceCase` inputs belong to each section, keep stress and neutral
+  axis paired for each SLS case and are invalidated by reinforcement edits.
+  EN checks minimum area in every applicable service zone. Its conservative
+  diameter interpretation is documented as a Mento project rule for review;
+  sparse rows remain allowed with distribution warnings, not a w_k certificate.
+  Annex J surface mesh is independently flagged and remains outside this proposal.
+
+- `n_legs` input for beam transverse reinforcement and BeamSummary. Legacy
+  `n_stirrups` and `ns` accept integer two-leg equivalents, not closed-piece counts.
+  Counts must be whole, non-negative and consistent; one leg is rejected, odd counts >=3 are admitted.
+- `SectionGeometry`, `beam.section_geometry` and `to_dict()` expose calculation
+  geometry with bar layers and every shear leg. The default export unit follows
+  the section (cm or in); callers can request another length unit explicitly.
+- `beam.detailing_geometry` supplies a supported cage with separate
+  `mounting_bars`. These supplementary bars receive no strength credit and do
+  not replace resistant bars in tension-spacing checks. `mounting_bar_diameter`
+  defaults to 10 mm or No. 3 and is configurable. Its incorporation into the
+  strength model is outside this change and requires a separate proposal.
+- `notation()` and `arrangement()` on transverse reinforcement, shear designs
+  and stirrup options expose translated leg counts and cage descriptions.
+  `cage_legs`, `describe_stirrup_cage` and `transverse_notation` provide the same
+  data and presentation for consumers.
+
+### Changed
+
+- **A design that does not close keeps the closest layout within the limits** (#169).
+  Bars that fit the width, with room for the vibrator on top, and a tension-controlled
+  section (§9.3.3.1 / §7.3.3.1; the 4 % under EN 1992-1-1) are never traded for
+  strength: of the design rounds that fail, the one kept is the closest that meets
+  them, then the smallest DCR. The tension-controlled limit used to be left out of
+  that choice. And when the layouts the design visited do not close, it searches the
+  layouts that fit for the one within the limits that comes closest: the cap it
+  searched under is the tension-controlled area of a section without compression
+  steel, which the bars of the other face extend. An ACI 40x25, f'c 25, c_c 40 mm
+  under ±91.6 kN·m went from 2Ø10 + 5Ø10 in two layers on each face, DCR 1.466, to
+  7Ø16 in one layer, DCR 1.088; an ACI 20x25 under 38.2 kN·m from 3Ø12 + 3Ø10 in two
+  layers, DCR 1.166, to 2Ø20, DCR 1.010. Sections that used to end not
+  tension-controlled end within the limit, with a larger DCR: a CIRSOC 12x30 under
+  60 kN·m went from 2Ø16 + 2Ø16, DCR 1.137 and `not_tension_controlled`, to
+  2Ø16 + 2Ø12, DCR 1.204; an ACI one-way slab 100x15 under 46.9 kN·m from Ø10/5,
+  DCR 0.801 and `not_tension_controlled`, to Ø10/6, DCR 1.010. Designs that close
+  do not change, and pay nothing for the search.
+
+- **EN 1992-1-1 shear: the same A_sw,req with stirrups and without** (#170). Under
+  V_Rd,c no calculated shear reinforcement is needed (§6.2.1(3)), so a section with
+  stirrups is now asked for the minimum of §9.2.2 there, as a bare one already was,
+  and not for the truss of §6.2.3. Its V_Rd follows the same clause: under V_Rd,c it
+  is the larger of V_Rd,c and the truss its stirrups make, past it the truss alone,
+  capped by V_Rd,max. Pass or fail changes only where the minimum stirrups give less
+  than V_Rd,c, which happens in shallow, heavily reinforced beams: an EN 20x30, C20,
+  3Ø20 under 37 kN with eØ6/37 asked 1.49 cm²/m and reported DCR 0.974; it asks
+  1.43 and reports 0.955.
+- **EN 1992-1-1 shear report** (#170): a section with stirrups shows its V_Rd,c, which
+  was printed as 0, and a section without stirrups shows as V_Rd,max the strut limit of
+  Eq. (6.9) at 45° (§6.2.1(6)), the one `shear_exceeds_section_limit` reads, where it
+  repeated V_Rd,c. `VEd,1≤VRd,max` compares against that limit.
+
+- Jaula mixta: un cerrado perimetral y trabas interiores de 135°/90° para sujeción de barras comprimidas (§25.3.5, Tabla 25.3.2). Se comprueban ambos órdenes de ganchos; alternar los extremos de 90° en piezas sucesivas es requisito de ejecución, sin certificación sísmica. Entrada `legs` impar admitida desde tres ramas; dibujo de piezas y conteo real, sin crédito resistente silencioso para ramas agregadas. Ganchos de patas abiertas fuera del modelo seccional.
+
+
+- Beam transverse reinforcement is written by legs, for example
+  `10 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)`.
+  `notation()` follows the requested/current language; `str()` is English.
+  The slab grid notation is preserved. English and Spanish labels are available.
+- Section drawings show calculated bars and their layers, every stirrup leg,
+  separate orange mounting bars, and labels that fit the figure. An infeasible
+  supported layout produces a warning and a labelled calculation view. Rejected
+  stirrup bends are omitted rather than drawn as constructible hairpins.
+- Cross-section mandrel sizes are supplied by the design code: ACI/CIRSOC
+  Table 25.3.2 (4 or 6 diameters) and EN Table 8.1N recommended values (4 or 7).
+  CIRSOC 6/8 mm bends use a declared Mento extrapolation of 4 diameters.
+  These rules do not verify hook anchorage, EN Eq. 8.1 concrete failure or
+  seismic detailing. ACI/CIRSOC bars above their transverse-bar bend table
+  range are rejected rather than assigned an unverified bend diameter.
+- The Word shear appendix uses 2 cm top, 1.5 cm bottom and 1.6 cm side margins.
+  Leg-spacing and compression-support rows name the applicable clauses;
+  the support row is mandatory detailing, assessed separately from resistance.
+
+### Fixed
+
+- EN Table 3.1 tensile strength uses its logarithmic expression above C50/60.
+
+- BeamSummary Word reports accept input containing only `n_legs` and display
+  the validated leg count, including blank paired count cells. Excel preserves
+  the supplied count-column convention and the meaning of legacy files.
+- Supported cage layouts require vibrator clearance on the upper face only,
+  consistently with the existing selector and reports. Bottom clear spacing
+  and bar-diameter constraints remain in force.
+- Tension-bar spacing caps apply only to faces put in tension by checked
+  combinations. Unchecked drawings mark this check pending. A single
+  resistant tension bar is checked against the face width; mounting steel
+  cannot substitute for this check.
+- `format_transverse_rebar` keeps the published `bar` keyword. Invalid mounting
+  diameter settings raise `ValueError` and are not swallowed by the plot fallback.
+- Drawings and summaries use the element's transverse notation. Bar labels
+  follow their actual layers, and report counts remain whole numbers.
+- Guides describe `ns` as stirrups and `n_legs` as legs. ACI/CIRSOC shear-limit
+  references and the EN 400 mm implementation cap are stated explicitly.
+
 ### Migration notes — jaula mixta
 
 - `n_stirrups` en resultados es un equivalente de dos ramas: puede ser 3,5 para
@@ -25,10 +143,6 @@ from the release history and are summaries rather than complete lists.
 - La tabla de corte muestra ramas, no el equivalente como número de estribos.
 - La búsqueda reutiliza el estado, expande candidatos linealmente hasta la cota física y se limita a dos segundos;
   si se trunca, queda pendiente. No garantiza un óptimo global.
-
-### Changed
-
-- Jaula mixta: un cerrado perimetral y trabas interiores de 135°/90° para sujeción de barras comprimidas (§25.3.5, Tabla 25.3.2). Se comprueban ambos órdenes de ganchos; alternar los extremos de 90° en piezas sucesivas es requisito de ejecución, sin certificación sísmica. Entrada `legs` impar admitida desde tres ramas; dibujo de piezas y conteo real, sin crédito resistente silencioso para ramas agregadas. Ganchos de patas abiertas fuera del modelo seccional.
 
 ### Piel seccional: entrada manual y estado
 
@@ -70,77 +184,8 @@ from the release history and are summaries rather than complete lists.
 - Documentation builds explicitly disable notebook execution. Cleared example
   outputs are not regenerated by CI or Read the Docs.
 
-### Added
-
-- Skin-steel proposals for ACI/CIRSOC §9.7.2.3, anchored to the actual
-  tension layer, and EN §7.3.3(3) pure rectangular bending. Skin bars remain
-  separate from strength steel and mounting bars. Unsupported and pending
-  cases are explicit, and infeasible detailing carries its cause.
-- `SkinServiceCase` inputs belong to each section, keep stress and neutral
-  axis paired for each SLS case and are invalidated by reinforcement edits.
-  EN checks minimum area in every applicable service zone. Its conservative
-  diameter interpretation is documented as a Mento project rule for review;
-  sparse rows remain allowed with distribution warnings, not a w_k certificate.
-  Annex J surface mesh is independently flagged and remains outside this proposal.
-
-- `n_legs` input for beam transverse reinforcement and BeamSummary. Legacy
-  `n_stirrups` and `ns` accept integer two-leg equivalents, not closed-piece counts.
-  Counts must be whole, non-negative and consistent; one leg is rejected, odd counts >=3 are admitted.
-- `SectionGeometry`, `beam.section_geometry` and `to_dict()` expose calculation
-  geometry with bar layers and every shear leg. The default export unit follows
-  the section (cm or in); callers can request another length unit explicitly.
-- `beam.detailing_geometry` supplies a supported cage with separate
-  `mounting_bars`. These supplementary bars receive no strength credit and do
-  not replace resistant bars in tension-spacing checks. `mounting_bar_diameter`
-  defaults to 10 mm or No. 3 and is configurable. Its incorporation into the
-  strength model is outside this change and requires a separate proposal.
-- `notation()` and `arrangement()` on transverse reinforcement, shear designs
-  and stirrup options expose translated leg counts and cage descriptions.
-  `cage_legs`, `describe_stirrup_cage` and `transverse_notation` provide the same
-  data and presentation for consumers.
-
-### Changed
-
-- Beam transverse reinforcement is written by legs, for example
-  `10 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)`.
-  `notation()` follows the requested/current language; `str()` is English.
-  The slab grid notation is preserved. English and Spanish labels are available.
-- Section drawings show calculated bars and their layers, every stirrup leg,
-  separate orange mounting bars, and labels that fit the figure. An infeasible
-  supported layout produces a warning and a labelled calculation view. Rejected
-  stirrup bends are omitted rather than drawn as constructible hairpins.
-- Cross-section mandrel sizes are supplied by the design code: ACI/CIRSOC
-  Table 25.3.2 (4 or 6 diameters) and EN Table 8.1N recommended values (4 or 7).
-  CIRSOC 6/8 mm bends use a declared Mento extrapolation of 4 diameters.
-  These rules do not verify hook anchorage, EN Eq. 8.1 concrete failure or
-  seismic detailing. ACI/CIRSOC bars above their transverse-bar bend table
-  range are rejected rather than assigned an unverified bend diameter.
-- The Word shear appendix uses 2 cm top, 1.5 cm bottom and 1.6 cm side margins.
-  Leg-spacing and compression-support rows name the applicable clauses;
-  the support row is mandatory detailing, assessed separately from resistance.
-
-### Fixed
-
-- EN Table 3.1 tensile strength uses its logarithmic expression above C50/60.
-
-- BeamSummary Word reports accept input containing only `n_legs` and display
-  the validated leg count, including blank paired count cells. Excel preserves
-  the supplied count-column convention and the meaning of legacy files.
-- Supported cage layouts require vibrator clearance on the upper face only,
-  consistently with the existing selector and reports. Bottom clear spacing
-  and bar-diameter constraints remain in force.
-- Tension-bar spacing caps apply only to faces put in tension by checked
-  combinations. Unchecked drawings mark this check pending. A single
-  resistant tension bar is checked against the face width; mounting steel
-  cannot substitute for this check.
-- `format_transverse_rebar` keeps the published `bar` keyword. Invalid mounting
-  diameter settings raise `ValueError` and are not swallowed by the plot fallback.
-- Drawings and summaries use the element's transverse notation. Bar labels
-  follow their actual layers, and report counts remain whole numbers.
-- Guides describe `ns` as stirrups and `n_legs` as legs. ACI/CIRSOC shear-limit
-  references and the EN 400 mm implementation cap are stated explicitly.
-
 ### Migration notes
+
 - EN footings with nonzero axial force now raise `NotImplementedError`: Mento does not model that scope; this is not a Eurocode prohibition. Version 1.5.0 accepted these cases.
 
 

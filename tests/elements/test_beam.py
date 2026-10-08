@@ -1823,10 +1823,11 @@ def test_design_flexure_CIRSOC_201_25_narrow_web_gives_the_most_that_fits() -> N
     Con el 1eØ6/12 que elige el corte el ancho libre es 5.8 cm: dos barras
     por capa y como mucho Ø16 (58 - 2·16 = 26 mm ≥ 25 mm de §25.2.1; el Ø20
     dejaria 18). Lo mas que entra es 2Ø16 + 2Ø16 = 8.04 cm², por debajo de
-    los 8.14 cm² que pide el momento (con compresion: arriba pide 7.27 y
-    entran 2Ø12 + 2Ø12 = 4.52). Ni pasando el tope hay una combinacion que
-    alcance, asi que el diseño deja el maximo que entra y lo dice:
-    ``As_below_required`` en las dos caras, DCR 1.137.
+    los 8.14 cm² que pide el momento, y con lo que entra arriba no queda
+    controlada por traccion: DCR 1.137 con ``not_tension_controlled``, que
+    §9.3.3.1 no admite (issue #169). Lo mas cercano dentro de ese limite es
+    2Ø16 + 2Ø12 = 6.28 cm², DCR 1.204: el diseño lo deja y dice que la
+    sección no alcanza.
     """
     beam = RectangularBeam(
         label="101",
@@ -1840,10 +1841,12 @@ def test_design_flexure_CIRSOC_201_25_narrow_web_gives_the_most_that_fits() -> N
     node.design()
 
     bottom = beam.flexure_design.bottom
-    assert [(layer.n, layer.d_b.to("mm").magnitude) for layer in bottom.layers] == [(2, 16), (2, 16)]
-    assert bottom.A_s.to("cm**2").magnitude == pytest.approx(8.042, rel=1e-3)
-    assert bottom.DCR == pytest.approx(1.137, rel=1e-3)
+    assert [(layer.n, layer.d_b.to("mm").magnitude) for layer in bottom.layers] == [(2, 16), (2, 12)]
+    assert bottom.A_s.to("cm**2").magnitude == pytest.approx(6.283, rel=1e-3)
+    assert bottom.DCR == pytest.approx(1.204, rel=1e-3)
+    assert beam.flexure_checks[0].bottom.admissible
     assert "bottom" in [w.face for w in node.warnings if w.code == "As_below_required"]
+    assert "section_too_small_for_moment" in [w.code for w in node.warnings]
 
 
 def test_design_flexure_ACI_318_19_compression_bottom_exceeds_provided_bottom() -> None:
@@ -3829,12 +3832,84 @@ def test_shear_check_EN_1992_2004_no_rebar_1(
     assert results.iloc[1]["VRd,c"] == pytest.approx(56.51, rel=1e-3)
     assert results.iloc[1]["VRd,s"] == pytest.approx(0, rel=1e-3)
     assert results.iloc[1]["VRd"] == pytest.approx(56.51, rel=1e-3)
-    assert results.iloc[1]["VRd,max"] == pytest.approx(56.51, rel=1e-3)
+    # Eq. (6.9) at 45°, the strut limit of §6.2.1(6), not V_Rd,c (issue #170):
+    # 0.5 * 200 * 0.9 * 566 * 0.6 * (1 - 25/250) * 25/1.5 = 458.46 kN.
+    assert results.iloc[1]["VRd,max"] == pytest.approx(458.46, rel=1e-3)
     assert results.iloc[1]["DCR"] == pytest.approx(0.531, rel=1e-3)
 
     # Assert non-numeric values directly
     assert results.iloc[1]["VEd,1≤VRd,max"] is True
     assert results.iloc[1]["VEd,2≤VRd"] is True
+
+
+def _shallow_EN_beam(n_stirrups: int, d_b: Quantity, s_l: Quantity) -> RectangularBeam:
+    """An EN 20x30, C20, B500, 3Ø20: shallow and heavily reinforced, so V_Rd,c beats the minimum stirrups."""
+    beam = RectangularBeam(
+        label="shallow",
+        concrete=Concrete_EN_1992_2004(name="C20", f_c=20 * MPa),
+        steel_bar=SteelBar(name="B500", f_y=500 * MPa),
+        width=20 * cm,
+        height=30 * cm,
+        c_c=30 * mm,
+    )
+    beam.set_longitudinal_rebar_bot(n1=3, d_b1=20 * mm)
+    beam.set_transverse_rebar(n_stirrups=n_stirrups, d_b=d_b, s_l=s_l)
+    return beam
+
+
+def test_shear_EN_1992_2004_below_V_Rd_c_asks_the_minimum_with_stirrups_or_without() -> None:
+    """§6.2.1(3): under V_Rd,c no calculated shear reinforcement, with stirrups or without (issue #170).
+
+    V_Ed = 37 kN against V_Rd,c of about 38.8 kN. The section with eØ6/37 used
+    to be asked for the truss of §6.2.3 (1.49 cm²/m) and the bare one for the
+    minimum of §9.2.2 (1.43); both ask for the minimum now. The stirrups give
+    V_Rd,s = 38 kN, under V_Rd,c: the concrete carries the shear, so V_Rd is
+    V_Rd,c and the section passes -- it used to report V_Rd,s and DCR 0.974.
+    """
+    force = [Forces(label="c", V_z=37 * kN, M_y=40 * kNm)]
+    bare = Node(section=_shallow_EN_beam(0, 0 * mm, 0 * mm), forces=force).check_shear().iloc[1]
+    beam = _shallow_EN_beam(1, 6 * mm, 37 * cm)
+    stirrups = Node(section=beam, forces=force).check_shear().iloc[1]
+
+    assert bare["Av,req"] == pytest.approx(bare["Av,min"])
+    assert stirrups["Av,req"] == pytest.approx(stirrups["Av,min"])
+    assert stirrups["Av,min"] == pytest.approx(1.43, rel=1e-2)
+    assert stirrups["VRd,c"] > stirrups["VRd,s"]
+    assert stirrups["VRd"] == pytest.approx(stirrups["VRd,c"])
+    assert stirrups["DCR"] == pytest.approx(37 / stirrups["VRd,c"], rel=1e-3)
+    assert stirrups["VEd,2≤VRd"] is True
+    assert "Av_below_min" not in [w.code for w in beam.warnings]
+
+
+def test_shear_EN_1992_2004_past_V_Rd_c_the_stirrups_carry_it_all() -> None:
+    """§6.2.1(5): past V_Rd,c the truss decides A_v,req and V_Rd, whatever V_Rd,c is (issue #170).
+
+    V_Ed = 45 kN, over V_Rd,c: the same eØ6/37 carry 38 kN, and V_Rd is
+    that, not the larger V_Rd,c -- the stirrups have to carry all of it.
+    """
+    force = [Forces(label="c", V_z=45 * kN, M_y=40 * kNm)]
+    bare = Node(section=_shallow_EN_beam(0, 0 * mm, 0 * mm), forces=force).check_shear().iloc[1]
+    stirrups = Node(section=_shallow_EN_beam(1, 6 * mm, 37 * cm), forces=force).check_shear().iloc[1]
+
+    assert bare["Av,req"] > bare["Av,min"]
+    assert stirrups["Av,req"] > stirrups["Av,min"]
+    assert stirrups["VRd,c"] > stirrups["VRd,s"]
+    assert stirrups["VRd"] == pytest.approx(stirrups["VRd,s"])
+    assert stirrups["VEd,2≤VRd"] is False
+
+
+def test_shear_EN_1992_2004_bare_section_reports_the_strut_limit_as_V_Rd_max() -> None:
+    """A bare section's V_Rd,max row is Eq. (6.9) at 45°, the limit the warning reads (issue #170).
+
+    It used to repeat V_Rd,c, a resistance rather than the crushing limit of
+    the strut; the warning ``shear_exceeds_section_limit`` already read (6.9).
+    """
+    beam = _shallow_EN_beam(0, 0 * mm, 0 * mm)
+    row = Node(section=beam, forces=[Forces(label="c", V_z=37 * kN)]).check_shear().iloc[1]
+    z = 0.9 * beam._d_shear.to("mm").magnitude
+    expected = 0.5 * 200 * z * 0.6 * (1 - 20 / 250) * 20 / 1.5 / 1000
+    assert row["VRd,max"] == pytest.approx(expected, rel=1e-3)
+    assert row["VRd"] == pytest.approx(row["VRd,c"])
 
 
 def test_shear_check_ACI_318_19_1(beam_example_imperial: RectangularBeam) -> None:
