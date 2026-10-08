@@ -168,7 +168,7 @@ def test_a_base_cage_failure_is_not_reported_as_a_skin_failure():
     b.set_transverse_rebar(1, 40 * mm, 20 * cm)
     b.check_flexure([Forces(M_y=100 * kNm)])
     codes = [warning.code for warning in b.warnings]
-    assert "cage_detailing_infeasible" in codes
+    assert "cage_detailing_pending" in codes
     assert "skin_detailing_infeasible" not in codes
 
 
@@ -547,7 +547,7 @@ def test_base_cage_warning_does_not_depend_on_required_skin(height):
     b = beam(height=height * cm)
     b.set_transverse_rebar(1, 40 * mm, 20 * cm)
     b.check_flexure([Forces(M_y=100 * kNm)])
-    assert "cage_detailing_infeasible" in [w.code for w in b.warnings]
+    assert "cage_detailing_pending" in [w.code for w in b.warnings]
 
 
 @pytest.mark.parametrize("cover,diameter,pending", [(70, 32, False), (71, 32, True), (70, 40, True)])
@@ -567,4 +567,4 @@ def test_invalid_skin_settings_do_not_hide_a_base_cage_failure():
     b.settings.skin_bar_diameter = 0 * mm
     codes = [w.code for w in b.warnings]
     assert "skin_detailing_invalid" in codes
-    assert "cage_detailing_infeasible" in codes
+    assert "cage_detailing_pending" in codes
