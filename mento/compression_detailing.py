@@ -109,8 +109,8 @@ def check_compression_detailing(
         ]
         supported_indices = tuple(i + 1 for i, yes in enumerate(supported) if yes)
         unsupported_indices = tuple(i + 1 for i, yes in enumerate(supported) if not yes)
-        failures = []
-        pending = []
+        failures: list[str] = []
+        pending: list[str] = []
         unknown_ties = any(t.alternate_hooks and t.bend_inner_diameter is None for t in geometry.crossties)
         # Corner bars plus every alternate bar: an isolated unsupported bar
         # may lie between supported bars, but two successive ones may not.
