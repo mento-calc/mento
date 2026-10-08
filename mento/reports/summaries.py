@@ -35,27 +35,11 @@ SUMMARY_FONT_SIZE = 7
 #: What the Beam Data table lists: the section and the bars it carries. The
 #: input frame also holds the position and the demands, which belong to the
 #: per-combination tables rather than to a list of sections.
-BEAM_DATA_COLUMNS = (
-    "Label",
-    "b",
-    "h",
-    "cc",
-    "ns",
-    "dbs",
-    "sl",
-    "n1",
-    "db1",
-    "n2",
-    "db2",
-    "n3",
-    "db3",
-    "n4",
-    "db4",
-)
+BEAM_DATA_COLUMNS = ("Label", "b", "h", "cc", "As,bot", "As,top", "Av")
 
 #: The label needs room for a beam name and the dimensions for two digits; the
 #: eleven rebar columns hold a count or a diameter and no more.
-BEAM_DATA_WIDTHS = [Cm(2), Cm(1), Cm(1), Cm(1)] + [Cm(0.9)] * 11
+BEAM_DATA_WIDTHS = [Cm(2), Cm(1), Cm(1), Cm(1), Cm(4), Cm(4), Cm(3)]
 
 #: Widths for the two per-combination summaries, one entry per column, set
 #: against the rendered document rather than computed. Both design codes leave
@@ -237,7 +221,8 @@ def beam_summary_doc(self: "BeamSummary", index: int = 1) -> None:
     df_shear_materials = pd.DataFrame(beam._materials_shear)
     df_shear_geometry = pd.DataFrame(beam._geometry_shear)
     df_shear_forces = pd.DataFrame(result_data["forces"])
-    df_shear_reinforcement = pd.DataFrame(result_data["shear_reinforcement"])
+    # Object columns: a count of stirrups or legs prints as the whole number it is.
+    df_shear_reinforcement = pd.DataFrame(result_data["shear_reinforcement"], dtype=object)
     df_shear_min_max = pd.DataFrame(result_data["min_max"])
     df_shear_concrete = pd.DataFrame(result_data["shear_concrete"])
 
@@ -253,11 +238,39 @@ def beam_summary_doc(self: "BeamSummary", index: int = 1) -> None:
 
     # --- SUMMARY TABLES FOR ALL BEAMS ---
     doc_builder.add_heading("Summary - All Beams", level=2)
+    from mento.verification import status_text
+
+    doc_builder.add_heading("Resistance and detailing", level=3)
+    # Restaurar primero las caras comprimidas con las fuerzas reales.
+    for checked_node in self.nodes:
+        checked_node.check_flexure()
+    self.check()  # Re-chequear todas las combinaciones reales antes de leer estados.
+    verification_rows = []
+    for checked_node in self.nodes:
+        state = cast("RectangularBeam", checked_node.section).verification_status
+        verification_rows.append(
+            {
+                "Label": checked_node.section.label,
+                "Resistance": status_text(state["resistance"]),
+                "Detailing (modelled checks)": status_text(state["detailing"]),
+                "Detailing notes": "; ".join(
+                    w.message
+                    for w in cast("RectangularBeam", checked_node.section).warnings
+                    if w.code
+                    in (
+                        "transverse_legs_added_for_compression_support",
+                        "open_leg_anchorage_outside_model",
+                        "crosstie_alternation_required",
+                    )
+                ),
+            }
+        )
+    doc_builder.add_table_data(pd.DataFrame(verification_rows))
     doc_builder.add_heading("Beam Data", level=3)
     # Geometry and reinforcement only: the demands each beam was checked for
     # are reported by the flexure and shear tables below, per combination,
     # which is where they mean something.
-    beam_data_out = self.beam_list.fillna("")[list(BEAM_DATA_COLUMNS)]
+    beam_data_out = self.section_data()
     doc_builder.add_table_data(
         beam_data_out,
         column_widths=BEAM_DATA_WIDTHS,

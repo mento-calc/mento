@@ -92,6 +92,10 @@ __all__ = [
     "WallShearDesign",
     "DesignNotRunError",
     "NotABeamError",
+    "SectionGeometry",
+    "CageDetailingError",
+    "CompressionDetailing",
+    "CompressionFaceDetail",
     "bar_designation",
     "bar_diameter",
 ]
@@ -122,6 +126,9 @@ if TYPE_CHECKING:
     from mento.wall_results import MeshDirection, WallMesh, WallShearCheck, WallShearDesign
     from mento.design_results import DesignNotRunError
     from mento.shear_wall import NotABeamError
+    from mento.section_geometry import SectionGeometry
+    from mento.cage_detailing import CageDetailingError
+    from mento.compression_detailing import CompressionDetailing, CompressionFaceDetail
     from mento.bar_sizes import bar_designation, bar_diameter
 
 
@@ -168,6 +175,10 @@ def __getattr__(name: str) -> object:
         "WallShearDesign": "wall_results",
         "DesignNotRunError": "design_results",
         "NotABeamError": "shear_wall",
+        "SectionGeometry": "section_geometry",
+        "CageDetailingError": "cage_detailing",
+        "CompressionDetailing": "compression_detailing",
+        "CompressionFaceDetail": "compression_detailing",
     }
 
     if name in module_mapping:

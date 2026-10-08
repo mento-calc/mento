@@ -75,6 +75,7 @@ def test_each_missed_limit_is_one_warning_with_a_stable_code() -> None:
         "bars_do_not_fit",
         "Av_below_min",
         "stirrup_spacing_exceeds_max",
+        "cage_detailing_infeasible",
     }
     assert found["As_below_min"].face == "bottom"
     assert found["not_tension_controlled"].face == "top"
@@ -1071,7 +1072,7 @@ def test_stirrups_of_a_doubly_reinforced_beam_are_held_to_its_compression_bars()
 
     assert str(beam.reinforcement.top) == "2Ø16 mm + 1Ø16 mm"
     assert (beam.shear_design.d_b, beam.shear_design.s_l) == (10 * mm, 20 * cm)
-    assert node.warnings == ()
+    assert "compression_detailing_pending" in [w.code for w in node.warnings]
 
     beam.set_transverse_rebar(n_stirrups=1, d_b=10 * mm, s_l=21 * cm)
     node.check()
@@ -1140,7 +1141,7 @@ def test_a_stirrup_that_makes_the_section_doubly_reinforced_is_spaced_for_it() -
     assert beam._compression_faces == {"top"}
     assert beam.shear_design.d_b == 10 * mm
     assert beam.shear_design.s_l <= 15 * cm
-    assert node.warnings == ()
+    assert "compression_detailing_pending" in [w.code for w in node.warnings]
 
 
 def test_cirsoc_grades_the_bracing_stirrup_with_the_compression_bar() -> None:
@@ -1298,7 +1299,7 @@ def test_a_doubly_reinforced_beam_with_no_stirrups_is_told_it_needs_them(
     assert beam.flexure_design.bottom.A_s_max.to("cm**2").magnitude == pytest.approx(13.94, abs=0.005)
     assert beam.flexure_design.DCR < 1
     found = _by_code(node.warnings)
-    assert set(found) == {"stirrups_required_for_compression_support"}
+    assert set(found) == {"stirrups_required_for_compression_support", "compression_detailing_failed"}
     bracing = found["stirrups_required_for_compression_support"]
     assert (bracing.values["d_b_comp"], bracing.values["d_b_min"], bracing.values["s_max"]) == (top, d_b_min, 20 * cm)
     assert bracing.combinations == ()
@@ -1310,7 +1311,7 @@ def test_a_doubly_reinforced_beam_with_no_stirrups_is_told_it_needs_them(
 
     node = Node(section=beam, forces=[Forces(label="ELU", M_y=150 * kNm)])
     node.check()
-    assert set(_by_code(node.warnings)) == {"stirrups_required_for_compression_support"}
+    assert set(_by_code(node.warnings)) == {"stirrups_required_for_compression_support", "compression_detailing_failed"}
 
     beam.set_longitudinal_rebar_bot(n1=2, d_b1=25 * mm)
     node.check()

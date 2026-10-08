@@ -126,6 +126,14 @@ mento.section module
    :undoc-members:
    :show-inheritance:
 
+mento.section\_geometry module
+------------------------------
+
+.. automodule:: mento.section_geometry
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 mento.settings module
 ---------------------
 

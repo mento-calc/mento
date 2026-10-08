@@ -53,11 +53,22 @@ The Excel file should contain the following columns:
 - **Nx**: Axial force in kN.
 - **Vz**: Shear force in kN.
 - **My**: Moment in kNm.
-- **ns**: Number of stirrup legs.
+- **legs**: Preferred integer shear-leg count (including odd counts from 3); **n_legs** is a compatible alias.
+- **ns**: Legacy integer two-leg equivalents; not a count of closed pieces.
 - **dbs**: Stirrup diameter in mm.
 - **sl**: Stirrup spacing in cm.
 - **n1, n2, n3, n4**: Number of longitudinal bars per group.
 - **db1, db2, db3, db4**: Diameter of longitudinal bars in mm.
+
+Use either ``n_legs`` or legacy ``ns``; both count columns have blank units
+cells. Existing Excel files retain their meaning: ``ns=2`` means four legs.
+The Word report's Beam Data table always displays ``n_legs``, including
+when the input uses legacy ``ns``. Excel export writes a single editable ``legs`` column; legacy input remains readable.
+If both columns are filled, ``n_legs`` must equal ``2*ns``. A blank paired
+cell is derived from the supplied count. Non-integer, negative, one-leg
+counts or inconsistent paired counts are rejected before processing.
+Design retains compatible internal counts; Excel exports canonical ``legs``,
+updating both consistently when both are present.
 
 Bottom reinforcement is checked against positive bending moments; top reinforcement
 against negative bending moments.
@@ -117,6 +128,10 @@ all beams. Two modes are available:
 .. code-block:: python
 
     beam_summary.check()
+
+The ``Av`` column holds the stirrups in the compact notation, legs first (``2 legs Ø6/20``,
+``2 ramas Ø6/20`` in Spanish), in the language of ``mento.set_language``; ``-`` for a beam
+without stirrups.
 
 **Capacity check** (zeros all forces to report section capacity only):
 
@@ -213,3 +228,22 @@ The document is saved to the current working directory with the name
 
 The ``index`` parameter is 1-based and must be within the range of beams in the
 summary. An ``IndexError`` is raised for out-of-range values.
+
+
+Decisiones de entrega: resistencia, detallado y ramas
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``beam.verification_status`` muestra resistencia y detallado modelado por
+separado. Un DCR favorable no aprueba un detallado incumplido o pendiente.
+Los estados se muestran aparte en los anexos de cortante de consola y Word.
+Los indicadores heredados conservan su contrato para compatibilidad.
+
+La entrada preferida es ``legs``; ``n_legs`` continúa como alias y ``ns``
+conserva su significado de cantidad de estribos cerrados. El modelo actual
+solo admite pares de ramas de estribos cerrados; no define una traba suelta
+ni su anclaje. Una disposición arbitraria de siete ramas requiere ampliar
+el modelo, no redondear silenciosamente la cantidad ingresada.
+
+El Word muestra ambas caras físicas y cc en la tabla Beam Data en mm (métrico) o pulgadas
+(imperial). Las zapatas EN con axil no nulo se rechazan como caso todavía
+no soportado por Mento; no es una prohibición del Eurocódigo.

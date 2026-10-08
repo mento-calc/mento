@@ -13,12 +13,12 @@ The fields are pre-zeroed in the section's own unit system by
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, TYPE_CHECKING, Tuple
+from typing import Any, Dict, Optional, TYPE_CHECKING, Tuple
 
 from mento.units import Quantity
 
 from mento.precompute import CANONICAL, DISPLAY
-from mento.units import cm, inch, kip, kN, mm, psi, MPa, dimensionless
+from mento.units import cm, inch, kip, kN, mm, psi, MPa, dimensionless, ureg
 
 if TYPE_CHECKING:
     from mento.beam import RectangularBeam
@@ -60,6 +60,33 @@ def to_display(value: float, kind: str, imperial: bool) -> Any:
     if kind == "dimensionless":
         return value * dimensionless
     return (value * CANONICAL[imperial][kind]).to(DISPLAY[imperial][kind])
+
+
+#: ``(imperial, kind)`` -> the factor from the canonical unit to the display one,
+#: taken once from pint. See :func:`_scaled_to_display`.
+_DISPLAY_FACTORS: Dict[Tuple[bool, str], float] = {}
+
+
+def _scaled_to_display(value: float, kind: str, imperial: bool) -> Any:
+    """The same numbers as :func:`to_display`, without a pint conversion per call.
+
+    For a length or a force. The factor from the canonical unit to the
+    display one is asked of pint once per ``(imperial, kind)`` and kept, so a
+    call only multiplies and builds the quantity -- which is why the check
+    states wrap the spacing fields of every shear check with it. A test holds
+    its numbers to :func:`to_display`'s.
+    """
+    key = (imperial, kind)
+    factor = _DISPLAY_FACTORS.get(key)
+    if factor is None:
+        factor = (1.0 * CANONICAL[imperial][kind]).to(DISPLAY[imperial][kind]).magnitude
+        _DISPLAY_FACTORS[key] = factor
+    return ureg.Quantity(value * factor, DISPLAY[imperial][kind])
+
+
+def _length_or_none(value: float, imperial: bool) -> Any:
+    """A spacing limit as a quantity, or ``None`` where the check set none (zero)."""
+    return _scaled_to_display(value, "length", imperial) if value > 0 else None
 
 
 def _face_quantities(state: Any, face: str, capacity: str, imperial: bool) -> tuple[Any, Any, Any, Any, Any, Any, Any]:
@@ -120,12 +147,34 @@ class ShearCheckState:
     #: with the V_c of a section carrying A_v,min. Equal to ``phi_V_max`` once
     #: the section does; read by ``shear_exceeds_section_limit``.
     section_shear_limit: float = 0.0
+    #: The V_s past which ACI 318-19 / CIRSOC 201-25 Table 9.7.6.2.2 halves the
+    #: spacing limits, 0.33·√f'c·bw·d (4·√f'c·bw·d in psi), and whether this
+    #: combination's V_s_req passed it. Set by the spacing helper from the same
+    #: floats the limits are computed with, so a report can say which row of the
+    #: table applied without comparing anything again. Not on the compatibility
+    #: layer: the public result and the report builders read them here.
+    V_s_threshold: float = 0.0
+    spacing_halved: bool = False
 
     def shear_reinforcement_quantities(self, imperial: bool) -> tuple[Any, Any]:
         """``(A_v_req, A_v_min)`` as quantities, for the frozen public result."""
         return (
             to_display(self.A_v_req, "per_length", imperial),
             to_display(self.A_v_min, "per_length", imperial),
+        )
+
+    def spacing_quantities(self, imperial: bool) -> tuple[Any, Any, Optional[bool], Any, Any]:
+        """``(V_s_req, V_s_threshold, spacing_halved, s_max_l_table, s_max_w)``, for the public result.
+
+        The two limits are the rows of Table 9.7.6.2.2 alone, and ``None``
+        where the check set none (zero).
+        """
+        return (
+            _scaled_to_display(self.V_s_req, "force", imperial),
+            _scaled_to_display(self.V_s_threshold, "force", imperial),
+            bool(self.spacing_halved),
+            _length_or_none(self.stirrup_s_max_l, imperial),
+            _length_or_none(self.stirrup_s_max_w, imperial),
         )
 
     def shear_capacity_quantity(self, imperial: bool) -> Any:
@@ -283,6 +332,22 @@ class ENShearCheckState:
         return (
             to_display(self.A_v_req, "per_length", imperial),
             to_display(self.A_v_min, "per_length", imperial),
+        )
+
+    def spacing_quantities(self, imperial: bool) -> tuple[None, None, None, Any, Any]:
+        """``(None, None, None, s_max_l_table, s_max_w)``, for the public result.
+
+        EN 1992-1-1 has no threshold that halves its limits, so the first three
+        are ``None``; the limits are those of Expressions (9.6N) and (9.8N) --
+        the first with mento's own 400 mm cap -- and ``None`` on a section with
+        no stirrups, which the check gives none.
+        """
+        return (
+            None,
+            None,
+            None,
+            _length_or_none(self.stirrup_s_max_l, imperial),
+            _length_or_none(self.stirrup_s_max_w, imperial),
         )
 
     def shear_capacity_quantity(self, imperial: bool) -> Any:
@@ -754,6 +819,8 @@ class ENFlexureCheckState:
     rho_l_top: float
     DCR_bot: float
     DCR_top: float
+    # Cara cuya armadura comprimida acredita la resistencia EN.
+    compression_face: str | None = None
 
     def face_quantities(self, face: str, imperial: bool) -> tuple[Any, Any, Any, Any, Any, Any, Any]:
         """``(A_s_req, A_s_min, A_s_max, M_Rd, A_s_calc, A_s_min_eff, A_s_max_eff)`` of one face.

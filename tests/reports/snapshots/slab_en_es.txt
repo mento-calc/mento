@@ -120,6 +120,11 @@ Resistencia total al corte           VRd        86.79  kN
 Verificación de corte máximo                       ✅
 Factor de Utilización                DCR        0.691  ✅ 
 
+Verificación                              Estado               Notas de detallado
+------------------------------  ---------------------------  --------------------
+Resistencia                     Cumple (chequeos modelados)
+Detallado (chequeos modelados)  Cumple (chequeos modelados) 
+
 
 
 ### flexure_results_detailed_doc: Slab L1 flexure check EN 1992-2004.docx
@@ -198,8 +203,8 @@ Separación de estribos en la dirección transversal | cm | 0.0 |  | 0.0 | ✅
 Armadura mínima de corte | cm²/m | 0.0 | 0.0 |  | ✅
 Verificaciones de resistencia
 Resistencia de la armadura de corte | Variable | Valor | Unidad
-Diámetro del estribo | db | 0.0 | mm
-Separación de estribos en la dirección longitudinal | sl | 0.0 | cm
+Diámetro del estribo | db | 0 | mm
+Separación de estribos en la dirección longitudinal | sl | 0 | cm
 Separación de estribos en la dirección transversal | sw | 0.0 | cm
 Altura útil | d | 17.0 | cm
 Armadura mínima de corte | Asw,min | 0.0 | cm²/m
@@ -216,6 +221,10 @@ Resistencia máxima al corte | VRd,max | 688.5 | kN
 Resistencia total al corte | VRd | 86.8 | kN
 Verificación de corte máximo |  | ✅ | 
 Factor de Utilización | DCR | 0.69 | ✅
+Resistencia y detallado
+Verificación | Estado | Notas de detallado
+Resistencia | Cumple (chequeos modelados) | 
+Detallado (chequeos modelados) | Cumple (chequeos modelados) | 
 
 ### results
 Slab L1, $b$=100.00 cm, $h$=20.00 cm, $c_{c}$=2.50 cm,                         Concrete C25/30, Rebar B500S.

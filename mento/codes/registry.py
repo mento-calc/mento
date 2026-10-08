@@ -97,6 +97,10 @@ class DesignCode:
     #: size -- it applies to the stirrups supporting compression reinforcement,
     #: not to every stirrup. That graded clause is ``min_stirrup_for_compression_bar``.
     min_stirrup_diameter: Callable[..., Any] | None = None
+    #: Inside diameter of transverse-bar bends, (concrete, bar diameter).
+    #: ACI/CIRSOC Table 25.3.2 and EN Table 8.1N. This is a mandrel-size
+    #: rule, not a check of anchorage, hooks or concrete failure at the bend.
+    stirrup_bend_inner_diameter: Callable[..., Any] | None = None
     #: The smallest stirrup this code lets laterally support a compression bar
     #: of a given diameter, ``(concrete, d_b_long) -> Quantity``: ACI 318-19
     #: §9.7.6.4.2, a No. 10 up to a No. 32 bar and a No. 13 above (No. 3 and

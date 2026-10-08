@@ -372,6 +372,41 @@ def test_max_stirrup_spacing_us():
     assert (s_l, s_w) == pytest.approx((5.0, 10.0))  # d/4, d/2
 
 
+def test_stirrup_spacing_threshold_is_the_table_expression():
+    # The 150x150 CIRSOC beam: f'c = 25 MPa, bw = 1500 mm, d = 1442 mm.
+    # 0.33*sqrt(25)*1500*1442 N = 3568.95 kN, exactly the expression the table prints.
+    A_cv = 1500.0 * 1442.0
+    assert eq.stirrup_spacing_threshold(25.0, A_cv) == 0.33 * math.sqrt(25.0) * A_cv
+    assert eq.stirrup_spacing_threshold(25.0, A_cv) == pytest.approx(3_568_950.0)
+    # 4*sqrt(f'c)*bw*d in psi.
+    assert eq.stirrup_spacing_threshold(4000.0, 240.0, is_imperial=True) == 4 * math.sqrt(4000.0) * 240.0
+
+
+def test_stirrup_spacing_threshold_takes_the_uncapped_root():
+    # f'c = 80 MPa is past the 8.3 MPa ceiling §22.5.3.1 puts on sqrt(f'c) for
+    # V_c; Table 9.7.6.2.2 has no such ceiling, so the plain root enters.
+    assert eq.stirrup_spacing_threshold(80.0, 1000.0) == 0.33 * math.sqrt(80.0) * 1000.0
+    assert eq.stirrup_spacing_threshold(80.0, 1000.0) > 0.33 * 8.3 * 1000.0
+
+
+def test_stirrup_spacing_halved_at_and_past_the_threshold():
+    A_cv = 135_000.0
+    threshold = eq.stirrup_spacing_threshold(25.0, A_cv)
+    # Exactly at the threshold: the first row, and max_stirrup_spacing agrees.
+    assert eq.stirrup_spacing_halved(threshold, 25.0, A_cv) is False
+    assert eq.max_stirrup_spacing(threshold, 25.0, A_cv, 450.0, *ACI_CAPS_MM) == (225.0, 450.0)
+    # One ulp above: the halved row.
+    above = math.nextafter(threshold, math.inf)
+    assert eq.stirrup_spacing_halved(above, 25.0, A_cv) is True
+    assert eq.max_stirrup_spacing(above, 25.0, A_cv, 450.0, *ACI_CAPS_MM) == (112.5, 225.0)
+
+
+def test_stirrup_spacing_halved_with_a_nan_demand_takes_the_stricter_row():
+    # As before the helper existed: a NaN demand is not "at or under" anything.
+    assert eq.stirrup_spacing_halved(math.nan, 25.0, 135_000.0) is True
+    assert eq.max_stirrup_spacing(math.nan, 25.0, 135_000.0, 450.0, *ACI_CAPS_MM) == (112.5, 225.0)
+
+
 def test_shear_strength_of_reinforcement():
     # A_v/s = 0.25 mm²/mm, f_yt = 420 MPa, d = 450 mm -> 47.25 kN
     assert eq.shear_strength_of_reinforcement(0.25, 420.0, 450.0) == pytest.approx(47_250.0, rel=1e-9)

@@ -111,14 +111,20 @@ def round_for_display(df: pd.DataFrame) -> pd.DataFrame:
         for column in ("Value", "Min.", "Max."):
             if column not in out.columns:
                 continue
-            out[column] = [
-                _rounded(value, DCR_DECIMALS)
-                if variable == "DCR"
-                else _rounded(value, FORCE_DECIMALS)
-                if str(unit) in FORCE_DISPLAY_UNITS
-                else value
-                for value, unit, variable in zip(out[column], out["Unit"], variables)
-            ]
+            # An object column, so a count stays the int it was: a list of
+            # ints and floats would come back as floats, and "5" as "5.0".
+            out[column] = pd.Series(
+                [
+                    _rounded(value, DCR_DECIMALS)
+                    if variable == "DCR"
+                    else _rounded(value, FORCE_DECIMALS)
+                    if str(unit) in FORCE_DISPLAY_UNITS
+                    else value
+                    for value, unit, variable in zip(out[column], out["Unit"], variables)
+                ],
+                index=out.index,
+                dtype=object,
+            )
         return out
 
     # A summary always carries its units on the first row; a frame without one
@@ -131,7 +137,7 @@ def round_for_display(df: pd.DataFrame) -> pd.DataFrame:
             decimals = FORCE_DECIMALS
         else:
             continue
-        out[column] = [_rounded(value, decimals) for value in out[column]]
+        out[column] = pd.Series([_rounded(value, decimals) for value in out[column]], index=out.index, dtype=object)
     return out
 
 
@@ -153,6 +159,7 @@ CUSTOM_COLORS = {
     "dark_gray": "#323232",
     "light_gray": "#e3e3e3",
     "dark_blue": "#073165",
+    "mounting": "#ad641b",
 }
 
 

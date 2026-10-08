@@ -16,7 +16,7 @@ from mento.codes.EN_1992_2004_punching import check_punching_EN_1992_2004
 from mento.codes.EN_1992_2004_wall import _check_shear_EN_1992_2004_wall, _design_shear_EN_1992_2004_wall
 from mento.codes.registry import DesignCode, register
 from mento.material import Concrete_EN_1992_2004
-from mento.units import cm, kN, kNm, mm, MPa
+from mento.units import MPa, cm, kN, kNm, mm
 
 if TYPE_CHECKING:
     from mento.beam import RectangularBeam
@@ -197,9 +197,19 @@ def _min_thickness_on_soil(concrete: Any) -> Any:
     return 250 * mm
 
 
+def _stirrup_bend_inner_diameter(concrete: Any, diameter: Any) -> Any:
+    """EN 1992-1-1:2004 §8.3(2), Table 8.1N recommended mandrels (NDP).
+
+    Four diameters through 16 mm, seven above. Concrete failure inside the
+    bend (Eq. 8.1), anchorage and the hook arrangement are not checked here.
+    """
+    return (4 if diameter.to("mm").magnitude <= 16 + 1e-8 else 7) * diameter
+
+
 EN_1992_2004 = register(
     DesignCode(
         title="EN 1992-2004",
+        stirrup_bend_inner_diameter=_stirrup_bend_inner_diameter,
         year=2004,
         materials=(Concrete_EN_1992_2004,),
         check_shear=_check_shear_EN_1992_2004,
