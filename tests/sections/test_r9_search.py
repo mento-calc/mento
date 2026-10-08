@@ -55,3 +55,37 @@ def test_truncation_is_pending_and_cached(monkeypatch):
     assert error.value.reason=="compression_support_search"
     assert b.verification_status["detailing"]=="pending"
     assert any(w.code=="cage_detailing_pending" for w in b.warnings)
+
+
+@pytest.mark.parametrize("legs",[3,4,5])
+def test_second_layer_does_not_intersect_open_legs(legs):
+    b=subject(40,7)
+    b.set_longitudinal_rebar_bot(n1=3,d_b1=20*mm,n3=3,d_b3=20*mm)
+    b.set_longitudinal_rebar_top(n1=3,d_b1=16*mm)
+    b.set_transverse_rebar(legs=legs,d_b=10*mm,s_l=15*cm)
+    b.check([Forces(M_y=250*kNm,V_z=80*kN)])
+    original=b.section_geometry.to_dict("mm")
+    geometry=b.detailing_geometry
+    assert len(geometry.bars_on("bottom",2))==3
+    assert original==b.section_geometry.to_dict("mm")
+    assert not any(w.code=="cage_detailing_infeasible" for w in b.warnings)
+
+
+def test_symmetric_candidates_are_examined_before_lexicographic_prefix(monkeypatch):
+    b=subject(150,22)
+    b.set_transverse_rebar(legs=16,d_b=8*mm,s_l=15*cm)
+    b.check([Forces(M_y=2500*kNm,V_z=300*kN)])
+    seen=[]
+    target=(2,3,4,11,12,13)
+    def candidate(beam,geometry,**kwargs):
+        interior=tuple(i for s in geometry.stirrups[1:] for i in s.legs)
+        seen.append(interior)
+        if interior==target:
+            raise RuntimeError("target reached")
+        raise cage.CageDetailingError("isolated search ordering")
+    monkeypatch.setattr(cage,"_build_candidate",candidate)
+    monkeypatch.setattr(cage,"perf_counter",lambda:0)
+    with pytest.raises(RuntimeError,match="target reached"):
+        cage._search_cage_detailing(b)
+    level=[item for item in seen if len(item)==6]
+    assert all(all(15-i in item for i in item) for item in level)

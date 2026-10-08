@@ -226,7 +226,8 @@ def _search_cage_detailing(beam: RectangularBeam, *, include_skin: bool = False)
     from mento.section_geometry import ClosedStirrup
 
     base = build_section_geometry(beam)
-    base = replace(base, input_legs=len(base.leg_x), calculation_s_w=base.s_w)
+    if base.stirrups:
+        base = replace(base, input_legs=len(base.leg_x), calculation_s_w=base.s_w)
     if not base.stirrups or not beam._compression_faces:
         return _build_candidate(beam, base, include_skin=include_skin)
     requested = len(base.leg_x)
@@ -395,7 +396,15 @@ def _build_candidate(beam: RectangularBeam, geometry: SectionGeometry, *, includ
                 "The resistant bars exceed their maximum centre spacing; mounting steel cannot replace them."
             )
         bars.extend(resistant)
-        bars.extend(geometry.bars_on(face, 2))
+        second = geometry.bars_on(face, 2)
+        # La capa 2 conserva cota y acero; alinear con la capa 1 evita atravesar
+        # una rama vertical en el modelo de cálculo uniformemente espaciado.
+        crosses = any(abs(_mm(bar.x - x)) < (_mm(bar.d_b) + d_st) / 2 - 1e-8
+                      for bar in second for x in geometry.leg_x)
+        if crosses and len(second) <= len(resistant):
+            indices = [round(i * (len(resistant) - 1) / max(1, len(second) - 1)) for i in range(len(second))]
+            second = tuple(replace(bar, x=resistant[index].x) for bar, index in zip(second, indices))
+        bars.extend(second)
         mounting_bars.extend(added)
 
     # Retained second layers must also fit; added mounting bars may not clash
