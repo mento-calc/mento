@@ -2038,6 +2038,9 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         raws = list(self._flexure_warnings) if self._flexure_checked else []
         raws += spacing_warnings(self)
         raws += compression_detailing_warnings(self)
+        from mento.design_warnings import transverse_proposal_warnings
+
+        raws += transverse_proposal_warnings(self)
         raws += skin_warnings(self)
         raws += shortfall_warnings(self)
         raws += list(self._shear_warnings) if self._shear_checked else []

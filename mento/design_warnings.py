@@ -189,6 +189,8 @@ class _Raw:
 #: The English wording of each code; the text is also the key of the Spanish
 #: catalog in :mod:`mento.i18n`. ``{face}`` is filled with the translated face.
 _MESSAGES: Dict[str, str] = {
+    "transverse_legs_added_for_compression_support": 'Detailing proposes {placed_legs} legs instead of {input_legs}: {pieces}. Enter the proposed legs to confirm; A_v still uses {input_legs}.',
+    "open_leg_anchorage_outside_model": 'Open-leg hooks and anchorage are outside this sectional model; verify them separately.',
     "skin_detailing_pending": "Skin layout is not verified: the detailing geometry does not contain the specified skin bars.",
     "skin_reinforcement_failed": "The supplied skin reinforcement does not comply: {reason}",
     "cage_detailing_pending": "The base cage cannot yet be verified: {reason}",
@@ -903,3 +905,23 @@ _COMPRESSION_REASONS = {
     "closed_stirrups_missing": "Required compression steel has no closed stirrups",
     "unsupported_bend": "The stirrup bend is outside the supported model",
 }
+
+
+def transverse_proposal_warnings(beam: "RectangularBeam") -> List[_Raw]:
+    """La propuesta de jaula no modifica la entrada ni aprueba ramas no confirmadas."""
+    from mento.cage_detailing import CageDetailingError, build_cage_detailing
+    if beam._stirrups_optional or not beam._stirrup_n:
+        return []
+    try:
+        geometry = build_cage_detailing(beam, include_skin=False)
+    except CageDetailingError:
+        return []
+    result = []
+    entered = int(2 * beam._stirrup_n)
+    placed = len(geometry.leg_x)
+    if placed != entered:
+        result.append(_Raw("transverse_legs_added_for_compression_support",
+                           {"input_legs": entered, "placed_legs": placed, "pieces": geometry.arrangement()}))
+    if geometry.crossties:
+        result.append(_Raw("open_leg_anchorage_outside_model", {}))
+    return result

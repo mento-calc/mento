@@ -609,23 +609,23 @@ def _cage_lines(self: "RectangularBeam", geometry: Optional[SectionGeometry] = N
     if self._stirrup_n == 0:
         return []
     geometry = self.section_geometry if geometry is None else geometry
-    from dataclasses import replace
-
     transverse = self.reinforcement.transverse
     source: ShearDesign | TransverseReinforcement
     try:
         source = self.shear_design
     except DesignNotRunError:
         source = transverse
-    # Mostrar la disposición real; la vista resistente sigue siendo la entrada.
-    notation = replace(source, n_stirrups=len(geometry.leg_x) / 2, s_w=geometry.s_w).notation(separator="\n")
+    # Encabezar con la armadura verificada, nunca con acero extra de propuesta.
+    notation = source.notation(separator="\n")
     lines = [*notation.split("\n"), geometry.arrangement()]
     if len(geometry.leg_x) != transverse.n_legs:
-        lines.append(
-            f"{transverse.n_legs} ramas ingresadas; {len(geometry.leg_x)} dispuestas por sujeción"
-            if get_language() == "es"
-            else f"{transverse.n_legs} input legs; {len(geometry.leg_x)} placed for compression support"
-        )
+        lines.append(translate(
+            "{placed} proposed legs; A_v uses {entered}. Compression support: {status}.",
+            placed=len(geometry.leg_x), entered=transverse.n_legs,
+            status=translate(self.compression_detailing.status),
+        ))
+    if geometry.crossties:
+        lines.append(translate("Open-leg hooks and anchorage are outside this sectional model; verify them separately."))
     return lines
 
 

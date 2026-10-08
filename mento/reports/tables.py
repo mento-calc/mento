@@ -66,16 +66,15 @@ def _transverse_rebar_rows(
             [bar, length, length],
         )
     return (
-        ["Number of stirrups", "Number of legs", "Stirrup diameter", "Stirrup spacing", "Leg spacing across width"],
-        ["ns", "nl", "db", "s", "sw"],
+        ["Number of legs", "Stirrup diameter", "Stirrup spacing", "Leg spacing across width"],
+        ["nl", "db", "s", "sw"],
         [
-            self._stirrup_n,
             int(2 * self._stirrup_n),
             diameter,
             s_l,
             shown(self._leg_spacing_across_width(), "length", imperial, 2),
         ],
-        ["", "", bar, length, length],
+        ["", bar, length, length],
     )
 
 

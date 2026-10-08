@@ -226,6 +226,7 @@ def _search_cage_detailing(beam: RectangularBeam, *, include_skin: bool = False)
     from mento.section_geometry import ClosedStirrup
 
     base = build_section_geometry(beam)
+    base = replace(base, input_legs=len(base.leg_x), calculation_s_w=base.s_w)
     if not base.stirrups or not beam._compression_faces:
         return _build_candidate(beam, base, include_skin=include_skin)
     requested = len(base.leg_x)

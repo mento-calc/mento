@@ -168,6 +168,9 @@ class SectionGeometry:
     mounting_bars: Tuple[BarPosition, ...] = ()
     # False marks a 4*d_st calculation placeholder, not a code mandrel.
     bend_supported: bool = True
+    # En la propuesta pueden agregarse ramas, sin alterar la geometría de cálculo.
+    input_legs: Optional[int] = None
+    calculation_s_w: Optional[Quantity] = None
     # Supplementary longitudinal skin steel; face=left/right, layer=group=0.
     # Excluded from bars_on() and all calculated steel areas/capacities.
     skin_bars: Tuple[BarPosition, ...] = ()
@@ -230,6 +233,9 @@ class SectionGeometry:
             "stirrup_bend_inner_diameter": f(self.stirrup_bend_inner_diameter),
             "bend_supported": self.bend_supported,
             "s_w": f(self.s_w),
+            "input_legs": len(self.leg_x) if self.input_legs is None else self.input_legs,
+            "placed_legs": len(self.leg_x),
+            "calculation_s_w": f(self.s_w if self.calculation_s_w is None else self.calculation_s_w),
             "leg_x": [f(x) for x in self.leg_x],
             "stirrups": [
                 {

@@ -617,7 +617,7 @@ def test_a_designed_beam_is_labelled_by_its_legs() -> None:
         f" · {transverse.s_w.to(transverse.s_l.units):.4g~P} between legs"
     )
     assert str(transverse) == "2 legs Ø10 mm @ 23 cm · 14 cm between legs"
-    assert beam._shear_reinforcement["Variable"][:5] == ["ns", "nl", "db", "s", "sw"]
+    assert beam._shear_reinforcement["Variable"][:4] == ["nl", "db", "s", "sw"]
 
 
 def _A_v_min_table_9_6_3_4(width_cm: float, f_c: float = 25.0, f_yt: float = 420.0) -> float:
