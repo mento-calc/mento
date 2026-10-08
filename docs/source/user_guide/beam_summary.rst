@@ -321,3 +321,8 @@ el modelo, no redondear silenciosamente la cantidad ingresada.
 El Word muestra ambas caras físicas y cc en la tabla Beam Data en mm (métrico) o pulgadas
 (imperial). Las zapatas EN con axil no nulo se rechazan como caso todavía
 no soportado por Mento; no es una prohibición del Eurocódigo.
+
+
+El Excel exportado usa una sola columna editable ``legs``. Los aliases
+``n_legs`` y ``ns`` se siguen aceptando al importar archivos anteriores,
+pero no se duplican en el archivo nuevo para evitar cantidades contradictorias.

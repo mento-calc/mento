@@ -110,3 +110,22 @@ def test_slab_does_not_require_transverse_columns():
     row.update(Label="L1", **{"Comb.": "ULS"}, b=100, h=20, cc=25, My=10, db1=10, s1=15)
     slab = OneWaySlabSummary(*materials(), pd.DataFrame([units, row]))
     assert slab.nodes[0].section.reinforcement.transverse.n_legs == 0
+
+
+@pytest.mark.parametrize("count_column", ["legs", "n_legs", "ns"])
+def test_export_has_one_editable_leg_count(tmp_path, count_column):
+    table = beam_table().rename(columns={"n_legs": count_column})
+    if count_column == "ns":
+        table.loc[1, "ns"] = 2
+    concrete, steel = materials()
+    summary = BeamSummary(concrete, steel, table)
+    summary.design()
+    path = tmp_path / "editable_legs.xlsx"
+    summary.export_design(str(path))
+    exported = pd.read_excel(path).fillna("")
+    assert "legs" in exported and "ns" not in exported and "n_legs" not in exported
+    assert exported.loc[0, "legs"] == ""
+    exported.loc[1, "legs"] = 6
+    exported.to_excel(path, index=False)
+    summary.import_design(str(path))
+    assert summary.nodes[0].section.reinforcement.transverse.n_legs == 6

@@ -850,7 +850,13 @@ class BeamSummary:
         # quantities in whatever unit mento computed them in (a slab spacing
         # in mm under a column in cm), and the file holds bare numbers.
         df_numeric = self.design_data.copy()
+        # Una única cantidad editable: evitar aliases desactualizados al importar.
+        if self._ELEMENT_COLUMN == "Beam":
+            if "legs" not in df_numeric:
+                df_numeric["legs"] = df_numeric["n_legs"] if "n_legs" in df_numeric else 2 * df_numeric["ns"]
+            df_numeric = df_numeric.drop(columns=["ns", "n_legs"], errors="ignore")
         units = dict(zip(self.beam_list.columns, self.units_row))
+        units["legs"] = ""
         design_units = []
         for col in df_numeric.columns:
             base = col.rsplit("_", 1)[0] if col.endswith(("_bot", "_top")) else col
