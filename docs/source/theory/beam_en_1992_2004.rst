@@ -378,9 +378,8 @@ stirrups put :math:`2n` legs evenly between the centres of the outermost pair,
 
    s_w = \frac{b - 2c_c - d_{b,st}}{2n - 1}
 
-in a cage of one perimeter stirrup and inner closed stirrups on the 2nd and 3rd legs,
-the 4th and 5th... (indices ``(1, 2)``, ``(3, 4)`` in ``beam.section_geometry``, counting
-from 0).
+in calculation geometry with one perimeter and open interior legs. EN compression
+support remains pending; detailing is a separate proposal.
 
 .. note::
 

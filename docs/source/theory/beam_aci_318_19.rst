@@ -436,12 +436,12 @@ The limit across the width is on the legs. mento's cage is ``n`` closed stirrups
 
    s_w = \frac{b - 2c_c - d_{b,st}}{2n - 1}
 
--- one perimeter stirrup on the outermost legs and inner closed stirrups on the 2nd and
-3rd legs, the 4th and 5th... (indices ``(1, 2)``, ``(3, 4)`` in
-``beam.section_geometry.stirrups[i].legs``, which count from 0). A design starts from the fewest legs that keep
+-- one closed perimeter and open interior legs in calculation geometry.
+Detailing may propose closed interior pieces for required compression support;
+read ``beam.detailing_geometry`` for the physical arrangement. A design starts from the fewest legs that keep
 :math:`s_w \le s_{max,w}`: a 150×150 CIRSOC beam whose :math:`V_{s,req}` = 4828 kN passes
 the 3569 kN threshold is held to 200 mm, which eight legs (20.40 cm) miss and ten
-(15.87 cm) meet, so it takes five stirrups.
+(15.87 cm) meet, so it takes ten calculation legs (five two-leg equivalents).
 
 Where the stirrups also brace compression bars, §9.7.6.4.3 caps the spacing along the
 member at the least of 16 :math:`d_b` of the bar, 48 :math:`d_b` of the stirrup and the least

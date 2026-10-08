@@ -535,3 +535,16 @@ vistas y ``geometry.stirrups``/``geometry.crossties`` para las piezas reales.
 Las columnas nuevas usan ``legs``; para una entrada impar no combinarla con
 la columna histórica ``ns``. El archivo editable conserva una sola cantidad
 canónica para evitar un supuesto medio estribo en la entrada antigua.
+
+
+Precisiones de piel manual
+-------------------------
+
+Las filas parten de la capa longitudinal más interior que tenga al menos dos
+barras; si no hay barras, se usa el recubrimiento. ``top`` y ``bottom`` llegan
+a media altura. En EN esa media altura puede no cubrir la zona completa hasta
+el eje neutro de servicio: se conserva la entrada y se advierte la distribución,
+según el criterio geométrico de Mento en revisión. No se afirma una exención normativa.
+La piel ingresada que cabe pero no cumple sigue visible y rotulada como no conforme.
+Con axil EN fuera de alcance se comprueba cabida, pero la verificación sigue pendiente.
+Anclajes y empalmes no se verifican aquí; siguen siendo requisitos a comprobar aparte.

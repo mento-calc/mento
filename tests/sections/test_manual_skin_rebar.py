@@ -307,15 +307,15 @@ def test_unused_skin_columns_need_no_diameter_unit():
 
 
 def test_nonconforming_but_fitting_manual_skin_is_drawn():
-    b=beam()
-    b.check_flexure([Forces(M_y=100*kNm)])
-    b.set_skin_rebar(10*mm,2,"top")
-    assert b.skin_verification_status=="failed"
-    assert len(b.detailing_geometry.skin_bars)==4
+    b = beam()
+    b.check_flexure([Forces(M_y=100 * kNm)])
+    b.set_skin_rebar(10 * mm, 2, "top")
+    assert b.skin_verification_status == "failed"
+    assert len(b.detailing_geometry.skin_bars) == 4
     try:
         set_language("es")
-        fig=b.plot(show=False)
-        assert sum(p.get_gid()=="skin_bar" for p in fig.axes[0].patches)==4
+        fig = b.plot(show=False)
+        assert sum(p.get_gid() == "skin_bar" for p in fig.axes[0].patches) == 4
         assert any("NO CUMPLE" in t.get_text() for t in fig.axes[0].texts)
         plt.close(fig)
     finally:
@@ -323,11 +323,11 @@ def test_nonconforming_but_fitting_manual_skin_is_drawn():
 
 
 def test_unsupported_en_axial_preserves_manual_geometry_but_not_approval():
-    b=en_beam()
-    b.check_flexure([Forces(M_y=100*kNm,N_x=50*kN)])
-    b.set_skin_rebar(10*mm,3,"total")
-    assert b.skin_verification_status=="pending"
-    assert len(b.detailing_geometry.skin_bars)==6
-    assert any(w.code=="skin_en_axial_unsupported" for w in b.warnings)
-    b.set_skin_rebar(10*mm,100,"total")
-    assert b.skin_verification_status=="failed"
+    b = en_beam()
+    b.check_flexure([Forces(M_y=100 * kNm, N_x=50 * kN)])
+    b.set_skin_rebar(10 * mm, 3, "total")
+    assert b.skin_verification_status == "pending"
+    assert len(b.detailing_geometry.skin_bars) == 6
+    assert any(w.code == "skin_en_axial_unsupported" for w in b.warnings)
+    b.set_skin_rebar(10 * mm, 100, "total")
+    assert b.skin_verification_status == "failed"

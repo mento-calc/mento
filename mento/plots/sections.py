@@ -385,7 +385,7 @@ def _add_rounded_stirrup(
 
 
 def _add_crosstie(ax: "Axes", tie: Crosstie, db_cm: float) -> None:
-    """One crosstie: a leg the stirrup's thickness wide, with a short hook stub at each end.
+    """One open leg: its straight body; explicit hook metadata is optional, not designed.
 
     The leg carries ``gid="crosstie"``; the stubs, at the tie's hook angles, are
     marks of the ends rather than a detail of the bend.
@@ -619,13 +619,18 @@ def _cage_lines(self: "RectangularBeam", geometry: Optional[SectionGeometry] = N
     notation = source.notation(separator="\n")
     lines = [*notation.split("\n"), geometry.arrangement()]
     if len(geometry.leg_x) != transverse.n_legs:
-        lines.append(translate(
-            "{placed} proposed legs; A_v uses {entered}. Compression support: {status}.",
-            placed=len(geometry.leg_x), entered=transverse.n_legs,
-            status=translate(self.compression_detailing.status),
-        ))
+        lines.append(
+            translate(
+                "{placed} proposed legs; A_v uses {entered}. Compression support: {status}.",
+                placed=len(geometry.leg_x),
+                entered=transverse.n_legs,
+                status=translate(self.compression_detailing.status),
+            )
+        )
     if geometry.crossties:
-        lines.append(translate("Open-leg hooks and anchorage are outside this sectional model; verify them separately."))
+        lines.append(
+            translate("Open-leg hooks and anchorage are outside this sectional model; verify them separately.")
+        )
     return lines
 
 
@@ -863,8 +868,12 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
         try:
             pending_requirement = self.skin_reinforcement
             if pending_requirement.manual and pending_requirement.failures:
-                lines.append(translate("Supplied skin does not comply: {reason}",
-                                       reason="; ".join(translate(reason) for reason in pending_requirement.failures)))
+                lines.append(
+                    translate(
+                        "Supplied skin does not comply: {reason}",
+                        reason="; ".join(translate(reason) for reason in pending_requirement.failures),
+                    )
+                )
             skin_pending = pending_requirement.status == "pending"
             skin_unsupported = pending_requirement.status == "unsupported"
             service_pending = pending_requirement.pending_reason == "service"

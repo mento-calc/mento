@@ -142,7 +142,7 @@ class SectionGeometry:
 
     ``leg_x`` holds the centrelines of the legs of the cage, left to right,
     and ``len(leg_x)`` is the number of legs drawn; the shear model's count is
-    ``beam.reinforcement.transverse.n_legs`` -- the same on a beam, while a
+    ``beam.reinforcement.transverse.n_legs`` -- calculation geometry matches that count; detailing can propose extra closed legs, while a
     slab strip, which has no cage, publishes none (see the module docstring).
     ``stirrups`` come perimeter first, and ``bars`` bottom layer 1, bottom
     layer 2, top layer 1, top layer 2, each left to right.
@@ -209,6 +209,8 @@ class SectionGeometry:
     def to_dict(self, unit: Optional[str] = None) -> Dict[str, Any]:
         """The geometry as plain floats in ``unit``, for a consumer that does not speak pint.
 
+        ``input_legs`` and ``calculation_s_w`` identify the unchanged calculation;
+        ``placed_legs`` and ``s_w`` describe this geometry, possibly a proposal.
         The keys are the field names, each length a float in ``unit``, plus
         ``"unit"`` (the unit given) and ``"layout"`` (``"stirrups"`` or
         ``"grid"``). ``stirrups``, ``crossties`` and ``bars`` are lists of

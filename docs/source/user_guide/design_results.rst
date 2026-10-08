@@ -103,7 +103,7 @@ Shear
 
     shear = beam.shear_design
 
-    shear.n_stirrups        # 1, number of stirrups
+    shear.n_stirrups        # 1, two-leg equivalent (not a piece count)
     shear.n_legs            # 2, legs crossing the shear plane
     shear.d_b               # 10 mm
     shear.s_l.to("cm")      # 27 cm, longitudinal spacing
@@ -124,11 +124,11 @@ Shear
 
 Input accepts ``beam.set_transverse_rebar(n_legs=4, d_b=8*mm, s_l=20*cm)``.
 The legacy ``n_stirrups=2`` has the same meaning. In ``BeamSummary`` the
-corresponding columns are ``n_legs`` and legacy ``ns``. Only even leg counts
-are supported; conflicting paired inputs raise an error.
+preferred column is ``legs`` (alias ``n_legs``, legacy ``ns``). Integer leg counts
+from 2 are supported, including odd counts; contradictory inputs raise an error.
 
 The notation leads with the legs, which is what the shear check counts: ``n_stirrups``
-closed stirrups put ``n_legs = 2·n_stirrups`` legs across the shear plane. Then come the
+is a two-leg equivalent: ``n_legs = 2·n_stirrups``, not the count of closed pieces. Then come the
 bar, the spacing along the member and the spacing of the legs across the width, with the
 maximum it is checked against. ``str()`` is always English; ``notation(language)`` gives it
 in another language (the one of :func:`mento.set_language` by default), and
@@ -240,9 +240,10 @@ a quantity in the display unit of the section (cm, or in). The positions are the
   ``x_i = c_c + d_st/2 + i·s_w``, with ``s_w = (b - 2·c_c - d_st)/(n_legs - 1)`` -- the
   spacing the shear check holds to Table 9.7.6.2.2.
 - **Cage**: a perimeter stirrup on the outermost legs and inner closed stirrups on the
-  2nd and 3rd legs, the 4th and 5th...; odd counts are rejected because individual crosstie anchorage is not modelled. ``ClosedStirrup.legs`` and ``Crosstie.leg`` hold the leg indices
-  into ``leg_x``, counting from 0: ten legs are ``(0, 9)``, ``(1, 2)``, ``(3, 4)``,
-  ``(5, 6)``, ``(7, 8)``.
+  interior legs selected for required compression support; remaining interior legs
+  are open. ``ClosedStirrup.legs`` and ``Crosstie.leg`` use zero-based leg indices.
+  Calculation geometry has a perimeter and open interior legs; detailing geometry
+  proposes closed pieces according to the real compression faces.
   The design only ever produces even counts.
 - **Bars**: each layer spread between the inner faces of the outer legs, one clear
   spacing apart -- the clear spacing the checks read -- with the ``n1`` bars of a layer at
@@ -398,9 +399,9 @@ Sections still keep their results in private attributes such as ``_A_s_bot`` and
 details: their names, units and meaning can change between releases. The properties
 described here are the supported way to read a result from code.
 
-One difference worth noting: ``_stirrup_n`` counts stirrups, while the area ``A_v`` is
-computed from the legs that cross the shear plane. The public object exposes both, as
-``n_stirrups`` and ``n_legs``, so there is nothing to infer.
+``_stirrup_n`` and public ``n_stirrups`` are two-leg equivalents, which may be
+semi-integer (3.5 for seven legs). ``n_legs`` is the calculation leg count. Neither
+equivalent is a count of closed pieces: read ``detailing_geometry.stirrups``.
 
 Skin-steel requirements and geometry
 ----------------------------------------
@@ -449,10 +450,13 @@ compression. It exposes the status, supported first-row bar indices, maximum
 clear distance on both sides, limits and reasons. ACI 318-19 §9.7.6.4.4 uses
 150 mm (6 in in the in-lb edition). CIRSOC 201-25 §9.7.6.4.4 prints 15 times
 the stirrup diameter or 150 mm: differing outcomes remain pending until that
-interpretation is resolved. Second-row support and crosstie anchorage are not
-approved by this first-row model. Missing/unavailable cages cannot pass.
+interpretation is resolved. Second-row support remains pending. Open legs do not
+brace compression bars; their hooks and anchorage are outside this sectional model
+and have an informative notice. Missing/unavailable cages cannot pass.
 
 Warnings and the plot identify failed or pending compression support. The
 check does not change resistant steel, capacities, the shear verdict, or the
 separate mandatory detailing assessment for §9.7.6.4.3. Hooks, longitudinal extent and seismic
-detailing require separate verification. No extra stirrups are silently added.
+detailing require separate verification. Extra closed pieces are a proposal: the
+warning names input and proposed legs, detailing stays pending until confirmed,
+and resistant areas remain based on the input.

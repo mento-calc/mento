@@ -12,6 +12,20 @@ from the release history and are summaries rather than complete lists.
 
 ## [Unreleased]
 
+### Migration notes — jaula mixta
+
+- `n_stirrups` en resultados es un equivalente de dos ramas: puede ser 3,5 para
+  siete ramas. No representa piezas cerradas. La entrada heredada sigue entera.
+- Excel exporta solo `legs`; lee los alias heredados sin duplicar columnas.
+- `Crosstie.hooks=()` por defecto: se dibuja el tramo recto sin inventar ganchos.
+- `arrangement()` genérico describe el perimetral y patas abiertas; la disposición
+  dependiente de fuerzas es `detailing_geometry.arrangement()`. Esto también
+  cambia las jaulas pares. Confirmar ramas adicionales propuestas antes de que
+  el detallado cumpla; esas ramas no aumentan A_v ni resistencia.
+- La tabla de corte muestra ramas, no el equivalente como número de estribos.
+- La búsqueda reutiliza el estado y se limita a 2048 candidatos o dos segundos;
+  si se trunca, queda pendiente. No garantiza un óptimo global.
+
 ### Changed
 
 - Jaula mixta: un cerrado perimetral, cerrados interiores por sujeción de barras comprimidas y patas abiertas restantes. Entrada `legs` impar admitida desde tres ramas; dibujo de piezas y conteo real, sin crédito resistente silencioso para ramas agregadas. Ganchos de patas abiertas fuera del modelo seccional.
@@ -33,7 +47,7 @@ from the release history and are summaries rather than complete lists.
 - Estados independientes de resistencia y detallado modelado, visibles en
   reportes; un DCR favorable no aprueba el armado.
 - Entrada preferida `legs`, con alias compatible `n_legs` y validación de
-  contradicciones. Ramas impares y trabas individuales siguen fuera del modelo.
+  contradicciones. Las ramas impares están admitidas; ganchos de patas abiertas quedan fuera del modelo.
 - Ambas caras físicas en Word; cc en mm o pulgadas en la tabla Beam Data.
 - Rechazo explícito de zapatas EN con axil, antes de modificar el armado:
   caso todavía no soportado por Mento, no prohibición normativa.
@@ -70,8 +84,8 @@ from the release history and are summaries rather than complete lists.
   Annex J surface mesh is independently flagged and remains outside this proposal.
 
 - `n_legs` input for beam transverse reinforcement and BeamSummary. Legacy
-  `n_stirrups` and `ns` retain their meaning: each counts a two-leg stirrup.
-  Counts must be whole, non-negative and consistent; odd leg counts are rejected.
+  `n_stirrups` and `ns` accept integer two-leg equivalents, not closed-piece counts.
+  Counts must be whole, non-negative and consistent; one leg is rejected, odd counts >=3 are admitted.
 - `SectionGeometry`, `beam.section_geometry` and `to_dict()` expose calculation
   geometry with bar layers and every shear leg. The default export unit follows
   the section (cm or in); callers can request another length unit explicitly.

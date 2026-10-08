@@ -77,7 +77,7 @@ def test_the_wide_cirsoc_beam_prints_the_legs_and_the_halved_row() -> None:
     beam = _wide_cirsoc_beam()
     rows = _rows(beam._shear_reinforcement)
 
-    assert rows["Number of stirrups"] == ("ns", 5, "")
+    assert "Number of stirrups" not in rows
     assert rows["Number of legs"] == ("nl", 10, "")
     assert rows["Stirrup diameter"] == ("db", 12, "mm")
     assert rows["Stirrup spacing"] == ("s", 14, "cm")
@@ -277,7 +277,7 @@ def test_the_word_report_prints_whole_counts(monkeypatch: pytest.MonkeyPatch) ->
             texts = [c.text for c in row.cells]
             if len(texts) >= 3:
                 cells[texts[1]] = texts[2]
-    assert cells["ns"] == "5"
+    assert "ns" not in cells
     assert cells["nl"] == "10"
     assert cells["db"] == "12"
     assert cells["s"] == "14"

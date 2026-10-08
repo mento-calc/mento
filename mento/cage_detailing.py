@@ -188,8 +188,7 @@ def _geometry_unit(length: Quantity) -> Quantity:
 def build_cage_detailing(beam: RectangularBeam, *, include_skin: bool = True) -> SectionGeometry:
     """Reutilizar una búsqueda por estado; piel y estados comparten la misma jaula."""
     base = build_section_geometry(beam)
-    key = repr((base, vars(beam.settings), beam._flexure_checked,
-                sorted(beam._compression_faces), beam.flexure_checks))
+    key = repr((base, vars(beam.settings), beam._flexure_checked, sorted(beam._compression_faces), beam.flexure_checks))
     cache: dict[str, SectionGeometry | CageDetailingError] = getattr(beam, "_cage_detail_cache", {})
     if key not in cache:
         cache = {}
@@ -274,8 +273,7 @@ def _search_cage_detailing(beam: RectangularBeam, *, include_skin: bool = False)
                 continue
             # Simétricos primero, antes de recortar el presupuesto.
             mirrors = [(i, total - 1 - i) for i in inner if i < total - 1 - i]
-            symmetric = (tuple(sorted(i for pair in chosen for i in pair))
-                         for chosen in combinations(mirrors, count))
+            symmetric = (tuple(sorted(i for pair in chosen for i in pair)) for chosen in combinations(mirrors, count))
             seen: set[tuple[int, ...]] = set()
             for indices in chain(symmetric, combinations(inner, 2 * count)):
                 if indices in seen:
@@ -399,8 +397,7 @@ def _build_candidate(beam: RectangularBeam, geometry: SectionGeometry, *, includ
         second = geometry.bars_on(face, 2)
         # La capa 2 conserva cota y acero; alinear con la capa 1 evita atravesar
         # una rama vertical en el modelo de cálculo uniformemente espaciado.
-        crosses = any(abs(_mm(bar.x - x)) < (_mm(bar.d_b) + d_st) / 2 - 1e-8
-                      for bar in second for x in geometry.leg_x)
+        crosses = any(abs(_mm(bar.x - x)) < (_mm(bar.d_b) + d_st) / 2 - 1e-8 for bar in second for x in geometry.leg_x)
         if crosses and len(second) <= len(resistant):
             indices = [round(i * (len(resistant) - 1) / max(1, len(second) - 1)) for i in range(len(second))]
             second = tuple(replace(bar, x=resistant[index].x) for bar, index in zip(second, indices))
