@@ -402,6 +402,76 @@ def test_a_design_that_does_not_close_finds_the_layout_within_the_limits_that_co
     assert not {"not_tension_controlled", "clear_spacing_below_min", "clear_spacing_below_vibrator"} & set(codes)
 
 
+def _aci_beam(width: float, height: float, c_c: float) -> RectangularBeam:
+    """ACI 318-19, f'c 25 MPa, ADN 420: the sections of the search for the closest layout."""
+    return RectangularBeam(
+        label="V",
+        concrete=Concrete_ACI_318_19(name="H25", f_c=25 * MPa),
+        steel_bar=SteelBar(name="ADN 420", f_y=420 * MPa),
+        width=width * cm,
+        height=height * cm,
+        c_c=c_c * mm,
+    )
+
+
+def test_the_search_for_the_closest_layout_can_find_one_that_closes() -> None:
+    """ACI 318-19 40x25, c_c 25 mm, Mu = ±130 kN·m, Vu = 50 kN: the loop leaves no layout that closes, the search does.
+
+    Main ended on 2Ø25 + 5Ø25 below and 2Ø25 + 4Ø25 above, DCR 0.726 but
+    not tension-controlled. A 40 cm web fits more layouts than the search
+    tries, so it spreads its 16 over them, the lightest and the heaviest
+    always among them, and 7Ø20 on each face closes: tension-controlled,
+    DCR 0.929, no warning at all (issue #169).
+    """
+    beam = _aci_beam(40, 25, 25)
+    forces = [Forces(label="+", M_y=130 * kNm, V_z=50 * kN), Forces(label="-", M_y=-130 * kNm, V_z=50 * kN)]
+    node = Node(section=beam, forces=forces)
+    node.design()
+
+    assert str(beam.reinforcement.bottom) == "2Ø20 mm + 5Ø20 mm"
+    assert str(beam.reinforcement.top) == "2Ø20 mm + 5Ø20 mm"
+    assert beam.flexure_design.DCR == pytest.approx(0.929, abs=0.0005)
+    assert all(check.complies for check in beam.flexure_checks)
+    assert node.warnings == ()
+
+
+def test_the_search_leaves_a_face_with_no_bars_bare() -> None:
+    """ACI 318-19 12x25, c_c 25 mm, Mu = +130 kN·m: no compression bars fit on top, and the search keeps it so.
+
+    The bottom is searched against a top with nothing on it, and every trial
+    puts the top back bare. Main ended on 2Ø12 + 2Ø12, DCR 5.81 and not
+    tension-controlled; the closest within the limits is 2Ø12, DCR 7.99.
+    The section is far too small, and says so.
+    """
+    beam = _aci_beam(12, 25, 25)
+    node = Node(section=beam, forces=[Forces(label="+", M_y=130 * kNm, V_z=50 * kN)])
+    node.design()
+
+    assert str(beam.reinforcement.bottom) == "2Ø12 mm"
+    assert str(beam.reinforcement.top) == "no reinforcement"
+    assert beam.flexure_checks[0].bottom.admissible
+    codes = [(w.code, w.face) for w in node.warnings]
+    assert ("bars_do_not_fit", "top") in codes
+    assert ("section_too_small_for_moment", None) in codes
+
+
+def test_the_search_has_nothing_to_try_where_no_bars_fit() -> None:
+    """ACI 318-19 12x50, c_c 40 mm, Mu = +40 kN·m: 120 - 2·40 - 2·10 = 20 mm for the bars, too little for any two.
+
+    The design leaves the 2Ø8 the selector falls back to, which do not fit
+    either, and the search has no layout to try on any face. It says the
+    bars do not fit and the section is too small.
+    """
+    beam = _aci_beam(12, 50, 40)
+    node = Node(section=beam, forces=[Forces(label="+", M_y=40 * kNm, V_z=50 * kN)])
+    node.design()
+
+    assert str(beam.reinforcement.bottom) == "2Ø8 mm"
+    codes = [(w.code, w.face) for w in node.warnings]
+    assert ("bars_do_not_fit", "bottom") in codes
+    assert ("section_too_small_for_moment", None) in codes
+
+
 def _scripted_rounds(
     monkeypatch: pytest.MonkeyPatch, verdicts: List[Any]
 ) -> Tuple[RectangularBeam, List[Any], List[Forces]]:

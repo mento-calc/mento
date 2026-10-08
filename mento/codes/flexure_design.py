@@ -697,10 +697,7 @@ def _run_flexure_design(
             rebar = self._create_rebar_designer()
             rebar.longitudinal_rebar(low, min(10 * low, high), None, face, tension=pulled[face])
             low = 10 * low
-            try:
-                rebar.longitudinal_rebar_design
-            except RebarDesignInfeasibleError:
-                continue
+            # A window where nothing fits leaves the table empty: nothing to add.
             for _, row in rebar._long_combos_df.iterrows():
                 cover = _mech_cover(row)
                 fingerprint = _rebar_design_fingerprint(row)
