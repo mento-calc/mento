@@ -75,6 +75,7 @@ def test_each_missed_limit_is_one_warning_with_a_stable_code() -> None:
         "bars_do_not_fit",
         "Av_below_min",
         "stirrup_spacing_exceeds_max",
+        "cage_detailing_infeasible",
     }
     assert found["As_below_min"].face == "bottom"
     assert found["not_tension_controlled"].face == "top"

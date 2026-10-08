@@ -761,7 +761,7 @@ def test_wide_cirsoc_beam_takes_five_stirrups_for_the_across_width_limit() -> No
     threshold = 0.33 * math.sqrt(25) * beam._A_cv.to("mm**2").magnitude / 1000
     assert threshold == pytest.approx(3568.95, abs=0.01)
     assert shear.DCR == pytest.approx(0.9904, abs=1e-4)
-    assert node.warnings == ()
+    assert [w.code for w in node.warnings] == ["open_leg_anchorage_outside_model"]
 
 
 def test_check_state_records_the_row_of_table_9_7_6_2_2() -> None:
@@ -1810,7 +1810,7 @@ def test_design_flexure_CIRSOC_201_25_narrow_web_fits_the_bars_its_stirrup_leave
     assert [(layer.n, layer.d_b.to("mm").magnitude) for layer in bottom.layers] == [(2, 16), (2, 12)]
     assert bottom.A_s.to("cm**2").magnitude == pytest.approx(6.283, rel=1e-3)
     assert bottom.DCR == pytest.approx(0.803, rel=1e-3)
-    assert [w.code for w in node.warnings] == ["compression_detailing_pending"]
+    assert [w.code for w in node.warnings] == ["compression_detailing_pending", "cage_detailing_infeasible"]
 
 
 def test_design_flexure_CIRSOC_201_25_narrow_web_gives_the_most_that_fits() -> None:
@@ -1898,7 +1898,7 @@ def test_design_flexure_ACI_318_19_compression_bottom_exceeds_provided_bottom() 
     assert check_results.iloc[1]["ØMn"] == pytest.approx(80.06, rel=1e-3)
     assert check_results.iloc[1]["DCR"] <= 1.0
     # Strength is tension-controlled; compression detailing remains pending.
-    assert [w.code for w in node.warnings] == ["compression_detailing_pending"]
+    assert [w.code for w in node.warnings] == ["compression_detailing_pending", "cage_detailing_infeasible"]
 
 
 def test_check_flexure_ACI_318_19_negative_moment_no_top_steel(
@@ -3037,7 +3037,7 @@ def test_plot_draws_every_stirrup_at_the_legs_the_check_assumes() -> None:
     assert [c.get_center()[1] for c in circles] == pytest.approx([b.y.to("cm").magnitude for b in all_bars])
 
     texts = [t.get_text() for t in ax.texts]
-    assert texts[-4:] == [
+    assert [t for t in texts if not t.startswith("Open-leg")][-4:] == [
         "10 legs Ø12 mm @ 14 cm",
         "15.87 cm between legs (max 20 cm)",
         "perimeter stirrup + 8 open legs",
@@ -3110,7 +3110,7 @@ def test_plot_follows_the_language() -> None:
     texts = [t.get_text() for t in beam._ax.texts]
     assert "estribo perimetral + 8 patas abiertas" in texts
     assert texts[-1] == "Montaje en naranja · sin aporte resistente"
-    assert texts[-4].startswith("10 ramas")
+    assert any(t.startswith("10 ramas") for t in texts)
     plt.close()
 
 
@@ -3161,7 +3161,7 @@ def test_plot_text_of_a_flat_beam_does_not_overlap() -> None:
     # The stirrup text reads under the section.
     section_bottom = beam._ax.transData.transform((0.0, 0.0))[1]
     stirrup_lines = [t for t in beam._ax.texts if t.get_gid() == "stirrup_text"]
-    assert len(stirrup_lines) == 4
+    assert len(stirrup_lines) == 5
     assert stirrup_lines[-1].get_text() == "Tension-bar spacing pending · no flexure verification"
     assert all(t.get_window_extent().y1 < section_bottom for t in stirrup_lines)
     # A label with room stays at its layer: the top layer's is at the middle of its bars.

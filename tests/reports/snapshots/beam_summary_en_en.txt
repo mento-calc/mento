@@ -121,7 +121,6 @@ Leg spacing across width (§9.2.2(8)) | cm | 14.4 |  | 34.8 | ✅
 Minimum shear reinforcement | cm²/m | 1.66 | 1.6 |  | ✅
 Strength Checks
 Shear reinforcement strength | Variable | Value | Unit
-Number of stirrups | ns | 1 | 
 Number of legs | nl | 2 | 
 Stirrup diameter | db | 6 | mm
 Stirrup spacing | s | 34 | cm
@@ -145,10 +144,10 @@ Max shear check |  | ✅ |
 Demand Capacity Ratio | DCR | 0.27 | ✅
 Summary - All Beams
 Resistance and detailing
-Label | Resistance | Detailing (modelled checks)
-V101 | Pass (modelled checks) | Pass (modelled checks)
-V102 | Pass (modelled checks) | Pass (modelled checks)
-V103 | Pass (modelled checks) | Pass (modelled checks)
+Label | Resistance | Detailing (modelled checks) | Detailing notes
+V101 | Pass (modelled checks) | Pass (modelled checks) | 
+V102 | Pass (modelled checks) | Pass (modelled checks) | 
+V103 | Pass (modelled checks) | Pass (modelled checks) | 
 Beam Data
 Label | b | h | cc | As,bot | As,top | Av
  | cm | cm | mm |  |  | 

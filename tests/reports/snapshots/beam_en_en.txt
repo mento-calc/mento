@@ -93,7 +93,6 @@ Shear                              VEd,2         150  kN
 
 Shear reinforcement strength                                             Variable     Value  Unit
 ----------------------------------------------------------------------  ----------  -------  ------
-Number of stirrups                                                          ns            1
 Number of legs                                                              nl            2
 Stirrup diameter                                                            db            8  mm
 Stirrup spacing                                                             s            29  cm
@@ -124,8 +123,8 @@ Total shear strength                 VRd       155.15  kN
 Max shear check                                    ✅
 Demand Capacity Ratio                DCR        0.967  ✅ 
 
-Verification                         Status
----------------------------  ----------------------
+Verification                         Status            Detailing notes
+---------------------------  ----------------------  -----------------
 Resistance                   Pass (modelled checks)
 Detailing (modelled checks)         Pending 
 
@@ -207,7 +206,6 @@ Leg spacing across width (§9.2.2(8)) | cm | 14.2 |  | 34.31 | ✅
 Minimum shear reinforcement | cm²/m | 3.47 | 1.6 |  | ✅
 Strength Checks
 Shear reinforcement strength | Variable | Value | Unit
-Number of stirrups | ns | 1 | 
 Number of legs | nl | 2 | 
 Stirrup diameter | db | 8 | mm
 Stirrup spacing | s | 29 | cm
@@ -230,9 +228,9 @@ Total shear strength | VRd | 155.2 | kN
 Max shear check |  | ✅ | 
 Demand Capacity Ratio | DCR | 0.97 | ✅
 Resistance and detailing
-Verification | Status
-Resistance | Pass (modelled checks)
-Detailing (modelled checks) | Pending
+Verification | Status | Detailing notes
+Resistance | Pass (modelled checks) | 
+Detailing (modelled checks) | Pending | 
 
 ### results
 Beam V101, $b$=20.00 cm, $h$=50.00 cm, $c_{c}$=2.50 cm,                         Concrete C25/30, Rebar B500S.

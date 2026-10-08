@@ -121,7 +121,6 @@ Separación de ramas en el ancho (§9.2.2(8)) | cm | 14.4 |  | 34.8 | ✅
 Armadura mínima de corte | cm²/m | 1.66 | 1.6 |  | ✅
 Verificaciones de resistencia
 Resistencia de la armadura de corte | Variable | Valor | Unidad
-Número de estribos | ns | 1 | 
 Número de ramas | nl | 2 | 
 Diámetro del estribo | db | 6 | mm
 Separación de estribos | s | 34 | cm
@@ -145,10 +144,10 @@ Verificación de corte máximo |  | ✅ |
 Factor de Utilización | DCR | 0.27 | ✅
 Resumen - Todas las vigas
 Resistencia y detallado
-Etiqueta | Resistencia | Detallado (chequeos modelados)
-V101 | Cumple (chequeos modelados) | Cumple (chequeos modelados)
-V102 | Cumple (chequeos modelados) | Cumple (chequeos modelados)
-V103 | Cumple (chequeos modelados) | Cumple (chequeos modelados)
+Etiqueta | Resistencia | Detallado (chequeos modelados) | Notas de detallado
+V101 | Cumple (chequeos modelados) | Cumple (chequeos modelados) | 
+V102 | Cumple (chequeos modelados) | Cumple (chequeos modelados) | 
+V103 | Cumple (chequeos modelados) | Cumple (chequeos modelados) | 
 Datos de las vigas
 Etiqueta | b | h | cc | As,bot | As,top | Av
  | cm | cm | mm |  |  | 

@@ -120,8 +120,8 @@ Total shear strength                 VRd        86.79  kN
 Max shear check                                    ✅
 Demand Capacity Ratio                DCR        0.691  ✅ 
 
-Verification                         Status
----------------------------  ----------------------
+Verification                         Status            Detailing notes
+---------------------------  ----------------------  -----------------
 Resistance                   Pass (modelled checks)
 Detailing (modelled checks)  Pass (modelled checks) 
 
@@ -222,9 +222,9 @@ Total shear strength | VRd | 86.8 | kN
 Max shear check |  | ✅ | 
 Demand Capacity Ratio | DCR | 0.69 | ✅
 Resistance and detailing
-Verification | Status
-Resistance | Pass (modelled checks)
-Detailing (modelled checks) | Pass (modelled checks)
+Verification | Status | Detailing notes
+Resistance | Pass (modelled checks) | 
+Detailing (modelled checks) | Pass (modelled checks) | 
 
 ### results
 Slab L1, $b$=100.00 cm, $h$=20.00 cm, $c_{c}$=2.50 cm,                         Concrete C25/30, Rebar B500S.

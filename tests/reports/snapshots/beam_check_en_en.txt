@@ -93,7 +93,6 @@ Shear                              VEd,2         120  kN
 
 Shear reinforcement strength                                             Variable     Value  Unit
 ----------------------------------------------------------------------  ----------  -------  ------
-Number of stirrups                                                          ns            1
 Number of legs                                                              nl            2
 Stirrup diameter                                                            db            6  mm
 Stirrup spacing                                                             s            40  cm
@@ -124,8 +123,8 @@ Total shear strength                 VRd         63.2  kN
 Max shear check                                    ✅
 Demand Capacity Ratio                DCR        1.899  ❌ 
 
-Verification                  Status
----------------------------  --------
+Verification                  Status     Detailing notes
+---------------------------  --------  -----------------
 Resistance                     Fail
 Detailing (modelled checks)    Fail 
 
@@ -207,7 +206,6 @@ Leg spacing across width (§9.2.2(8)) | cm | 14.4 |  | 34.27 | ✅
 Minimum shear reinforcement | cm²/m | 1.41 | 1.6 |  | ❌
 Strength Checks
 Shear reinforcement strength | Variable | Value | Unit
-Number of stirrups | ns | 1 | 
 Number of legs | nl | 2 | 
 Stirrup diameter | db | 6 | mm
 Stirrup spacing | s | 40 | cm
@@ -230,9 +228,9 @@ Total shear strength | VRd | 63.2 | kN
 Max shear check |  | ✅ | 
 Demand Capacity Ratio | DCR | 1.9 | ❌
 Resistance and detailing
-Verification | Status
-Resistance | Fail
-Detailing (modelled checks) | Fail
+Verification | Status | Detailing notes
+Resistance | Fail | 
+Detailing (modelled checks) | Fail | 
 
 ### results
 Beam V102, $b$=20.00 cm, $h$=50.00 cm, $c_{c}$=2.50 cm,                         Concrete C25/30, Rebar B500S.
@@ -256,6 +254,7 @@ Shear reinforcing 2 legs Ø6 mm @ 40 cm · 14.4 cm between legs (max 34.27 cm), 
 As_below_min: Steel on the top face: A_s = 1.01 cm² is below the minimum it has to meet, A_s,min,eff = 1.24 cm².
 bars_do_not_fit: The bars on the bottom face do not fit in the width of the section.
 compression_detailing_en_pending: EN compression-bar support (§9.2.1.2(3), 15φ) is not verified by Mento.
+cage_detailing_infeasible: The base cage cannot be detailed: The resistant bars cannot fit between the stirrup corners with the required spacing.
 Av_below_min: The stirrups provide A_v = 1.41 cm²/m, below the minimum A_v,min = 1.6 cm²/m.
 stirrup_spacing_exceeds_max: Stirrup spacing along the member: 40 cm exceeds the maximum 34.3 cm.
 
