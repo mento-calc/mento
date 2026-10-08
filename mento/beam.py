@@ -804,6 +804,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         if getattr(self, "_designing", 0):
             return
         self._flexure_checked = False
+        self._compression_faces = set()
         self._shear_checked = False
         self._flexure_checks = []
         self._flexure_warnings = []

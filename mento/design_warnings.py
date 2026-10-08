@@ -808,7 +808,7 @@ def skin_warnings(beam: "RectangularBeam") -> List[_Raw]:
         build_cage_detailing(beam, include_skin=False)
     except CageDetailingError as error:
         base_feasible = False
-        code = "cage_detailing_pending" if error.reason == "unsupported_bend" else "cage_detailing_infeasible"
+        code = "cage_detailing_pending" if error.reason in ("unsupported_bend", "compression_support_search") else "cage_detailing_infeasible"
         result.append(_Raw(code, {"reason": str(error)}))
     try:
         requirement = skin_requirement(beam)
