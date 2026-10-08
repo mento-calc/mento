@@ -4,7 +4,13 @@ from mento.design_warnings import _MESSAGES, DesignWarning
 from mento.verification import WARNING_CATEGORY, verification_status, warning_category
 
 
-@pytest.mark.parametrize("code", sorted(_MESSAGES))
+@pytest.mark.parametrize(
+    "code",
+    sorted(
+        set(_MESSAGES)
+        | {"stirrup_spacing_exceeds_max", "mesh_ratio_below_min", "mesh_spacing_exceeds_max", "axial_load_beyond_beam"}
+    ),
+)
 def test_every_published_warning_has_explicit_category(code):
     assert code in WARNING_CATEGORY
     category = warning_category(code)
@@ -20,7 +26,9 @@ def test_every_published_warning_has_explicit_category(code):
     state = verification_status(b)
     assert state["detailing"] == (category if category in {"failed", "pending"} else "passed")
     if category == "resistance":
-        assert state["resistance"] == ("pending" if code == "force_component_not_checked" else "failed")
+        assert state["resistance"] == (
+            "pending" if code in {"force_component_not_checked", "axial_load_beyond_beam"} else "failed"
+        )
 
 
 def test_unknown_warning_does_not_silently_pass():
