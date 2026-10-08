@@ -386,12 +386,18 @@ def _add_rounded_stirrup(
 
 
 def _add_crosstie(ax: "Axes", tie: Crosstie, db_cm: float) -> None:
-    """One open leg: its straight body; explicit hook metadata is optional, not designed.
+    """Rama recta y, si están modelados, arcos y colas tangentes de los ganchos.
 
-    The leg carries ``gid="crosstie"``; the stubs, at the tie's hook angles, are
-    marks of the ends rather than a detail of the bend.
+    ``gid="crosstie"`` identifica el tramo recto. Los ángulos manuales sin
+    mandril ni cola conservan sus marcas gráficas, sin crédito de sujeción.
     """
     x, y_bottom, y_top = _cm(tie.x), _cm(tie.y_bottom), _cm(tie.y_top)
+    modelled = tie.bend_inner_diameter is not None and tie.extension is not None
+    if modelled:
+        assert tie.bend_inner_diameter is not None
+        radius = (_cm(tie.bend_inner_diameter) + db_cm) / 2
+        y_bottom += radius
+        y_top -= radius
     leg = Rectangle(
         (x - db_cm / 2, y_bottom - db_cm / 2),
         db_cm,
@@ -401,6 +407,19 @@ def _add_crosstie(ax: "Axes", tie: Crosstie, db_cm: float) -> None:
         gid="crosstie",
     )
     ax.add_patch(leg)
+    if modelled:
+        from mento.crosstie_detailing import hook_points
+        from mento.units import cm
+
+        for path in hook_points(tie, db_cm * cm):
+            ax.plot(
+                [x / 10 for x, _ in path],
+                [y / 10 for _, y in path],
+                color=CUSTOM_COLORS["dark_blue"],
+                linewidth=db_cm,
+                gid="crosstie_hook",
+            )
+        return
     stub = 4 * db_cm
     for (y_end, sign), angle in zip(((y_bottom, 1), (y_top, -1)), tie.hooks):
         radians = math.radians(180 - angle)
@@ -631,7 +650,11 @@ def _cage_lines(self: "RectangularBeam", geometry: Optional[SectionGeometry] = N
                 status=translate(self.compression_detailing.status),
             )
         )
-    if geometry.crossties:
+    if any(t.alternate_hooks and t.extension is not None for t in geometry.crossties):
+        lines.append(
+            translate("135°/90° crossties: alternate the 90° ends along the member; seismic detailing not verified.")
+        )
+    if any(t.extension is None for t in geometry.crossties):
         lines.append(
             translate("Open-leg hooks and anchorage are outside this sectional model; verify them separately.")
         )

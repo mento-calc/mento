@@ -18,7 +18,7 @@ Each position is the check's own model, and a test ties each one to it:
   ``s_w = (b - 2·c_c - d_st)/(n_legs - 1)`` -- the ``s_w`` the check holds to
   Table 9.7.6.2.2 (Expression (9.8N) under EN 1992-1-1).
 - **Cage**: one perimeter closed stirrup on the outermost legs and the
-  remaining open legs. The detailing layer adds inner closed stirrups
+  remaining open legs. The detailing layer proposes 135°/90° crossties
   when required compression-bar support needs them. Leg indices in
   :attr:`ClosedStirrup.legs` count from 0 (see
   :func:`mento.design_results.cage_legs`).
@@ -101,9 +101,9 @@ class ClosedStirrup:
 class Crosstie:
     """Geometry container for a manually supplied tie.
 
-    The generated open leg has no modelled hooks and receives no credit
-    as compression-bar support. Explicit ``hooks`` angles are drawing data,
-    not an anchorage verification.
+    Plain open legs have no compression-support credit. Hook angles alone
+    are drawing data. A generated crosstie additionally records mandrel,
+    extension, engaged peripheral bars and required longitudinal alternation.
     """
 
     leg: int
@@ -111,6 +111,12 @@ class Crosstie:
     y_bottom: Quantity
     y_top: Quantity
     hooks: Tuple[int, ...] = ()
+    # Propuesta seccional de traba; ángulos solos siguen siendo datos gráficos.
+    bend_inner_diameter: Optional[Quantity] = None
+    extension: Optional[Quantity] = None
+    side: int = 1
+    engaged_bars: Tuple[BarPosition, ...] = ()
+    alternate_hooks: bool = False
 
 
 @dataclass(frozen=True)
@@ -195,11 +201,13 @@ class SectionGeometry:
                 else translate("{n} inner stirrups", language, n=inner)
             )
         if self.crossties:
-            parts.append(
-                translate("1 open leg", language)
-                if len(self.crossties) == 1
-                else translate("{n} open legs", language, n=len(self.crossties))
-            )
+            modelled = sum(t.extension is not None for t in self.crossties)
+            for count, singular, plural in (
+                (modelled, "1 crosstie", "{n} crossties"),
+                (len(self.crossties) - modelled, "1 open leg", "{n} open legs"),
+            ):
+                if count:
+                    parts.append(translate(singular, language) if count == 1 else translate(plural, language, n=count))
         return " + ".join(parts)
 
     def bars_on(self, face: str, layer: Optional[int] = None) -> Tuple[BarPosition, ...]:
@@ -257,6 +265,14 @@ class SectionGeometry:
                     "y_bottom": f(tie.y_bottom),
                     "y_top": f(tie.y_top),
                     "hooks": list(tie.hooks),
+                    "bend_inner_diameter": None if tie.bend_inner_diameter is None else f(tie.bend_inner_diameter),
+                    "extension": None if tie.extension is None else f(tie.extension),
+                    "side": tie.side,
+                    "alternate_hooks": tie.alternate_hooks,
+                    "engaged_bars": [
+                        {"face": bar.face, "layer": bar.layer, "x": f(bar.x), "y": f(bar.y), "d_b": f(bar.d_b)}
+                        for bar in tie.engaged_bars
+                    ],
                 }
                 for tie in self.crossties
             ],

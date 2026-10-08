@@ -225,7 +225,7 @@ No. 3 by default). These bars are not credited in the calculated resistance.
 
 The supported layout preserves the calculated bar counts, diameters and vertical
 coordinates. The entered shear legs are a minimum; required compression
-support can add closed pieces to the detailing geometry. The plot shows
+support can add crossties with modelled hooks to the detailing geometry. The plot shows
 the actual count and spacing without crediting that extra steel in resistance. It checks clear spacing, the existing code's
 centre-distance cap, and intersections with the branches and rounded bends. If no
 supported layout is found, ``detailing_geometry`` raises ``CageDetailingError``;
@@ -508,20 +508,27 @@ cantidades pares e impares. Una rama sola se rechaza: no puede formar el
 estribo perimetral de dos ramas que encierra toda la sección.
 
 La geometría de cálculo presenta un perimetral y las restantes patas abiertas.
-El detallador agrega los cerrados interiores necesarios para la sujeción de
-las barras requeridas por compresión, usando la comprobación seccional existente
-de ACI/CIRSOC. Las patas abiertas nunca se acreditan como esa sujeción. Si las
+El detallador conserva un solo estribo cerrado perimetral y propone trabas
+interiores de 135°/90° para sujetar las barras requeridas por compresión. Cada
+extremo debe abrazar una barra periférica real (resistente o de montaje). Los
+ángulos solos y las patas sin ganchos modelados no reciben crédito de sujeción. Si las
 ramas de corte ingresadas no alcanzan, el detalle puede disponer más ramas y
 el dibujo distingue la cantidad ingresada de la realmente dispuesta. Esto no
 modifica ni acredita acero adicional en el cálculo de resistencia.
 
 La búsqueda conserva los diámetros y alturas de las barras resistentes, y
 comprueba montaje, separaciones e intersecciones de las piezas. Busca el menor
-número de ramas adicionales y luego el menor número de cerrados interiores
-dentro de las disposiciones modeladas; no certifica un óptimo global. La cota
-física de cabida limita la expansión y existe un límite computacional de 2048
-candidatos. Si no encuentra una solución verificable, el resultado conserva
+número de ramas adicionales dentro de las disposiciones modeladas; no certifica
+un óptimo global. La cota física de cabida y un presupuesto de dos segundos
+limitan la expansión lineal de candidatos. Si no encuentra una solución verificable, el resultado conserva
 su falla o pendiente; no se declara cumplimiento por agotar la búsqueda.
+
+Las trabas ACI/CIRSOC tienen mandril y cola de la Tabla 25.3.2; se verifican
+recubrimiento e intersecciones para los dos órdenes 135°/90° y 90°/135°. El
+§25.3.5 exige alternar los extremos de 90° en piezas sucesivas a lo largo de
+la viga: se indica en avisos, dibujo e informe, sin verificar la ejecución
+longitudinal. Este detalle no constituye una comprobación sísmica. Los tamaños
+fuera de la tabla modelada conservan la sujeción pendiente.
 
 EN mantiene su verificación de sujeción comprimida pendiente; las segundas
 capas comprimidas conservan su alcance previo. El tramo de una pata abierta

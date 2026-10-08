@@ -450,7 +450,12 @@ def verification_table(beam: "RectangularBeam") -> Dict[str, Any]:
             "; ".join(
                 w.message
                 for w in beam.warnings
-                if w.code in ("transverse_legs_added_for_compression_support", "open_leg_anchorage_outside_model")
+                if w.code
+                in (
+                    "transverse_legs_added_for_compression_support",
+                    "open_leg_anchorage_outside_model",
+                    "crosstie_alternation_required",
+                )
             ),
         ],
     }

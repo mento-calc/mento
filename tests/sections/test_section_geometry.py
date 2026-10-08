@@ -381,7 +381,20 @@ def test_to_dict_carries_a_crosstie() -> None:
     with_tie = SectionGeometry(
         **{**geometry.__dict__, "crossties": (Crosstie(leg=1, x=10 * cm, y_bottom=3 * cm, y_top=57 * cm),)}
     )
-    assert with_tie.to_dict("cm")["crossties"] == [{"leg": 1, "x": 10.0, "y_bottom": 3.0, "y_top": 57.0, "hooks": []}]
+    assert with_tie.to_dict("cm")["crossties"] == [
+        {
+            "leg": 1,
+            "x": 10.0,
+            "y_bottom": 3.0,
+            "y_top": 57.0,
+            "hooks": [],
+            "bend_inner_diameter": None,
+            "extension": None,
+            "side": 1,
+            "alternate_hooks": False,
+            "engaged_bars": [],
+        }
+    ]
 
 
 def test_a_wall_has_no_section_geometry() -> None:

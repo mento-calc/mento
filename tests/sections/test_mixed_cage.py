@@ -48,14 +48,14 @@ def test_integer_legs_survive_strength_geometry_and_labels(legs):
 
 
 def test_closed_selection_uses_the_existing_compression_check():
-    b = beam(7, 60)
+    b = beam(7, 80)
     b._compression_faces = {"bot"}  # Aislar la selección geométrica, no simular flexión.
     g = b.detailing_geometry
-    assert len(g.stirrups) > 1
+    assert len(g.stirrups) == 1
     assert g.crossties
     result = check_compression_detailing(b, g)
     assert result.status == "passed"
-    assert check_compression_detailing(b, replace(g, stirrups=(g.stirrups[0],))).status == "failed"
+    assert check_compression_detailing(b, replace(g, crossties=())).status == "failed"
     assert sum(2 for _ in g.stirrups) + len(g.crossties) == len(g.leg_x) == 7
 
 
@@ -65,16 +65,16 @@ def test_extra_closed_pieces_are_shown_but_not_credited_in_shear():
     b._compression_faces = {"bot"}
     g = b.detailing_geometry
     assert check_compression_detailing(b, g).status == "passed"
-    assert len(g.leg_x) > 3 and len(g.stirrups) > 1
+    assert len(g.leg_x) > 3 and len(g.stirrups) == 1
     assert (b.reinforcement, b.section_geometry.to_dict("mm")) == before
     fig = b.plot(show=False)
     assert any("proposed legs; A_v uses" in t.get_text() for t in fig.axes[0].texts)
     plt.close(fig)
 
 
-@pytest.mark.parametrize("moments,faces", [([600], {"top"}), ([-600], {"bot"}), ([600, -600], {"top", "bot"})])
+@pytest.mark.parametrize("moments,faces", [([2500], {"top"}), ([-2500], {"bot"}), ([2500, -2500], {"top", "bot"})])
 def test_real_forces_activate_required_compression_support(moments, faces):
-    b = beam(7, 60)
+    b = beam(7, 80)
     b.set_longitudinal_rebar_bot(n1=7, d_b1=25 * mm)
     b.set_longitudinal_rebar_top(n1=7, d_b1=25 * mm)
     b.check([Forces(M_y=m * kNm, V_z=80 * kN) for m in moments])
@@ -84,7 +84,8 @@ def test_real_forces_activate_required_compression_support(moments, faces):
         b.check([Forces(M_y=2 * m * kNm, V_z=80 * kN) for m in moments])
     assert b._compression_faces == faces
     assert b.compression_detailing.status == "passed"
-    assert len(b.detailing_geometry.stirrups) > 1
+    assert len(b.detailing_geometry.stirrups) == 1
+    assert all(t.hooks == (135, 90) for t in b.detailing_geometry.crossties)
 
 
 @pytest.mark.parametrize("legs", [1, -1, True, 3.5])
@@ -122,9 +123,9 @@ def test_symmetric_seven_leg_cage_keeps_the_open_leg_at_the_centre():
     b.check([Forces(M_y=1500 * kNm, V_z=80 * kN)])
     assert b._compression_faces == {"top"}
     g = b.detailing_geometry
-    assert [s.legs for s in g.stirrups] == [(0, 6), (1, 2), (4, 5)]
-    assert [t.leg for t in g.crossties] == [3]
-    assert g.crossties[0].x.to(mm).magnitude == pytest.approx(400)
+    assert [s.legs for s in g.stirrups] == [(0, 6)]
+    assert [t.leg for t in g.crossties] == [1, 2, 3, 4, 5]
+    assert g.crossties[2].x.to(mm).magnitude == pytest.approx(400)
     assert b.compression_detailing.status == "passed"
     # La resistencia excedida no se transforma en cumplimiento por el detalle.
     assert b.verification_status["resistance"] == "failed"

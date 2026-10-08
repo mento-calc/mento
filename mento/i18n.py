@@ -323,6 +323,9 @@ ES.update(
         "1 open leg": "1 pata abierta",
         "{n} open legs": "{n} patas abiertas",
         "1 crosstie": "1 gancho suplementario",
+        "{n} crossties": "{n} ganchos suplementarios",
+        "135°/90° crossties: alternate the 90° ends along the member; seismic detailing not verified.": "Trabas 135°/90°: alternar los extremos de 90° a lo largo de la viga; detallado sísmico no verificado.",
+        "The crosstie hook size is outside the supported model": "El tamaño del gancho de la traba está fuera del modelo admitido",
     }
 )
 

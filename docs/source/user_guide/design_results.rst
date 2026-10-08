@@ -239,11 +239,11 @@ a quantity in the display unit of the section (cm, or in). The positions are the
 - **Legs**: ``2·n_stirrups`` legs spread evenly between the centres of the outermost pair,
   ``x_i = c_c + d_st/2 + i·s_w``, with ``s_w = (b - 2·c_c - d_st)/(n_legs - 1)`` -- the
   spacing the shear check holds to Table 9.7.6.2.2.
-- **Cage**: a perimeter stirrup on the outermost legs and inner closed stirrups on the
-  interior legs selected for required compression support; remaining interior legs
-  are open. ``ClosedStirrup.legs`` and ``Crosstie.leg`` use zero-based leg indices.
+- **Cage**: one perimeter stirrup on the outermost legs and 135°/90° crossties on
+  interior legs when required for compression support; plain interior legs
+  remain uncredited as compression supports. ``ClosedStirrup.legs`` and ``Crosstie.leg`` use zero-based leg indices.
   Calculation geometry has a perimeter and open interior legs; detailing geometry
-  proposes closed pieces according to the real compression faces.
+  proposes hooked crossties according to the real compression faces.
   The design only ever produces even counts.
 - **Bars**: each layer spread between the inner faces of the outer legs, one clear
   spacing apart -- the clear spacing the checks read -- with the ``n1`` bars of a layer at
@@ -450,13 +450,16 @@ compression. It exposes the status, supported first-row bar indices, maximum
 clear distance on both sides, limits and reasons. ACI 318-19 §9.7.6.4.4 uses
 150 mm (6 in in the in-lb edition). CIRSOC 201-25 §9.7.6.4.4 prints 15 times
 the stirrup diameter or 150 mm: differing outcomes remain pending until that
-interpretation is resolved. Second-row support remains pending. Open legs do not
-brace compression bars; their hooks and anchorage are outside this sectional model
-and have an informative notice. Missing/unavailable cages cannot pass.
+interpretation is resolved. Second-row support remains pending. Plain open legs do not
+brace compression bars. Generated crossties model the mandrel and tangent
+tails of Table 25.3.2; both ends engage peripheral bars. Both 135°/90° orders
+are checked for fit and collisions. The §25.3.5 alternation of 90° ends along
+the member is an explicit execution requirement, not a longitudinal check.
+Hook angles supplied alone give no compression-support credit. Missing/unavailable cages cannot pass.
 
 Warnings and the plot identify failed or pending compression support. The
 check does not change resistant steel, capacities, the shear verdict, or the
-separate mandatory detailing assessment for §9.7.6.4.3. Hooks, longitudinal extent and seismic
-detailing require separate verification. Extra closed pieces are a proposal: the
+separate mandatory detailing assessment for §9.7.6.4.3. Longitudinal extent and seismic
+detailing require separate verification. Extra transverse pieces are a proposal: the
 warning names input and proposed legs, detailing stays pending until confirmed,
 and resistant areas remain based on the input.

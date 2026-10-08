@@ -644,8 +644,8 @@ def transverse_notation(
 def cage_legs(n_legs: int) -> Tuple[Tuple[Tuple[int, int], ...], Tuple[int, ...]]:
     """Base seccional: un cerrado perimetral y las restantes patas abiertas.
 
-    El detallador agrega cerrados interiores cuando la sujeción por compresión
-    los necesita. Esta función, sin fuerzas ni barras, no acredita esa sujeción.
+    El detallador propone trabas con ganchos cuando la sujeción por compresión
+    las necesita. Esta función, sin fuerzas ni barras, no acredita esa sujeción.
     """
     if isinstance(n_legs, bool) or not isinstance(n_legs, Integral):
         raise TypeError("n_legs must be an integer.")
@@ -660,7 +660,7 @@ def describe_stirrup_cage(n_legs: int, language: Optional[str] = None) -> str:
     """The cage of :func:`cage_legs` in words, for whoever details it.
 
     Base layout: one perimeter stirrup and the remaining open legs.
-    The force-dependent closed pieces are described by SectionGeometry.
+    The force-dependent transverse pieces are described by SectionGeometry.
     A single leg cannot form the mandatory perimeter. In the language of the moment unless
     ``language`` says otherwise; an explicit code without a catalog raises
     ``ValueError``, as :func:`mento.set_language` does.
@@ -740,7 +740,7 @@ class TransverseReinforcement:
         )
 
     def arrangement(self, language: Optional[str] = None) -> str:
-        """Base cage layout without force-dependent closed pieces; read detailing_geometry.arrangement() for the actual pieces. Empty on a slab."""
+        """Base cage layout without force-dependent transverse pieces; read detailing_geometry.arrangement() for the actual pieces. Empty on a slab."""
         return _transverse_arrangement(self.layout, self.n_stirrups, language)
 
     def __str__(self) -> str:
@@ -936,7 +936,7 @@ class StirrupOption:
         )
 
     def arrangement(self, language: Optional[str] = None) -> str:
-        """Base cage layout without force-dependent closed pieces; read detailing_geometry.arrangement() for the actual pieces. Empty on a slab."""
+        """Base cage layout without force-dependent transverse pieces; read detailing_geometry.arrangement() for the actual pieces. Empty on a slab."""
         return _transverse_arrangement(self.layout, self.n_stirrups, language)
 
     def __str__(self) -> str:
@@ -1041,7 +1041,7 @@ class ShearDesign:
         )
 
     def arrangement(self, language: Optional[str] = None) -> str:
-        """Base cage layout without force-dependent closed pieces; read detailing_geometry.arrangement() for the actual pieces. Empty on a slab."""
+        """Base cage layout without force-dependent transverse pieces; read detailing_geometry.arrangement() for the actual pieces. Empty on a slab."""
         return _transverse_arrangement(self.layout, self.n_stirrups, language)
 
     def __str__(self) -> str:
