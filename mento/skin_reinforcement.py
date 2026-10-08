@@ -312,7 +312,7 @@ def _add_skin_bars(beam: RectangularBeam, geometry: SectionGeometry) -> SectionG
     assert req.d_b is not None and req.side_cover is not None and req.spacing is not None
     unit = geometry.width.units
     diameter = req.d_b.to(unit)
-    inset = req.side_cover.to(unit) + diameter / 2
+    inset: Quantity = req.side_cover.to(unit) + diameter / 2
     settings = beam.settings
     assert settings is not None
 
