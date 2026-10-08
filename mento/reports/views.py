@@ -445,4 +445,12 @@ def verification_table(beam: "RectangularBeam") -> Dict[str, Any]:
     return {
         "Verification": ["Resistance", "Detailing (modelled checks)"],
         "Status": [status_text(state["resistance"]), status_text(state["detailing"])],
+        "Detailing notes": [
+            "",
+            "; ".join(
+                w.message
+                for w in beam.warnings
+                if w.code in ("transverse_legs_added_for_compression_support", "open_leg_anchorage_outside_model")
+            ),
+        ],
     }
