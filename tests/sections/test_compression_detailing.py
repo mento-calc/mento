@@ -133,9 +133,9 @@ def test_plot_labels_required_compression_support_without_mutating_strength():
     b = beam()
     b._compression_faces = {"top"}
     before = b.reinforcement
-    with pytest.warns(UserWarning, match="compression-bar support"):
-        fig = b.plot(show=False)
-    assert any("compression-bar support" in t.get_text() for t in fig.axes[0].texts)
+    fig = b.plot(show=False)
+    assert b.compression_detailing.status == "passed"
+    assert any("placed for compression support" in t.get_text() for t in fig.axes[0].texts)
     assert b.reinforcement == before
     plt.close(fig)
 

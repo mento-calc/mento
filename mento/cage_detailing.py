@@ -39,12 +39,13 @@ def _mm(value: Quantity) -> float:
 
 def _supported_layer(
     row: tuple[BarPosition, ...],
-    corners: list[tuple[float, int]],
+    corners: list[tuple[float, int, float]],
     mounting: BarPosition,
     clear: float,
     max_gap: float,
     d_st: float,
     bend_radius: float,
+    compression_required: bool = False,
 ) -> tuple[list[BarPosition], list[BarPosition]]:
     """Place an ordered row at the cage corners, spreading spare bars between them.
 
@@ -57,9 +58,9 @@ def _supported_layer(
     n, count = len(row), len(corners)
 
     def x_at(corner: int, bar: BarPosition) -> float:
-        leg, side = corners[corner]
+        leg, side, corner_radius = corners[corner]
         # Tangent to the horizontal branch and clear of its rounded bend.
-        return leg + side * max(bend_radius, (d_st + _mm(bar.d_b)) / 2)
+        return leg + side * max(corner_radius, (d_st + _mm(bar.d_b)) / 2)
 
     def steps(items: list[BarPosition]) -> list[float]:
         return [(_mm(a.d_b) + _mm(b.d_b)) / 2 + clear for a, b in zip(items, items[1:])]
@@ -83,6 +84,12 @@ def _supported_layer(
                 for previous in range(corner - 1, index):
                     if (corner - 1, previous) not in states:
                         continue
+                    if compression_required:
+                        braced = (
+                            [corners[corner - 1][2] > 0] + [False] * (index - previous - 1) + [corners[corner][2] > 0]
+                        )
+                        if any(not left and not right for left, right in zip(braced, braced[1:])):
+                            continue  # La regla existente de barras alternadas.
                     span = x_at(corner, row[index]) - x_at(corner - 1, row[previous])
                     if not fits(list(row[previous : index + 1]), span):
                         continue
@@ -100,7 +107,12 @@ def _supported_layer(
             assigned[corner] = index
             index = states[corner, index][1]
     elif n >= 2:
-        assigned = {round(index * (count - 1) / (n - 1)): index for index in range(n)}
+        available = (
+            [i for i, corner in enumerate(corners) if corner[2] > 0] if compression_required else list(range(count))
+        )
+        if len(available) < n:
+            available = list(range(count))
+        assigned = {available[round(index * (len(available) - 1) / (n - 1))]: index for index in range(n)}
 
     # An ordered chain with a fixed bar at every corner.
     chain: list[tuple[BarPosition, bool]] = []
@@ -155,13 +167,107 @@ def _geometry_unit(length: Quantity) -> Quantity:
     return (length * 0 + 1 * length.units) / float((1 * length.units).to("mm").magnitude)
 
 
-def build_cage_detailing(beam: RectangularBeam) -> SectionGeometry:
+def build_cage_detailing(beam: RectangularBeam, *, include_skin: bool = True) -> SectionGeometry:
+    """Un cerrado perimetral, cerrados por compresión y restantes patas abiertas.
+
+    La cantidad ingresada es el mínimo por corte. La sujeción puede añadir
+    ramas al detalle, sin modificar ni acreditar el acero resistente ingresado. Se busca la
+    menor cantidad de cerrados interiores que cumpla la comprobación seccional
+    ya implementada. Si ninguna disposición modelada cumple, se conserva un
+    resultado fallido/pendiente; nunca se acredita una pata abierta como traba.
+    No se verifican ganchos, empalmes ni detallado sísmico.
+    """
+    from itertools import combinations, islice
+    from mento.compression_detailing import check_compression_detailing
+    from mento.section_geometry import ClosedStirrup
+
+    base = build_section_geometry(beam)
+    if not base.stirrups or not beam._compression_faces:
+        return _build_candidate(beam, base, include_skin=include_skin)
+    requested = len(base.leg_x)
+    # Las ramas de corte ingresadas son un mínimo. Si falta sujeción, se
+    # agregan piezas cerradas en el detalle, sin acreditar su acero en A_v.
+    extra_limit = 2 * max(
+        (len(base.bars_on("bottom" if face == "bot" else "top", 1)) for face in beam._compression_faces), default=0
+    )
+    settings = beam.settings
+    assert settings is not None
+    diameter = settings.mounting_bar_diameter
+    if not math.isfinite(_mm(diameter)) or _mm(diameter) <= 0:
+        raise CageDetailingError("mounting_bar_diameter must be positive and finite.", reason="mounting")
+    if diameter < settings.minimum_longitudinal_diameter:
+        raise CageDetailingError("mounting_bar_diameter is below minimum_longitudinal_diameter.", reason="mounting")
+    minimum_d = min([_mm(settings.mounting_bar_diameter)] + [_mm(bar.d_b) for bar in base.bars if bar.layer == 1])
+    minimum_step = max(_mm(settings.clear_spacing), _mm(settings.vibrator_size), minimum_d) + minimum_d
+    physical_max = int(_mm(base.stirrups[0].x_right - base.stirrups[0].x_left) / minimum_step) + 1
+    if requested > physical_max:
+        raise CageDetailingError("The legs cannot accommodate their supporting bars with the required spacing.")
+    extra_limit = min(extra_limit, max(0, physical_max - requested))
+    best = None
+    last_error = None
+    attempts = 0
+    for total in range(requested, requested + extra_limit + 1):
+        outer = base.stirrups[0]
+        spacing = (outer.x_right - outer.x_left) / (total - 1)
+        xs = tuple(outer.x_left + i * spacing for i in range(total))
+        from mento.section_geometry import Crosstie
+
+        current = replace(
+            base,
+            leg_x=xs,
+            s_w=spacing,
+            stirrups=(replace(outer, legs=(0, total - 1)),),
+            crossties=tuple(Crosstie(i, xs[i], outer.y_bottom, outer.y_top) for i in range(1, total - 1)),
+        )
+        inner = list(range(1, total - 1))
+        for count in range(len(inner) // 2 + 1):
+            # Las ramas agregadas deben pertenecer a cerrados, no a nuevas
+            # patas libres. Solo agregar acero necesario para la sujeción.
+            if total > requested and 2 * count < total - requested:
+                continue
+            options = list(islice(combinations(inner, 2 * count), max(0, 2048 - attempts)))
+            options.sort(key=lambda indices: sum(total - 1 - i not in indices for i in indices))
+            for indices in options:
+                attempts += 1
+                if attempts > 2048:
+                    if best is not None:
+                        return best
+                    raise CageDetailingError("No supported cage found within the sectional search limit.")
+                pairs = list(zip(indices[::2], indices[1::2]))
+                closed = current.stirrups + tuple(
+                    ClosedStirrup(pair, xs[pair[0]], xs[pair[1]], outer.y_bottom, outer.y_top, False) for pair in pairs
+                )
+                trial = replace(
+                    current, stirrups=closed, crossties=tuple(t for t in current.crossties if t.leg not in indices)
+                )
+                try:
+                    detail = _build_candidate(beam, trial, include_skin=include_skin)
+                except CageDetailingError as error:
+                    last_error = error
+                    continue
+                result = check_compression_detailing(beam, detail)
+                if result.status == "passed":
+                    return detail
+                # No agregar ramas para cubrir una verificación fuera de alcance
+                # (EN o segunda fila): esa verificación permanece pendiente.
+                if result.status == "pending":
+                    return detail
+                if best is None:
+                    best = detail
+        if beam.concrete.design_code == "EN 1992-2004":
+            break
+    if best is not None:
+        return best
+    assert last_error is not None
+    raise last_error
+
+
+def _build_candidate(beam: RectangularBeam, geometry: SectionGeometry, *, include_skin: bool = True) -> SectionGeometry:
     """Return a supported cross-section; raise if its spacing cannot be achieved.
 
     This does not mutate the beam or include mounting bars in its resistance.
     ``bars`` remain the resistant bars; ``mounting_bars`` are additional steel.
     """
-    geometry = build_section_geometry(beam)
     if not geometry.stirrups:
         return geometry
     settings = beam.settings
@@ -184,7 +290,12 @@ def build_cage_detailing(beam: RectangularBeam) -> SectionGeometry:
         if min(_mm(stirrup.x_right - stirrup.x_left), _mm(stirrup.y_top - stirrup.y_bottom)) / 2 < bend_radius - 1e-8:
             raise CageDetailingError("The stirrup is too narrow for its required bends.", reason="bend")
     corners = sorted(
-        (x, side) for stirrup in geometry.stirrups for x, side in ((_mm(stirrup.x_left), 1), (_mm(stirrup.x_right), -1))
+        [
+            (x, side, bend_radius)
+            for stirrup in geometry.stirrups
+            for x, side in ((_mm(stirrup.x_left), 1), (_mm(stirrup.x_right), -1))
+        ]
+        + [(_mm(tie.x), 1 if _mm(tie.x) <= _mm(geometry.width) / 2 else -1, 0.0) for tie in geometry.crossties]
     )
     hook = design_code(beam.concrete).max_bar_spacing_tension
     max_gap = math.inf if hook is None else _mm(hook(beam))
@@ -215,7 +326,10 @@ def build_cage_detailing(beam: RectangularBeam) -> SectionGeometry:
         # A face with no resistant steel has no tension-spacing cap to apply.
         face_cap = max_gap if face in tension_faces else math.inf
         packing_cap = face_cap if len(row) >= len(corners) else math.inf
-        resistant, added = _supported_layer(row, corners, mounting, clear, packing_cap, d_st, bend_radius)
+        compressed = (
+            "bot" if face == "bottom" else "top"
+        ) in beam._compression_faces and beam.concrete.design_code in ("ACI 318-19", "CIRSOC 201-25")
+        resistant, added = _supported_layer(row, corners, mounting, clear, packing_cap, d_st, bend_radius, compressed)
         spacing = (
             _mm(geometry.width)
             if len(resistant) == 1
@@ -247,6 +361,13 @@ def build_cage_detailing(beam: RectangularBeam) -> SectionGeometry:
             distance_to_line = abs(math.hypot(max(dx, 0), max(dy, 0)) + min(max(dx, dy), 0) - bend)
             if distance_to_line < radius + d_st / 2 - 1e-8:
                 raise CageDetailingError("A longitudinal bar would intersect a stirrup branch or bend.")
+        for tie in geometry.crossties:
+            # La pata abierta se representa por su tramo recto. No se inventan
+            # ganchos y no se la acredita como sujeción de acero comprimido.
+            dx = abs(_mm(bar.x - tie.x))
+            dy = max(_mm(tie.y_bottom - bar.y), _mm(bar.y - tie.y_top), 0.0)
+            if math.hypot(dx, dy) < radius + d_st / 2 - 1e-8:
+                raise CageDetailingError("A longitudinal bar would intersect an open leg.", reason="layout")
         for other in all_bars[index + 1 :]:
             distance = math.hypot(_mm(bar.x - other.x), _mm(bar.y - other.y))
             required = (_mm(bar.d_b) + _mm(other.d_b)) / 2 + _mm(settings.clear_spacing)

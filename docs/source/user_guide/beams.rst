@@ -114,7 +114,7 @@ When you run `node.results`, the output includes:
 - **Design capacity ratios (DCR)**.
 - **Warnings** (if any).
 
-Transverse reinforcement can be entered directly as an even number of legs:
+Transverse reinforcement can be entered directly as an integer number of legs (at least two):
 
 .. code-block:: python
 
@@ -224,7 +224,9 @@ labelled separately. Their diameter is ``settings.mounting_bar_diameter`` (10 mm
 No. 3 by default). These bars are not credited in the calculated resistance.
 
 The supported layout preserves the calculated bar counts, diameters and vertical
-coordinates, and the shear leg spacing. It checks clear spacing, the existing code's
+coordinates. The entered shear legs are a minimum; required compression
+support can add closed pieces to the detailing geometry. The plot shows
+the actual count and spacing without crediting that extra steel in resistance. It checks clear spacing, the existing code's
 centre-distance cap, and intersections with the branches and rounded bends. If no
 supported layout is found, ``detailing_geometry`` raises ``CageDetailingError``;
 ``plot()`` issues a warning and draws the calculation model with an explicit caption.
@@ -289,3 +291,40 @@ and negative moments verify both tension faces:
 
 On a US customary section the dimensions and the stirrup text are in inches and the
 bar labels use ASTM sizes (for example ``3#6`` and ``2#3 (mounting)``).
+
+
+Jaula mixta: cerrados y patas abiertas
+------------------------------------
+
+``beam.set_transverse_rebar(legs=7, d_b=10*mm, s_l=15*cm)`` admite
+cantidades pares e impares. Una rama sola se rechaza: no puede formar el
+estribo perimetral de dos ramas que encierra toda la sección.
+
+La geometría de cálculo presenta un perimetral y las restantes patas abiertas.
+El detallador agrega los cerrados interiores necesarios para la sujeción de
+las barras requeridas por compresión, usando la comprobación seccional existente
+de ACI/CIRSOC. Las patas abiertas nunca se acreditan como esa sujeción. Si las
+ramas de corte ingresadas no alcanzan, el detalle puede disponer más ramas y
+el dibujo distingue la cantidad ingresada de la realmente dispuesta. Esto no
+modifica ni acredita acero adicional en el cálculo de resistencia.
+
+La búsqueda conserva los diámetros y alturas de las barras resistentes, y
+comprueba montaje, separaciones e intersecciones de las piezas. Busca el menor
+número de ramas adicionales y luego el menor número de cerrados interiores
+dentro de las disposiciones modeladas; no certifica un óptimo global. La cota
+física de cabida limita la expansión y existe un límite computacional de 2048
+candidatos. Si no encuentra una solución verificable, el resultado conserva
+su falla o pendiente; no se declara cumplimiento por agotar la búsqueda.
+
+EN mantiene su verificación de sujeción comprimida pendiente; las segundas
+capas comprimidas conservan su alcance previo. El tramo de una pata abierta
+se dibuja sin inventar ganchos: estos datos seccionales no verifican anclajes,
+empalmes ni detallado sísmico. Piel y montaje siguen sin crédito resistente.
+
+``n_stirrups`` conserva la entrada histórica: cada unidad equivale a dos ramas.
+En las vistas compatibles ese campo puede ser semientero para una entrada
+impar; no representa una cantidad de piezas cerradas. Usar ``n_legs`` en las
+vistas y ``geometry.stirrups``/``geometry.crossties`` para las piezas reales.
+Las columnas nuevas usan ``legs``; para una entrada impar no combinarla con
+la columna histórica ``ns``. El archivo editable conserva una sola cantidad
+canónica para evitar un supuesto medio estribo en la entrada antigua.

@@ -312,6 +312,8 @@ ES.update(
         "perimeter stirrup": "estribo perimetral",
         "1 inner stirrup": "1 interior",
         "{n} inner stirrups": "{n} interiores",
+        "1 open leg": "1 pata abierta",
+        "{n} open legs": "{n} patas abiertas",
         "1 crosstie": "1 gancho suplementario",
     }
 )

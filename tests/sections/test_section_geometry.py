@@ -71,18 +71,17 @@ def test_the_wide_cirsoc_legs_and_cage(wide_cirsoc_beam: RectangularBeam) -> Non
     assert len(geometry.leg_x) == wide_cirsoc_beam.reinforcement.transverse.n_legs == 10
 
     stirrups = geometry.stirrups
-    assert [s.legs for s in stirrups] == [(0, 9), (1, 2), (3, 4), (5, 6), (7, 8)]
-    assert [s.perimeter for s in stirrups] == [True, False, False, False, False]
+    assert [s.legs for s in stirrups] == [(0, 9)]
+    assert [s.perimeter for s in stirrups] == [True]
     assert _cm([stirrups[0].x_left, stirrups[0].x_right]) == [3.6, 146.4]
-    assert _cm([stirrups[2].x_left, stirrups[2].x_right]) == [51.2, 67.0667]
     assert {(_cm([s.y_bottom])[0], _cm([s.y_top])[0]) for s in stirrups} == {(3.6, 146.4)}
     # The outer line of the perimeter stirrup is the cover: c_c to b - c_c.
     d = geometry.stirrup_d_b.to("cm").magnitude
     assert stirrups[0].x_left.to("cm").magnitude - d / 2 == pytest.approx(3.0)
     assert stirrups[0].x_right.to("cm").magnitude + d / 2 == pytest.approx(147.0)
-    assert geometry.crossties == ()
-    assert geometry.arrangement("en") == "perimeter stirrup + 4 inner stirrups"
-    assert geometry.arrangement("es") == "estribo perimetral + 4 interiores"
+    assert [tie.leg for tie in geometry.crossties] == list(range(1, 9))
+    assert geometry.arrangement("en") == "perimeter stirrup + 8 open legs"
+    assert geometry.arrangement("es") == "estribo perimetral + 8 patas abiertas"
 
 
 def test_the_wide_cirsoc_bars(wide_cirsoc_beam: RectangularBeam) -> None:
@@ -117,8 +116,8 @@ def test_aci_variant_of_the_wide_cirsoc_beam() -> None:
     Node(section=beam, forces=[Forces(label="C1", M_y=5000 * kNm, V_z=5000 * kN)]).design()
     geometry = beam.section_geometry
     assert _cm(geometry.leg_x) == [3.8, 32.28, 60.76, 89.24, 117.72, 146.2]
-    assert [s.legs for s in geometry.stirrups] == [(0, 5), (1, 2), (3, 4)]
-    assert geometry.arrangement("en") == "perimeter stirrup + 2 inner stirrups"
+    assert [s.legs for s in geometry.stirrups] == [(0, 5)]
+    assert geometry.arrangement("en") == "perimeter stirrup + 4 open legs"
 
 
 # ---------------------------------------------------------------------------
@@ -280,17 +279,17 @@ def test_bars_on_a_face_and_a_layer() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("count", [1, 3, 9])
-def test_the_cage_helper_rejects_odd_counts(count) -> None:
-    with pytest.raises(ValueError, match="odd legs .*not modelled yet"):
+@pytest.mark.parametrize("count", [1])
+def test_the_cage_helper_rejects_one_leg(count) -> None:
+    with pytest.raises(ValueError, match="At least two"):
         _cage([float(x) for x in range(count)], 0.5, 9.5)
 
 
-def test_a_crosstie_has_a_135_and_a_90_degree_hook() -> None:
+def test_an_open_leg_has_no_invented_hooks() -> None:
     from mento.section_geometry import Crosstie
 
     tie = Crosstie(leg=7, x=10 * cm, y_bottom=1 * cm, y_top=9 * cm)
-    assert tie.hooks == (135, 90)
+    assert tie.hooks == ()
 
 
 @pytest.mark.parametrize("element", [OneWaySlab, Footing])
@@ -362,7 +361,7 @@ def test_to_dict_gives_plain_floats(wide_cirsoc_beam: RectangularBeam) -> None:
         "y_top": pytest.approx(146.4),
         "perimeter": True,
     }
-    assert data["crossties"] == []
+    assert [tie["leg"] for tie in data["crossties"]] == list(range(1, 9))
     assert data["bars"][0] == {
         "x": pytest.approx(5.8),
         "y": pytest.approx(5.8),
@@ -382,9 +381,7 @@ def test_to_dict_carries_a_crosstie() -> None:
     with_tie = SectionGeometry(
         **{**geometry.__dict__, "crossties": (Crosstie(leg=1, x=10 * cm, y_bottom=3 * cm, y_top=57 * cm),)}
     )
-    assert with_tie.to_dict("cm")["crossties"] == [
-        {"leg": 1, "x": 10.0, "y_bottom": 3.0, "y_top": 57.0, "hooks": [135, 90]}
-    ]
+    assert with_tie.to_dict("cm")["crossties"] == [{"leg": 1, "x": 10.0, "y_bottom": 3.0, "y_top": 57.0, "hooks": []}]
 
 
 def test_a_wall_has_no_section_geometry() -> None:

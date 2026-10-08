@@ -12,6 +12,10 @@ from the release history and are summaries rather than complete lists.
 
 ## [Unreleased]
 
+### Changed
+
+- Jaula mixta: un cerrado perimetral, cerrados interiores por sujeción de barras comprimidas y patas abiertas restantes. Entrada `legs` impar admitida desde tres ramas; dibujo de piezas y conteo real, sin crédito resistente silencioso para ramas agregadas. Ganchos de patas abiertas fuera del modelo seccional.
+
 ### Decisiones de entrega
 
 - Estados independientes de resistencia y detallado modelado, visibles en

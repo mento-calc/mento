@@ -256,7 +256,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         self._stirrup_s_w: Quantity = 0 * cm
         self._stirrup_s_max_l: Quantity = 0 * cm
         self._stirrup_s_max_w: Quantity = 0 * cm
-        self._stirrup_n: int = 0
+        self._stirrup_n: float = 0  # Equivalente de dos ramas; no cuenta piezas físicas.
         self._A_v_min: Quantity = 0 * cm**2 / m
         self._A_v: Quantity = 0 * cm**2 / m
         self._A_s_req_bot: Quantity = 0 * cm**2
@@ -802,10 +802,11 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         """Set transverse reinforcement or clear it with an all-zero input.
 
         Prefer ``legs``; ``n_legs`` is a compatible alias. The current model
-        only supports even legs paired into closed stirrups, not arbitrary
-        individual crossties. Contradictory counts are rejected.
+        supports integer counts >= 2, with one perimeter closed stirrup,
+        compression-support closed pieces and remaining open legs.
+        Contradictory counts are rejected.
 
-        Use keyword-only ``n_legs`` for an even number of shear legs. Legacy
+        Use keyword-only ``legs`` for the number of shear legs. Legacy
         ``n_stirrups`` (including positional calls) still counts closed
         stirrups, each contributing two legs. If both are supplied they must
         agree. Zero with zero diameter and spacing clears the reinforcement.
@@ -815,7 +816,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         """
 
         n_legs = resolve_legs(legs, n_legs)
-        n_stirrups = _transverse_stirrup_count(n_stirrups, n_legs)
+        equivalent_count = _transverse_stirrup_count(n_stirrups, n_legs)
 
         # Diameter and spacing must be physical lengths.
         if not isinstance(d_b, Quantity) or not d_b.check("[length]"):
@@ -831,7 +832,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             raise ValueError("s_l must be finite.")
 
         # An all-zero input explicitly removes the transverse reinforcement.
-        if n_stirrups == 0 and diameter_mm == 0 and spacing_mm == 0:
+        if equivalent_count == 0 and diameter_mm == 0 and spacing_mm == 0:
             self._stirrup_n = 0
             self._stirrup_d_b = d_b
             self._stirrup_s_l = s_l
@@ -841,7 +842,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             return
 
         # Every non-empty reinforcement configuration must be strictly positive.
-        if n_stirrups <= 0:
+        if equivalent_count <= 0:
             name = "n_legs" if n_legs is not None else "n_stirrups"
             raise ValueError(f"{name} must be greater than zero.")
         if diameter_mm <= 0:
@@ -850,12 +851,12 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             raise ValueError("s_l must be greater than zero.")
 
         # Store the inputs only after all validations pass.
-        self._stirrup_n = n_stirrups
+        self._stirrup_n = equivalent_count
         self._stirrup_d_b = d_b
         self._stirrup_s_l = s_l
 
         # A closed stirrup contributes two vertical legs.
-        n_legs = n_stirrups * 2
+        n_legs = int(equivalent_count * 2)
         A_db = d_b**2 * math.pi / 4
         A_vs = n_legs * A_db
 

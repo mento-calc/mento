@@ -21,11 +21,8 @@ def resolve_legs(legs: int | None, n_legs: int | None) -> int | None:
     if legs is not None and n_legs is not None and legs != n_legs:
         raise ValueError("legs and n_legs must agree when both are provided.")
     value = legs if legs is not None else n_legs
-    if value is not None and (value < 0 or value % 2):
-        raise ValueError(
-            f"{'legs' if legs is not None else 'n_legs'} must be non-negative and even: "
-            "odd legs and individual crosstie anchorage are not modelled yet."
-        )
+    if value is not None and (value < 0 or value == 1):
+        raise ValueError("legs/n_legs: At least two legs are needed for the perimeter stirrup.")
     return value
 
 

@@ -5,8 +5,9 @@ clear on each side along the transverse reinforcement. CIRSOC 201-25
 Cap.9 p.179 prints "15 d_be or 150 mm": both readings are exposed;
 disagreement is pending, not a silently selected normative interpretation.
 Only the modelled first row at closed rectangular stirrup corners is
-verified. Second rows and crosstie anchorage need a separate supported
-detail. This does not verify hooks, development, seismic detailing or the
+verified. Second rows need a separate supported detail. Open legs are not
+credited as compression-bar supports; their presence does not invalidate
+support already provided by the closed pieces. This does not verify hooks, development, seismic detailing or the
 length along the member; it does not alter strength or the shear verdict.
 """
 
@@ -133,8 +134,6 @@ def check_compression_detailing(
             pending.append("cirsoc_limit_interpretation")
         if geometry.bars_on(face, 2):
             pending.append("second_row_support_not_modelled")
-        if geometry.crossties:
-            pending.append("crosstie_anchorage_not_verified")
         status = "failed" if failures else "pending" if pending else "passed"
         results.append(
             CompressionFaceDetail(
