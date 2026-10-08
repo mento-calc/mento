@@ -815,6 +815,6 @@ def cage_detailing_warnings(beam: "RectangularBeam") -> List[_Raw]:
     try:
         build_cage_detailing(beam)
     except CageDetailingError as error:
-        code = "cage_detailing_pending" if error.reason == "bend" else "cage_detailing_infeasible"
+        code = "cage_detailing_pending" if error.reason == "unsupported_bend" else "cage_detailing_infeasible"
         return [_Raw(code, {"reason": str(error)})]
     return []

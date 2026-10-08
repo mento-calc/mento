@@ -144,7 +144,7 @@ def verification_status(beam: RectangularBeam) -> dict[str, str]:
             geometry = build_cage_detailing(beam)
             cage_pending = not geometry.bend_supported
         except CageDetailingError as error:
-            cage_pending = error.reason == "bend"
+            cage_pending = error.reason == "unsupported_bend"
             cage_failed = not cage_pending
     detail_failed = bool(failed) or compression_failed or cage_failed
     detail_pending = bool(pending) or compression_pending or cage_pending or not flexure or not shear

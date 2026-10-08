@@ -42,7 +42,7 @@ def test_unsupported_bend_diameter_preserves_calculation_geometry_and_plot():
     assert beam.section_geometry.stirrup_d_b == 40 * mm
     with pytest.raises(CageDetailingError) as raised:
         beam.detailing_geometry
-    assert raised.value.reason == "bend"
+    assert raised.value.reason == "unsupported_bend"
     with pytest.warns(UserWarning, match="Cage detailing is not feasible"):
         figure = beam.plot(show=False)
     plt.close(figure)
@@ -495,3 +495,14 @@ def test_out_of_table_bend_is_pending_with_explicit_diagnostic():
     assert warning.values["reason"]
     assert not any(w.code == "cage_detailing_infeasible" for w in warnings)
     assert beam.verification_status["detailing"] == "pending"
+
+
+def test_supported_bend_that_does_not_fit_remains_a_failure():
+    beam = _beam(100, 100)
+    beam.set_longitudinal_rebar_bot(n1=8, d_b1=25 * mm)
+    beam.set_transverse_rebar(4, 20 * mm, 15 * cm)
+    with pytest.raises(CageDetailingError, match="too narrow") as error:
+        beam.detailing_geometry
+    assert error.value.reason == "bend"
+    assert "cage_detailing_infeasible" in [w.code for w in beam.warnings]
+    assert beam.verification_status["detailing"] == "failed"
