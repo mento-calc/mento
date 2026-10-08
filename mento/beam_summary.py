@@ -84,13 +84,19 @@ class BeamSummary:
             for col in ("cant_piel_cara", "posicion"):
                 if self.units_row[data.columns.get_loc(col)] != "":
                     raise ValueError(f"{col} must have a blank units cell.")
-            skin_unit = self.get_unit_variable(self.units_row[data.columns.get_loc("db_piel")])
             from mento.skin_reinforcement import ManualSkinRebar
 
             for index, row in data.iterrows():
                 values = [row[col] for col in ("db_piel", "cant_piel_cara", "posicion")]
-                if all(pd.isna(value) or value == "" for value in values):
-                    continue  # Sin entrada manual en esta viga: mantener diseño automático.
+                position = "" if pd.isna(row["posicion"]) else str(row["posicion"]).strip().lower()
+                data.loc[index, "posicion"] = position
+                if not position and all(pd.isna(value) or value == "" or value == 0 for value in values[:2]):
+                    data.loc[index, ["db_piel", "cant_piel_cara", "posicion"]] = [0, 0, ""]
+                    continue  # Celdas vacías o ceros sin posición conservan el automático.
+                try:
+                    skin_unit = self.get_unit_variable(self.units_row[data.columns.get_loc("db_piel")])
+                except ValueError as error:
+                    raise ValueError(f"Invalid db_piel unit (row {index}).") from error
                 raw_count = row["cant_piel_cara"]
                 try:
                     count = float(raw_count)
@@ -104,7 +110,10 @@ class BeamSummary:
                     or count != int(count)
                 ):
                     raise ValueError(f"cant_piel_cara must be a finite integer (row {index}).")
-                ManualSkinRebar(diameter * skin_unit, int(count), row["posicion"])
+                try:
+                    ManualSkinRebar(diameter * skin_unit, int(count), position)
+                except ValueError as error:
+                    raise ValueError(f"Invalid manual skin input (row {index}): {error}") from error
 
         # Validate counts before numeric coercion can hide fractions or typos.
         count_columns = [col for col in ("ns", "n_legs") if col in data.columns]

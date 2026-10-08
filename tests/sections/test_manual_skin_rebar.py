@@ -259,3 +259,45 @@ def test_summary_word_reports_insufficient_manual_skin(monkeypatch):
         assert summary.nodes[0].section.skin_verification_status == "failed"
     finally:
         set_language("en")
+
+
+@pytest.mark.parametrize("automatic", [("", "", ""), (0, 0, ""), (None, 0, None)])
+def test_mixed_manual_automatic_excel_roundtrip(tmp_path, automatic):
+    materials = beam()
+    table = manual_table()
+    auto = table.iloc[1].copy()
+    auto["Label"] = "Auto"
+    for column, value in zip(("db_piel", "cant_piel_cara", "posicion"), automatic):
+        auto[column] = value
+    table = pd.concat([table, pd.DataFrame([auto])], ignore_index=True)
+    summary = BeamSummary(materials.concrete, materials.steel_bar, table)
+    manual = summary.nodes[0].section.skin_rebar
+    summary.design()
+    first, second = tmp_path / "first.xlsx", tmp_path / "second.xlsx"
+    summary.export_design(str(first))
+    summary.import_design(str(first))
+    assert summary.nodes[0].section.skin_rebar == manual
+    assert summary.nodes[1].section.skin_rebar is None
+    summary.design_data = summary.data.copy()
+    summary.export_design(str(second))
+    pd.testing.assert_frame_equal(pd.read_excel(first), pd.read_excel(second))
+
+
+@pytest.mark.parametrize("raw, normalized", [("Bottom", "bottom"), (" total", "total")])
+def test_summary_normalizes_manual_skin_position(raw, normalized):
+    table = manual_table()
+    table.loc[1, "posicion"] = raw
+    table.loc[0, "db_piel"] = "cm"
+    table.loc[1, "db_piel"] = 1
+    materials = beam()
+    result = BeamSummary(materials.concrete, materials.steel_bar, table)
+    assert result.nodes[0].section.skin_rebar.posicion == normalized
+    assert result.nodes[0].section.skin_rebar.db_piel.to("mm").magnitude == 10
+
+
+def test_unused_skin_columns_need_no_diameter_unit():
+    table = manual_table()
+    table.loc[0, "db_piel"] = ""
+    table.loc[1, ["db_piel", "cant_piel_cara", "posicion"]] = [0, 0, ""]
+    materials = beam()
+    assert BeamSummary(materials.concrete, materials.steel_bar, table).nodes[0].section.skin_rebar is None
