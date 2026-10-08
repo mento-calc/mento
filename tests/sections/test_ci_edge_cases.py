@@ -8,7 +8,7 @@ import pytest
 
 from mento import cage_detailing as cage
 from mento.compression_detailing import check_compression_detailing
-from mento.design_results import _transverse_stirrup_count
+from mento.design_results import _transverse_stirrup_count, cage_legs, describe_stirrup_cage
 from mento.verification import normalize_leg_column, verification_status
 from mento.units import mm
 from tests.sections.test_compression_detailing import beam, face_geometry
@@ -30,6 +30,12 @@ def test_canonical_leg_units_must_also_be_blank():
 def test_public_count_validation_rejects_invalid_stirrup_counts(n, legs, error):
     with pytest.raises(error):
         _transverse_stirrup_count(n, legs)
+
+
+@pytest.mark.parametrize("describe", [cage_legs, describe_stirrup_cage])
+def test_boolean_is_not_a_cage_leg_count(describe):
+    with pytest.raises(TypeError, match="n_legs must be an integer"):
+        describe(True)
 
 
 def test_required_compression_without_geometry_remains_pending():
