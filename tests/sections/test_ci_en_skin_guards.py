@@ -80,3 +80,10 @@ def test_missing_outer_tension_layer_is_rejected(monkeypatch):
     monkeypatch.setattr(type(b), "section_geometry", property(lambda _: replace(g, bars=())))
     with pytest.raises(CageDetailingError, match="outer tension layer"):
         _ = b.skin_reinforcement
+
+
+def test_unchecked_en_beam_is_pending_before_using_service_inputs():
+    b = en_beam()
+    req = b.skin_reinforcement
+    assert req.status == "pending" and req.threshold == 1000 * mm
+    assert not req.rows
