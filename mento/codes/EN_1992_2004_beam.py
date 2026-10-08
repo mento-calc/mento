@@ -363,8 +363,9 @@ def _min_max_flexural_reinforcement_ratio_EN_1992_2004(
 
 
 #: Stress distribution coefficient k_c of EN 1992-1-1 §7.3.2(2) for a
-#: rectangular section in pure bending. The clause's other value, 1.0, is for
-#: pure tension, which is not a state a section designed here is in.
+#: rectangular section in pure bending, derived from Eq. (7.2) at sigma_c = 0.
+#: Axial loading requires Eq. (7.2); flanges use Eq. (7.3). This constant does
+#: not implement either case. EN footings with nonzero axial force are rejected as not supported by Mento.
 _K_C_BENDING = 0.4
 
 
@@ -642,6 +643,19 @@ def _determine_nominal_moment_EN_1992_2004(self: "RectangularBeam", st: ENFlexur
     st.M_Rd_top = _simple_determine_nominal_moment_EN_1992_2004(
         self, sec.A_s_top, sec.d_top, sec.A_s_bot, sec.c_mec_bot
     )
+    # Registrar la rama doblemente armada real, sin cambiar su resistencia.
+    st.compression_face = None
+    if force._M_y != 0 * kNm:
+        d = sec.d_bot if tension_at_bottom else sec.d_top
+        area = sec.A_s_bot if tension_at_bottom else sec.A_s_top
+        opposite = sec.A_s_top if tension_at_bottom else sec.A_s_bot
+        f_yd = sec.f_y / self.steel_bar.gamma_s
+        f_cd = self.concrete.alpha_cc * sec.f_c / self.concrete.gamma_c
+        eta = self.concrete._eta_factor()
+        depth = flexure_eq.compression_block_depth_for_steel(area, f_yd, eta, f_cd, sec.width)
+        _, limit = _compression_zone_limits_EN_1992_2004(self, d)
+        if opposite > 0 and depth > limit:
+            st.compression_face = "top" if tension_at_bottom else "bot"
     return None
 
 

@@ -157,7 +157,7 @@ class SectionFloats:
     c_mec_top: float
     A_v: float
     stirrup_d_b: float
-    stirrup_n: int
+    stirrup_n: float
     stirrup_s_w: float
     f_c: float
     f_y: float

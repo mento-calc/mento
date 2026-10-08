@@ -38,6 +38,12 @@ class BeamSettings:
     ``max_diameter_diff`` and ``max_bars_per_layer`` bound the search, and are
     the engineer's choice.
 
+    ``mounting_bar_diameter`` is a cross-section detailing preference: 10 mm
+    in metric units, No. 3 (3/8 in.) in imperial units. It supplies missing
+    supports at stirrup corners; the supplementary bars are recorded in
+    ``beam.detailing_geometry.mounting_bars`` and are not credited in strength.
+    This preference is not a code minimum.
+
     Available Parameters with Default Values:
     -----------------------------------------
     Unit system: "metric" or "imperial"
@@ -78,6 +84,7 @@ class BeamSettings:
         "layers_spacing": 25 * mm,
         "max_diameter_diff": 5 * mm,
         "minimum_longitudinal_diameter": 8 * mm,
+        "mounting_bar_diameter": 10 * mm,
         "max_longitudinal_diameter": 32 * mm,
         "max_bars_per_layer": 12,
         "design_options": 3,
@@ -90,6 +97,7 @@ class BeamSettings:
         "layers_spacing": 1 * inch,
         "max_diameter_diff": 0.25 * inch,
         "minimum_longitudinal_diameter": 3 / 8 * inch,
+        "mounting_bar_diameter": 3 / 8 * inch,
         "max_longitudinal_diameter": 1.693 * inch,
         "max_bars_per_layer": 12,
         "design_options": 3,
@@ -106,6 +114,7 @@ class BeamSettings:
     max_longitudinal_diameter: Any = field(default=_NOT_SET)
     max_bars_per_layer: Any = field(default=_NOT_SET)
     design_options: Any = field(default=_NOT_SET)
+    mounting_bar_diameter: Any = field(default=_NOT_SET)
 
     def __post_init__(self) -> None:
         defaults = self._imperial_defaults if self.unit_system == "imperial" else self._metric_defaults

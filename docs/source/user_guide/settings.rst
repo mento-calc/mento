@@ -41,6 +41,7 @@ Usage Scenarios
    * Clear spacing: 25 mm
    * Stirrup diameter: 8 mm
    * Minimum longitudinal bar diameter: 8 mm
+   * Mounting bar diameter: 10 mm
    * Maximum longitudinal bar diameter: 32 mm
    * Vibrator size: 30 mm
    * Layers spacing: 25 mm
@@ -52,6 +53,7 @@ Usage Scenarios
    * Clear spacing: 1 inch
    * Stirrup diameter: 3/8 inch
    * Minimum longitudinal bar diameter: 3/8 inch
+   * Mounting bar diameter: 3/8 inch (No. 3)
    * Maximum longitudinal bar diameter: 1.693 inch
    * Vibrator size: 1.25 inch
    * Layers spacing: 1 inch

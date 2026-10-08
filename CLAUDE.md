@@ -88,6 +88,7 @@ mento/
 ├── rebar.py                Rebar — bar database and selection logic
 ├── bar_sizes.py            ASTM bar sizes: bar_designation("#6") / bar_diameter(6), the table imperial output and Rebar share
 ├── section.py              Section base class
+├── section_geometry.py     SectionGeometry — where the bars and stirrup legs are, as the checks assume them
 ├── rectangular.py          RectangularSection — geometry and cover calculations
 ├── beam.py                 RectangularBeam — design, check, and result accessors
 ├── slab.py                 OneWaySlab and Footing — one-way slab design
@@ -106,7 +107,7 @@ mento/
 ├── beam_summary.py         BeamSummary — aggregate results for multiple beams
 ├── shear_wall_summary.py   ShearWallSummary — the same for walls
 ├── summary.py              Deprecated shim re-exporting BeamSummary (emits DeprecationWarning)
-├── i18n.py                 set_language() — language of the detailed report output
+├── i18n.py                 set_language() — language of reports, drawing, warnings and stirrup notation()
 ├── plots/                  Matplotlib drawings: sections.py, walls.py, punching.py
 ├── reports/                Presentation layer: tables, views, documents, summaries, table_style, headings, punching
 └── codes/

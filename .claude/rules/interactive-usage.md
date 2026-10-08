@@ -58,6 +58,10 @@ fd.bottom.A_s, fd.bottom.A_s_req  # provided / required steel area (Quantity)
 fd.bottom.A_s_min, fd.bottom.A_s_max, fd.bottom.DCR, fd.bottom.M_capacity
 
 sd = beam.shear_design            # ShearDesign: n_stirrups, d_b, s_l, A_v, ...
+sd.n_legs, sd.s_w                 # legs across the shear plane (2 per stirrup) and their spacing across the width
+sd.s_max_l, sd.s_max_w            # the limits they are checked against (envelope, tightest)
+sd.notation(), sd.arrangement()   # '10 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)', the cage in words
+beam.section_geometry             # SectionGeometry: leg_x, stirrups, bars; .to_dict("cm") for plain floats
 beam.reinforcement                # SectionReinforcement: .bottom / .top / .transverse as plain data
 beam.flexure_checks, beam.shear_checks   # per-combination FlexureCheck / ShearCheck tuples
 ```
@@ -74,7 +78,7 @@ Alternatives and warnings, after a design or check:
 
 ```python
 fd.bottom.options                 # RebarOption tuple, best first; options[0] is what was applied
-sd.options                        # StirrupOption tuple (n_stirrups, d_b, s_l, s_w, A_v, functional)
+sd.options                        # StirrupOption tuple (n_stirrups, d_b, s_l, s_w, A_v, functional, s_max_l, s_max_w)
 node.warnings                     # DesignWarning tuple: .code (stable), .message (set_language), .values
 ```
 
