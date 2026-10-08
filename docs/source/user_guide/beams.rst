@@ -334,7 +334,55 @@ beside the strength checks. Before flexure verification a beam above the height 
 no tension face is assumed. EN uses the separate rule documented below.
 Slab strips are not applicable.
 This feature does not implement strut-and-tie design, anchorage, splice lengths,
-seismic detailing, a full bending schedule or checking manually supplied skin bars.
+seismic detailing or a full bending schedule. These are outside the sectional
+scope and do not automatically make skin verification pending.
+
+Entrada manual de piel
+~~~~~~~~~~~~~~~~~~~~~~
+
+La piel se puede diseñar automáticamente o ingresar de forma simétrica en
+los dos laterales del alma:
+
+.. code-block:: python
+
+    beam.set_skin_rebar(db_piel=10*mm, cant_piel_cara=3, posicion="total")
+    node.check()
+    print(beam.skin_verification_status)
+    beam.plot(show=False)
+
+``cant_piel_cara`` cuenta barras por cada lateral: tres significan seis en
+total. ``bottom`` las distribuye desde la capa longitudinal inferior hasta
+media altura, incluyendo una barra a media altura. ``top`` hace lo propio
+desde la capa superior. ``total`` las distribuye uniformemente entre las
+capas longitudinales de ambas caras, sin duplicar barras longitudinales.
+Si falta una capa longitudinal, se conserva el límite físico de recubrimiento
+para esa cara. No se admiten posiciones individuales arbitrarias.
+
+Mento conserva exactamente la cantidad ingresada. Comprueba la cobertura
+y separación de las zonas requeridas en ACI/CIRSOC; en EN comprueba área por
+zona de servicio y diámetro, con los mismos datos SLS y criterios de Mento
+en revisión que utiliza la propuesta automática. También comprueba el ajuste
+geométrico. Una cantidad cero expresa ausencia de piel y falla si esta es
+requerida. Una piel voluntaria también se dibuja y se comprueba geométricamente.
+
+``beam.skin_verification_status`` indica ``passed`` si la piel satisface los
+chequeos seccionales implementados, ``failed`` ante un incumplimiento concreto
+y ``pending`` si faltan datos o el caso no está soportado. ``required`` en
+``beam.skin_reinforcement.status`` indica una necesidad, no un incumplimiento.
+Una propuesta válida ya no reprueba el estado global de detallado por el mero
+hecho de requerir piel. Los otros chequeos de la jaula conservan su estado.
+Anclajes y empalmes no condicionan este estado seccional.
+
+``beam.clear_skin_rebar()`` vuelve al diseño automático con el diámetro
+configurado en ``BeamSettings``. La entrada manual pertenece a la viga;
+no modifica settings compartidos ni recibe crédito resistente.
+
+``BeamSummary`` admite las tres columnas opcionales ``db_piel``,
+``cant_piel_cara`` y ``posicion`` juntas. La fila de unidades usa una unidad
+de longitud para ``db_piel`` y celdas vacías para las otras dos. Una fila
+con las tres celdas vacías conserva el diseño automático; entradas parciales
+o cantidades fraccionarias se rechazan. Exportar e importar Excel conserva
+la entrada manual. Los casos SLS de EN siguen ingresándose por la API existente.
 
 For a 30 x 120 cm CIRSOC beam with four Ø20 bars on each horizontal face,
 Ø8 stirrups and 30 mm cover, Mento proposes three Ø10 skin bars per lateral

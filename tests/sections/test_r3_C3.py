@@ -51,7 +51,8 @@ def test_skin_review_is_informative_and_emitted_once():
     assert warnings[0].combinations == ("P", "N")
     assert warning_category(warnings[0].code) == "informative"
     assert warning_category("skin_detailing_invalid") == "pending"
-    assert warning_category("skin_reinforcement_required") == "failed"  # DP-2 no cambia.
+    assert warning_category("skin_reinforcement_required") == "informative"
+    assert warning_category("skin_en_required") == "informative"
 
 
 @pytest.mark.parametrize(

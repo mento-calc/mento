@@ -557,6 +557,22 @@ ES.update(
 # Singular del aviso global; conserva las etiquetas, sin atribuir una cara.
 ES.update(
     {
+        "Skin layout is not verified: the detailing geometry does not contain the specified skin bars.": "La piel no está verificada: la geometría de detallado no contiene las barras de piel especificadas.",
+        "The supplied skin reinforcement does not comply: {reason}": "La armadura de piel ingresada no cumple: {reason}",
+        "No height is available for the supplied skin zone.": "No hay altura disponible para la zona de piel ingresada.",
+        "The supplied skin bars cannot fit with the required clear spacing.": "Las barras de piel ingresadas no entran con la separación libre requerida.",
+        "The supplied skin diameter exceeds the supported EN diameter limit.": "El diámetro de piel ingresado excede el límite de la propuesta EN implementada.",
+        "The supplied skin does not cover the bottom tension zone.": "La piel ingresada no cubre la zona inferior traccionada.",
+        "The supplied skin does not cover the top tension zone.": "La piel ingresada no cubre la zona superior traccionada.",
+        "The supplied skin spacing exceeds the limit in the bottom tension zone.": "La separación de piel excede el límite en la zona inferior traccionada.",
+        "The supplied skin spacing exceeds the limit in the top tension zone.": "La separación de piel excede el límite en la zona superior traccionada.",
+        "The supplied skin area is insufficient in the bottom tension zone.": "El área de piel es insuficiente en la zona inferior traccionada.",
+        "The supplied skin area per lateral face is insufficient.": "El área de piel por cara lateral es insuficiente.",
+        "The supplied skin area is insufficient in the top tension zone.": "El área de piel es insuficiente en la zona superior traccionada.",
+    }
+)
+ES.update(
+    {
         "Review skin-steel distribution, worst of {cases} service case: {rows} rows per side in that zone, largest vertical interval {gap}, including zone boundaries. This is informative, not an additional code spacing limit; the diameter-route proposal does not verify crack width directly.": "Revisar la distribución de piel, peor de {cases} caso de servicio: {rows} filas por lateral en esa zona, mayor intervalo vertical {gap}, incluyendo los bordes de la zona. Es informativo, no un límite normativo adicional de separación; la propuesta por diámetro no comprueba directamente el ancho de fisura.",
     }
 )

@@ -77,6 +77,35 @@ class BeamSummary:
         # Validate the units row
         self.validate_units(self.units_row)
 
+        skin_columns = {"db_piel", "cant_piel_cara", "posicion"}
+        if skin_columns.intersection(data.columns):
+            if not skin_columns.issubset(data.columns):
+                raise ValueError("Manual skin input requires db_piel, cant_piel_cara and posicion together.")
+            for col in ("cant_piel_cara", "posicion"):
+                if self.units_row[data.columns.get_loc(col)] != "":
+                    raise ValueError(f"{col} must have a blank units cell.")
+            skin_unit = self.get_unit_variable(self.units_row[data.columns.get_loc("db_piel")])
+            from mento.skin_reinforcement import ManualSkinRebar
+
+            for index, row in data.iterrows():
+                values = [row[col] for col in ("db_piel", "cant_piel_cara", "posicion")]
+                if all(pd.isna(value) or value == "" for value in values):
+                    continue  # Sin entrada manual en esta viga: mantener diseño automático.
+                raw_count = row["cant_piel_cara"]
+                try:
+                    count = float(raw_count)
+                    diameter = float(row["db_piel"])
+                except (TypeError, ValueError) as error:
+                    raise ValueError(f"Invalid manual skin input (row {index}).") from error
+                if (
+                    pd.api.types.is_bool(raw_count)
+                    or pd.api.types.is_bool(row["db_piel"])
+                    or not math.isfinite(count)
+                    or count != int(count)
+                ):
+                    raise ValueError(f"cant_piel_cara must be a finite integer (row {index}).")
+                ManualSkinRebar(diameter * skin_unit, int(count), row["posicion"])
+
         # Validate counts before numeric coercion can hide fractions or typos.
         count_columns = [col for col in ("ns", "n_legs") if col in data.columns]
         if not count_columns:
@@ -110,7 +139,10 @@ class BeamSummary:
         # forces-only summary with no rebar yet) are inferred as the new `str`
         # dtype, and writing floats into them in place raises a TypeError.
         for col in data.columns[2:]:
-            data[col] = pd.to_numeric(data[col], errors="coerce").fillna(0)
+            if col == "posicion":
+                data[col] = data[col].fillna("")
+            else:
+                data[col] = pd.to_numeric(data[col], errors="coerce").fillna(0)
         # Fill absent paired values from the explicit input; never reinterpret ns.
         for col in count_columns:
             data[col] = counts if col == "ns" else [2 * count for count in counts]
@@ -237,6 +269,8 @@ class BeamSummary:
                 else:
                     beam.set_longitudinal_rebar_top(n1, d_b1, n2, d_b2, n3, d_b3, n4, d_b4)
             # Create a Node for each pair of beam and forces
+            if row.get("posicion", ""):
+                beam.set_skin_rebar(row["db_piel"], int(row["cant_piel_cara"]), row["posicion"])
             node = Node(section=beam, forces=forces)
 
             # Store the section and its corresponding forces

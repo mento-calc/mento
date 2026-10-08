@@ -12,6 +12,18 @@ from the release history and are summaries rather than complete lists.
 
 ## [Unreleased]
 
+### Piel seccional: entrada manual y estado
+
+- `set_skin_rebar(db_piel, cant_piel_cara, posicion)` define piel simétrica por
+  lateral en la zona `top`, `bottom` o `total`, respetando la cantidad ingresada.
+  Las tres columnas opcionales de BeamSummary se conservan en Excel.
+- `skin_verification_status` comprueba la piel diseñada o ingresada con los
+  criterios seccionales implementados. Necesitar piel deja de significar
+  «No cumple»: la propuesta válida cumple; datos faltantes o casos no soportados
+  quedan pendientes; incumplimientos concretos fallan. Piel sin crédito resistente.
+- Anclajes, empalmes y detalles longitudinales mantienen el alcance general
+  del programa; no agregan un pendiente automático a la verificación seccional.
+
 ### Decisiones de entrega
 
 - Estados independientes de resistencia y detallado modelado, visibles en

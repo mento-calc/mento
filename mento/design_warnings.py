@@ -189,6 +189,8 @@ class _Raw:
 #: The English wording of each code; the text is also the key of the Spanish
 #: catalog in :mod:`mento.i18n`. ``{face}`` is filled with the translated face.
 _MESSAGES: Dict[str, str] = {
+    "skin_detailing_pending": "Skin layout is not verified: the detailing geometry does not contain the specified skin bars.",
+    "skin_reinforcement_failed": "The supplied skin reinforcement does not comply: {reason}",
     "cage_detailing_pending": "The base cage cannot yet be verified: {reason}",
     "compression_detailing_en_pending": "EN compression-bar support (§9.2.1.2(3), 15φ) is not verified by Mento.",
     "compression_detailing_failed": "Required compression-bar support fails (§9.7.6.4.4): {reason}.",
@@ -819,9 +821,17 @@ def skin_warnings(beam: "RectangularBeam") -> List[_Raw]:
         result.extend(hook(beam, requirement))
     if requirement is None:
         return result
-    if requirement.status == "required" and base_feasible:
+    if requirement.failures:
+        result.append(
+            _Raw(
+                "skin_reinforcement_failed", {"reason": " ".join(translate(reason) for reason in requirement.failures)}
+            )
+        )
+    if (requirement.status == "required" or requirement.manual) and base_feasible and not requirement.failures:
         try:
-            beam.detailing_geometry
+            geometry = beam.detailing_geometry
+            if len(geometry.skin_bars) != 2 * requirement.n_per_side:
+                result.append(_Raw("skin_detailing_pending", {}))
         except CageDetailingError as error:
             code = "skin_detailing_infeasible" if error.reason == "skin" else "cage_detailing_infeasible"
             result.append(_Raw(code, {"reason": str(error)}))

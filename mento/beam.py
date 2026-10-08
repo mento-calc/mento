@@ -1,11 +1,23 @@
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any, Callable, Dict, FrozenSet, Iterable, Iterator, NamedTuple, Optional, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    FrozenSet,
+    Iterable,
+    Iterator,
+    Literal,
+    NamedTuple,
+    Optional,
+    Tuple,
+)
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
-    from mento.skin_reinforcement import SkinReinforcementRequirement
+    from mento.skin_reinforcement import ManualSkinRebar, SkinReinforcementRequirement
     from mento.skin_service import SkinServiceCase
 import math
 
@@ -305,6 +317,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         self._shear_checked = False  # Tracks if shear check or design has been done
         self._flexure_checked = False  # Tracks if shear check or design has been done
         self._skin_service_cases: tuple[SkinServiceCase, ...] = ()
+        self._manual_skin_rebar: Optional[ManualSkinRebar] = None
         self._skin_service_reference: tuple[Any, ...] | None = None
         # Depth of design calls in progress: their own bar placements keep the results.
         self._designing = 0
@@ -1888,6 +1901,62 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         from mento.skin_reinforcement import skin_requirement
 
         return skin_requirement(self)
+
+    def set_skin_rebar(
+        self, db_piel: Quantity, cant_piel_cara: int, posicion: Literal["top", "bottom", "total"] = "total"
+    ) -> None:
+        """Piel simétrica por lateral, con zona top, bottom o total.
+
+        Respeta la cantidad ingresada. No modifica la resistencia ni los
+        resultados resistentes; los chequeos de piel se leen del estado actual.
+        """
+        from mento.skin_reinforcement import ManualSkinRebar
+        from copy import deepcopy
+        from mento.design_results import GRID, transverse_layout
+
+        supplied = ManualSkinRebar(db_piel, cant_piel_cara, posicion)
+        if transverse_layout(self) == GRID:
+            raise ValueError("Manual skin reinforcement is supported for beam cages, not grid sections.")
+        assert self.settings is not None
+        if db_piel < self.settings.minimum_longitudinal_diameter:
+            raise ValueError("db_piel is below minimum_longitudinal_diameter.")
+        self._manual_skin_rebar = deepcopy(supplied)
+
+    @property
+    def skin_rebar(self) -> "ManualSkinRebar | None":
+        """Entrada manual defensiva; None significa diseño automático."""
+        from copy import deepcopy
+
+        return deepcopy(self._manual_skin_rebar)
+
+    def clear_skin_rebar(self) -> None:
+        """Volver a diseño automático con el diámetro de piel configurado."""
+        self._manual_skin_rebar = None
+
+    @property
+    def skin_verification_status(self) -> str:
+        """Estado seccional de la piel propuesta o ingresada, separado de resistencia."""
+        from mento.cage_detailing import CageDetailingError
+
+        try:
+            req = self.skin_reinforcement
+        except CageDetailingError:
+            return "pending"  # El requisito no pudo evaluarse; no aprobarlo silenciosamente.
+        if req.status == "not_applicable":
+            return "not_applicable"
+        if req.failures:
+            return "failed"
+        if req.status in ("pending", "unsupported"):
+            return "pending"
+        if req.status == "not_required" and not req.manual:
+            return "not_required"
+        try:
+            geometry = self.detailing_geometry
+            if len(geometry.skin_bars) != 2 * req.n_per_side:
+                return "pending"
+        except CageDetailingError as error:
+            return "failed" if error.reason == "skin" else "pending"
+        return "passed"
 
     def set_skin_service_cases(self, cases: Iterable["SkinServiceCase"]) -> None:
         """Attach independent SLS cases to this section's current reinforcement.

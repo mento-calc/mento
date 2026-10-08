@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 from mento.codes.en_1992_2004.equations.flexure import crack_control_min_reinforcement
 from mento.codes.en_1992_2004.equations.skin import adjusted_diameter, tabulated_skin_diameter
-from mento.skin_reinforcement import SkinDistributionReview, SkinReinforcementRequirement
+from mento.skin_reinforcement import SkinCheckZone, SkinDistributionReview, SkinReinforcementRequirement
 from mento.units import MPa, Quantity, mm
 
 if TYPE_CHECKING:
@@ -89,6 +89,8 @@ def requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
     assert isinstance(concrete, Concrete_EN_1992_2004)
     settings = beam.settings
     assert settings is not None
+    manual = beam.skin_rebar
+    skin_diameter = manual.db_piel if manual is not None else settings.skin_bar_diameter
     h = float(beam.height.to(mm).magnitude)
     width = float(beam.width.to(mm).magnitude)
     fy = float(beam.steel_bar.f_y.to(MPa).magnitude)
@@ -102,8 +104,8 @@ def requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
         return SkinReinforcementRequirement(
             "pending", threshold, faces, area_min_per_side=amin * mm**2, pending_reason="service"
         )
-    diameter = _length(settings.skin_bar_diameter, "skin_bar_diameter")
-    if settings.skin_bar_diameter < settings.minimum_longitudinal_diameter:
+    diameter = _length(skin_diameter, "skin_bar_diameter")
+    if skin_diameter < settings.minimum_longitudinal_diameter:
         raise CageDetailingError("skin_bar_diameter is below minimum_longitudinal_diameter.")
     wk = _length(settings.skin_crack_width, "skin_crack_width")
     bars = beam.section_geometry.bars
@@ -147,6 +149,20 @@ def requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
             raise CageDetailingError("The service neutral axis must lie above the tension layer toward compression.")
         zones.append((low, high))
     dmax = min(caps)
+    check_zones = tuple(
+        SkinCheckZone(case.tension_face, a * mm, b * mm, case.label) for case, (a, b) in zip(cases, zones)
+    )
+    if beam.skin_rebar is not None:
+        return SkinReinforcementRequirement(
+            "required",
+            threshold,
+            faces,
+            skin_diameter,
+            beam.c_c + beam._stirrup_d_b,
+            area_min_per_side=amin * mm**2,
+            diameter_max=dmax * mm,
+            check_zones=check_zones,
+        )
     if diameter > dmax + 1e-9:
         raise CageDetailingError("skin_bar_diameter exceeds Mento's conservative EN diameter-route proposal.")
     abar = math.pi * diameter**2 / 4
@@ -178,7 +194,7 @@ def requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
         "required",
         threshold,
         faces,
-        settings.skin_bar_diameter,
+        skin_diameter,
         beam.c_c + beam._stirrup_d_b,
         spacing=spacing * mm,
         n_per_side=count,
@@ -187,4 +203,5 @@ def requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
         area_per_side=count * abar * mm**2,
         diameter_max=dmax * mm,
         distribution_reviews=tuple(reviews),
+        check_zones=check_zones,
     )
