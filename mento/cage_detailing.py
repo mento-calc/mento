@@ -168,9 +168,9 @@ def build_cage_detailing(beam: RectangularBeam) -> SectionGeometry:
     assert settings is not None
     diameter = settings.mounting_bar_diameter
     if not math.isfinite(_mm(diameter)) or _mm(diameter) <= 0:
-        raise ValueError("mounting_bar_diameter must be positive and finite.")
+        raise CageDetailingError("mounting_bar_diameter must be positive and finite.", reason="mounting")
     if diameter < settings.minimum_longitudinal_diameter:
-        raise ValueError("mounting_bar_diameter is below minimum_longitudinal_diameter.")
+        raise CageDetailingError("mounting_bar_diameter is below minimum_longitudinal_diameter.", reason="mounting")
     d_st = _mm(geometry.stirrup_d_b)
     bend_hook = design_code(beam.concrete).stirrup_bend_inner_diameter
     if bend_hook is None:

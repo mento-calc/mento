@@ -178,8 +178,9 @@ def test_invalid_mounting_diameter_is_rejected(diameter: object) -> None:
     beam.settings.mounting_bar_diameter = diameter  # type: ignore[union-attr]
     with pytest.raises(ValueError, match="mounting_bar_diameter"):
         _ = beam.detailing_geometry
-    with pytest.raises(ValueError, match="mounting_bar_diameter"):
-        beam.plot()
+    with pytest.warns(UserWarning, match="mounting_bar_diameter"):
+        figure = beam.plot(show=False)
+    plt.close(figure)
 
 
 def test_no_stirrups_has_no_added_mounting_steel() -> None:
@@ -467,3 +468,17 @@ def test_unsupported_bend_export_marks_the_placeholder():
     exported = geometry.to_dict("mm")
     assert exported["bend_supported"] is False
     assert exported["stirrup_bend_inner_diameter"] == pytest.approx(128)
+
+
+@pytest.mark.parametrize("diameter", [0 * mm, -12 * mm, math.nan * mm, 6 * mm])
+def test_invalid_mounting_is_reported_without_breaking_verification(diameter):
+    beam = _beam()
+    beam.set_transverse_rebar(1, 8 * mm, 15 * cm)
+    beam.settings.mounting_bar_diameter = diameter
+    original = beam.section_geometry.to_dict("mm")
+    with pytest.raises(CageDetailingError, match="mounting_bar_diameter") as error:
+        beam.detailing_geometry
+    assert error.value.reason == "mounting"
+    assert beam.verification_status["detailing"] == "failed"
+    assert isinstance(beam.warnings, tuple)
+    assert beam.section_geometry.to_dict("mm") == original
