@@ -46,6 +46,7 @@ DEFAULT_LANGUAGE = "en"
 # "solicitaciones", "recubrimiento", "altura útil".
 
 ES: Dict[str, str] = {
+    "Supplied skin does not comply: {reason}": "Piel ingresada: NO CUMPLE: {reason}",
     "{placed} proposed legs; A_v uses {entered}. Compression support: {status}.": "{placed} ramas propuestas; A_v usa {entered}. Sujeción comprimida: {status}.",
     "passed": "cumple",
     "failed": "no cumple",

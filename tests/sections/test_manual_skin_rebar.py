@@ -45,8 +45,11 @@ def test_manual_defect_is_failed_without_redesign(position, count):
     assert b.skin_verification_status == "failed"
     assert b.verification_status["detailing"] == "failed"
     assert any(w.code in ("skin_reinforcement_failed", "skin_detailing_infeasible") for w in b.warnings)
-    with pytest.raises(CageDetailingError):
-        b.detailing_geometry
+    if b.skin_reinforcement.rows:
+        assert len(b.detailing_geometry.skin_bars) == 2 * count
+    else:
+        with pytest.raises(CageDetailingError):
+            b.detailing_geometry
 
 
 def test_auto_required_skin_is_not_a_failed_detail():
@@ -301,3 +304,30 @@ def test_unused_skin_columns_need_no_diameter_unit():
     table.loc[1, ["db_piel", "cant_piel_cara", "posicion"]] = [0, 0, ""]
     materials = beam()
     assert BeamSummary(materials.concrete, materials.steel_bar, table).nodes[0].section.skin_rebar is None
+
+
+def test_nonconforming_but_fitting_manual_skin_is_drawn():
+    b=beam()
+    b.check_flexure([Forces(M_y=100*kNm)])
+    b.set_skin_rebar(10*mm,2,"top")
+    assert b.skin_verification_status=="failed"
+    assert len(b.detailing_geometry.skin_bars)==4
+    try:
+        set_language("es")
+        fig=b.plot(show=False)
+        assert sum(p.get_gid()=="skin_bar" for p in fig.axes[0].patches)==4
+        assert any("NO CUMPLE" in t.get_text() for t in fig.axes[0].texts)
+        plt.close(fig)
+    finally:
+        set_language("en")
+
+
+def test_unsupported_en_axial_preserves_manual_geometry_but_not_approval():
+    b=en_beam()
+    b.check_flexure([Forces(M_y=100*kNm,N_x=50*kN)])
+    b.set_skin_rebar(10*mm,3,"total")
+    assert b.skin_verification_status=="pending"
+    assert len(b.detailing_geometry.skin_bars)==6
+    assert any(w.code=="skin_en_axial_unsupported" for w in b.warnings)
+    b.set_skin_rebar(10*mm,100,"total")
+    assert b.skin_verification_status=="failed"

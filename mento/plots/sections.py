@@ -862,6 +862,9 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
                 lines.append(translate("Informative review · crack width is not calculated"))
         try:
             pending_requirement = self.skin_reinforcement
+            if pending_requirement.manual and pending_requirement.failures:
+                lines.append(translate("Supplied skin does not comply: {reason}",
+                                       reason="; ".join(translate(reason) for reason in pending_requirement.failures)))
             skin_pending = pending_requirement.status == "pending"
             skin_unsupported = pending_requirement.status == "unsupported"
             service_pending = pending_requirement.pending_reason == "service"

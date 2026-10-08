@@ -188,7 +188,7 @@ def _manual_skin_requirement(beam: RectangularBeam, req: SkinReinforcementRequir
     """Comprobar la cantidad ingresada sin aumentarla ni cambiar su zona."""
     supplied = beam.skin_rebar
     assert supplied is not None
-    if req.status in ("unsupported", "not_applicable"):
+    if req.status == "not_applicable":
         return replace(req, manual=True)
     geometry = beam.section_geometry
     diameter = supplied.db_piel
@@ -303,7 +303,7 @@ def _add_skin_bars(beam: RectangularBeam, geometry: SectionGeometry) -> SectionG
     from mento.cage_detailing import CageDetailingError
 
     req = skin_requirement(beam)
-    if req.failures:
+    if req.failures and not req.rows:
         raise CageDetailingError(" ".join(req.failures), reason="skin")
     if req.status != "required" and not req.manual:
         return geometry
