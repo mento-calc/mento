@@ -51,3 +51,20 @@ def test_public_formatter_preserves_integer_odd_legs():
     assert format_transverse_rebar("stirrups", 3.5, "Ø10", "15", "12").startswith("7 legs")
     with pytest.raises(ValueError):
         format_transverse_rebar("stirrups", 3.2, "Ø10", "15", "12")
+
+
+@pytest.mark.parametrize("language", ["es", "en"])
+def test_word_names_entered_and_proposed_legs(monkeypatch, language):
+    from mento.results import DocumentBuilder
+
+    b = subject()
+    captured = {}
+    monkeypatch.setattr(DocumentBuilder, "save", lambda self, filename: captured.update(doc=self.doc))
+    try:
+        set_language(language)
+        b.shear_results_detailed_doc()
+        cells = [c.text for table in captured["doc"].tables for row in table.rows for c in row.cells]
+        assert any("A_v" in t and "3" in t and "4" in t for t in cells)
+        assert any(t in ("Pending", "Pendiente") for t in cells)
+    finally:
+        set_language("en")
