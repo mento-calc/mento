@@ -12,6 +12,22 @@ from the release history and are summaries rather than complete lists.
 
 ## [Unreleased]
 
+### Changed
+
+- **EN 1992-1-1 shear: the same A_sw,req with stirrups and without** (#170). Under
+  V_Rd,c no calculated shear reinforcement is needed (§6.2.1(3)), so a section with
+  stirrups is now asked for the minimum of §9.2.2 there, as a bare one already was,
+  and not for the truss of §6.2.3. Its V_Rd follows the same clause: under V_Rd,c it
+  is the larger of V_Rd,c and the truss its stirrups make, past it the truss alone,
+  capped by V_Rd,max. Pass or fail changes only where the minimum stirrups give less
+  than V_Rd,c, which happens in shallow, heavily reinforced beams: an EN 20x30, C20,
+  3Ø20 under 37 kN with eØ6/37 asked 1.49 cm²/m and reported DCR 0.974; it asks
+  1.43 and reports 0.955.
+- **EN 1992-1-1 shear report** (#170): a section with stirrups shows its V_Rd,c, which
+  was printed as 0, and a section without stirrups shows as V_Rd,max the strut limit of
+  Eq. (6.9) at 45° (§6.2.1(6)), the one `shear_exceeds_section_limit` reads, where it
+  repeated V_Rd,c. `VEd,1≤VRd,max` compares against that limit.
+
 ## [1.5.0] - 2026-10-05
 
 ### Added
