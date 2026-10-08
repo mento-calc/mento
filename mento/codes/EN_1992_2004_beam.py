@@ -170,57 +170,70 @@ def _calculate_max_shear_strength_EN_1992_2004(self: "RectangularBeam", st: ENSh
                 st.V_Rd_max = shear_eq.max_shear_resistance(alpha_cw, b_w, z, nu_1, f_cd, st.theta)
 
 
-def _calculate_required_shear_reinforcement_EN_1992_2004(self: "RectangularBeam", st: ENShearCheckState) -> None:
+def _required_shear_reinforcement_EN_1992_2004(st: ENShearCheckState, truss: ENShearCheckState) -> float:
+    """A_v,req of EN 1992-1-1 §6.2.1(3)-(5), the same whether the section has stirrups or not.
+
+    Where V_Ed <= V_Rd,c no calculated shear reinforcement is necessary
+    (§6.2.1(3)), and (4) asks for the minimum of §9.2.2 all the same -- zero
+    where the member may omit it, which the initialisation already settled in
+    ``A_v_min``. Where V_Ed > V_Rd,c, enough that V_Ed <= V_Rd (§6.2.1(5)):
+    the truss of §6.2.3 at the angle the demand asks for, read off ``truss``,
+    a state :func:`_calculate_max_shear_strength_EN_1992_2004` has filled.
+
+    The check used to ask a section with stirrups for that truss under
+    V_Rd,c too: an EN 20x30, C20, 3Ø20, under 37 kN (V_Rd,c = 38.76 kN) was
+    asked for 1.49 cm²/m with eØ6 and for the 1.43 of the minimum without.
     """
-    Calculate the required shear reinforcement area (A_v_req).
+    if st.V_Ed_2 <= st.V_Rd_c:
+        return st.A_v_min
+    return max(
+        shear_eq.required_shear_reinforcement(st.V_Ed_2, truss.z, st.f_ywd, truss.cot_theta),
+        st.A_v_min,
+    )
+
+
+def _calculate_required_shear_reinforcement_EN_1992_2004(self: "RectangularBeam", st: ENShearCheckState) -> None:
+    """A_v,req, V_Rd,s and V_Rd of a section with stirrups; ``st.V_Rd_c`` must be set.
+
+    V_Rd follows the clause that decides the demand. Under V_Rd,c the
+    concrete alone carries the shear (§6.2.1(3)), so the section resists the
+    larger of V_Rd,c and the truss its stirrups make; past V_Rd,c the
+    stirrups have to carry all of it (§6.2.1(5)), V_Rd = V_Rd,s, capped by
+    the strut, Eq. (6.8)/(6.9). Pass or fail is what taking the larger of the
+    two everywhere would give; the ratio past V_Rd,c is the truss's, which is
+    what has to grow.
     """
     sec = section_floats(self)
-    z = st.z
-    f_ywd = st.f_ywd
-    # Calculate the required shear reinforcement area
-    st.A_v_req = max(
-        # Required area based on shear force, as an area per unit length
-        shear_eq.required_shear_reinforcement(st.V_Ed_2, z, f_ywd, st.cot_theta),
-        st.A_v_min,  # Minimum required area
-    )
-    st.V_Rd_s = shear_eq.shear_reinforcement_resistance(sec.A_v, z, f_ywd, st.cot_theta)
+    st.A_v_req = _required_shear_reinforcement_EN_1992_2004(st, st)
+    st.V_Rd_s = shear_eq.shear_reinforcement_resistance(sec.A_v, st.z, st.f_ywd, st.cot_theta)
     st.V_s_req = st.V_Rd_s
-    # Eq. (6.8)/(6.9): adding stirrups cannot exceed the concrete-strut limit.
-    st.V_Rd = min(st.V_Rd_s, st.V_Rd_max)
+    truss = min(st.V_Rd_s, st.V_Rd_max)
+    st.V_Rd = max(st.V_Rd_c, truss) if st.V_Ed_2 <= st.V_Rd_c else truss
 
 
 def _stirrups_a_bare_section_needs_EN_1992_2004(self: "RectangularBeam", st: ENShearCheckState) -> None:
     """A_v,req, and the section limit, of a section that carries no stirrups.
 
-    EN 1992-1-1 §6.2.1(3): where V_Ed <= V_Rd,c no calculated shear
-    reinforcement is necessary, and (4) asks for the minimum of §9.2.2 all
-    the same -- zero where the member may omit it, which the initialisation
-    already settled in ``A_v_min``. §6.2.1(5): where V_Ed > V_Rd,c, enough
-    that V_Ed <= V_Rd, which is the truss of §6.2.3 at the angle the demand
-    asks for -- what the section will be checked with once it has stirrups,
-    and what ``stirrups_required`` has to quote. The check used to quote the
-    minimum whatever the shear, so a bare section under 300 kN was asked for
-    the same 2.4 cm²/m as one under 30 kN.
+    :func:`_required_shear_reinforcement_EN_1992_2004`, the same as a section
+    with stirrups: the truss it quotes past V_Rd,c is what the section will
+    be checked with once it has them, and what ``stirrups_required`` quotes.
 
     The strut limit of §6.2.1(6) does not depend on the stirrups either:
     a bare section that stays under V_Rd,max at 45° is short of stirrups,
-    not of concrete, so ``shear_exceeds_section_limit`` reads that limit and
-    not V_Rd,c, which is what it used to be handed.
+    not of concrete. It is what ``shear_exceeds_section_limit`` reads and
+    what the report's V_Rd,max row prints for a bare section, which used to
+    repeat V_Rd,c there -- a resistance, not the crushing limit of the strut.
 
-    The truss is read on a copy of the state: what the report prints for a
-    bare section -- no strut angle, V_Rd = V_Rd,c -- describes the section as
-    it is and stays as it is.
+    The truss is read on a copy of the state: the rest of what the report
+    prints for a bare section -- no strut angle, V_Rd = V_Rd,c -- describes
+    the section as it is and stays as it is.
     """
     truss = replace(st)
     _calculate_max_shear_strength_EN_1992_2004(self, truss)
     st.section_shear_limit = truss.section_shear_limit
-    if st.V_Ed_2 <= st.V_Rd_c:
-        st.A_v_req = st.A_v_min
-        return
-    st.A_v_req = max(
-        shear_eq.required_shear_reinforcement(st.V_Ed_2, truss.z, st.f_ywd, truss.cot_theta),
-        st.A_v_min,
-    )
+    st.V_Rd_max = truss.section_shear_limit
+    st.max_shear_ok = st.V_Ed_1 <= st.V_Rd_max
+    st.A_v_req = _required_shear_reinforcement_EN_1992_2004(st, truss)
 
 
 def _check_shear_EN_1992_2004(self: "RectangularBeam", force: Forces) -> ENShearCheckState:
@@ -250,11 +263,11 @@ def _check_shear_EN_1992_2004(self: "RectangularBeam", force: Forces) -> ENShear
         _stirrups_a_bare_section_needs_EN_1992_2004(self, st)
         # The capacity of the section as it is: the concrete alone.
         st.V_Rd = st.V_Rd_c
-        st.V_Rd_max = st.V_Rd
-        st.max_shear_ok = st.V_Ed_1 <= st.V_Rd_max
     else:
         # The provided stirrup area per unit length is what the section already
-        # carries; the setter computed it from the same geometry.
+        # carries; the setter computed it from the same geometry. V_Rd,c
+        # decides what it needs (§6.2.1(3)), as for a bare section.
+        st.V_Rd_c = _shear_without_rebar_EN_1992_2004(self, st)
         _calculate_max_shear_strength_EN_1992_2004(self, st)
         _calculate_required_shear_reinforcement_EN_1992_2004(self, st)
 
@@ -289,18 +302,19 @@ def _design_shear_EN_1992_2004(self: "RectangularBeam", force: Forces) -> None:
         st.f_cd_shear = self._f_cd_shear.to(MPa).magnitude
         st.f_cd = self._f_cd.to(MPa).magnitude
         _initialize_shear_variables_EN_1992_2004(self, st, force)
+        # V_Rd,c decides what the section needs (§6.2.1(3)), stirrups or not.
+        st.V_Rd_c = _shear_without_rebar_EN_1992_2004(self, st)
 
         if self._stirrups_optional:
             # §6.2.2(1): a member that needs no minimum stirrups needs none at all
             # while V_Ed stays within V_Rd,c. Sizing from the truss model regardless
             # would hand a slab a cage for a shear its concrete already carries.
-            st.V_Rd_c = _shear_without_rebar_EN_1992_2004(self, st)
             if st.V_Ed_2 <= st.V_Rd_c:
-                st.A_v_req = 0.0
+                # A_v,min is zero here, so this asks for no stirrups; it also
+                # sets the strut limit the report prints as V_Rd,max.
+                _stirrups_a_bare_section_needs_EN_1992_2004(self, st)
                 st.V_s_req = 0.0
                 st.V_Rd = st.V_Rd_c
-                st.V_Rd_max = st.V_Rd
-                st.max_shear_ok = st.V_Ed_1 <= st.V_Rd_max
                 apply_en_shear_state(self, st)
                 return None
 

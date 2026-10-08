@@ -5,10 +5,10 @@
 2  V101        neg      Top   1.23       4.32        0.0  5.15  -80.0   94.06    True   0.85
 
 ### check_shear
-  Label      Comb. Av,min Av,req     Av   NEd  VEd,1  VEd,2 VRd,c   VRd,s     VRd VRd,max VEd,1≤VRd,max VEd,2≤VRd    DCR
-0                   cm²/m  cm²/m  cm²/m    kN     kN     kN    kN      kN      kN      kN                               
-1  V101  1.2D+1.6L    1.6   3.35   3.47   0.0  150.0  150.0   0.0  155.15  155.15  255.55          True      True  0.967
-2  V101        neg    1.6   2.01   3.47  20.0   90.0   90.0   0.0  155.15  155.15  255.55          True      True   0.58
+  Label      Comb. Av,min Av,req     Av   NEd  VEd,1  VEd,2  VRd,c   VRd,s     VRd VRd,max VEd,1≤VRd,max VEd,2≤VRd    DCR
+0                   cm²/m  cm²/m  cm²/m    kN     kN     kN     kN      kN      kN      kN                               
+1  V101  1.2D+1.6L    1.6   3.35   3.47   0.0  150.0  150.0  51.61  155.15  155.15  255.55          True      True  0.967
+2  V101        neg    1.6   2.01   3.47  20.0   90.0   90.0  46.79  155.15  155.15  255.55          True      True   0.58
 
 ### flexure_results_detailed
 ===== RESULTADOS DETALLADOS DE FLEXIÓN DE VIGA =====
@@ -114,7 +114,7 @@ Cuantía de armadura longitudinal      ρl       0.0091
 Valor de k                            k          1.66
 Tensión axial                        σcd          0.0  MPa
 Ángulo de la biela de hormigón        Θ          21.8  deg
-Resistencia del hormigón            VRd,c         0.0  kN
+Resistencia del hormigón            VRd,c       51.61  kN
 Resistencia máxima al corte        VRd,max     255.55  kN
 Resistencia total al corte           VRd       155.15  kN
 Verificación de corte máximo                       ✅
@@ -211,7 +211,7 @@ Cuantía de armadura longitudinal | ρl | 0.0091 |
 Valor de k | k | 1.66 | 
 Tensión axial | σcd | 0.0 | MPa
 Ángulo de la biela de hormigón | Θ | 21.8 | deg
-Resistencia del hormigón | VRd,c | 0.0 | kN
+Resistencia del hormigón | VRd,c | 51.6 | kN
 Resistencia máxima al corte | VRd,max | 255.6 | kN
 Resistencia total al corte | VRd | 155.2 | kN
 Verificación de corte máximo |  | ✅ | 
