@@ -25,6 +25,7 @@ from mento.design_warnings import (
     combination_label,
     flexure_warnings,
     compression_detailing_warnings,
+    cage_detailing_warnings,
     shear_warnings,
     shortfall_warnings,
     spacing_warnings,
@@ -1897,6 +1898,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         raws = list(self._flexure_warnings) if self._flexure_checked else []
         raws += spacing_warnings(self)
         raws += compression_detailing_warnings(self)
+        raws += cage_detailing_warnings(self)
         raws += shortfall_warnings(self)
         raws += list(self._shear_warnings) if self._shear_checked else []
         return collect(raws)

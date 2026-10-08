@@ -480,5 +480,18 @@ def test_invalid_mounting_is_reported_without_breaking_verification(diameter):
         beam.detailing_geometry
     assert error.value.reason == "mounting"
     assert beam.verification_status["detailing"] == "failed"
-    assert isinstance(beam.warnings, tuple)
+    warning = next(w for w in beam.warnings if w.code == "cage_detailing_infeasible")
+    assert "mounting_bar_diameter" in warning.message
     assert beam.section_geometry.to_dict("mm") == original
+
+
+def test_out_of_table_bend_is_pending_with_explicit_diagnostic():
+    beam = _beam()
+    beam.set_longitudinal_rebar_bot(n1=6, d_b1=20 * mm)
+    beam.set_longitudinal_rebar_top(n1=6, d_b1=20 * mm)
+    beam.set_transverse_rebar(1, 40 * mm, 15 * cm)
+    warnings = beam.warnings
+    warning = next(w for w in warnings if w.code == "cage_detailing_pending")
+    assert warning.values["reason"]
+    assert not any(w.code == "cage_detailing_infeasible" for w in warnings)
+    assert beam.verification_status["detailing"] == "pending"
