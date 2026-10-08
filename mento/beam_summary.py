@@ -147,7 +147,7 @@ class BeamSummary:
         for col in count_columns:
             data[col] = counts if col == "ns" else [2 * count for count in counts]
         # Convert specific columns to int and others to float
-        columns_to_int = ["ns", "n_legs", "n1", "n2", "n3", "n4"]
+        columns_to_int = ["n_legs", "n1", "n2", "n3", "n4"]
         for col in columns_to_int:
             if col in data.columns:
                 data[col] = data[col].astype(int)
@@ -247,12 +247,16 @@ class BeamSummary:
                 c_c=c_c,
             )
             # Set transverse rebar (stirrups) for the beam
-            n_stirrups = _transverse_stirrup_count(row.get("ns"), row.get("n_legs"))
+            n_stirrups = (
+                _transverse_stirrup_count(None, int(row["n_legs"]))
+                if "n_legs" in row
+                else _transverse_stirrup_count(int(row["ns"]), None)
+            )
             d_b = row["dbs"]  # Diameter of rebar (mm)
             s_l = row["sl"]  # Spacing of stirrups (cm)
 
             if n_stirrups != 0:
-                beam.set_transverse_rebar(n_stirrups=n_stirrups, d_b=d_b, s_l=s_l)
+                beam.set_transverse_rebar(legs=int(2 * n_stirrups), d_b=d_b, s_l=s_l)
 
             # Set longitudinal rebar at the bottom if n1 is not 0
             n1 = row["n1"]
@@ -680,6 +684,15 @@ class BeamSummary:
             ],
             ignore_index=True,
         )
+        # Una única cantidad editable: las piezas cerradas no son ns=legs/2.
+        if "n_legs" in df_export.columns:
+            canonical = df_export["n_legs"].copy()
+        else:
+            canonical = df_export["ns"].copy()
+            canonical.iloc[1:] = pd.to_numeric(canonical.iloc[1:]) * 2
+        canonical.iloc[0] = ""
+        df_export = df_export.drop(columns=[col for col in ("ns", "n_legs", "legs") if col in df_export.columns])
+        df_export["legs"] = canonical
         df_export.to_excel(path, index=False)
         print(f"✅ Beam design exported to {path}")
 

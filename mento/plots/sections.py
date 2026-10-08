@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import math
 import warnings
-from typing import TYPE_CHECKING, Dict, List, Sequence, Tuple, cast
+from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Tuple, cast
 
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
@@ -30,7 +30,14 @@ from matplotlib.transforms import Bbox
 from mento.bar_sizes import bar_designation, is_us_customary
 from mento.cage_detailing import CageDetailingError
 from mento.codes.registry import design_code
-from mento.design_results import GRID, DesignNotRunError, format_transverse_rebar, placed_bars
+from mento.design_results import (
+    GRID,
+    DesignNotRunError,
+    ShearDesign,
+    TransverseReinforcement,
+    format_transverse_rebar,
+    placed_bars,
+)
 from mento.i18n import get_language, translate
 from mento.precompute import DISPLAY
 from mento.results import CUSTOM_COLORS
@@ -593,7 +600,7 @@ def _annotate_cage_text(ax: "Axes", lines: Sequence[str]) -> None:
         )
 
 
-def _cage_lines(self: "RectangularBeam") -> List[str]:
+def _cage_lines(self: "RectangularBeam", geometry: Optional[SectionGeometry] = None) -> List[str]:
     """The stirrup text of a beam: its notation on two lines and the cage, in the current language.
 
     The notation of the last shear check, with the limit the legs were held
@@ -601,12 +608,25 @@ def _cage_lines(self: "RectangularBeam") -> List[str]:
     """
     if self._stirrup_n == 0:
         return []
+    geometry = self.section_geometry if geometry is None else geometry
+    from dataclasses import replace
+
     transverse = self.reinforcement.transverse
+    source: ShearDesign | TransverseReinforcement
     try:
-        notation = self.shear_design.notation(separator="\n")
+        source = self.shear_design
     except DesignNotRunError:
-        notation = transverse.notation(separator="\n")
-    return [*notation.split("\n"), transverse.arrangement()]
+        source = transverse
+    # Mostrar la disposición real; la vista resistente sigue siendo la entrada.
+    notation = replace(source, n_stirrups=len(geometry.leg_x) / 2, s_w=geometry.s_w).notation(separator="\n")
+    lines = [*notation.split("\n"), geometry.arrangement()]
+    if len(geometry.leg_x) != transverse.n_legs:
+        lines.append(
+            f"{transverse.n_legs} ramas ingresadas; {len(geometry.leg_x)} dispuestas por sujeción"
+            if get_language() == "es"
+            else f"{transverse.n_legs} input legs; {len(geometry.leg_x)} placed for compression support"
+        )
+    return lines
 
 
 #: How far the dimension lines and their text sit off the section, in cm.
@@ -807,7 +827,7 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
     else:
         _plot_bars(ax, geometry)
         labels = _annotate_layers(ax, geometry)
-        lines = _cage_lines(self)
+        lines = _cage_lines(self, geometry)
         if geometry.mounting_bars:
             lines.append(
                 "Montaje en naranja · sin aporte resistente"

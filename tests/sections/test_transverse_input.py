@@ -66,7 +66,7 @@ def test_leg_input_matches_legacy_shear_and_geometry(concrete_type, diameter, sp
     assert new.shear_checks == old.shear_checks
 
 
-@pytest.mark.parametrize("legs,error", [(3, ValueError), (-2, ValueError), (4.5, TypeError), (True, TypeError)])
+@pytest.mark.parametrize("legs,error", [(1, ValueError), (-2, ValueError), (4.5, TypeError), (True, TypeError)])
 def test_bad_leg_input_keeps_previous_reinforcement(legs, error):
     b = beam()
     b.set_transverse_rebar(2, 8 * mm, 20 * cm)
@@ -109,14 +109,14 @@ def test_summary_design_and_excel_preserve_count_convention(tmp_path, convention
     path = tmp_path / "legs.xlsx"
     summary.export_design(str(path))
     saved = pd.read_excel(path)
-    assert list(saved.columns) == list(frame.columns)
+    assert list(saved.columns) == [col for col in frame.columns if col not in ("ns", "n_legs", "legs")] + ["legs"]
     rebuilt = BeamSummary(b.concrete, b.steel_bar, saved)
     assert rebuilt.nodes[0].section.reinforcement.transverse.n_legs == count
     summary.import_design(str(path))
     assert summary.nodes[0].section.reinforcement.transverse.n_legs == count
 
 
-@pytest.mark.parametrize("legs", [3, 4.5, -2, True, "typo"])
+@pytest.mark.parametrize("legs", [1, 4.5, -2, True, "typo"])
 def test_summary_rejects_invalid_counts_instead_of_coercing_them(legs):
     frame = table().rename(columns={"ns": "n_legs"})
     frame.loc[1, "n_legs"] = legs

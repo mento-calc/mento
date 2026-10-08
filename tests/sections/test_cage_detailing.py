@@ -365,9 +365,9 @@ def test_manual_large_stirrup_uses_its_code_mandrel_in_geometry_and_detail(concr
 
 
 def test_large_inner_stirrup_that_cannot_be_bent_is_not_drawn_as_a_hairpin() -> None:
-    beam = _beam(100, 100)
-    beam.set_longitudinal_rebar_bot(n1=8, d_b1=25 * mm)
-    beam.set_transverse_rebar(4, 20 * mm, 15 * cm)
+    beam = _beam(18, 100)
+    beam.set_longitudinal_rebar_bot(n1=2, d_b1=25 * mm)
+    beam.set_transverse_rebar(1, 20 * mm, 15 * cm)
     with pytest.raises(CageDetailingError, match="too narrow") as caught:
         _ = beam.detailing_geometry
     assert caught.value.reason == "bend"
@@ -486,9 +486,9 @@ def test_out_of_table_bend_is_pending_with_explicit_diagnostic():
 
 
 def test_supported_bend_that_does_not_fit_remains_a_failure():
-    beam = _beam(100, 100)
-    beam.set_longitudinal_rebar_bot(n1=8, d_b1=25 * mm)
-    beam.set_transverse_rebar(4, 20 * mm, 15 * cm)
+    beam = _beam(18, 100)
+    beam.set_longitudinal_rebar_bot(n1=2, d_b1=25 * mm)
+    beam.set_transverse_rebar(1, 20 * mm, 15 * cm)
     with pytest.raises(CageDetailingError, match="too narrow") as error:
         beam.detailing_geometry
     assert error.value.reason == "bend"

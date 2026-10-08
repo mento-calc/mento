@@ -38,7 +38,7 @@ class DesignNotRunError(RuntimeError):
     """Raised when results are read before a check or design has been run."""
 
 
-def _transverse_stirrup_count(n_stirrups: Optional[int], n_legs: Optional[int]) -> int:
+def _transverse_stirrup_count(n_stirrups: Optional[int], n_legs: Optional[int]) -> float:
     """Resolve legacy stirrup input and explicit legs without changing their meaning."""
     for name, value in (("n_stirrups", n_stirrups), ("n_legs", n_legs)):
         if value is not None:
@@ -47,11 +47,11 @@ def _transverse_stirrup_count(n_stirrups: Optional[int], n_legs: Optional[int]) 
             if value < 0:
                 raise ValueError(f"{name} must be non-negative.")
     if n_legs is not None:
-        if n_legs % 2:
-            raise ValueError("n_legs must be even: the current cage model uses two legs per stirrup.")
+        if n_legs == 1:
+            raise ValueError("legs/n_legs: At least two legs are needed for the perimeter stirrup.")
         if n_stirrups is not None and n_legs != 2 * n_stirrups:
             raise ValueError("n_legs must equal 2 * n_stirrups when both are provided.")
-        return int(n_legs // 2)
+        return n_legs / 2
     return 0 if n_stirrups is None else int(n_stirrups)
 
 
@@ -509,7 +509,7 @@ GRID = "grid"
 
 def format_transverse_rebar(
     layout: str,
-    n_stirrups: int,
+    n_stirrups: float,
     bar: str,
     s_l: str,
     s_w: str,
@@ -564,7 +564,7 @@ def _is_imperial_length(value: Quantity) -> bool:
 
 def transverse_notation(
     layout: str,
-    n_stirrups: int,
+    n_stirrups: float,
     d_b: Quantity,
     s_l: Quantity,
     s_w: Quantity,
@@ -610,7 +610,7 @@ def transverse_notation(
             translate(
                 "{n_legs} legs Ø{d_b}/{s_l}",
                 language,
-                n_legs=2 * n_stirrups,
+                n_legs=int(2 * n_stirrups),
                 d_b=d_shown.removeprefix("Ø"),
                 s_l=s_shown,
             )
@@ -630,7 +630,7 @@ def transverse_notation(
         bar_designation(d_b) if imperial else f"{d_b:.4g~P}",
         f"{s_l:.4g~P}",
         s_w_shown,
-        n_legs=2 * n_stirrups,
+        n_legs=int(2 * n_stirrups),
         s_max_w=max_shown,
         language=language,
         separator=separator,
@@ -639,24 +639,26 @@ def transverse_notation(
 
 
 def cage_legs(n_legs: int) -> Tuple[Tuple[Tuple[int, int], ...], Tuple[int, ...]]:
-    """Closed stirrup pairs only; odd legs and crossties are not modelled yet."""
-    if n_legs % 2:
-        raise ValueError("odd legs and individual crosstie anchorage are not modelled yet.")
-    if n_legs <= 0:
+    """Base seccional: un cerrado perimetral y las restantes patas abiertas.
+
+    El detallador agrega cerrados interiores cuando la sujeción por compresión
+    los necesita. Esta función, sin fuerzas ni barras, no acredita esa sujeción.
+    """
+    if isinstance(n_legs, bool) or not isinstance(n_legs, Integral):
+        raise TypeError("n_legs must be an integer.")
+    if n_legs < 0 or n_legs == 1:
+        raise ValueError("legs/n_legs: At least two legs are needed for the perimeter stirrup.")
+    if n_legs == 0:
         return (), ()
-    stirrups = [(0, n_legs - 1)]
-    inner = list(range(1, n_legs - 1))
-    stirrups += [(inner[i], inner[i + 1]) for i in range(0, len(inner) - 1, 2)]
-    crossties = (inner[-1],) if len(inner) % 2 else ()
-    return tuple(stirrups), crossties
+    return ((0, n_legs - 1),), tuple(range(1, n_legs - 1))
 
 
 def describe_stirrup_cage(n_legs: int, language: Optional[str] = None) -> str:
     """The cage of :func:`cage_legs` in words, for whoever details it.
 
-    ``perimeter stirrup + 4 inner stirrups`` for ten legs,
-    ``single perimeter stirrup`` for two, ``no stirrups`` for none; a crosstie
-    is not modelled: odd counts raise ``ValueError``. In the language of the moment unless
+    Base layout: one perimeter stirrup and the remaining open legs.
+    The force-dependent closed pieces are described by SectionGeometry.
+    A single leg cannot form the mandatory perimeter. In the language of the moment unless
     ``language`` says otherwise; an explicit code without a catalog raises
     ``ValueError``, as :func:`mento.set_language` does.
     """
@@ -675,16 +677,20 @@ def describe_stirrup_cage(n_legs: int, language: Optional[str] = None) -> str:
     elif inner > 1:
         parts.append(translate("{n} inner stirrups", language, n=inner))
     if crossties:
-        parts.append(translate("1 crosstie", language))
+        parts.append(
+            translate("1 open leg", language)
+            if len(crossties) == 1
+            else translate("{n} open legs", language, n=len(crossties))
+        )
     return " + ".join(parts)
 
 
-def _transverse_arrangement(layout: str, n_stirrups: int, language: Optional[str] = None) -> str:
+def _transverse_arrangement(layout: str, n_stirrups: float, language: Optional[str] = None) -> str:
     """The cage of a beam's stirrups in words; empty on a slab strip, which has no cage."""
     checked_language(language)
     if layout == GRID:
         return ""
-    return describe_stirrup_cage(2 * n_stirrups, language)
+    return describe_stirrup_cage(int(2 * n_stirrups), language)
 
 
 @dataclass(frozen=True)
@@ -697,7 +703,7 @@ class TransverseReinforcement:
     what ``layout`` distinguishes.
     """
 
-    n_stirrups: int
+    n_stirrups: float
     d_b: Quantity
     s_l: Quantity
     A_v: Quantity
@@ -707,7 +713,7 @@ class TransverseReinforcement:
     @property
     def n_legs(self) -> int:
         """Number of stirrup legs crossing the shear plane."""
-        return self.n_stirrups * 2
+        return int(self.n_stirrups * 2)
 
     def notation(
         self,
@@ -736,7 +742,7 @@ class TransverseReinforcement:
         )
 
     def arrangement(self, language: Optional[str] = None) -> str:
-        """How the legs are tied into a cage, in words (see :func:`describe_stirrup_cage`); empty on a slab."""
+        """Base cage layout without force-dependent closed pieces; read detailing_geometry.arrangement() for the actual pieces. Empty on a slab."""
         return _transverse_arrangement(self.layout, self.n_stirrups, language)
 
     def __str__(self) -> str:
@@ -889,7 +895,7 @@ class StirrupOption:
     applied layout carries its own, whatever it is.
     """
 
-    n_stirrups: int
+    n_stirrups: float
     d_b: Quantity
     s_l: Quantity
     s_w: Quantity
@@ -903,7 +909,7 @@ class StirrupOption:
     @property
     def n_legs(self) -> int:
         """Number of stirrup legs crossing the shear plane."""
-        return self.n_stirrups * 2
+        return int(self.n_stirrups * 2)
 
     def notation(
         self,
@@ -932,7 +938,7 @@ class StirrupOption:
         )
 
     def arrangement(self, language: Optional[str] = None) -> str:
-        """How the legs are tied into a cage, in words (see :func:`describe_stirrup_cage`); empty on a slab."""
+        """Base cage layout without force-dependent closed pieces; read detailing_geometry.arrangement() for the actual pieces. Empty on a slab."""
         return _transverse_arrangement(self.layout, self.n_stirrups, language)
 
     def __str__(self) -> str:
@@ -944,7 +950,7 @@ class StirrupOption:
 class ShearDesign:
     """Transverse reinforcement of the section.
 
-    ``n_stirrups`` counts the stirrups; ``n_legs`` counts the legs crossing
+    ``n_stirrups`` is the legacy two-leg equivalent, not the number of closed pieces; ``n_legs`` counts the legs crossing
     the shear plane, which is what enters the ``A_v`` calculation.
 
     ``A_v_req``, ``A_v_min`` and ``DCR`` are the envelope over every load
@@ -989,7 +995,7 @@ class ShearDesign:
     set them are on each :class:`ShearCheck`.
     """
 
-    n_stirrups: int
+    n_stirrups: float
     d_b: Quantity
     s_l: Quantity
     A_v: Quantity
@@ -1008,7 +1014,7 @@ class ShearDesign:
     @property
     def n_legs(self) -> int:
         """Number of stirrup legs crossing the shear plane."""
-        return self.n_stirrups * 2
+        return int(self.n_stirrups * 2)
 
     def notation(
         self,
@@ -1037,7 +1043,7 @@ class ShearDesign:
         )
 
     def arrangement(self, language: Optional[str] = None) -> str:
-        """How the legs are tied into a cage, in words (see :func:`describe_stirrup_cage`); empty on a slab."""
+        """Base cage layout without force-dependent closed pieces; read detailing_geometry.arrangement() for the actual pieces. Empty on a slab."""
         return _transverse_arrangement(self.layout, self.n_stirrups, language)
 
     def __str__(self) -> str:
@@ -1121,7 +1127,7 @@ def _current_shear_options(beam: RectangularBeam) -> Tuple[StirrupOption, ...]:
         return ()
     first = options[0]
     if (
-        first.n_stirrups != int(beam._stirrup_n)
+        first.n_stirrups != beam._stirrup_n
         or not math.isclose(first.d_b.to("mm").magnitude, beam._stirrup_d_b.to("mm").magnitude)
         or not math.isclose(first.s_l.to("mm").magnitude, beam._stirrup_s_l.to("mm").magnitude)
     ):
@@ -1141,7 +1147,7 @@ def build_reinforcement(beam: RectangularBeam) -> SectionReinforcement:
         bottom=FaceReinforcement(layers=_layers(beam, "b"), A_s=beam._A_s_bot),
         top=FaceReinforcement(layers=_layers(beam, "t"), A_s=beam._A_s_top),
         transverse=TransverseReinforcement(
-            n_stirrups=int(beam._stirrup_n),
+            n_stirrups=beam._stirrup_n,
             d_b=beam._stirrup_d_b,
             s_l=beam._stirrup_s_l,
             A_v=beam._A_v,
@@ -1183,7 +1189,7 @@ def build_shear_design(beam: RectangularBeam) -> ShearDesign:
     s_max_l_support = _compression_support_spacing(beam)
 
     return ShearDesign(
-        n_stirrups=int(beam._stirrup_n),
+        n_stirrups=beam._stirrup_n,
         d_b=beam._stirrup_d_b,
         s_l=beam._stirrup_s_l,
         A_v=A_v,

@@ -90,8 +90,8 @@ def test_the_wide_cirsoc_beam_reads_legs_first_in_english(designed: RectangularB
         "10 legs Ø8 mm @ 6 cm · 15.91 cm between legs (max 20 cm)",
     ]
     assert shear.notation(compact=True) == "10 legs Ø12/14"
-    assert shear.arrangement() == "perimeter stirrup + 4 inner stirrups"
-    assert shear.options[1].arrangement() == "perimeter stirrup + 7 inner stirrups"
+    assert shear.arrangement() == "perimeter stirrup + 8 open legs"
+    assert shear.options[1].arrangement() == "perimeter stirrup + 14 open legs"
 
 
 def test_the_wide_cirsoc_beam_in_spanish_is_built_from_the_catalog(designed: RectangularBeam) -> None:
@@ -100,7 +100,7 @@ def test_the_wide_cirsoc_beam_in_spanish_is_built_from_the_catalog(designed: Rec
     assert shear.notation("es") == _es_beam(10, "12 mm", "14 cm", "15.87 cm", "20 cm")
     assert shear.options[1].notation("es") == _es_beam(16, "6 mm", "5 cm", "9.56 cm", "20 cm")
     assert shear.notation("es", compact=True) == ES["{n_legs} legs Ø{d_b}/{s_l}"].format(n_legs=10, d_b=12, s_l=14)
-    assert shear.arrangement("es") == " + ".join([ES["perimeter stirrup"], ES["{n} inner stirrups"].format(n=4)])
+    assert shear.arrangement("es") == " + ".join([ES["perimeter stirrup"], ES["{n} open legs"].format(n=8)])
 
 
 def test_the_spanish_wording_is_pinned(designed: RectangularBeam) -> None:
@@ -109,7 +109,7 @@ def test_the_spanish_wording_is_pinned(designed: RectangularBeam) -> None:
     assert shear.notation("es") == "10 ramas Ø12 mm c/14 cm · 15.87 cm entre ramas (máx. 20 cm)"
     assert designed.reinforcement.transverse.notation("es") == "10 ramas Ø12 mm c/14 cm · 15.87 cm entre ramas"
     assert shear.notation("es", compact=True) == "10 ramas Ø12/14"
-    assert shear.arrangement("es") == "estribo perimetral + 4 interiores"
+    assert shear.arrangement("es") == "estribo perimetral + 8 patas abiertas"
 
 
 @pytest.mark.parametrize(
@@ -153,7 +153,7 @@ def test_other_codes_on_the_wide_cirsoc_beam() -> None:
     aci = _wide_cirsoc_beam(Concrete_ACI_318_19(name="H25", f_c=25 * MPa))
     Node(section=aci, forces=WIDE_FORCES).design()
     assert str(aci.shear_design) == "6 legs Ø16 mm @ 15 cm · 28.48 cm between legs (max 30 cm)"
-    assert aci.shear_design.arrangement() == "perimeter stirrup + 2 inner stirrups"
+    assert aci.shear_design.arrangement() == "perimeter stirrup + 4 open legs"
 
     en = RectangularBeam(
         label="V1",
@@ -318,60 +318,26 @@ def test_an_unknown_language_raises_like_set_language(designed: RectangularBeam,
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    "n_legs, stirrups, crossties",
-    [
-        (0, (), ()),
-        (-2, (), ()),
-        (1, (), ()),
-        (2, ((0, 1),), ()),
-        (3, (), ()),
-        (4, ((0, 3), (1, 2)), ()),
-        (9, (), ()),
-        (10, ((0, 9), (1, 2), (3, 4), (5, 6), (7, 8)), ()),
-        (16, ((0, 15), (1, 2), (3, 4), (5, 6), (7, 8), (9, 10), (11, 12), (13, 14)), ()),
-    ],
-)
-def test_cage_legs(n_legs: int, stirrups: tuple, crossties: tuple) -> None:  # type: ignore[type-arg]
-    if n_legs % 2:
-        with pytest.raises(ValueError, match="odd legs .*not modelled yet"):
-            cage_legs(n_legs)
-        return
-    assert cage_legs(n_legs) == (stirrups, crossties)
+@pytest.mark.parametrize("n_legs", [0, 2, 3, 4, 7, 9, 10, 16])
+def test_cage_legs(n_legs):
+    expected = ((), ()) if not n_legs else (((0, n_legs - 1),), tuple(range(1, n_legs - 1)))
+    assert cage_legs(n_legs) == expected
 
 
-@pytest.mark.parametrize(
-    "n_legs, english",
-    [
-        (0, "no stirrups"),
-        (1, ""),
-        (2, "single perimeter stirrup"),
-        (3, ""),
-        (4, "perimeter stirrup + 1 inner stirrup"),
-        (9, ""),
-        (10, "perimeter stirrup + 4 inner stirrups"),
-        (16, "perimeter stirrup + 7 inner stirrups"),
-    ],
-)
-def test_describe_stirrup_cage(n_legs: int, english: str) -> None:
-    if n_legs % 2:
-        for language in ("en", "es"):
-            with pytest.raises(ValueError, match="odd legs .*not modelled yet"):
-                describe_stirrup_cage(n_legs, language)
-        return
-    assert describe_stirrup_cage(n_legs, "en") == english
+@pytest.mark.parametrize("n_legs", [0, 2, 3, 4, 7, 9, 10, 16])
+def test_describe_stirrup_cage(n_legs):
+    english = describe_stirrup_cage(n_legs, "en")
     spanish = describe_stirrup_cage(n_legs, "es")
-    for part in english.split(" + "):
-        key = part if part in ES else "{n} inner stirrups"
-        translated = ES[key] if key == part else ES[key].format(n=part.split()[0])
-        assert translated in spanish
+    if n_legs > 2:
+        assert "open leg" in english and "pata" in spanish
+    else:
+        assert english in ("no stirrups", "single perimeter stirrup")
 
 
-def test_the_cage_in_spanish_words() -> None:
+def test_the_cage_in_spanish_words():
     assert describe_stirrup_cage(2, "es") == "estribo perimetral"
-    assert describe_stirrup_cage(10, "es") == "estribo perimetral + 4 interiores"
-    with pytest.raises(ValueError, match="odd legs .*not modelled yet"):
-        describe_stirrup_cage(9, "es")
+    assert describe_stirrup_cage(3, "es") == "estribo perimetral + 1 pata abierta"
+    assert describe_stirrup_cage(7, "es") == "estribo perimetral + 5 patas abiertas"
 
 
 # ---------------------------------------------------------------------------

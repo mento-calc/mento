@@ -2964,25 +2964,24 @@ def test_plot_annotates_stirrups_and_draws_two_legs() -> None:
     assert [text.get_text() for text in beam._ax.texts if text.get_gid() == "stirrup_text"][:3] == [
         "4 legs Ø6 mm @ 20 cm",
         f"{beam.reinforcement.transverse.s_w.to('cm'):.4g~P} between legs",
-        "perimeter stirrup + 1 inner stirrup",
+        "perimeter stirrup + 2 open legs",
     ]
 
     fancy_bboxes = [p for p in beam._ax.patches if isinstance(p, FancyBboxPatch)]
-    assert len(fancy_bboxes) == 4, "Two stirrups are drawn as two patches each (outer + inner line)."
+    assert len(fancy_bboxes) == 2, "One perimeter stirrup, plus two open legs."
 
     plt.close()
 
 
-def test_plot_three_stirrups_adds_two_inner_ones() -> None:
-    with pytest.warns(UserWarning, match="Cage detailing is not feasible"):
-        beam = _plot_beam(n_stirrups=3, d_b_stirrup=6 * mm, s_l=15 * cm)
+def test_plot_six_legs_use_one_perimeter_and_four_open_legs() -> None:
+    beam = _plot_beam(n_stirrups=3, d_b_stirrup=6 * mm, s_l=15 * cm)
 
     fancy_bboxes = [p for p in beam._ax.patches if isinstance(p, FancyBboxPatch)]
-    assert len(fancy_bboxes) == 6, "Outer stirrup plus two inner stirrups."
+    assert len(fancy_bboxes) == 2, "One perimeter closed stirrup."
 
     texts = [t.get_text() for t in beam._ax.texts]
     assert "6 legs Ø6 mm @ 15 cm" in texts
-    assert "perimeter stirrup + 2 inner stirrups" in texts
+    assert "perimeter stirrup + 4 open legs" in texts
 
     plt.close()
 
@@ -3005,6 +3004,8 @@ def _outer_patches(ax: object) -> list[FancyBboxPatch]:
 def _drawn_leg_gaps(ax: object, d_cm: float) -> list[float]:
     """Centre-to-centre gaps between every drawn leg, left to right."""
     legs = sorted(x for p in _outer_patches(ax) for x in (p.get_x() + d_cm / 2, p.get_x() + p.get_width() - d_cm / 2))
+    legs += [p.get_x() + d_cm / 2 for p in ax.patches if p.get_gid() == "crosstie"]  # type: ignore[attr-defined]
+    legs.sort()
     return [b - a for a, b in zip(legs, legs[1:])]
 
 
@@ -3021,7 +3022,7 @@ def test_plot_draws_every_stirrup_at_the_legs_the_check_assumes() -> None:
     geometry = beam.detailing_geometry
 
     fancy = [p for p in ax.patches if isinstance(p, FancyBboxPatch)]
-    assert len(fancy) == 10
+    assert len(fancy) == 2
     d = geometry.stirrup_d_b.to("cm").magnitude
     for outer, stirrup in zip(_outer_patches(ax), geometry.stirrups):
         assert outer.get_x() == pytest.approx(stirrup.x_left.to("cm").magnitude - d / 2)
@@ -3043,7 +3044,7 @@ def test_plot_draws_every_stirrup_at_the_legs_the_check_assumes() -> None:
     assert texts[-5:] == [
         "10 legs Ø12 mm @ 14 cm",
         "15.87 cm between legs (max 20 cm)",
-        "perimeter stirrup + 4 inner stirrups",
+        "perimeter stirrup + 8 open legs",
         "Orange: mounting steel · excluded from resistance",
         "Skin: 3Ø10 per side · s=23.1 cm · excluded from resistance",
     ]
@@ -3063,7 +3064,7 @@ def test_plot_of_the_aci_beam_keeps_its_legs_within_30_cm() -> None:
     Node(section=beam, forces=[Forces(label="C1", M_y=5000 * kNm, V_z=5000 * kN)]).design()
     beam.plot()
     fancy = [p for p in beam._ax.patches if isinstance(p, FancyBboxPatch)]
-    assert len(fancy) == 6
+    assert len(fancy) == 2
     gaps = _drawn_leg_gaps(beam._ax, beam._stirrup_d_b.to("cm").magnitude)
     assert max(gaps) == pytest.approx(28.48, abs=0.005)
     assert "28.48 cm between legs (max 30 cm)" in [t.get_text() for t in beam._ax.texts]
@@ -3089,7 +3090,7 @@ def test_plot_draws_a_crosstie_from_the_geometry() -> None:
     ties = [p for p in ax.patches if p.get_gid() == "crosstie"]
     assert len(ties) == 1
     assert ties[0].get_x() == pytest.approx(20 - 0.4)
-    assert len([line for line in ax.lines if line.get_gid() == "crosstie_hook"]) == 2
+    assert len([line for line in ax.lines if line.get_gid() == "crosstie_hook"]) == 0
     assert len([p for p in ax.patches if isinstance(p, FancyBboxPatch)]) == 2
     plt.close(fig)
     plt.close()
@@ -3112,7 +3113,7 @@ def test_plot_follows_the_language() -> None:
     mento.set_language("es")
     beam.plot()
     texts = [t.get_text() for t in beam._ax.texts]
-    assert "estribo perimetral + 4 interiores" in texts
+    assert "estribo perimetral + 8 patas abiertas" in texts
     assert "Montaje en naranja · sin aporte resistente" in texts
     assert texts[-1] == "Piel: 3Ø10 por lateral · s=23.1 cm · sin aporte resistente"
     assert any(text.startswith("10 ramas") for text in texts)

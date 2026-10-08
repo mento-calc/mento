@@ -70,7 +70,7 @@ def _transverse_rebar_rows(
         ["ns", "nl", "db", "s", "sw"],
         [
             self._stirrup_n,
-            2 * int(self._stirrup_n),
+            int(2 * self._stirrup_n),
             diameter,
             s_l,
             shown(self._leg_spacing_across_width(), "length", imperial, 2),

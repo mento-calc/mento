@@ -17,10 +17,10 @@ Each position is the check's own model, and a test ties each one to it:
   of the outermost pair, ``x_i = c_c + d_st/2 + i·s_w`` with
   ``s_w = (b - 2·c_c - d_st)/(n_legs - 1)`` -- the ``s_w`` the check holds to
   Table 9.7.6.2.2 (Expression (9.8N) under EN 1992-1-1).
-- **Cage**: one perimeter closed stirrup on the outermost legs and inner
-  closed stirrups on the 2nd and 3rd legs, the 4th and 5th, and so on --
-  indices ``(1, 2)``, ``(3, 4)``... in :attr:`ClosedStirrup.legs`, which
-  counts from 0; odd counts are rejected (see
+- **Cage**: one perimeter closed stirrup on the outermost legs and the
+  remaining open legs. The detailing layer adds inner closed stirrups
+  when required compression-bar support needs them. Leg indices in
+  :attr:`ClosedStirrup.legs` count from 0 (see
   :func:`mento.design_results.cage_legs`).
 - **Bars**: each layer spread evenly between the inner faces of the outer
   legs, one clear distance apart -- the clear spacing the check reads
@@ -101,16 +101,16 @@ class ClosedStirrup:
 class Crosstie:
     """Geometry container for a manually supplied tie.
 
-    Odd counts are rejected by the cage helpers. This container does not
-    imply that Mento generates or verifies an odd-leg cage or its anchorage.
-    ``hooks`` stores the supplied end angles in degrees.
+    The generated open leg has no modelled hooks and receives no credit
+    as compression-bar support. Explicit ``hooks`` angles are drawing data,
+    not an anchorage verification.
     """
 
     leg: int
     x: Quantity
     y_bottom: Quantity
     y_top: Quantity
-    hooks: Tuple[int, int] = (135, 90)
+    hooks: Tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -177,7 +177,27 @@ class SectionGeometry:
         checked_language(language)
         if self.layout == GRID:
             return ""
-        return describe_stirrup_cage(len(self.leg_x), language)
+        from mento.i18n import translate
+
+        if not self.stirrups:
+            return describe_stirrup_cage(0, language)
+        if len(self.stirrups) == 1 and not self.crossties:
+            return translate("single perimeter stirrup", language)
+        parts = [translate("perimeter stirrup", language)]
+        inner = len(self.stirrups) - 1
+        if inner:
+            parts.append(
+                translate("1 inner stirrup", language)
+                if inner == 1
+                else translate("{n} inner stirrups", language, n=inner)
+            )
+        if self.crossties:
+            parts.append(
+                translate("1 open leg", language)
+                if len(self.crossties) == 1
+                else translate("{n} open legs", language, n=len(self.crossties))
+            )
+        return " + ".join(parts)
 
     def bars_on(self, face: str, layer: Optional[int] = None) -> Tuple[BarPosition, ...]:
         """The bars on ``face`` (``"bottom"`` or ``"top"``), of one ``layer`` or of both."""
@@ -346,7 +366,7 @@ def build_section_geometry(beam: RectangularBeam) -> SectionGeometry:
     bars: List[BarPosition] = []
     if layout != GRID:
         if sec.stirrup_n > 0:
-            leg_x = [c_c + d_st / 2 + i * sec.stirrup_s_w for i in range(2 * sec.stirrup_n)]
+            leg_x = [c_c + d_st / 2 + i * sec.stirrup_s_w for i in range(int(2 * sec.stirrup_n))]
         bars = _beam_bars(beam, b, h, c_c + d_st, canonical, q)
 
     closed, ties = _cage(leg_x, y_bottom, y_top)
