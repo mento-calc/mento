@@ -82,7 +82,7 @@ What mento covers
    * - :doc:`Shear wall <../user_guide/shear_wall>`, in-plane shear
      - ✅
      - ✅
-     - in progress
+     - ✅
    * - Slab punching shear
      - in progress
      - in progress

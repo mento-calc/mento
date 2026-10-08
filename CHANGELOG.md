@@ -12,6 +12,33 @@ from the release history and are summaries rather than complete lists.
 
 ## [Unreleased]
 
+### Added
+
+- **Shear walls under EN 1992-1-1.** `ShearWall` with `Concrete_EN_1992_2004` checks and
+  designs in-plane shear: V_Rd,c of Eq. (6.2.a/b), the truss of the horizontal bars,
+  Eq. (6.8), and the strut, Eq. (6.9), as for an EN beam, written on d = 0.8 lw and
+  z = 0.9 d, with no end bars (Eq. (6.2.b) gives V_Rd,c). The mesh is held to the limits
+  of §9.6: the vertical between 0.002 and 0.04 A_c, the horizontal at least a quarter of it
+  and 0.001 A_c, and their spacing; past V_Rd,c the horizontal bars also carry ρw,min of
+  Eq. (9.5N). α_cw keeps only the reduction of §6.2.3(3) for a chord under high
+  compression. The design places the vertical mesh first, at its minimum, since the
+  horizontal minimum reads it, with the CIRSOC catalogue: Ø6 mm and up horizontal, Ø10 mm
+  and up vertical. Report tables in EN notation (A_sh, A_sv in cm²/m, V_Rd,c, V_Rd,s,
+  V_Rd,max), in English and Spanish; `ShearWallSummary` names its columns ρh, ρv,
+  VEd,max and VRd. Theory page `shear_wall_en_1992_2004` and two example notebooks.
+- `WallShearCheck.rho_l_max` and `WallShearDesign.rho_l_max`: the vertical maximum of the
+  wall's code, 0.04 under EN 1992-1-1, `None` under ACI 318-19 / CIRSOC 201-25, which state
+  none in Chapter 11.
+- **`mesh_ratio_above_max` warning**: a vertical mesh past that maximum.
+
+### Changed
+
+- The `mesh_spacing_exceeds_max` warning carries the clause its limit comes from in
+  `values["clause"]`, so an EN wall quotes §9.6.2(3) / §9.6.3(2). The ACI 318-19 and
+  CIRSOC 201-25 messages read as before.
+- The bar search of the wall mesh moved to `mento/codes/wall_mesh_design.py`, shared by the
+  codes; ACI 318-19 and CIRSOC 201-25 walls design the same mesh as before.
+
 ## [1.5.0] - 2026-10-05
 
 ### Added

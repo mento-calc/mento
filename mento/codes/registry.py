@@ -127,6 +127,17 @@ class DesignCode:
     min_shear_reinforcement_coefficient: Callable[..., Any] | None = None
     #: Stress divisor in alpha_c under net axial tension, Eq. (11.5.4.4).
     wall_axial_tension_divisor: Callable[..., Any] | None = None
+    #: The clause each direction of a wall mesh takes its largest spacing
+    #: from, as the spacing warning quotes it: ``{"h": ..., "v": ...}``.
+    #: ACI 318-19 / CIRSOC 201-25 §11.7.3.1 and §11.7.2.1, with the lw/5 and
+    #: lw/3 that enter where shear reinforcement is required; EN 1992-1-1
+    #: §9.6.3(2) and §9.6.2(3). Text, not a calculation: the limits
+    #: themselves come with the check.
+    wall_mesh_spacing_clauses: Dict[str, str] = field(default_factory=dict)
+    #: What this code calls the columns of a multi-wall summary, as
+    #: ``summary_columns`` does for beams. Keys: rho_h, rho_v (the ratios of
+    #: the mesh), shear_demand, shear_capacity.
+    wall_summary_columns: Dict[str, str] = field(default_factory=dict)
     #: Largest centre-to-centre spacing this code allows between the flexural
     #: bars of a slab -- ACI 318-19 §7.7.2.3 / CIRSOC 201-25 art. 7.7.2.3, which
     #: differ in their absolute term, 450 mm (18 in.) against 300 mm, and so

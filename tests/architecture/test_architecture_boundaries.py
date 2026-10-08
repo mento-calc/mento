@@ -339,12 +339,12 @@ def test_registering_the_same_code_twice_is_refused() -> None:
 
 
 def test_a_code_without_a_hook_names_itself() -> None:
-    """EN has no shear wall check; the error should say which code and which hook."""
+    """EN has no punching design yet; the error should say which code and which hook."""
     from mento.codes.registry import design_code
 
     en = design_code(Concrete_EN_1992_2004(name="C25", f_c=25 * MPa))
-    with pytest.raises(NotImplementedError, match="check shear wall is not implemented.*EN 1992-2004"):
-        en.requires("check_shear_wall")
+    with pytest.raises(NotImplementedError, match="design punching is not implemented.*EN 1992-2004"):
+        en.requires("design_punching")
 
 
 def test_a_code_registered_without_report_tables_says_so() -> None:

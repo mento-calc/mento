@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from mento.codes.check_state import apply_en_flexure_state, apply_en_shear_state
+from mento.codes.check_state import apply_en_flexure_state, apply_en_shear_state, apply_en_wall_shear_state
 from mento.codes.EN_1992_2004_beam import (
     _check_flexure_EN_1992_2004,
     _check_shear_EN_1992_2004,
@@ -13,6 +13,7 @@ from mento.codes.EN_1992_2004_beam import (
     _flexure_admissible_EN_1992_2004,
 )
 from mento.codes.EN_1992_2004_punching import check_punching_EN_1992_2004
+from mento.codes.EN_1992_2004_wall import _check_shear_EN_1992_2004_wall, _design_shear_EN_1992_2004_wall
 from mento.codes.registry import DesignCode, register
 from mento.material import Concrete_EN_1992_2004
 from mento.units import cm, kN, kNm, mm, MPa
@@ -210,7 +211,12 @@ EN_1992_2004 = register(
         transverse_rebar=_transverse_rebar,
         longitudinal_rebar=_longitudinal_rebar,
         initialize_attributes=_initialize_attributes,
-        # EN shear walls are not implemented; requires() names the code.
+        # In-plane wall shear, §6.2 with the detailing of §9.6.
+        check_shear_wall=_check_shear_EN_1992_2004_wall,
+        apply_wall_shear_state=apply_en_wall_shear_state,
+        design_shear_wall=_design_shear_EN_1992_2004_wall,
+        wall_mesh_spacing_clauses={"h": "§9.6.3(2)", "v": "§9.6.2(3)"},
+        wall_summary_columns={"rho_h": "ρh", "rho_v": "ρv", "shear_demand": "VEd,max", "shear_capacity": "VRd"},
         check_punching=check_punching_EN_1992_2004,
         flexure_symbols=_FLEXURE_SYMBOLS,
         units_row_shear=_UNITS_ROW_SHEAR,

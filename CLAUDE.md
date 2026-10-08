@@ -113,12 +113,14 @@ mento/
     ├── registry.py               DesignCode dataclass and the registered codes — every element dispatches through it
     ├── check_state.py            Check states held off the element; the report path copies them back
     ├── flexure_design.py         Flexure design engine shared by the codes (private)
+    ├── wall_mesh_design.py       Wall mesh bar search shared by the codes (private)
     ├── aci_318_19/               code.py (registry entry) + equations/{flexure,shear,wall,punching}.py — floats only
-    ├── en_1992_2004/             code.py + equations/
+    ├── en_1992_2004/             code.py + equations/{flexure,shear,wall,punching}.py
     ├── ACI_318_19_beam.py        Beam shear/flexure checks and design (functions typed `self: RectangularBeam`)
     ├── ACI_318_19_wall.py        Wall shear per ACI 318-19
     ├── ACI_318_19_punching.py    Punching checker — preconditions enforced, equations pending (Phase 2)
     ├── EN_1992_2004_beam.py      Beam shear/flexure per EN 1992-2004
+    ├── EN_1992_2004_wall.py      Wall shear per EN 1992-1-1 §6.2 + §9.6 (d = 0.8 lw, vertical mesh designed first)
     └── EN_1992_2004_punching.py  Punching checker — equations pending (Phase 5)
 ```
 
@@ -131,10 +133,10 @@ tests/
 ├── conftest.py      Shared fixtures (materials, the beam examples of test_beam and validation/) + Agg backend
 ├── helpers.py       Pint adapters for the float-only ACI flexure functions (test_beam and validation/)
 ├── architecture/    Layer rules, published_example sources and placement, doc-cited tests, public API
-├── equations/       Float-only clause functions (ACI flexure / shear / wall, EN)
+├── equations/       Float-only clause functions (ACI flexure / shear / wall, EN, EN wall)
 ├── materials/       material, rebar, units, settings, forces
 ├── sections/        section, rectangular, node
-├── elements/        beam, slab, footing, shear_wall, punching
+├── elements/        beam, slab, footing, shear_wall (ACI), shear_wall_en, punching
 ├── design/          design_results, design_options, design_warnings, flexure_design_properties, ...
 ├── reports/         results, headings, table_style, i18n, beam_summary, shear_wall_summary
 └── validation/      ONLY the tests marked published_example: CRSI guide, CSI/ETABS verification, ETABS runs, Concrete Centre, eurocodeapplied
