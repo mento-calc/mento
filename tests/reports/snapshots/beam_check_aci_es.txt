@@ -93,7 +93,6 @@ Corte                             Vu          120  kN
 
 Resistencia de la armadura de corte                                Variable     Valor  Unidad
 ----------------------------------------------------------------  ----------  -------  --------
-Número de estribos                                                    ns            1
 Número de ramas                                                       nl            2
 Diámetro del estribo                                                  db            6  mm
 Separación de estribos                                                s            40  cm
@@ -128,8 +127,8 @@ Resistencia total al corte                 ØVn         78.5  kN
 Verificación de corte máximo                             ✅
 Factor de Utilización                      DCR         1.53  ❌ 
 
-Verificación                     Estado
-------------------------------  ---------
+Verificación                     Estado      Notas de detallado
+------------------------------  ---------  --------------------
 Resistencia                     No cumple
 Detallado (chequeos modelados)  No cumple 
 
@@ -212,7 +211,6 @@ Armadura mínima de corte | cm²/m | 1.41 | 1.67 |  | ❌
 Diámetro mínimo de barra | mm | 6.0 |  |  | ✅
 Verificaciones de resistencia
 Resistencia de la armadura de corte | Variable | Valor | Unidad
-Número de estribos | ns | 1 | 
 Número de ramas | nl | 2 | 
 Diámetro del estribo | db | 6 | mm
 Separación de estribos | s | 40 | cm
@@ -238,9 +236,9 @@ Resistencia total al corte | ØVn | 78.5 | kN
 Verificación de corte máximo |  | ✅ | 
 Factor de Utilización | DCR | 1.53 | ❌
 Resistencia y detallado
-Verificación | Estado
-Resistencia | No cumple
-Detallado (chequeos modelados) | No cumple
+Verificación | Estado | Notas de detallado
+Resistencia | No cumple | 
+Detallado (chequeos modelados) | No cumple | 
 
 ### results
 Beam V102, $b$=20.00 cm, $h$=50.00 cm, $c_{c}$=2.50 cm,                         Concrete H25, Rebar ADN 420.

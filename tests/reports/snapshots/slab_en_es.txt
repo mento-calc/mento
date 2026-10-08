@@ -120,8 +120,8 @@ Resistencia total al corte           VRd        86.79  kN
 Verificación de corte máximo                       ✅
 Factor de Utilización                DCR        0.691  ✅ 
 
-Verificación                              Estado
-------------------------------  ---------------------------
+Verificación                              Estado               Notas de detallado
+------------------------------  ---------------------------  --------------------
 Resistencia                     Cumple (chequeos modelados)
 Detallado (chequeos modelados)  Cumple (chequeos modelados) 
 
@@ -222,9 +222,9 @@ Resistencia total al corte | VRd | 86.8 | kN
 Verificación de corte máximo |  | ✅ | 
 Factor de Utilización | DCR | 0.69 | ✅
 Resistencia y detallado
-Verificación | Estado
-Resistencia | Cumple (chequeos modelados)
-Detallado (chequeos modelados) | Cumple (chequeos modelados)
+Verificación | Estado | Notas de detallado
+Resistencia | Cumple (chequeos modelados) | 
+Detallado (chequeos modelados) | Cumple (chequeos modelados) | 
 
 ### results
 Slab L1, $b$=100.00 cm, $h$=20.00 cm, $c_{c}$=2.50 cm,                         Concrete C25/30, Rebar B500S.

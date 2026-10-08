@@ -93,7 +93,6 @@ Shear                                Vu          120  kN
 
 Shear reinforcement strength                             Variable     Value  Unit
 ------------------------------------------------------  ----------  -------  ------
-Number of stirrups                                          ns            1
 Number of legs                                              nl            2
 Stirrup diameter                                            db            6  mm
 Stirrup spacing                                             s            40  cm
@@ -128,8 +127,8 @@ Total shear strength                 ØVn         78.5  kN
 Max shear check                                    ✅
 Demand Capacity Ratio                DCR         1.53  ❌ 
 
-Verification                  Status
----------------------------  --------
+Verification                  Status     Detailing notes
+---------------------------  --------  -----------------
 Resistance                     Fail
 Detailing (modelled checks)    Fail 
 
@@ -212,7 +211,6 @@ Minimum shear reinforcement | cm²/m | 1.41 | 1.67 |  | ❌
 Minimum rebar diameter | mm | 6.0 |  |  | ✅
 Strength Checks
 Shear reinforcement strength | Variable | Value | Unit
-Number of stirrups | ns | 1 | 
 Number of legs | nl | 2 | 
 Stirrup diameter | db | 6 | mm
 Stirrup spacing | s | 40 | cm
@@ -238,9 +236,9 @@ Total shear strength | ØVn | 78.5 | kN
 Max shear check |  | ✅ | 
 Demand Capacity Ratio | DCR | 1.53 | ❌
 Resistance and detailing
-Verification | Status
-Resistance | Fail
-Detailing (modelled checks) | Fail
+Verification | Status | Detailing notes
+Resistance | Fail | 
+Detailing (modelled checks) | Fail | 
 
 ### results
 Beam V102, $b$=20.00 cm, $h$=50.00 cm, $c_{c}$=2.50 cm,                         Concrete H25, Rebar ADN 420.

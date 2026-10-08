@@ -93,7 +93,6 @@ Corte                             Vu          150  kN
 
 Resistencia de la armadura de corte                                Variable     Valor  Unidad
 ----------------------------------------------------------------  ----------  -------  --------
-Número de estribos                                                    ns            1
 Número de ramas                                                       nl            2
 Diámetro del estribo                                                  db            8  mm
 Separación de estribos                                                s            15  cm
@@ -128,8 +127,8 @@ Resistencia total al corte                 ØVn       154.91  kN
 Verificación de corte máximo                             ✅
 Factor de Utilización                      DCR         0.97  ✅ 
 
-Verificación                              Estado
-------------------------------  ---------------------------
+Verificación                              Estado               Notas de detallado
+------------------------------  ---------------------------  --------------------
 Resistencia                     Cumple (chequeos modelados)
 Detallado (chequeos modelados)  Cumple (chequeos modelados) 
 
@@ -212,7 +211,6 @@ Armadura mínima de corte | cm²/m | 6.7 | 1.67 |  | ✅
 Diámetro mínimo de barra | mm | 8.0 |  |  | ✅
 Verificaciones de resistencia
 Resistencia de la armadura de corte | Variable | Valor | Unidad
-Número de estribos | ns | 1 | 
 Número de ramas | nl | 2 | 
 Diámetro del estribo | db | 8 | mm
 Separación de estribos | s | 15 | cm
@@ -238,9 +236,9 @@ Resistencia total al corte | ØVn | 154.9 | kN
 Verificación de corte máximo |  | ✅ | 
 Factor de Utilización | DCR | 0.97 | ✅
 Resistencia y detallado
-Verificación | Estado
-Resistencia | Cumple (chequeos modelados)
-Detallado (chequeos modelados) | Cumple (chequeos modelados)
+Verificación | Estado | Notas de detallado
+Resistencia | Cumple (chequeos modelados) | 
+Detallado (chequeos modelados) | Cumple (chequeos modelados) | 
 
 ### results
 Beam V101, $b$=20.00 cm, $h$=50.00 cm, $c_{c}$=2.50 cm,                         Concrete H25, Rebar ADN 420.

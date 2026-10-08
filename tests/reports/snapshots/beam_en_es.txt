@@ -93,7 +93,6 @@ Corte                           VEd,2         150  kN
 
 Resistencia de la armadura de corte                                        Variable     Valor  Unidad
 ------------------------------------------------------------------------  ----------  -------  --------
-Número de estribos                                                            ns            1
 Número de ramas                                                               nl            2
 Diámetro del estribo                                                          db            8  mm
 Separación de estribos                                                        s            29  cm
@@ -124,8 +123,8 @@ Resistencia total al corte           VRd       155.15  kN
 Verificación de corte máximo                       ✅
 Factor de Utilización                DCR        0.967  ✅ 
 
-Verificación                              Estado
-------------------------------  ---------------------------
+Verificación                              Estado               Notas de detallado
+------------------------------  ---------------------------  --------------------
 Resistencia                     Cumple (chequeos modelados)
 Detallado (chequeos modelados)           Pendiente 
 
@@ -207,7 +206,6 @@ Separación de ramas en el ancho (§9.2.2(8)) | cm | 14.2 |  | 34.31 | ✅
 Armadura mínima de corte | cm²/m | 3.47 | 1.6 |  | ✅
 Verificaciones de resistencia
 Resistencia de la armadura de corte | Variable | Valor | Unidad
-Número de estribos | ns | 1 | 
 Número de ramas | nl | 2 | 
 Diámetro del estribo | db | 8 | mm
 Separación de estribos | s | 29 | cm
@@ -230,9 +228,9 @@ Resistencia total al corte | VRd | 155.2 | kN
 Verificación de corte máximo |  | ✅ | 
 Factor de Utilización | DCR | 0.97 | ✅
 Resistencia y detallado
-Verificación | Estado
-Resistencia | Cumple (chequeos modelados)
-Detallado (chequeos modelados) | Pendiente
+Verificación | Estado | Notas de detallado
+Resistencia | Cumple (chequeos modelados) | 
+Detallado (chequeos modelados) | Pendiente | 
 
 ### results
 Beam V101, $b$=20.00 cm, $h$=50.00 cm, $c_{c}$=2.50 cm,                         Concrete C25/30, Rebar B500S.
@@ -264,4 +262,5 @@ compression_detailing_en_pending: Mento no verifica la sujeción de barras compr
 2 ramas Ø8 mm c/29 cm
 14.2 cm entre ramas (máx. 34.31 cm)
 estribo perimetral
-Arriostramiento de barras requeridas por compresión: pendiente
+Arriostramiento de barras requeridas por compresión:
+pendiente

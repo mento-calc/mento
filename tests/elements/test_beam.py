@@ -761,7 +761,7 @@ def test_wide_cirsoc_beam_takes_five_stirrups_for_the_across_width_limit() -> No
     assert threshold == pytest.approx(3568.95, abs=0.01)
     assert shear.DCR == pytest.approx(0.9904, abs=1e-4)
     # Strength passes; the deep beam still requires supplementary web steel.
-    assert tuple(w.code for w in node.warnings) == ("skin_reinforcement_required",)
+    assert tuple(w.code for w in node.warnings) == ("open_leg_anchorage_outside_model", "skin_reinforcement_required")
 
 
 def test_check_state_records_the_row_of_table_9_7_6_2_2() -> None:
@@ -3041,7 +3041,7 @@ def test_plot_draws_every_stirrup_at_the_legs_the_check_assumes() -> None:
     assert [c.get_center()[1] for c in circles] == pytest.approx([b.y.to("cm").magnitude for b in all_bars])
 
     texts = [t.get_text() for t in ax.texts]
-    assert texts[-5:] == [
+    assert [t for t in texts if not t.startswith("Open-leg")][-5:] == [
         "10 legs Ø12 mm @ 14 cm",
         "15.87 cm between legs (max 20 cm)",
         "perimeter stirrup + 8 open legs",
@@ -3167,7 +3167,7 @@ def test_plot_text_of_a_flat_beam_does_not_overlap() -> None:
     # The stirrup text reads under the section.
     section_bottom = beam._ax.transData.transform((0.0, 0.0))[1]
     stirrup_lines = [t for t in beam._ax.texts if t.get_gid() == "stirrup_text"]
-    assert len(stirrup_lines) == 4
+    assert len(stirrup_lines) == 5
     assert stirrup_lines[-1].get_text() == "Tension-bar spacing pending · no flexure verification"
     assert all(t.get_window_extent().y1 < section_bottom for t in stirrup_lines)
     # A label with room stays at its layer: the top layer's is at the middle of its bars.

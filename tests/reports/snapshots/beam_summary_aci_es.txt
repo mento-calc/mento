@@ -122,7 +122,6 @@ Armadura mínima de corte | cm²/m | 7.14 | 0.0 |  | ✅
 Diámetro mínimo de barra | mm | 10.0 |  |  | ✅
 Verificaciones de resistencia
 Resistencia de la armadura de corte | Variable | Valor | Unidad
-Número de estribos | ns | 1 | 
 Número de ramas | nl | 2 | 
 Diámetro del estribo | db | 10 | mm
 Separación de estribos | s | 22 | cm
@@ -149,10 +148,10 @@ Verificación de corte máximo |  | ✅ |
 Factor de Utilización | DCR | 0.12 | ✅
 Resumen - Todas las vigas
 Resistencia y detallado
-Etiqueta | Resistencia | Detallado (chequeos modelados)
-V101 | Cumple (chequeos modelados) | Cumple (chequeos modelados)
-V102 | Cumple (chequeos modelados) | Cumple (chequeos modelados)
-V103 | Cumple (chequeos modelados) | Cumple (chequeos modelados)
+Etiqueta | Resistencia | Detallado (chequeos modelados) | Notas de detallado
+V101 | Cumple (chequeos modelados) | Cumple (chequeos modelados) | 
+V102 | Cumple (chequeos modelados) | Cumple (chequeos modelados) | 
+V103 | Cumple (chequeos modelados) | Cumple (chequeos modelados) | 
 Datos de las vigas
 Etiqueta | b | h | cc | As,bot | As,top | Av
  | cm | cm | mm |  |  | 

@@ -135,7 +135,7 @@ def test_plot_labels_required_compression_support_without_mutating_strength():
     before = b.reinforcement
     fig = b.plot(show=False)
     assert b.compression_detailing.status == "passed"
-    assert any("placed for compression support" in t.get_text() for t in fig.axes[0].texts)
+    assert any("proposed legs; A_v uses" in t.get_text() for t in fig.axes[0].texts)
     assert b.reinforcement == before
     plt.close(fig)
 

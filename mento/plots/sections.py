@@ -19,6 +19,7 @@ gives no bars, keeps the drawing it always had.
 from __future__ import annotations
 
 import math
+import textwrap
 import warnings
 from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Tuple, cast
 
@@ -556,7 +557,7 @@ def _fit_texts(ax: "Axes", labels: Sequence[Tuple["Text", float]] = (), margin_p
     shrinks the scale, so a few rounds settle it. The drawing then fits the
     figure at its default size, with no ``bbox_inches="tight"`` needed.
     """
-    for _ in range(12):
+    for _ in range(32):
         ax.apply_aspect()
         _separate_labels(ax, labels)
         extents = [text.get_window_extent() for text in ax.texts if text.get_text()]
@@ -586,18 +587,21 @@ def _annotate_cage_text(ax: "Axes", lines: Sequence[str]) -> None:
     the layer labels on its right, however shallow the section is; the
     limits of the drawing are then widened to take them (:func:`_fit_texts`).
     """
-    y_anchor = -_TEXT_OFFSET_CM
-    for i, line in enumerate(lines):
+    y_anchor = 0.0
+    offset = 34.0
+    for line in lines:
+        line = textwrap.fill(line, width=58, break_long_words=False)
         ax.annotate(
             line,
             xy=(0.0, y_anchor),
-            xytext=(0, -_LINE_PT * (i + 1)),
+            xytext=(0, -offset),
             textcoords="offset points",
             ha="left",
             va="top",
             color=CUSTOM_COLORS["dark_gray"],
             gid="stirrup_text",
         )
+        offset += _LINE_PT * (line.count("\n") + 1) + 2.0
 
 
 def _cage_lines(self: "RectangularBeam", geometry: Optional[SectionGeometry] = None) -> List[str]:
@@ -642,7 +646,6 @@ _TEXT_OFFSET_CM = _DIM_OFFSET_CM + 2
 def _dimensions(self: "RectangularBeam", width_cm: float, height_cm: float) -> None:
     """The width and height of the section, with their arrows."""
     dim_offset = _DIM_OFFSET_CM
-    text_offset = _TEXT_OFFSET_CM
     # Add width dimension
     _axes(self).annotate(
         "",  # No text here, text is added separately
@@ -662,10 +665,11 @@ def _dimensions(self: "RectangularBeam", width_cm: float, height_cm: float) -> N
         width = "{:.0f~P}".format(self.width.to("cm"))
         height = "{:.0f~P}".format(self.height.to("cm"))
     # Add width dimension text below the arrow
-    _axes(self).text(
-        width_cm / 2,  # Center of the arrow
-        -text_offset,  # Slightly below the arrow
+    _axes(self).annotate(
         width,
+        xy=(width_cm / 2, 0),
+        xytext=(0, -20),
+        textcoords="offset points",
         ha="center",
         va="top",
         color=CUSTOM_COLORS["dark_gray"],
@@ -683,10 +687,11 @@ def _dimensions(self: "RectangularBeam", width_cm: float, height_cm: float) -> N
         },
     )
     # Add height dimension text to the left of the arrow
-    _axes(self).text(
-        -text_offset,  # Slightly to the left of the arrow
-        height_cm / 2,  # Center of the arrow
+    _axes(self).annotate(
         height,
+        xy=(0, height_cm / 2),
+        xytext=(-24, 0),
+        textcoords="offset points",
         ha="right",
         va="center",
         color=CUSTOM_COLORS["dark_gray"],
