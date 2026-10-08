@@ -23,12 +23,12 @@ from the release history and are summaries rather than complete lists.
   cambia las jaulas pares. Confirmar ramas adicionales propuestas antes de que
   el detallado cumpla; esas ramas no aumentan A_v ni resistencia.
 - La tabla de corte muestra ramas, no el equivalente como número de estribos.
-- La búsqueda reutiliza el estado y se limita a 2048 candidatos o dos segundos;
+- La búsqueda reutiliza el estado, expande candidatos linealmente hasta la cota física y se limita a dos segundos;
   si se trunca, queda pendiente. No garantiza un óptimo global.
 
 ### Changed
 
-- Jaula mixta: un cerrado perimetral, cerrados interiores por sujeción de barras comprimidas y patas abiertas restantes. Entrada `legs` impar admitida desde tres ramas; dibujo de piezas y conteo real, sin crédito resistente silencioso para ramas agregadas. Ganchos de patas abiertas fuera del modelo seccional.
+- Jaula mixta: un cerrado perimetral y trabas interiores de 135°/90° para sujeción de barras comprimidas (§25.3.5, Tabla 25.3.2). Se comprueban ambos órdenes de ganchos; alternar los extremos de 90° en piezas sucesivas es requisito de ejecución, sin certificación sísmica. Entrada `legs` impar admitida desde tres ramas; dibujo de piezas y conteo real, sin crédito resistente silencioso para ramas agregadas. Ganchos de patas abiertas fuera del modelo seccional.
 
 ### Decisiones de entrega
 

@@ -804,7 +804,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
 
         Prefer ``legs``; ``n_legs`` is a compatible alias. The current model
         supports integer counts >= 2, with one perimeter closed stirrup,
-        compression-support closed pieces and remaining open legs.
+        compression-support crossties with modelled hooks and remaining open legs.
         Contradictory counts are rejected.
 
         Use keyword-only ``legs`` for the number of shear legs. Legacy

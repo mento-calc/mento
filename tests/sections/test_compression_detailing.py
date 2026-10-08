@@ -125,8 +125,10 @@ def test_required_faces_follow_real_positive_negative_and_reversal_checks():
     for moments, faces in (([600], {"top"}), ([-600], {"bot"}), ([600, -600], {"top", "bot"})):
         b.check_flexure([Forces(M_y=m * kNm) for m in moments])
         assert b._compression_faces == faces
-        assert b.compression_detailing.status in ("failed", "pending")
-        assert any(w.code.startswith("compression_detailing") for w in b.warnings)
+        assert b.compression_detailing.status == "passed"
+        assert len(b.detailing_geometry.stirrups) == 1
+        assert all(t.hooks == (135, 90) for t in b.detailing_geometry.crossties)
+        assert any(w.code == "crosstie_alternation_required" for w in b.warnings)
 
 
 def test_plot_labels_required_compression_support_without_mutating_strength():

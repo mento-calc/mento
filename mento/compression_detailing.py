@@ -4,10 +4,11 @@ ACI 318-19 SI/in-lb p.148: corner and alternate bars, 150 mm / 6 in
 clear on each side along the transverse reinforcement. CIRSOC 201-25
 Cap.9 p.179 prints "15 d_be or 150 mm": both readings are exposed;
 disagreement is pending, not a silently selected normative interpretation.
-Only the modelled first row at closed rectangular stirrup corners is
-verified. Second rows need a separate supported detail. Open legs are not
-credited as compression-bar supports; their presence does not invalidate
-support already provided by the closed pieces. This does not verify hooks, development, seismic detailing or the
+The modelled first row uses perimeter corners or crossties with both ends
+engaging peripheral bars (§25.3.5, Table 25.3.2). Angles alone are not support.
+Second rows need a separate supported detail. Plain open legs are not
+credited. Longitudinal alternation is specified, not checked in execution.
+This does not verify development, seismic detailing or the
 length along the member; it does not alter strength or the shear verdict.
 """
 
@@ -93,17 +94,29 @@ def check_compression_detailing(
         if not row:
             results.append(CompressionFaceDetail(face, "pending", (), (), 0 * mm, (), ("first_row_missing",)))
             continue
-        supported = [_corner_supported(bar, geometry) for bar in row]
+        from mento.crosstie_detailing import tie_supports
+
+        supported = [
+            _corner_supported(bar, geometry)
+            or any(
+                tie_supports(bar, tie, geometry, code, beam.concrete.unit_system == "imperial")
+                for tie in geometry.crossties
+            )
+            for bar in row
+        ]
         supported_indices = tuple(i + 1 for i, yes in enumerate(supported) if yes)
         unsupported_indices = tuple(i + 1 for i, yes in enumerate(supported) if not yes)
         failures = []
         pending = []
+        unknown_ties = any(t.alternate_hooks and t.bend_inner_diameter is None for t in geometry.crossties)
         # Corner bars plus every alternate bar: an isolated unsupported bar
         # may lie between supported bars, but two successive ones may not.
         if not supported[0] or not supported[-1]:
             failures.append("corner_bar_unbraced")
         if any(not left and not right for left, right in zip(supported, supported[1:])):
-            failures.append("alternate_bars_unbraced")
+            (pending if unknown_ties else failures).append(
+                "crosstie_hook_rule_not_modelled" if unknown_ties else "alternate_bars_unbraced"
+            )
         outer = next((s for s in geometry.stirrups if s.perimeter), None)
         for bar in geometry.bars_on(face):
             radius = (_mm(bar.d_b) + _mm(geometry.stirrup_d_b)) / 2
@@ -128,7 +141,7 @@ def check_compression_detailing(
         if code == "CIRSOC 201-25":
             limits = (15 * geometry.stirrup_d_b, 150 * mm)
         within = [distance <= _mm(limit) + 1e-6 for limit in limits]
-        if not any(within):
+        if not any(within) and not unknown_ties:
             failures.append("clear_distance_exceeded")
         elif not all(within):
             pending.append("cirsoc_limit_interpretation")

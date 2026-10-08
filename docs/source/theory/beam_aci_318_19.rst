@@ -437,7 +437,8 @@ The limit across the width is on the legs. mento's cage is ``n`` closed stirrups
    s_w = \frac{b - 2c_c - d_{b,st}}{2n - 1}
 
 -- one closed perimeter and open interior legs in calculation geometry.
-Detailing may propose closed interior pieces for required compression support;
+Detailing may propose 135°/90° crossties for required compression support
+(§25.3.5 and Table 25.3.2), with longitudinal alternation explicitly required;
 read ``beam.detailing_geometry`` for the physical arrangement. A design starts from the fewest legs that keep
 :math:`s_w \le s_{max,w}`: a 150×150 CIRSOC beam whose :math:`V_{s,req}` = 4828 kN passes
 the 3569 kN threshold is held to 200 mm, which eight legs (20.40 cm) miss and ten

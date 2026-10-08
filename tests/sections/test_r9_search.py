@@ -79,23 +79,20 @@ def test_second_layer_does_not_intersect_open_legs(legs):
     assert not any(w.code == "cage_detailing_infeasible" for w in b.warnings)
 
 
-def test_symmetric_candidates_are_examined_before_lexicographic_prefix(monkeypatch):
+def test_candidates_use_one_perimeter_and_increasing_legs(monkeypatch):
     b = subject(150, 22)
     b.set_transverse_rebar(legs=16, d_b=8 * mm, s_l=15 * cm)
     b.check([Forces(M_y=2500 * kNm, V_z=300 * kN)])
     seen = []
-    target = (2, 3, 4, 11, 12, 13)
 
     def candidate(beam, geometry, **kwargs):
-        interior = tuple(i for s in geometry.stirrups[1:] for i in s.legs)
-        seen.append(interior)
-        if interior == target:
-            raise RuntimeError("target reached")
+        assert len(geometry.stirrups) == 1
+        assert len(geometry.crossties) == len(geometry.leg_x) - 2
+        seen.append(len(geometry.leg_x))
         raise cage.CageDetailingError("isolated search ordering")
 
     monkeypatch.setattr(cage, "_build_candidate", candidate)
     monkeypatch.setattr(cage, "perf_counter", lambda: 0)
-    with pytest.raises(RuntimeError, match="target reached"):
+    with pytest.raises(cage.CageDetailingError, match="isolated search ordering"):
         cage._search_cage_detailing(b)
-    level = [item for item in seen if len(item) == 6]
-    assert all(all(15 - i in item for i in item) for item in level)
+    assert seen == list(range(16, max(seen) + 1))

@@ -189,6 +189,7 @@ class _Raw:
 _MESSAGES: Dict[str, str] = {
     "transverse_legs_added_for_compression_support": "Detailing proposes {placed_legs} legs instead of {input_legs}: {pieces}. Enter the proposed legs to confirm; A_v still uses {input_legs}.",
     "open_leg_anchorage_outside_model": "Open-leg hooks and anchorage are outside this sectional model; verify them separately.",
+    "crosstie_alternation_required": "135°/90° crossties: alternate the 90° ends along the member; seismic detailing not verified.",
     "cage_detailing_infeasible": "The base cage cannot be detailed: {reason}",
     "cage_detailing_pending": "The base cage cannot yet be verified: {reason}",
     "compression_detailing_en_pending": "EN compression-bar support (§9.2.1.2(3), 15φ) is not verified by Mento.",
@@ -802,6 +803,7 @@ _COMPRESSION_REASONS = {
     "cirsoc_limit_interpretation": "The 15 d_be and 150 mm limits give different outcomes; interpretation pending",
     "second_row_support_not_modelled": "Second-row compression support requires a separate detail",
     "crosstie_anchorage_not_verified": "Crosstie anchorage is not verified",
+    "crosstie_hook_rule_not_modelled": "The crosstie hook size is outside the supported model",
     "first_row_missing": "The required first compression row is missing",
     "closed_stirrups_missing": "Required compression steel has no closed stirrups",
     "unsupported_bend": "The stirrup bend is outside the supported model",
@@ -846,6 +848,8 @@ def transverse_proposal_warnings(beam: "RectangularBeam") -> List[_Raw]:
                 {"input_legs": entered, "placed_legs": placed, "pieces": geometry.arrangement()},
             )
         )
-    if geometry.crossties:
+    if any(t.extension is not None and t.alternate_hooks for t in geometry.crossties):
+        result.append(_Raw("crosstie_alternation_required", {}))
+    if any(t.extension is None for t in geometry.crossties):
         result.append(_Raw("open_leg_anchorage_outside_model", {}))
     return result

@@ -256,7 +256,12 @@ def beam_summary_doc(self: "BeamSummary", index: int = 1) -> None:
                 "Detailing notes": "; ".join(
                     w.message
                     for w in cast("RectangularBeam", checked_node.section).warnings
-                    if w.code in ("transverse_legs_added_for_compression_support", "open_leg_anchorage_outside_model")
+                    if w.code
+                    in (
+                        "transverse_legs_added_for_compression_support",
+                        "open_leg_anchorage_outside_model",
+                        "crosstie_alternation_required",
+                    )
                 ),
             }
         )
