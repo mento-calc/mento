@@ -294,7 +294,7 @@ bar labels use ASTM sizes (for example ``3#6`` and ``2#3 (mounting)``).
 
 
 Jaula mixta: cerrados y patas abiertas
-------------------------------------
+--------------------------------------
 
 ``beam.set_transverse_rebar(legs=7, d_b=10*mm, s_l=15*cm)`` admite
 cantidades pares e impares. Una rama sola se rechaza: no puede formar el
