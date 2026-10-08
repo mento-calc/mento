@@ -422,8 +422,6 @@ def _build_candidate(beam: RectangularBeam, geometry: SectionGeometry, *, includ
             half_w = _mm(stirrup.x_right - stirrup.x_left) / 2
             half_h = _mm(stirrup.y_top - stirrup.y_bottom) / 2
             bend = bend_radius
-            if min(half_w, half_h) < bend - 1e-8:
-                raise CageDetailingError("The stirrup is too narrow for its required bends.", reason="bend")
             dx = abs(_mm(bar.x - (stirrup.x_left + stirrup.x_right) / 2)) - (half_w - bend)
             dy = abs(_mm(bar.y - (stirrup.y_bottom + stirrup.y_top) / 2)) - (half_h - bend)
             distance_to_line = abs(math.hypot(max(dx, 0), max(dy, 0)) + min(max(dx, dy), 0) - bend)
