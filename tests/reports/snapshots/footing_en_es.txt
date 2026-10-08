@@ -6,7 +6,7 @@
 ### check_shear
   Label Comb. Av,min Av,req     Av  NEd  VEd,1  VEd,2   VRd,c VRd,s     VRd VRd,max VEd,1≤VRd,max VEd,2≤VRd    DCR
 0              cm²/m  cm²/m  cm²/m   kN     kN     kN      kN    kN      kN      kN                               
-1    Z1     u    0.0    0.0    0.0  0.0  150.0  150.0  167.86   0.0  167.86  167.86          True      True  0.894
+1    Z1     u    0.0    0.0    0.0  0.0  150.0  150.0  167.86   0.0  167.86  1798.2          True      True  0.894
 
 ### flexure_results_detailed
 ===== RESULTADOS DETALLADOS DE FLEXIÓN DE LOSA =====
@@ -113,7 +113,7 @@ Valor de k                            k          1.67
 Tensión axial                        σcd          0.0  MPa
 Ángulo de la biela de hormigón        Θ           0.0  deg
 Resistencia del hormigón            VRd,c      167.86  kN
-Resistencia máxima al corte        VRd,max     167.86  kN
+Resistencia máxima al corte        VRd,max     1798.2  kN
 Resistencia total al corte           VRd       167.86  kN
 Verificación de corte máximo                       ✅
 Factor de Utilización                DCR        0.894  ✅ 
@@ -210,7 +210,7 @@ Valor de k | k | 1.67 |
 Tensión axial | σcd | 0.0 | MPa
 Ángulo de la biela de hormigón | Θ | 0.0 | deg
 Resistencia del hormigón | VRd,c | 167.9 | kN
-Resistencia máxima al corte | VRd,max | 167.9 | kN
+Resistencia máxima al corte | VRd,max | 1798.2 | kN
 Resistencia total al corte | VRd | 167.9 | kN
 Verificación de corte máximo |  | ✅ | 
 Factor de Utilización | DCR | 0.89 | ✅
