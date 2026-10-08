@@ -228,7 +228,10 @@ The maximum applies to "tension or compression reinforcement", so unlike ACI's i
 caps both faces, whatever a combination does to them, and compression steel does not
 extend it. The check warns ``As_above_max`` on either face past it, and the design
 never places a layout past it: when no layout within it carries the moment, it
-leaves the most it may and warns ``As_below_required``.
+leaves the closest within it that fits the width, room for the vibrator between
+the top bars included, and warns ``As_below_required`` and
+``section_too_small_for_moment``. The order it reads "closest" in is the one the
+ACI page describes.
 
 Design bending resistance
 ^^^^^^^^^^^^^^^^^^^^^^^^^

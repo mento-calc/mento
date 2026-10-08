@@ -1720,10 +1720,11 @@ def test_design_flexure_CIRSOC_201_25_narrow_web_gives_the_most_that_fits() -> N
     Con el 1eØ6/12 que elige el corte el ancho libre es 5.8 cm: dos barras
     por capa y como mucho Ø16 (58 - 2·16 = 26 mm ≥ 25 mm de §25.2.1; el Ø20
     dejaria 18). Lo mas que entra es 2Ø16 + 2Ø16 = 8.04 cm², por debajo de
-    los 8.14 cm² que pide el momento (con compresion: arriba pide 7.27 y
-    entran 2Ø12 + 2Ø12 = 4.52). Ni pasando el tope hay una combinacion que
-    alcance, asi que el diseño deja el maximo que entra y lo dice:
-    ``As_below_required`` en las dos caras, DCR 1.137.
+    los 8.14 cm² que pide el momento, y con lo que entra arriba no queda
+    controlada por traccion: DCR 1.137 con ``not_tension_controlled``, que
+    §9.3.3.1 no admite (issue #169). Lo mas cercano dentro de ese limite es
+    2Ø16 + 2Ø12 = 6.28 cm², DCR 1.204: el diseño lo deja y dice que la
+    sección no alcanza.
     """
     beam = RectangularBeam(
         label="101",
@@ -1737,10 +1738,12 @@ def test_design_flexure_CIRSOC_201_25_narrow_web_gives_the_most_that_fits() -> N
     node.design()
 
     bottom = beam.flexure_design.bottom
-    assert [(layer.n, layer.d_b.to("mm").magnitude) for layer in bottom.layers] == [(2, 16), (2, 16)]
-    assert bottom.A_s.to("cm**2").magnitude == pytest.approx(8.042, rel=1e-3)
-    assert bottom.DCR == pytest.approx(1.137, rel=1e-3)
+    assert [(layer.n, layer.d_b.to("mm").magnitude) for layer in bottom.layers] == [(2, 16), (2, 12)]
+    assert bottom.A_s.to("cm**2").magnitude == pytest.approx(6.283, rel=1e-3)
+    assert bottom.DCR == pytest.approx(1.204, rel=1e-3)
+    assert beam.flexure_checks[0].bottom.admissible
     assert "bottom" in [w.face for w in node.warnings if w.code == "As_below_required"]
+    assert "section_too_small_for_moment" in [w.code for w in node.warnings]
 
 
 def test_design_flexure_ACI_318_19_compression_bottom_exceeds_provided_bottom() -> None:
