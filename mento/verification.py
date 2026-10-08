@@ -75,6 +75,7 @@ def validate_supported_forces(beam: RectangularBeam, forces: Sequence[Forces]) -
 
 WARNING_CATEGORY: dict[str, str] = {
     "compression_detailing_en_pending": "pending",
+    "cage_detailing_pending": "pending",
     "compression_detailing_failed": "failed",
     "compression_detailing_pending": "pending",
     "skin_reinforcement_required": "failed",
@@ -153,8 +154,9 @@ def verification_status(beam: RectangularBeam) -> dict[str, str]:
         try:
             geometry = build_cage_detailing(beam, include_skin=False)
             cage_pending = not geometry.bend_supported
-        except CageDetailingError:
-            cage_failed = True
+        except CageDetailingError as error:
+            cage_pending = error.reason == "bend"
+            cage_failed = not cage_pending
     detail_failed = bool(failed) or compression_failed or cage_failed
     detail_pending = bool(pending) or compression_pending or cage_pending or not flexure or not shear
     detailing = "failed" if detail_failed else "pending" if detail_pending else "passed"

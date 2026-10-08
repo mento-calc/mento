@@ -189,6 +189,7 @@ class _Raw:
 #: The English wording of each code; the text is also the key of the Spanish
 #: catalog in :mod:`mento.i18n`. ``{face}`` is filled with the translated face.
 _MESSAGES: Dict[str, str] = {
+    "cage_detailing_pending": "The base cage cannot yet be verified: {reason}",
     "compression_detailing_en_pending": "EN compression-bar support (§9.2.1.2(3), 15φ) is not verified by Mento.",
     "compression_detailing_failed": "Required compression-bar support fails (§9.7.6.4.4): {reason}.",
     "compression_detailing_pending": "Required compression-bar support is not fully verified (§9.7.6.4.4): {reason}.",
@@ -803,7 +804,8 @@ def skin_warnings(beam: "RectangularBeam") -> List[_Raw]:
         build_cage_detailing(beam, include_skin=False)
     except CageDetailingError as error:
         base_feasible = False
-        result.append(_Raw("cage_detailing_infeasible", {"reason": str(error)}))
+        code = "cage_detailing_pending" if error.reason == "bend" else "cage_detailing_infeasible"
+        result.append(_Raw(code, {"reason": str(error)}))
     try:
         requirement = skin_requirement(beam)
     except CageDetailingError as error:
@@ -860,7 +862,7 @@ def compression_detailing_warnings(beam: "RectangularBeam") -> List[_Raw]:
         return [
             _Raw(
                 "compression_detailing_pending" if result.status == "pending" else "compression_detailing_failed",
-                {"reason": translate(_COMPRESSION_REASONS.get(result.reason, result.reason))},
+                {"reason": translate(_COMPRESSION_REASONS.get(result.reason, result.reason)).rstrip(".")},
             )
         ]
     return [

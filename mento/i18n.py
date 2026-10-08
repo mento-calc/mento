@@ -544,3 +544,11 @@ ES.update(
 ES["Mandatory detailing: compression-bar support spacing (§9.7.6.4.3)"] = (
     "Detallado obligatorio: separación del arriostramiento de barras comprimidas (§9.7.6.4.3)"
 )
+
+
+ES.update(
+    {
+        "The base cage cannot yet be verified: {reason}": "La jaula principal todavía no puede verificarse: {reason}",
+        "The base cage cannot be detailed: {reason}": "La jaula principal no puede detallarse: {reason}",
+    }
+)
