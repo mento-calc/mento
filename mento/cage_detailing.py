@@ -254,8 +254,8 @@ def _search_cage_detailing(beam: RectangularBeam, *, include_skin: bool = False)
     deadline = perf_counter() + 2.0
     for total in range(requested, requested + extra_limit + 1):
         outer = base.stirrups[0]
-        spacing = (outer.x_right - outer.x_left) / (total - 1)
-        xs = tuple(outer.x_left + i * spacing for i in range(total))
+        spacing: Quantity = (outer.x_right - outer.x_left) / (total - 1)
+        xs: tuple[Quantity, ...] = tuple(outer.x_left + i * spacing for i in range(total))
         from mento.section_geometry import Crosstie
 
         current = replace(
