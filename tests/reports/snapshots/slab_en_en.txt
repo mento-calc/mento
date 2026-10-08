@@ -7,8 +7,8 @@
 ### check_shear
   Label Comb. Av,min Av,req     Av  NEd VEd,1 VEd,2  VRd,c VRd,s    VRd VRd,max VEd,1≤VRd,max VEd,2≤VRd    DCR
 0              cm²/m  cm²/m  cm²/m   kN    kN    kN     kN    kN     kN      kN                               
-1    L1     u    0.0    0.0    0.0  0.0  60.0  60.0  86.79   0.0  86.79   86.79          True      True  0.691
-2    L1   neg    0.0    0.0    0.0  0.0  40.0  40.0  84.15   0.0  84.15   84.15          True      True  0.475
+1    L1     u    0.0    0.0    0.0  0.0  60.0  60.0  86.79   0.0  86.79   688.5          True      True  0.691
+2    L1   neg    0.0    0.0    0.0  0.0  40.0  40.0  84.15   0.0  84.15   688.5          True      True  0.475
 
 ### flexure_results_detailed
 ===== SLAB FLEXURE DETAILED RESULTS =====
@@ -115,7 +115,7 @@ k value                               k           2.0
 Axial stress                         σcd          0.0  MPa
 Concrete strut angle                  Θ           0.0  deg
 Concrete strength                   VRd,c       86.79  kN
-Maximum shear strength             VRd,max      86.79  kN
+Maximum shear strength             VRd,max      688.5  kN
 Total shear strength                 VRd        86.79  kN
 Max shear check                                    ✅
 Demand Capacity Ratio                DCR        0.691  ✅ 
@@ -217,7 +217,7 @@ k value | k | 2.0 |
 Axial stress | σcd | 0.0 | MPa
 Concrete strut angle | Θ | 0.0 | deg
 Concrete strength | VRd,c | 86.8 | kN
-Maximum shear strength | VRd,max | 86.8 | kN
+Maximum shear strength | VRd,max | 688.5 | kN
 Total shear strength | VRd | 86.8 | kN
 Max shear check |  | ✅ | 
 Demand Capacity Ratio | DCR | 0.69 | ✅

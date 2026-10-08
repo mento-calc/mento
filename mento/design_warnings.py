@@ -40,7 +40,13 @@ Codes
     carries ``clause``, the article as text.
 ``clear_spacing_below_min``
     The clear distance between the bars of a beam face is below the minimum
-    its settings ask for (bar diameter, 25 mm / 1 in., vibrator on top).
+    of ACI 318-19 / CIRSOC 201-25 §25.2.1: the bar diameter and the 25 mm /
+    1 in. of the settings.
+``clear_spacing_below_vibrator``
+    The clear distance between the top bars of a beam meets §25.2.1 but
+    leaves no room for the vibrator (``BeamSettings.vibrator_size``), so the
+    concrete cannot be consolidated. Site practice rather than a clause, and
+    a design never leaves it: what a check of bars set by hand reports.
 ``bar_spacing_below_min`` / ``bar_spacing_exceeds_max``
     The same for a slab, which is detailed centre to centre: the spacing of
     the layer nearest the face against the code's limits. A beam raises
@@ -59,6 +65,16 @@ Codes
     past 1 carries it; one that
     carries its moment but is not tension-controlled gets
     ``not_tension_controlled`` instead.
+``section_too_small_for_moment``
+    The same verdict for the section as a whole, with the numbers that
+    decide it: no layout that fits the width -- the vibrator's gap between
+    the top bars included -- and keeps within the code's limits on the
+    reinforcement (tension-controlled under ACI 318-19 / CIRSOC 201-25
+    §9.3.3.1, the 4 % of EN 1992-1-1 §9.2.1.1(3)) carries the moment. A
+    design trades neither for strength. ``values`` carries ``M``, the moment
+    of the combination and face furthest past DCR 1, and ``M_capacity``, what
+    the layout the design kept carries there. No face or combination label;
+    it goes with ``As_below_required`` and lasts as long.
 ``stirrups_required``
     The section has no stirrups, and a combination asks for shear
     reinforcement -- beyond what the concrete carries, or the code minimum.
@@ -211,6 +227,15 @@ _MESSAGES: Dict[str, str] = {
     "As_below_required": (
         "Steel on the {face}: no layout that fits the section carries the moment "
         "(A_s,req = {A_s_req}); the design left A_s = {A_s}. Enlarge the section."
+    ),
+    "section_too_small_for_moment": (
+        "No layout that fits the section, with room for the vibrator between the top bars, and keeps within "
+        "the code's limits on the reinforcement carries M = {M}: the closest one carries {M_capacity}. "
+        "Enlarge the section."
+    ),
+    "clear_spacing_below_vibrator": (
+        "Clear spacing between the bars on the {face}: {s} leaves no room for the vibrator, {s_min}. "
+        "The concrete cannot be consolidated."
     ),
     "stirrups_required": "The section has no stirrups and requires shear reinforcement A_v = {A_v_req}.",
     "force_component_not_checked": (
@@ -470,11 +495,17 @@ def spacing_warnings(beam: "RectangularBeam") -> List[_Raw]:
         if not layers:
             continue
         d_b_max = max(layer.d_b for layer in layers)
-        minimum = max(settings.clear_spacing, d_b_max)
-        if face == "t":
-            minimum = max(minimum, settings.vibrator_size)
-        _label, value, s_min, s_max = _bar_spacing_row(beam, face, minimum)
         is_slab = getattr(beam, f"_s_b1_{face}", None) is not None
+        # The clear distance of §25.2.1 (ACI 318-19 / CIRSOC 201-25): the bar
+        # and 25 mm / 1 in. A beam reports the vibrator's gap between its top
+        # bars apart, ``clear_spacing_below_vibrator``: site practice, not a
+        # clause, though a design holds the top to it all the same. A slab,
+        # detailed centre to centre, keeps the two in one minimum.
+        minimum = max(settings.clear_spacing, d_b_max)
+        vibrator = settings.vibrator_size if face == "t" else None
+        if vibrator is not None and is_slab:
+            minimum = max(minimum, vibrator)
+        _label, value, s_min, s_max = _bar_spacing_row(beam, face, minimum)
         if not is_slab and value.magnitude <= 0 and sum(layer.n for layer in layers) > 1:
             found.append(_Raw("bars_do_not_fit", {"s": value}, name))
             continue
@@ -490,6 +521,15 @@ def spacing_warnings(beam: "RectangularBeam") -> List[_Raw]:
         ):
             code = "bar_spacing_below_min" if is_slab else "clear_spacing_below_min"
             found.append(_Raw(code, {"s": value, "s_min": s_min}, name))
+        elif (
+            measurable
+            and s_min is not None
+            and vibrator is not None
+            and not is_slab
+            and value < vibrator
+            and not math.isclose(value.magnitude, vibrator.to(value.units).magnitude)
+        ):
+            found.append(_Raw("clear_spacing_below_vibrator", {"s": value, "s_min": vibrator}, name))
         if s_max is not None and value > s_max and not math.isclose(value.magnitude, s_max.to(value.units).magnitude):
             found.append(_Raw("bar_spacing_exceeds_max", {"s": value, "s_max": s_max}, name))
     for face in sorted(getattr(beam, "_infeasible_faces", ())):
@@ -533,6 +573,19 @@ def shortfall_warnings(beam: "RectangularBeam") -> List[_Raw]:
         if checks and max(getattr(check, _face_name(suffix)).DCR for check in checks) <= 1.0:
             continue
         found.append(_Raw("As_below_required", {"A_s": A_s, "A_s_req": needed.to(A_s.units)}, _face_name(suffix)))
+    # The section as a whole: the design is limited by what fits and what the
+    # code allows, not by the steel it could have asked for, so it quotes the
+    # moment and the most the layout it kept carries -- of the face and
+    # combination furthest past DCR 1.
+    worst: Optional[Any] = None
+    for check in checks if found else ():
+        for face in (check.bottom, check.top):
+            if face.DCR > 1.0 and face.M_capacity is not None and (worst is None or face.DCR > worst.DCR):
+                worst = face
+    if worst is not None:
+        M_capacity: Quantity = worst.M_capacity
+        values = {"M": worst.DCR * M_capacity, "M_capacity": M_capacity}
+        found.append(_Raw("section_too_small_for_moment", values, None, severity=worst.DCR))
     return [_with_units(raw, beam) for raw in found]
 
 

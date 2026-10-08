@@ -487,8 +487,34 @@ tension within :math:`A_{s,max,eff}`. Three choices follow from that:
   stops early only when a *pair* of layouts repeats: one face settling while the
   other still moves is not a cycle.
 
-When no layout that fits the width works, the design leaves the closest one and warns
-``As_below_required`` on the face that fell short: the section has to grow.
+When no layout works, the design leaves the closest one, and closest is read in a
+fixed order: first what the design never trades for strength, then strength. A
+layout must fit the width with the clear distance of §25.2.1 and, between the top
+bars, room for the vibrator (``BeamSettings.vibrator_size``, site practice rather
+than a clause: concrete the vibrator cannot reach is not consolidated), and it must
+keep the section tension-controlled, which §9.3.3.1 (§7.3.3.1 for a slab) requires
+and does not trade for a lower :math:`\phi`. Among the layouts that meet all three,
+the one with the smallest DCR. A stronger layout that breaks one of them is no
+solution, however close to 1 its DCR.
+
+The layouts the iteration visits are few, and it searches the tension face under
+the tension-controlled area of a section *without* compression steel. So when none
+of them closes, the design also tries the layouts that fit, from two bars of the
+smallest diameter allowed to two and a half times what the face carries, keeping
+only those no other beats on both steel and depth: the same layout on both faces
+first, then each face against what the other carries, until nothing changes. The
+first face past the tension-controlled limit brought within it is progress even
+while the other still is not, and a layout replaces the current one only if it
+comes closer by more than 0.2 %. An ACI 40×25,
+:math:`f'_c` = 25 MPa, :math:`c_c` = 40 mm under ±91.6 kN·m went from 2Ø10 + 5Ø10
+in two layers on each face, DCR 1.47, to 7Ø16 in one layer, DCR 1.09, still
+tension-controlled with the same bars opposite.
+
+The design then warns ``As_below_required`` on the face that fell short and
+``section_too_small_for_moment`` for the section, quoting the moment and what the
+layout kept carries: the section has to grow. The same limits read on bars set by
+hand are warnings of the check: ``clear_spacing_below_min``,
+``clear_spacing_below_vibrator`` and ``not_tension_controlled``.
 
 Effective depth from the real bar layout
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

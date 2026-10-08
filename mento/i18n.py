@@ -253,6 +253,22 @@ ES.update(
             "Armadura en la {face}: ninguna disposición que entre en la sección resiste el momento "
             "(A_s,req = {A_s_req}); el diseño dejó A_s = {A_s}. Hay que agrandar la sección."
         ),
+        (
+            "No layout that fits the section, with room for the vibrator between the top bars, and keeps within "
+            "the code's limits on the reinforcement carries M = {M}: the closest one carries {M_capacity}. "
+            "Enlarge the section."
+        ): (
+            "Ningún armado que entre en la sección, dejando lugar al vibrador entre las barras superiores, y "
+            "respete los límites de armadura de la norma resiste M = {M}: el más cercano resiste {M_capacity}. "
+            "Hay que agrandar la sección."
+        ),
+        (
+            "Clear spacing between the bars on the {face}: {s} leaves no room for the vibrator, {s_min}. "
+            "The concrete cannot be consolidated."
+        ): (
+            "Separación libre entre las barras de la {face}: {s} no deja pasar el vibrador, {s_min}. "
+            "El hormigón no se puede vibrar."
+        ),
         "The section has no stirrups and requires shear reinforcement A_v = {A_v_req}.": (
             "La sección no tiene estribos y requiere armadura de corte A_v = {A_v_req}."
         ),

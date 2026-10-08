@@ -5,10 +5,10 @@
 2  V102     n      Top   1.24       3.13        0.0   1.01 -60.0   19.99    True  3.002
 
 ### check_shear
-  Label Comb. Av,min Av,req     Av  NEd  VEd,1  VEd,2 VRd,c VRd,s   VRd VRd,max VEd,1≤VRd,max VEd,2≤VRd    DCR
-0              cm²/m  cm²/m  cm²/m   kN     kN     kN    kN    kN    kN      kN                               
-1  V102     u    1.6   2.68   1.41  0.0  120.0  120.0   0.0  63.2  63.2  255.25          True     False  1.899
-2  V102     n    1.6    1.6   1.41  0.0   30.0   30.0   0.0  63.2  63.2  255.25          True      True  0.475
+  Label Comb. Av,min Av,req     Av  NEd  VEd,1  VEd,2  VRd,c VRd,s   VRd VRd,max VEd,1≤VRd,max VEd,2≤VRd    DCR
+0              cm²/m  cm²/m  cm²/m   kN     kN     kN     kN    kN    kN      kN                               
+1  V102     u    1.6   2.68   1.41  0.0  120.0  120.0  67.13  63.2  63.2  255.25          True     False  1.899
+2  V102     n    1.6    1.6   1.41  0.0   30.0   30.0  34.25  63.2  63.2  255.25          True      True  0.475
 
 ### flexure_results_detailed
 ===== BEAM FLEXURE DETAILED RESULTS =====
@@ -114,7 +114,7 @@ Longitudinal reinforcement ratio      ρl         0.02
 k value                               k          1.66
 Axial stress                         σcd          0.0  MPa
 Concrete strut angle                  Θ          21.8  deg
-Concrete strength                   VRd,c         0.0  kN
+Concrete strength                   VRd,c       67.13  kN
 Maximum shear strength             VRd,max     255.25  kN
 Total shear strength                 VRd         63.2  kN
 Max shear check                                    ✅
@@ -216,7 +216,7 @@ Longitudinal reinforcement ratio | ρl | 0.02 |
 k value | k | 1.66 | 
 Axial stress | σcd | 0.0 | MPa
 Concrete strut angle | Θ | 21.8 | deg
-Concrete strength | VRd,c | 0.0 | kN
+Concrete strength | VRd,c | 67.1 | kN
 Maximum shear strength | VRd,max | 255.2 | kN
 Total shear strength | VRd | 63.2 | kN
 Max shear check |  | ✅ | 

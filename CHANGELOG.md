@@ -12,6 +12,152 @@ from the release history and are summaries rather than complete lists.
 
 ## [Unreleased]
 
+### Added
+
+- **`section_too_small_for_moment` warning** (#169). A design that finds no layout
+  carrying the moment says so for the section, with the numbers that decide it: no
+  layout that fits the width, with room for the vibrator between the top bars, and
+  keeps within the code's limits on the reinforcement (tension-controlled under ACI
+  318-19 / CIRSOC 201-25 §9.3.3.1, the 4 % of EN 1992-1-1) carries `M`; the closest
+  carries `M_capacity`. It goes with `As_below_required`, which stays as it was.
+- **`clear_spacing_below_vibrator` warning** (#169). The clear distance between the
+  top bars of a beam that meets §25.2.1 but leaves no room for the vibrator is
+  reported apart: it used to be `clear_spacing_below_min` with the vibrator's 30 mm as
+  the minimum. `clear_spacing_below_min` now quotes the §25.2.1 minimum alone (bar
+  diameter and 25 mm / 1 in.). A design still never leaves either; a slab, detailed
+  centre to centre, keeps the two in `bar_spacing_below_min`.
+
+- **`OneWaySlabSummary`**, in `mento` and `mento.slab_summary`: the summary workflow on a
+  list of one-way slab strips, each face a diameter and a spacing per layer
+  (`db1_top, s1_top, db3_top, s3_top`, and `_bot`), without stirrups. `design()` is
+  `Node.design()`; a strip that would need stirrups keeps the layers it was designed with,
+  without them, and is named.
+- **`from_excel()`, `to_excel()`, `tables()` and `from_nodes()`** on the three summaries:
+  read and write the two sheets (a path or a buffer such as `io.BytesIO`; headers always in
+  English), and write the tables of nodes built by hand — the format a program such as
+  mento-web can write without copying it. `from_nodes` refuses a node a row cannot hold
+  (settings other than the defaults, an out-of-plane `M_x`, other materials).
+- **`results`, `warnings` and `input_warnings`**: the frozen record of the last `check()`
+  (`SectionVerdict` per section, with the `GoverningDemand` of each face and of the shear),
+  the warnings of each section, and what reading the tables warned about.
+- **`split_single_table(table, "beam" | "wall")`**, **`SummaryInputError`** and
+  **`SummaryInputWarning`** in `mento`. The errors and warnings carry a stable `code`; their
+  `str()` is in English and their `.message` follows `set_language`.
+- **Optional `Level` and `Notes` columns** in both tables of the three summaries. `Level`
+  is part of a section's key, `(Level, Label)`; `Notes` is free text, kept and written
+  back but not read.
+- **The flexure and shear result of each combination carry its demand.**
+  `FlexureCheck.M_demand` (with its sign) and `N_demand`, and `ShearCheck.V_demand` (the
+  shear the DCR was formed from: `Vu`, or `VEd,2` at d under EN 1992-1-1) and `N_demand`,
+  in the units results are shown in; `None` on an envelope. New fields with a default, so
+  nothing that builds or reads these results changes. A table that shows a DCR next to the
+  demand it came from reads both from one result.
+- **The warning `axial_load_beyond_beam`** (ACI 318-19 and CIRSOC 201-25): a beam section
+  under `Nx >= 0.10 f'c Ag` in compression, where §9.5.2.2 computes the moment strength
+  with the axial load (§22.4) and mento checks bending alone. A `SummaryInputWarning`
+  `no_axial_column` says that a forces table without `Nx` is read as `N = 0`.
+
+### Changed
+
+- **A design that does not close keeps the closest layout within the limits** (#169).
+  Bars that fit the width, with room for the vibrator on top, and a tension-controlled
+  section (§9.3.3.1 / §7.3.3.1; the 4 % under EN 1992-1-1) are never traded for
+  strength: of the design rounds that fail, the one kept is the closest that meets
+  them, then the smallest DCR. The tension-controlled limit used to be left out of
+  that choice. And when the layouts the design visited do not close, it searches the
+  layouts that fit for the one within the limits that comes closest: the cap it
+  searched under is the tension-controlled area of a section without compression
+  steel, which the bars of the other face extend. An ACI 40x25, f'c 25, c_c 40 mm
+  under ±91.6 kN·m went from 2Ø10 + 5Ø10 in two layers on each face, DCR 1.466, to
+  7Ø16 in one layer, DCR 1.088; an ACI 20x25 under 38.2 kN·m from 3Ø12 + 3Ø10 in two
+  layers, DCR 1.166, to 2Ø20, DCR 1.010. Sections that used to end not
+  tension-controlled end within the limit, with a larger DCR: a CIRSOC 12x30 under
+  60 kN·m went from 2Ø16 + 2Ø16, DCR 1.137 and `not_tension_controlled`, to
+  2Ø16 + 2Ø12, DCR 1.204; an ACI one-way slab 100x15 under 46.9 kN·m from Ø10/5,
+  DCR 0.801 and `not_tension_controlled`, to Ø10/6, DCR 1.010. Designs that close
+  do not change, and pay nothing for the search.
+
+- **EN 1992-1-1 shear: the same A_sw,req with stirrups and without** (#170). Under
+  V_Rd,c no calculated shear reinforcement is needed (§6.2.1(3)), so a section with
+  stirrups is now asked for the minimum of §9.2.2 there, as a bare one already was,
+  and not for the truss of §6.2.3. Its V_Rd follows the same clause: under V_Rd,c it
+  is the larger of V_Rd,c and the truss its stirrups make, past it the truss alone,
+  capped by V_Rd,max. Pass or fail changes only where the minimum stirrups give less
+  than V_Rd,c, which happens in shallow, heavily reinforced beams: an EN 20x30, C20,
+  3Ø20 under 37 kN with eØ6/37 asked 1.49 cm²/m and reported DCR 0.974; it asks
+  1.43 and reports 0.955.
+- **EN 1992-1-1 shear report** (#170): a section with stirrups shows its V_Rd,c, which
+  was printed as 0, and a section without stirrups shows as V_Rd,max the strut limit of
+  Eq. (6.9) at 45° (§6.2.1(6)), the one `shear_exceeds_section_limit` reads, where it
+  repeated V_Rd,c. `VEd,1≤VRd,max` compares against that limit.
+
+- **The summaries read two tables, sections and forces** (see the migration notes), as
+  `DataFrame`s with their unit row first or as the sheets `Sections` and `Forces` of a
+  workbook (`from_excel`). Columns are read by name, in any order; the reinforcement
+  columns may be left out to design from the geometry alone. A label repeated in the
+  sections table, a forces row naming a section that is not there, or a combination given
+  twice to one section are errors that name it; a section with no forces gives a warning
+  and has its row, shown as not checked. Forces are in `kN` and `kNm`, or `kip` and
+  `kip·ft`.
+- **The beam stirrups are given by their legs.** The `legs` column of a beam's sections
+  table is the number of stirrup legs, two per closed stirrup (`n_stirrups = legs / 2`); an
+  odd number is an error, since mento models closed stirrups and not single ties, and
+  `legs = 0` leaves the beam without stirrups, with the starter stirrup in its effective
+  depth as a `RectangularBeam` built by hand.
+- **`check()` names the combination of each DCR and fails a section with warnings**, for
+  the three summaries, read from frozen results (`summary.results`). The `Warnings`
+  column lists mento's stable warning codes with the face they are read on
+  (`As_below_min (bottom)`), the same in every language.
+- **The Word report of a summary follows the two tables**: the sections (`Beam
+  Sections`, `Slab Sections`, `Wall Sections`), the forces ("Solicitaciones" in Spanish)
+  with their sign conventions, the results per combination, the check and a Warnings
+  table with the section, the face, the combinations and the full message of each
+  warning. Every table is sized to its content.
+
+### Removed
+
+- The single-table input of the summaries: the `beam_list=` / `wall_list=` / `slab_list=`
+  arguments, the attributes `beam_list`, `wall_list`, `slab_list`, `units_row`, `data` and
+  `design_data`, and the methods `check_and_process_input()`, `convert_to_nodes()` and
+  `convert_to_walls()`.
+
+### Fixed
+
+- **`BeamSummary.design()` and `OneWaySlabSummary.design()` are `Node.design()`.** They
+  designed the flexure and then the shear on their own, without the reset and the second
+  round of `Node.design()`, and could leave a section that fails its own check: an ACI
+  318-19 20x50 under 150 kN·m and 250 kN got 2Ø25 and 1eØ10/11, DCRb,bot 1.0005, where
+  `Node.design()` gives 2Ø25 + 1Ø20, 0.787; an EN 30x80 under 30 kN·m got 3.047 cm² against
+  A_s,min 3.054 cm². A slab is designed the same way (an ACI 100x15 under 20 kN·m and 50 kN
+  takes Ø10/14 and passes its shear on the concrete alone, where it got Ø12/25 and DCRv
+  1.058); one that still needs stirrups keeps its layers without them, and `design()` names
+  it instead of saying it completed.
+- **An exported design keeps its compression face.** `design()` writes both faces, so a
+  20x40 designed for +170 kN·m reads back at DCR 0.934 (it read back at 1.263, with the 2Ø8
+  of 1.4.0 instead of the 2Ø16 + 1Ø16 designed), and a slab designed for −90 kN·m at 0.877
+  (it read back at 1.27).
+- **`ShearWallSummary` keeps the units of the mesh through `design()` and the export.**
+  Under columns in mm/mm a wall designed Ø10/30 (DCR 0.25) read back as Ø10/3, DCR 0.178,
+  ten times its steel; in cm/m it read back as Ø100/3000.
+- **`BeamSummary.check()` runs flexure, then shear, as `Node.check()` does, and the capacity
+  check no longer clears the warnings.** Checking the shear first lost the warnings of the
+  stirrups that brace compression bars (ACI 318-19 / CIRSOC 201-25 §9.7.6.4), which the
+  flexure check is what finds: an ACI 25x70 with 4Ø25 ++ 2Ø20 at the bottom, 2Ø12 on top
+  and 1eØ8/25 under 500 kN·m gave no warning, where `Node.check()` gives
+  `stirrup_spacing_exceeds_compression_support` and
+  `stirrup_diameter_below_compression_support`. `check(capacity_check=True)` and the
+  capacity `flexure_results()` / `shear_results()` zeroed the forces of the nodes
+  themselves; they now run on a copy.
+- **Labels with spaces or written as numbers.** `"V4 "` and `"V4"` were two beams, and
+  `101` read back as `101.0`.
+- **The slab table is validated**: positions are preserved even for a lone second layer; a spacing without
+  its bar, negative values, stirrup columns or a beam table given to the slab summary raise
+  an error naming the column, where they were dropped or raised a `KeyError`.
+- **Text in a numeric column is an error**, where it was read as 0 without a word.
+- **The limit table of a slab in the summary report shows its bar spacing against its
+  maximum** (ACI 318-19 §7.7.2.3), as the slab's own report does: it was labelled "Minimum
+  spacing" with the maximum dropped, so a slab at Ø12/40 showed "400 ≥ 37 ❌".
+
 ### Decisiones de entrega
 
 - Estados independientes de resistencia y detallado modelado, visibles en
@@ -21,7 +167,6 @@ from the release history and are summaries rather than complete lists.
 - Ambas caras físicas en Word; cc en mm o pulgadas en las tablas Beam Sections / Slab Sections.
 - Rechazo explícito de zapatas EN con axil, antes de modificar el armado:
   caso todavía no soportado por Mento, no prohibición normativa.
-
 
 ### Audit corrections
 
@@ -33,6 +178,7 @@ from the release history and are summaries rather than complete lists.
   Material mismatch errors report the actual properties being compared.
 
 ### Migration notes
+
 - EN footings with nonzero axial force now raise `NotImplementedError`: Mento does not model that scope; this is not a Eurocode prohibition. Version 1.5.0 accepted these cases.
 
 
@@ -107,107 +253,6 @@ What else changes for a program:
 - A wall with no label is an error.
 - `export_design()` no longer requires `design()` first: it writes the two sheets of the
   summary as it stands.
-
-### Removed
-
-- The single-table input of the summaries: the `beam_list=` / `wall_list=` / `slab_list=`
-  arguments, the attributes `beam_list`, `wall_list`, `slab_list`, `units_row`, `data` and
-  `design_data`, and the methods `check_and_process_input()`, `convert_to_nodes()` and
-  `convert_to_walls()`.
-
-### Changed
-
-- **The summaries read two tables, sections and forces** (see the migration notes), as
-  `DataFrame`s with their unit row first or as the sheets `Sections` and `Forces` of a
-  workbook (`from_excel`). Columns are read by name, in any order; the reinforcement
-  columns may be left out to design from the geometry alone. A label repeated in the
-  sections table, a forces row naming a section that is not there, or a combination given
-  twice to one section are errors that name it; a section with no forces gives a warning
-  and has its row, shown as not checked. Forces are in `kN` and `kNm`, or `kip` and
-  `kip·ft`.
-- **The beam stirrups are given by their legs.** The `legs` column of a beam's sections
-  table is the number of stirrup legs, two per closed stirrup (`n_stirrups = legs / 2`); an
-  odd number is an error, since mento models closed stirrups and not single ties, and
-  `legs = 0` leaves the beam without stirrups, with the starter stirrup in its effective
-  depth as a `RectangularBeam` built by hand.
-- **`check()` names the combination of each DCR and fails a section with warnings**, for
-  the three summaries, read from frozen results (`summary.results`). The `Warnings`
-  column lists mento's stable warning codes with the face they are read on
-  (`As_below_min (bottom)`), the same in every language.
-- **The Word report of a summary follows the two tables**: the sections (`Beam
-  Sections`, `Slab Sections`, `Wall Sections`), the forces ("Solicitaciones" in Spanish)
-  with their sign conventions, the results per combination, the check and a Warnings
-  table with the section, the face, the combinations and the full message of each
-  warning. Every table is sized to its content.
-
-### Added
-
-- **`OneWaySlabSummary`**, in `mento` and `mento.slab_summary`: the summary workflow on a
-  list of one-way slab strips, each face a diameter and a spacing per layer
-  (`db1_top, s1_top, db3_top, s3_top`, and `_bot`), without stirrups. `design()` is
-  `Node.design()`; a strip that would need stirrups keeps the layers it was designed with,
-  without them, and is named.
-- **`from_excel()`, `to_excel()`, `tables()` and `from_nodes()`** on the three summaries:
-  read and write the two sheets (a path or a buffer such as `io.BytesIO`; headers always in
-  English), and write the tables of nodes built by hand — the format a program such as
-  mento-web can write without copying it. `from_nodes` refuses a node a row cannot hold
-  (settings other than the defaults, an out-of-plane `M_x`, other materials).
-- **`results`, `warnings` and `input_warnings`**: the frozen record of the last `check()`
-  (`SectionVerdict` per section, with the `GoverningDemand` of each face and of the shear),
-  the warnings of each section, and what reading the tables warned about.
-- **`split_single_table(table, "beam" | "wall")`**, **`SummaryInputError`** and
-  **`SummaryInputWarning`** in `mento`. The errors and warnings carry a stable `code`; their
-  `str()` is in English and their `.message` follows `set_language`.
-- **Optional `Level` and `Notes` columns** in both tables of the three summaries. `Level`
-  is part of a section's key, `(Level, Label)`; `Notes` is free text, kept and written
-  back but not read.
-- **The flexure and shear result of each combination carry its demand.**
-  `FlexureCheck.M_demand` (with its sign) and `N_demand`, and `ShearCheck.V_demand` (the
-  shear the DCR was formed from: `Vu`, or `VEd,2` at d under EN 1992-1-1) and `N_demand`,
-  in the units results are shown in; `None` on an envelope. New fields with a default, so
-  nothing that builds or reads these results changes. A table that shows a DCR next to the
-  demand it came from reads both from one result.
-- **The warning `axial_load_beyond_beam`** (ACI 318-19 and CIRSOC 201-25): a beam section
-  under `Nx >= 0.10 f'c Ag` in compression, where §9.5.2.2 computes the moment strength
-  with the axial load (§22.4) and mento checks bending alone. A `SummaryInputWarning`
-  `no_axial_column` says that a forces table without `Nx` is read as `N = 0`.
-
-### Fixed
-
-- **`BeamSummary.design()` and `OneWaySlabSummary.design()` are `Node.design()`.** They
-  designed the flexure and then the shear on their own, without the reset and the second
-  round of `Node.design()`, and could leave a section that fails its own check: an ACI
-  318-19 20x50 under 150 kN·m and 250 kN got 2Ø25 and 1eØ10/11, DCRb,bot 1.0005, where
-  `Node.design()` gives 2Ø25 + 1Ø20, 0.787; an EN 30x80 under 30 kN·m got 3.047 cm² against
-  A_s,min 3.054 cm². A slab is designed the same way (an ACI 100x15 under 20 kN·m and 50 kN
-  takes Ø10/14 and passes its shear on the concrete alone, where it got Ø12/25 and DCRv
-  1.058); one that still needs stirrups keeps its layers without them, and `design()` names
-  it instead of saying it completed.
-- **An exported design keeps its compression face.** `design()` writes both faces, so a
-  20x40 designed for +170 kN·m reads back at DCR 0.934 (it read back at 1.263, with the 2Ø8
-  of 1.4.0 instead of the 2Ø16 + 1Ø16 designed), and a slab designed for −90 kN·m at 0.877
-  (it read back at 1.27).
-- **`ShearWallSummary` keeps the units of the mesh through `design()` and the export.**
-  Under columns in mm/mm a wall designed Ø10/30 (DCR 0.25) read back as Ø10/3, DCR 0.178,
-  ten times its steel; in cm/m it read back as Ø100/3000.
-- **`BeamSummary.check()` runs flexure, then shear, as `Node.check()` does, and the capacity
-  check no longer clears the warnings.** Checking the shear first lost the warnings of the
-  stirrups that brace compression bars (ACI 318-19 / CIRSOC 201-25 §9.7.6.4), which the
-  flexure check is what finds: an ACI 25x70 with 4Ø25 ++ 2Ø20 at the bottom, 2Ø12 on top
-  and 1eØ8/25 under 500 kN·m gave no warning, where `Node.check()` gives
-  `stirrup_spacing_exceeds_compression_support` and
-  `stirrup_diameter_below_compression_support`. `check(capacity_check=True)` and the
-  capacity `flexure_results()` / `shear_results()` zeroed the forces of the nodes
-  themselves; they now run on a copy.
-- **Labels with spaces or written as numbers.** `"V4 "` and `"V4"` were two beams, and
-  `101` read back as `101.0`.
-- **The slab table is validated**: positions are preserved even for a lone second layer; a spacing without
-  its bar, negative values, stirrup columns or a beam table given to the slab summary raise
-  an error naming the column, where they were dropped or raised a `KeyError`.
-- **Text in a numeric column is an error**, where it was read as 0 without a word.
-- **The limit table of a slab in the summary report shows its bar spacing against its
-  maximum** (ACI 318-19 §7.7.2.3), as the slab's own report does: it was labelled "Minimum
-  spacing" with the maximum dropped, so a slab at Ø12/40 showed "400 ≥ 37 ❌".
 
 ## [1.5.0] - 2026-10-05
 
