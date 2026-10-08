@@ -13,6 +13,7 @@ not development lengths, hooks, seismic detailing or a bar bending schedule.
 from __future__ import annotations
 
 import math
+from time import perf_counter
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
@@ -56,14 +57,16 @@ def _supported_layer(
     mid-width, between the mounting bars.
     """
     n, count = len(row), len(corners)
+    diameters = {id(bar): _mm(bar.d_b) for bar in (*row, mounting)}
+    row_x = {id(bar): _mm(bar.x) for bar in row}
 
     def x_at(corner: int, bar: BarPosition) -> float:
         leg, side, corner_radius = corners[corner]
         # Tangent to the horizontal branch and clear of its rounded bend.
-        return leg + side * max(corner_radius, (d_st + _mm(bar.d_b)) / 2)
+        return leg + side * max(corner_radius, (d_st + diameters[id(bar)]) / 2)
 
     def steps(items: list[BarPosition]) -> list[float]:
-        return [(_mm(a.d_b) + _mm(b.d_b)) / 2 + clear for a, b in zip(items, items[1:])]
+        return [(diameters[id(a)] + diameters[id(b)]) / 2 + clear for a, b in zip(items, items[1:])]
 
     def fits(items: list[BarPosition], span: float) -> bool:
         distances = steps(items)
@@ -93,12 +96,22 @@ def _supported_layer(
                     span = x_at(corner, row[index]) - x_at(corner - 1, row[previous])
                     if not fits(list(row[previous : index + 1]), span):
                         continue
-                    cost = states[corner - 1, previous][0] + (x_at(corner, row[index]) - _mm(row[index].x)) ** 2
+                    cost = states[corner - 1, previous][0] + (x_at(corner, row[index]) - row_x[id(row[index])]) ** 2
                     if cost < best[0]:
                         best = cost, previous
                 if best[1] >= 0:
                     states[corner, index] = best
         if (count - 1, n - 1) not in states:
+            if compression_required:
+                try:
+                    _supported_layer(row, corners, mounting, clear, max_gap, d_st, bend_radius, False)
+                except CageDetailingError:
+                    pass
+                else:
+                    raise CageDetailingError(
+                        "The required compression bars cannot be supported by the selected closed stirrups.",
+                        reason="compression_support",
+                    )
             raise CageDetailingError(
                 "The resistant bars cannot fit between the stirrup corners with the required spacing."
             )
@@ -168,6 +181,32 @@ def _geometry_unit(length: Quantity) -> Quantity:
 
 
 def build_cage_detailing(beam: RectangularBeam, *, include_skin: bool = True) -> SectionGeometry:
+    """Reutilizar una búsqueda por estado; piel y estados comparten la misma jaula."""
+    base = build_section_geometry(beam)
+    key = repr((base, vars(beam.settings), beam._flexure_checked,
+                sorted(beam._compression_faces), beam.flexure_checks))
+    cache: dict[str, SectionGeometry | CageDetailingError] = getattr(beam, "_cage_detail_cache", {})
+    if key not in cache:
+        cache = {}
+        try:
+            cache[key] = _search_cage_detailing(beam, include_skin=False)
+        except CageDetailingError as error:
+            cache[key] = error
+        setattr(beam, "_cage_detail_cache", cache)
+    result = cache[key]
+    if isinstance(result, CageDetailingError):
+        raise result
+    if not include_skin:
+        return result
+    return _complete_skin_detail(beam, result)
+
+
+def _complete_skin_detail(beam: RectangularBeam, geometry: SectionGeometry) -> SectionGeometry:
+    """En PR174 no hay piel; la rama piel completa y comprueba esta misma jaula."""
+    return geometry
+
+
+def _search_cage_detailing(beam: RectangularBeam, *, include_skin: bool = False) -> SectionGeometry:
     """Un cerrado perimetral, cerrados por compresión y restantes patas abiertas.
 
     La cantidad ingresada es el mínimo por corte. La sujeción puede añadir
@@ -177,7 +216,7 @@ def build_cage_detailing(beam: RectangularBeam, *, include_skin: bool = True) ->
     resultado fallido/pendiente; nunca se acredita una pata abierta como traba.
     No se verifican ganchos, empalmes ni detallado sísmico.
     """
-    from itertools import combinations, islice
+    from itertools import combinations, chain
     from mento.compression_detailing import check_compression_detailing
     from mento.section_geometry import ClosedStirrup
 
@@ -206,6 +245,7 @@ def build_cage_detailing(beam: RectangularBeam, *, include_skin: bool = True) ->
     best = None
     last_error = None
     attempts = 0
+    deadline = perf_counter() + 2.0
     for total in range(requested, requested + extra_limit + 1):
         outer = base.stirrups[0]
         spacing = (outer.x_right - outer.x_left) / (total - 1)
@@ -225,14 +265,21 @@ def build_cage_detailing(beam: RectangularBeam, *, include_skin: bool = True) ->
             # patas libres. Solo agregar acero necesario para la sujeción.
             if total > requested and 2 * count < total - requested:
                 continue
-            options = list(islice(combinations(inner, 2 * count), max(0, 2048 - attempts)))
-            options.sort(key=lambda indices: sum(total - 1 - i not in indices for i in indices))
-            for indices in options:
+            # Simétricos primero, antes de recortar el presupuesto.
+            mirrors = [(i, total - 1 - i) for i in inner if i < total - 1 - i]
+            symmetric = (tuple(sorted(i for pair in chosen for i in pair))
+                         for chosen in combinations(mirrors, count))
+            seen: set[tuple[int, ...]] = set()
+            for indices in chain(symmetric, combinations(inner, 2 * count)):
+                if indices in seen:
+                    continue
+                seen.add(indices)
+                if attempts >= 2048 or perf_counter() >= deadline:
+                    raise CageDetailingError(
+                        "Compression-support search stopped at its candidate/time limit; no verified cage was found.",
+                        reason="compression_support_search",
+                    )
                 attempts += 1
-                if attempts > 2048:
-                    if best is not None:
-                        return best
-                    raise CageDetailingError("No supported cage found within the sectional search limit.")
                 pairs = list(zip(indices[::2], indices[1::2]))
                 closed = current.stirrups + tuple(
                     ClosedStirrup(pair, xs[pair[0]], xs[pair[1]], outer.y_bottom, outer.y_top, False) for pair in pairs
