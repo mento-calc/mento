@@ -5,10 +5,10 @@
 2  V102     n      Top   1.24       3.13        0.0   1.01 -60.0   19.99    True  3.002
 
 ### check_shear
-  Label Comb. Av,min Av,req     Av  NEd  VEd,1  VEd,2 VRd,c VRd,s   VRd VRd,max VEd,1≤VRd,max VEd,2≤VRd    DCR
-0              cm²/m  cm²/m  cm²/m   kN     kN     kN    kN    kN    kN      kN                               
-1  V102     u    1.6   2.68   1.41  0.0  120.0  120.0   0.0  63.2  63.2  255.25          True     False  1.899
-2  V102     n    1.6    1.6   1.41  0.0   30.0   30.0   0.0  63.2  63.2  255.25          True      True  0.475
+  Label Comb. Av,min Av,req     Av  NEd  VEd,1  VEd,2  VRd,c VRd,s   VRd VRd,max VEd,1≤VRd,max VEd,2≤VRd    DCR
+0              cm²/m  cm²/m  cm²/m   kN     kN     kN     kN    kN    kN      kN                               
+1  V102     u    1.6   2.68   1.41  0.0  120.0  120.0  67.13  63.2  63.2  255.25          True     False  1.899
+2  V102     n    1.6    1.6   1.41  0.0   30.0   30.0  34.25  63.2  63.2  255.25          True      True  0.475
 
 ### flexure_results_detailed
 ===== RESULTADOS DETALLADOS DE FLEXIÓN DE VIGA =====
@@ -114,7 +114,7 @@ Cuantía de armadura longitudinal      ρl         0.02
 Valor de k                            k          1.66
 Tensión axial                        σcd          0.0  MPa
 Ángulo de la biela de hormigón        Θ          21.8  deg
-Resistencia del hormigón            VRd,c         0.0  kN
+Resistencia del hormigón            VRd,c       67.13  kN
 Resistencia máxima al corte        VRd,max     255.25  kN
 Resistencia total al corte           VRd         63.2  kN
 Verificación de corte máximo                       ✅
@@ -216,7 +216,7 @@ Cuantía de armadura longitudinal | ρl | 0.02 |
 Valor de k | k | 1.66 | 
 Tensión axial | σcd | 0.0 | MPa
 Ángulo de la biela de hormigón | Θ | 21.8 | deg
-Resistencia del hormigón | VRd,c | 0.0 | kN
+Resistencia del hormigón | VRd,c | 67.1 | kN
 Resistencia máxima al corte | VRd,max | 255.2 | kN
 Resistencia total al corte | VRd | 63.2 | kN
 Verificación de corte máximo |  | ✅ | 

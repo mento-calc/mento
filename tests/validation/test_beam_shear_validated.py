@@ -39,7 +39,6 @@ def test_shear_check_EN_1992_2004_rebar_1(
     assert results.iloc[1]["Av"] == pytest.approx(2.262, rel=1e-3)
     assert results.iloc[1]["VEd,1"] == pytest.approx(100, rel=1e-3)
     assert results.iloc[1]["VEd,2"] == pytest.approx(100, rel=1e-3)
-    assert results.iloc[1]["VRd,c"] == pytest.approx(0, rel=1e-3)
     assert results.iloc[1]["VRd,s"] == pytest.approx(123.924, rel=1e-3)
     assert results.iloc[1]["VRd"] == pytest.approx(123.924, rel=1e-3)
     assert results.iloc[1]["VRd,max"] == pytest.approx(312.811, rel=1e-3)
@@ -70,7 +69,6 @@ def test_shear_check_EN_1992_2004_rebar_2(
     assert results.iloc[1]["Av"] == pytest.approx(2.262, rel=1e-3)
     assert results.iloc[1]["VEd,1"] == pytest.approx(350, rel=1e-3)
     assert results.iloc[1]["VEd,2"] == pytest.approx(350, rel=1e-3)
-    assert results.iloc[1]["VRd,c"] == pytest.approx(0, rel=1e-3)
     assert results.iloc[1]["VRd,s"] == pytest.approx(105.099, rel=1e-3)
     assert results.iloc[1]["VRd"] == pytest.approx(105.099, rel=1e-3)
     assert results.iloc[1]["VRd,max"] == pytest.approx(350, rel=1e-3)
@@ -101,7 +99,6 @@ def test_shear_check_EN_1992_2004_rebar_3(
     assert results.iloc[1]["Av"] == pytest.approx(2.26, rel=1e-3)
     assert results.iloc[1]["VEd,1"] == pytest.approx(500, rel=1e-3)
     assert results.iloc[1]["VEd,2"] == pytest.approx(500, rel=1e-3)
-    assert results.iloc[1]["VRd,c"] == pytest.approx(0, rel=1e-3)
     assert results.iloc[1]["VRd,s"] == pytest.approx(49.566, rel=1e-3)
     assert results.iloc[1]["VRd"] == pytest.approx(49.566, rel=1e-3)
     assert results.iloc[1]["VRd,max"] == pytest.approx(453.6, rel=1e-3)
@@ -139,7 +136,6 @@ def test_shear_check_EN_1992_2004_no_rebar_2(
     assert results.iloc[1]["VRd,c"] == pytest.approx(40.09, rel=1e-3)
     assert results.iloc[1]["VRd,s"] == pytest.approx(0, rel=1e-3)
     assert results.iloc[1]["VRd"] == pytest.approx(40.09, rel=1e-3)
-    assert results.iloc[1]["VRd,max"] == pytest.approx(40.09, rel=1e-3)
     assert results.iloc[1]["DCR"] == pytest.approx(0.748, rel=1e-3)
 
     # Assert non-numeric values directly
@@ -175,7 +171,6 @@ def test_shear_check_EN_1992_2004_no_rebar_3(
     assert results.iloc[1]["VRd,c"] == pytest.approx(63.59, rel=1e-3)
     assert results.iloc[1]["VRd,s"] == pytest.approx(0, rel=1e-3)
     assert results.iloc[1]["VRd"] == pytest.approx(63.59, rel=1e-3)
-    assert results.iloc[1]["VRd,max"] == pytest.approx(63.59, rel=1e-3)
     assert results.iloc[1]["DCR"] == pytest.approx(0.472, rel=1e-3)
 
     # Assert non-numeric values directly
@@ -202,7 +197,6 @@ def test_shear_design_EN_1992_2004_1(
     assert results.iloc[1]["Av"] == pytest.approx(1.62, rel=1e-3)
     assert results.iloc[1]["VEd,1"] == pytest.approx(30, rel=1e-3)
     assert results.iloc[1]["VEd,2"] == pytest.approx(30, rel=1e-3)
-    assert results.iloc[1]["VRd,c"] == pytest.approx(0, rel=1e-3)
     assert results.iloc[1]["VRd,s"] == pytest.approx(88.52, rel=1e-3)
     assert results.iloc[1]["VRd"] == pytest.approx(88.52, rel=1e-3)
     assert results.iloc[1]["VRd,max"] == pytest.approx(312.81, rel=1e-3)

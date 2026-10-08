@@ -12,6 +12,90 @@ from the release history and are summaries rather than complete lists.
 
 ## [Unreleased]
 
+### Added
+
+- **`section_too_small_for_moment` warning** (#169). A design that finds no layout
+  carrying the moment says so for the section, with the numbers that decide it: no
+  layout that fits the width, with room for the vibrator between the top bars, and
+  keeps within the code's limits on the reinforcement (tension-controlled under ACI
+  318-19 / CIRSOC 201-25 §9.3.3.1, the 4 % of EN 1992-1-1) carries `M`; the closest
+  carries `M_capacity`. It goes with `As_below_required`, which stays as it was.
+- **`clear_spacing_below_vibrator` warning** (#169). The clear distance between the
+  top bars of a beam that meets §25.2.1 but leaves no room for the vibrator is
+  reported apart: it used to be `clear_spacing_below_min` with the vibrator's 30 mm as
+  the minimum. `clear_spacing_below_min` now quotes the §25.2.1 minimum alone (bar
+  diameter and 25 mm / 1 in.). A design still never leaves either; a slab, detailed
+  centre to centre, keeps the two in `bar_spacing_below_min`.
+
+- **`OneWaySlabSummary`**, in `mento` and `mento.slab_summary`: the `BeamSummary`
+  workflow — `check()`, `design()`, `flexure_results()`, `shear_results()`,
+  `export_design()` / `import_design()` and `results_detailed_doc()` — on a list of
+  one-way slab strips. Each face is a diameter and a spacing per layer
+  (`db1, s1, db3, s3`), rows that share a `Label` are one slab designed for their
+  envelope, and `design()` designs the flexure only: the shear is checked against the
+  concrete, without stirrups.
+
+### Changed
+
+- **A design that does not close keeps the closest layout within the limits** (#169).
+  Bars that fit the width, with room for the vibrator on top, and a tension-controlled
+  section (§9.3.3.1 / §7.3.3.1; the 4 % under EN 1992-1-1) are never traded for
+  strength: of the design rounds that fail, the one kept is the closest that meets
+  them, then the smallest DCR. The tension-controlled limit used to be left out of
+  that choice. And when the layouts the design visited do not close, it searches the
+  layouts that fit for the one within the limits that comes closest: the cap it
+  searched under is the tension-controlled area of a section without compression
+  steel, which the bars of the other face extend. An ACI 40x25, f'c 25, c_c 40 mm
+  under ±91.6 kN·m went from 2Ø10 + 5Ø10 in two layers on each face, DCR 1.466, to
+  7Ø16 in one layer, DCR 1.088; an ACI 20x25 under 38.2 kN·m from 3Ø12 + 3Ø10 in two
+  layers, DCR 1.166, to 2Ø20, DCR 1.010. Sections that used to end not
+  tension-controlled end within the limit, with a larger DCR: a CIRSOC 12x30 under
+  60 kN·m went from 2Ø16 + 2Ø16, DCR 1.137 and `not_tension_controlled`, to
+  2Ø16 + 2Ø12, DCR 1.204; an ACI one-way slab 100x15 under 46.9 kN·m from Ø10/5,
+  DCR 0.801 and `not_tension_controlled`, to Ø10/6, DCR 1.010. Designs that close
+  do not change, and pay nothing for the search.
+
+- **EN 1992-1-1 shear: the same A_sw,req with stirrups and without** (#170). Under
+  V_Rd,c no calculated shear reinforcement is needed (§6.2.1(3)), so a section with
+  stirrups is now asked for the minimum of §9.2.2 there, as a bare one already was,
+  and not for the truss of §6.2.3. Its V_Rd follows the same clause: under V_Rd,c it
+  is the larger of V_Rd,c and the truss its stirrups make, past it the truss alone,
+  capped by V_Rd,max. Pass or fail changes only where the minimum stirrups give less
+  than V_Rd,c, which happens in shallow, heavily reinforced beams: an EN 20x30, C20,
+  3Ø20 under 37 kN with eØ6/37 asked 1.49 cm²/m and reported DCR 0.974; it asks
+  1.43 and reports 0.955.
+- **EN 1992-1-1 shear report** (#170): a section with stirrups shows its V_Rd,c, which
+  was printed as 0, and a section without stirrups shows as V_Rd,max the strut limit of
+  Eq. (6.9) at 45° (§6.2.1(6)), the one `shear_exceeds_section_limit` reads, where it
+  repeated V_Rd,c. `VEd,1≤VRd,max` compares against that limit.
+
+- **`BeamSummary` designs a beam for the envelope of its combinations.** Rows that share a
+  `Label` are now one beam: one node carrying every combination, as a `Node` built by hand,
+  instead of one independent section per row. `check()` gives one row per beam with the
+  largest demands and DCRs over its combinations (it read the last combination before),
+  `design()` writes the same stirrups on every row of the beam and the bars of the face each
+  row puts in tension, and `flexure_results()` / `shear_results()` keep one row per
+  combination, with `index` counting beams. Rows of a beam that disagree on `b`, `h`, `cc`,
+  the stirrups or the bars of a face raise a `ValueError` naming the beam. A list whose
+  labels are all different, or empty, gives the same results as before.
+- **`ShearWallSummary` reads the mesh of a wall from any of its rows.** It took the mesh
+  of the first row of a (Level, Label) group only, so a mesh given on a later row was
+  lost; now it may be given on any row, rows that give different meshes raise a
+  `ValueError` naming the wall, and a row with no label is a wall of its own instead of
+  joining every other unlabelled row.
+- **`export_design()` writes each number in the unit its column declares.** It wrote the
+  magnitude of whatever unit the design computed a value in.
+
+### Fixed
+
+- Beam and slab summary Excel files retain both reinforcement faces, including
+  compression steel when every combination has the same moment sign. Design
+  tables add complete `*_bot` and `*_top` reinforcement blocks; these take
+  precedence on import, while files without them keep the original sign-based
+  interpretation. Partial explicit blocks are rejected.
+- A slab summary reads a second reinforcement layer given on its own, and rejects a
+  layer with only its diameter or its spacing instead of silently ignoring it.
+
 ### Migration notes
 - EN footings with nonzero axial force now raise `NotImplementedError`: Mento does not model that scope; this is not a Eurocode prohibition. Version 1.5.0 accepted these cases.
 
@@ -33,45 +117,6 @@ from the release history and are summaries rather than complete lists.
   conflict because of floating-point conversion. Counts remain exact.
 - Complete physical-face input may omit the legacy active-face block;
   omitted legacy cells are empty and the caller's input table is preserved.
-
-### Changed
-
-- **`BeamSummary` designs a beam for the envelope of its combinations.** Rows that share a
-  `Label` are now one beam: one node carrying every combination, as a `Node` built by hand,
-  instead of one independent section per row. `check()` gives one row per beam with the
-  largest demands and DCRs over its combinations (it read the last combination before),
-  `design()` writes the same stirrups on every row of the beam and the bars of the face each
-  row puts in tension, and `flexure_results()` / `shear_results()` keep one row per
-  combination, with `index` counting beams. Rows of a beam that disagree on `b`, `h`, `cc`,
-  the stirrups or the bars of a face raise a `ValueError` naming the beam. A list whose
-  labels are all different, or empty, gives the same results as before.
-- **`ShearWallSummary` reads the mesh of a wall from any of its rows.** It took the mesh
-  of the first row of a (Level, Label) group only, so a mesh given on a later row was
-  lost; now it may be given on any row, rows that give different meshes raise a
-  `ValueError` naming the wall, and a row with no label is a wall of its own instead of
-  joining every other unlabelled row.
-- **`export_design()` writes each number in the unit its column declares.** It wrote the
-  magnitude of whatever unit the design computed a value in.
-
-### Added
-
-- **`OneWaySlabSummary`**, in `mento` and `mento.slab_summary`: the `BeamSummary`
-  workflow — `check()`, `design()`, `flexure_results()`, `shear_results()`,
-  `export_design()` / `import_design()` and `results_detailed_doc()` — on a list of
-  one-way slab strips. Each face is a diameter and a spacing per layer
-  (`db1, s1, db3, s3`), rows that share a `Label` are one slab designed for their
-  envelope, and `design()` designs the flexure only: the shear is checked against the
-  concrete, without stirrups.
-
-### Fixed
-
-- Beam and slab summary Excel files retain both reinforcement faces, including
-  compression steel when every combination has the same moment sign. Design
-  tables add complete `*_bot` and `*_top` reinforcement blocks; these take
-  precedence on import, while files without them keep the original sign-based
-  interpretation. Partial explicit blocks are rejected.
-- A slab summary reads a second reinforcement layer given on its own, and rejects a
-  layer with only its diameter or its spacing instead of silently ignoring it.
 
 ## [1.5.0] - 2026-10-05
 
