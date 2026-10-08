@@ -59,14 +59,17 @@ class _Verdict(NamedTuple):
     ``compression_faces`` are the faces some combination relies on as
     compression steel (see :meth:`RectangularBeam._compression_face_of`), which
     the stirrups of that section have to brace. ``fits`` says the bars of
-    the faces judged fit the width -- no spacing warning -- whatever else
-    the checks found.
+    the faces judged fit the width -- no spacing warning, the vibrator's gap
+    on top included -- whatever else the checks found, and ``admissible``
+    that the face each combination puts in tension keeps within the code's
+    limit on its reinforcement (``DesignCode.flexure_admissible``).
     """
 
     DCR: float
     clean: bool
     compression_faces: FrozenSet[str] = frozenset()
     fits: bool = True
+    admissible: bool = True
 
     @property
     def passes(self) -> bool:
@@ -541,6 +544,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         worst = 0.0
         fits = not any(raw.face in names for raw in spacing_warnings(self))
         clean = fits
+        within = True
         compression: set[str] = set()
         for force in forces:
             state = self._run_flexure_check(force, report=False)
@@ -549,11 +553,11 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             clean = clean and not flexure_warnings(self, force.label, state)
             tension = "bot" if force._M_y > 0 * kN * m else "top" if force._M_y < 0 * kN * m else None
             if tension is not None and admissible is not None and not admissible(self, tension):
-                clean = False
+                within = False
             braced = self._compression_face_of(force, state)
             if braced is not None:
                 compression.add(braced)
-        return _Verdict(worst, clean, frozenset(compression), fits)
+        return _Verdict(worst, clean and within, frozenset(compression), fits, within)
 
     def _verify_longitudinal_options(self, forces: list[Forces]) -> None:
         """Keep, of each face's pooled alternatives, those the finished section passes with.
@@ -628,7 +632,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
                 clean = clean and not shear_warnings(self, force.label, shear_state)
         finally:
             self._compression_faces = braced
-        return _Verdict(worst, clean, flexure.compression_faces, flexure.fits)
+        return _Verdict(worst, clean, flexure.compression_faces, flexure.fits, flexure.admissible)
 
     def _record_transverse_options(self, table: DataFrame, forces: list[Forces]) -> None:
         """Keep the stirrup layouts the search found, the applied one first.
@@ -1627,13 +1631,22 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         last, on the section the shear design finished: its stirrup sets the
         depth the bars sit at.
         """
-        with self._design_in_progress():
-            self._reset_for_design()
-            self._design_flexure(forces)
-            self.design_shear(forces)
-            self._settle_design(forces)
-            self.check_flexure(forces)
-            self._verify_longitudinal_options(forces)
+        # What the search for the closest layout of a design that does not
+        # close finds, by stirrup, moments and starting pair: the rounds of
+        # :meth:`_settle_design` can run it again on the same ones. Only for
+        # the length of this design, so a change to the section between two
+        # designs is never answered from it.
+        self._closest_pair_memo: Dict[tuple, Any] = {}
+        try:
+            with self._design_in_progress():
+                self._reset_for_design()
+                self._design_flexure(forces)
+                self.design_shear(forces)
+                self._settle_design(forces)
+                self.check_flexure(forces)
+                self._verify_longitudinal_options(forces)
+        finally:
+            del self._closest_pair_memo
 
     def _settle_design(self, forces: list[Forces]) -> None:
         """Redo the flexure with the stirrup the shear design chose, until the pair holds.
@@ -1660,19 +1673,20 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         ``design()`` still gives the same bars every time.
 
         When no round passes, the section ends with the round that came
-        closest -- one whose bars fit the width before one whose bars do not,
-        then the smallest flexure DCR -- not with the last: a later round is
-        designed from a different depth and need not be better. An ACI 20x25
-        with c_c = 40 mm under 38.2 kN·m gets 2Ø20 at the Ø8 depth, DCR
-        1.010 with the 1eØ10 the shear picks, and its second round, at the
-        Ø10 depth, landed on 3Ø12 + 3Ø10 in two layers under 2Ø25, DCR 1.166.
-        Bars that do not fit are no layout at all, however strong: an ACI
-        12x25 under -21.3 kN·m gets 2Ø12 + 2Ø10 on top at the Ø8 width, DCR
-        0.907, which the Ø10 leaves 26 mm apart where the vibrator needs 30,
-        and keeps the 2Ø10 + 2Ø10 of the next round, DCR 1.092. The round
-        kept is re-run (its result is a function of the stirrup it started
-        from), and :meth:`_record_shortfall` makes sure the face that fails
-        says so.
+        closest, not with the last: a later round is designed from a
+        different depth and need not be better. Closest is first what the
+        design never trades for strength -- bars that fit the width, with the
+        vibrator's gap on top, and a tension face within the code's limit
+        (tension-controlled under ACI 318-19 / CIRSOC 201-25 §9.3.3.1, the
+        4 % of EN 1992-1-1 §9.2.1.1(3)) -- and only then the smallest flexure
+        DCR. A stronger layout that breaks one of those is no solution: bars
+        the vibrator cannot pass leave the concrete unconsolidated, and a
+        beam that is not tension-controlled is one §9.3.3.1 does not allow
+        (issue #169). A stirrup that moves the bars can take a round past
+        either, which is why both are judged on each round as built. The
+        round kept is re-run (its result is a function of the stirrup it
+        started from), and :meth:`_record_shortfall` makes sure the face
+        that fails says so.
         """
         verdict = self._flexure_verdict(forces, ("bot", "top"))
         if verdict.passes:
@@ -1693,7 +1707,10 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
                 break
             seen.add(state)
         last = len(rounds) - 1
-        closest = min(range(len(rounds)), key=lambda i: (not rounds[i][0].fits, rounds[i][0].DCR, i != last))
+        closest = min(
+            range(len(rounds)),
+            key=lambda i: (not rounds[i][0].fits, not rounds[i][0].admissible, rounds[i][0].DCR, i != last),
+        )
         if closest != last:
             self._redesign_from(rounds[closest][1], forces)
         self._record_shortfall(forces)
