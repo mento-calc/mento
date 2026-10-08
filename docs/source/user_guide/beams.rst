@@ -538,7 +538,7 @@ canónica para evitar un supuesto medio estribo en la entrada antigua.
 
 
 Precisiones de piel manual
--------------------------
+--------------------------------
 
 Las filas parten de la capa longitudinal más interior que tenga al menos dos
 barras; si no hay barras, se usa el recubrimiento. ``top`` y ``bottom`` llegan
