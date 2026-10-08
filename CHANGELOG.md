@@ -16,9 +16,9 @@ from the release history and are summaries rather than complete lists.
 
 - Estados independientes de resistencia y detallado modelado, visibles en
   reportes; un DCR favorable no aprueba el armado.
-- Entrada preferida `legs`, con alias compatible `n_legs` y validación de
-  contradicciones. Ramas impares y trabas individuales siguen fuera del modelo.
-- Ambas caras físicas en Word; cc en mm o pulgadas en la tablas Beam Sections / Slab Sections.
+- La tabla Sections usa `legs`. Los aliases `n_legs` y `ns` no se aceptan
+  en esa tabla; `ns` se convierte desde el formato antiguo con `split_single_table()`. Ramas impares y trabas individuales siguen fuera del modelo.
+- Ambas caras físicas en Word; cc en mm o pulgadas en las tablas Beam Sections / Slab Sections.
 - Rechazo explícito de zapatas EN con axil, antes de modificar el armado:
   caso todavía no soportado por Mento, no prohibición normativa.
 
