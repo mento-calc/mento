@@ -672,11 +672,6 @@ def describe_stirrup_cage(n_legs: int, language: Optional[str] = None) -> str:
         return translate("single perimeter stirrup", language)
     if stirrups:
         parts.append(translate("perimeter stirrup", language))
-    inner = len(stirrups) - 1
-    if inner == 1:
-        parts.append(translate("1 inner stirrup", language))
-    elif inner > 1:
-        parts.append(translate("{n} inner stirrups", language, n=inner))
     if crossties:
         parts.append(
             translate("1 open leg", language)
