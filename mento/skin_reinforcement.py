@@ -319,8 +319,6 @@ def _add_skin_bars(beam: RectangularBeam, geometry: SectionGeometry) -> SectionG
     if 2 * inset + diameter + settings.clear_spacing > geometry.width:
         raise CageDetailingError("The two lateral skin bars cannot fit within the section width.")
     # Round only the key used to merge the common midpoint across units.
-    if not req.rows:
-        raise CageDetailingError("A required skin proposal must specify its physical rows.", reason="skin")
     rows = {float(y.to(mm).magnitude) for y in req.rows}
     ordered_rows = sorted({round(y, 9) for y in rows})
     bars = tuple(
