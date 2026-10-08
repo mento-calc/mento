@@ -417,8 +417,8 @@ proposal does not use these EN service inputs.
 The proposal retains a single row when the minimum area permits it. It does
 not impose a Mento minimum of two rows. ``skin_distribution_review`` reports one global informative warning,
 showing the largest interval among all reviewed service cases and their
-labels. It does not attribute that interval to one tension face when the
-cases cover both faces. The separate records in
+labels. Its global warning never attributes that interval to a tension face,
+even when there is only one case. The separate records in
 ``skin_reinforcement.distribution_reviews`` retain every case and face.
 The warning gives rows per lateral side and interval including boundaries;
 these are not clear distances or an additional EN spacing limit. The

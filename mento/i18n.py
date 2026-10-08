@@ -552,3 +552,11 @@ ES.update(
         "The base cage cannot be detailed: {reason}": "La jaula principal no puede detallarse: {reason}",
     }
 )
+
+
+# Singular del aviso global; conserva las etiquetas, sin atribuir una cara.
+ES.update(
+    {
+        "Review skin-steel distribution, worst of {cases} service case: {rows} rows per side in that zone, largest vertical interval {gap}, including zone boundaries. This is informative, not an additional code spacing limit; the diameter-route proposal does not verify crack width directly.": "Revisar la distribución de piel, peor de {cases} caso de servicio: {rows} filas por lateral en esa zona, mayor intervalo vertical {gap}, incluyendo los bordes de la zona. Es informativo, no un límite normativo adicional de separación; la propuesta por diámetro no comprueba directamente el ancho de fisura.",
+    }
+)

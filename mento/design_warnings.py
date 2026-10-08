@@ -775,6 +775,8 @@ def collect(raws: List[_Raw]) -> Tuple[DesignWarning, ...]:
         if code == "skin_distribution_review":
             values["cases"] = len(group)
         template = _MESSAGES[f"{code}_{direction}" if direction else code]
+        if code == "skin_distribution_review" and values["cases"] == 1:
+            template = template.replace("service cases", "service case")
         # A text value (the clause a limit comes from) is quoted as it is.
         fields = _fields({n: v for n, v in values.items() if n != "direction" and not isinstance(v, str)})
         fields.update({n: v for n, v in values.items() if n != "direction" and isinstance(v, str)})

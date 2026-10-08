@@ -44,3 +44,23 @@ def test_skin_review_is_informative_and_emitted_once():
     assert warning_category(warnings[0].code) == "informative"
     assert warning_category("skin_detailing_invalid") == "pending"
     assert warning_category("skin_reinforcement_required") == "failed"  # DP-2 no cambia.
+
+
+@pytest.mark.parametrize(
+    "language, expected", [("en", "worst of 1 service case:"), ("es", "peor de 1 caso de servicio:")]
+)
+def test_single_skin_review_uses_singular_and_keeps_global_scope(language, expected):
+    from mento import mm, set_language
+    from mento.design_warnings import _Raw, collect
+
+    try:
+        set_language(language)
+        warnings = collect(
+            [_Raw("skin_distribution_review", {"rows": 1, "gap": 400 * mm}, face="bottom", combination="S")]
+        )
+        assert len(warnings) == 1
+        assert expected in warnings[0].message
+        assert warnings[0].face is None
+        assert warnings[0].combinations == ("S",)
+    finally:
+        set_language("en")
