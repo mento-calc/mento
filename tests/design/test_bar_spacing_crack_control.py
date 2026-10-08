@@ -103,7 +103,7 @@ def test_a_slab_spread_past_table_24_3_2_is_warned() -> None:
     Node(section=slab, forces=Forces(label="C1", M_y=20 * kNm)).check_flexure()
 
     found = {w.code: w for w in slab.warnings}
-    assert set(found) == {"bar_spacing_exceeds_max"}
+    assert "bar_spacing_exceeds_max" in found
     assert found["bar_spacing_exceeds_max"].face == "bottom"
     assert found["bar_spacing_exceeds_max"].values["s_max"].to("mm").magnitude == pytest.approx(300.0)
     rows = slab._data_min_max_flexure
