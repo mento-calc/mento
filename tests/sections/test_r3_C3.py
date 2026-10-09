@@ -8,7 +8,13 @@ from mento.verification import WARNING_CATEGORY, verification_status, warning_ca
     "code",
     sorted(
         set(_MESSAGES)
-        | {"stirrup_spacing_exceeds_max", "mesh_ratio_below_min", "mesh_spacing_exceeds_max", "axial_load_beyond_beam"}
+        | {
+            "stirrup_spacing_exceeds_max",
+            "mesh_ratio_below_min",
+            "mesh_ratio_above_max",
+            "mesh_spacing_exceeds_max",
+            "axial_load_beyond_beam",
+        }
     ),
 )
 def test_every_published_warning_has_explicit_category(code):

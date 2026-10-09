@@ -1,0 +1,85 @@
+### design
+     Level Label  Comb.         t      lw      hw        cc          Nx         Vz            My dbh  sh dbv  sv
+0  Level 1    M1  ELU 1  20.00 cm  3.00 m  3.00 m  25.00 mm     0.00 kN  264.00 kN  -172.00 kN·m   6  27  10  37
+1  Level 1    M1  ELU 2  20.00 cm  3.00 m  3.00 m  25.00 mm  -301.00 kN  152.00 kN  -234.00 kN·m   6  27  10  37
+2  Level 2    M2  ELU 1  20.00 cm  2.00 m  3.00 m  25.00 mm    55.50 kN  163.00 kN  -278.00 kN·m   6  27  10  37
+
+### check
+     Nivel Etiqueta   t   lw   hw Horiz.   Vert.       ρh       ρv VEd,max    VRd    DCR Estado
+0                    cm    m    m                                       kN     kN              
+1  Level 1       M1  20  3.0  3.0  Ø6/27  Ø10/37  0.00105  0.00212   264.0  491.7  0.537      ✅
+2  Level 2       M2  20  2.0  3.0  Ø6/27  Ø10/37  0.00105  0.00212   163.0  327.8  0.497      ✅
+
+### shear_results
+  Etiqueta  Comb. Ash,min Ash,req    Ash Asv,min    Asv    NEd    VEd   VRd,c   VRd,s     VRd  VRd,max VEd≤VRd,max VEd≤VRd    DCR
+0                   cm²/m   cm²/m  cm²/m   cm²/m  cm²/m     kN     kN      kN      kN      kN       kN                           
+1       M1  ELU 1     2.0     2.0   2.09     4.0   4.25    0.0  264.0  122.88  491.73  491.73  1340.69        True    True  0.537
+2       M1  ELU 2     2.0     2.0   2.09     4.0   4.25 -301.0  152.0   86.76  491.73  491.73  1340.69        True    True  0.309
+3       M2  ELU 1     2.0     2.0   2.09     4.0   4.25   55.5  163.0   94.85  327.82  327.82   893.79        True    True  0.497
+
+### results_detailed_doc: Shear_Wall_Summary_EN 1992-2004.docx
+Análisis del resumen de tabiques
+Generado con mento <version>. Código de diseño: EN 1992-2004
+Verificación a corte del tabique Level 1 - M1
+Datos de la sección
+Materiales | Variable | Valor | Unidad
+Identificación de la sección |  | M1 | 
+Resistencia del hormigón | fck | 25 | MPa
+Tensión de fluencia del acero | fywk | 500 | MPa
+Coeficiente de seguridad del hormigón | γc | 1.5 | 
+Coeficiente de seguridad del acero | γs | 1.15 | 
+Resistencia de cálculo del hormigón | fcd | 16.67 | MPa
+Resistencia de cálculo del acero | fywd | 434.78 | MPa
+Geometría | Variable | Valor | Unidad
+Espesor del tabique | t | 20.0 | cm
+Longitud del tabique | lw | 300.0 | cm
+Altura del tabique | hw | 300.0 | cm
+Área bruta de hormigón | Ac | 6000.0 | cm²
+Altura útil | d | 240.0 | cm
+Brazo de palanca | z | 216.0 | cm
+Solicitaciones | Variable | Valor | Unidad
+Axil, positivo en compresión | NEd | 0.0 | kN
+Corte | VEd | 264.0 | kN
+Verificaciones de límites
+Verificación | Unidad | Valor | Mín. | Máx. | ¿Ok?
+Relación longitud / espesor |  | 15.0 | 4 |  | ✅
+Armadura horizontal | cm²/m | 2.09 | 2.0 |  | ✅
+Armadura vertical | cm²/m | 4.25 | 4.0 | 80.0 | ✅
+Separación de barras horizontales (en cada cara) | mm | 270.0 |  | 400.0 | ✅
+Separación de barras verticales (en cada cara) | mm | 370.0 |  | 400.0 | ✅
+Capacidad máxima de corte | kN | 264.0 |  | 1340.7 | ✅
+Capacidad total de corte | kN | 264.0 |  | 491.7 | ✅
+Verificaciones de resistencia
+Resistencia al corte | Variable | Valor | Unidad
+Valor de k | k | 1.289 | 
+Cuantía de armadura longitudinal | ρl | 0.0 | 
+Tensión axial | σcp | 0.0 | MPa
+Resistencia al corte del hormigón | VRd,c | 122.9 | kN
+Coeficiente del cordón comprimido | αcw | 1.0 | 
+Factor de reducción de la resistencia del hormigón fisurado por corte | ν1 | 0.54 | 
+Ángulo de la biela de hormigón | Θ | 21.8 | deg
+Armadura de corte por resistencia | Ash,str | 1.12 | cm²/m
+Armadura mínima de corte | Ash,w | 1.6 | cm²/m
+Armadura horizontal mínima | Ash,min | 2.0 | cm²/m
+Resistencia al corte del acero | VRd,s | 491.7 | kN
+Resistencia máxima al corte | VRd,max | 1340.7 | kN
+Resistencia total al corte | VRd | 491.7 | kN
+Factor de Utilización | DCR | 0.54 | 
+Resumen - Todos los tabiques
+Datos de los tabiques
+Nivel | Etiqueta | Comb. | t | lw | hw | cc | Nx | Vz | My | dbh | sh | dbv | sv
+ |  |  | cm | m | m | mm | kN | kN | kNm | mm | cm | mm | cm
+Level 1 | M1 | ELU 1 | 20 | 3.0 | 3.0 | 25 | 0 | 264 | -172 | 8 | 20 | 12 | 15
+Level 1 | M1 | ELU 2 | 20 | 3.0 | 3.0 | 25 | -301 | 152 | -234 | 8 | 20 | 12 | 15
+Level 2 | M2 | ELU 1 | 20 | 2.0 | 3.0 | 25 | 55.5 | 163 | -278 | 0 | 0 | 0 | 0
+Resultados de corte
+Etiqueta | Comb. | Ash,min | Ash,req | Ash | Asv,min | Asv | NEd | VEd | VRd,c | VRd,s | VRd | VRd,max | DCR
+ |  | cm²/m | cm²/m | cm²/m | cm²/m | cm²/m | kN | kN | kN | kN | kN | kN | 
+M1 | ELU 1 | 2.0 | 2.0 | 2.09 | 4.0 | 4.25 | 0.0 | 264.0 | 122.9 | 491.7 | 491.7 | 1340.7 | 0.54
+M1 | ELU 2 | 2.0 | 2.0 | 2.09 | 4.0 | 4.25 | -301.0 | 152.0 | 86.8 | 491.7 | 491.7 | 1340.7 | 0.31
+M2 | ELU 1 | 2.0 | 2.0 | 2.09 | 4.0 | 4.25 | 55.5 | 163.0 | 94.8 | 327.8 | 327.8 | 893.8 | 0.5
+Resumen de verificaciones
+Nivel | Etiqueta | t | lw | hw | Horiz. | Vert. | ρh | ρv | VEd,max | VRd | DCR | Estado
+ |  | cm | m | m |  |  |  |  | kN | kN |  | 
+Level 1 | M1 | 20 | 3.0 | 3.0 | Ø6/27 | Ø10/37 | 0.00105 | 0.00212 | 264.0 | 491.7 | 0.54 | ✅
+Level 2 | M2 | 20 | 2.0 | 3.0 | Ø6/27 | Ø10/37 | 0.00105 | 0.00212 | 163.0 | 327.8 | 0.5 | ✅

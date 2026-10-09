@@ -178,6 +178,20 @@ ES: Dict[str, str] = {
     "Vertical bar spacing (E.F.)": "Separación de barras verticales (en cada cara)",
     "Horizontal reinforcement ratio": "Cuantía de armadura horizontal",
     "Minimum vertical reinf. ratio": "Cuantía vertical mínima",
+    # EN 1992-1-1 wall tables (mento.reports.walls)
+    "Design concrete strength": "Resistencia de cálculo del hormigón",
+    "Design steel strength": "Resistencia de cálculo del acero",
+    "Gross concrete area": "Área bruta de hormigón",
+    "Lever arm": "Brazo de palanca",
+    "Length to thickness ratio": "Relación longitud / espesor",
+    "Horizontal reinforcement": "Armadura horizontal",
+    "Vertical reinforcement": "Armadura vertical",
+    "Compression chord coefficient": "Coeficiente del cordón comprimido",
+    "Strength reduction factor for concrete cracked in shear": (
+        "Factor de reducción de la resistencia del hormigón fisurado por corte"
+    ),
+    "Shear reinforcement for strength": "Armadura de corte por resistencia",
+    "Minimum horizontal reinforcement": "Armadura horizontal mínima",
     # -- summary tables: headers and cell values ---------------------------
     # Only the columns that hold words. The symbol columns (b, h, As,bot, Av,
     # Mu, DCRv) are variable names and stay as they are, like everywhere else.
@@ -281,12 +295,18 @@ ES.update(
         "Vertical wall mesh: ρl = {rho} is below the minimum ρl,min = {rho_min}.": (
             "Malla vertical del muro: ρl = {rho} es menor que la mínima ρl,mín = {rho_min}."
         ),
-        ("Horizontal wall mesh spacing: {s} exceeds the maximum {s_max} (§11.7.3.1; lw/5 where Vu > φVc)."): (
-            "Separación de la malla horizontal del muro: {s} supera la máxima {s_max} (§11.7.3.1; lw/5 donde Vu > φVc)."
+        "Vertical wall mesh: ρl = {rho} exceeds the maximum ρl,max = {rho_max}.": (
+            "Malla vertical del muro: ρl = {rho} supera la máxima ρl,máx = {rho_max}."
         ),
-        ("Vertical wall mesh spacing: {s} exceeds the maximum {s_max} (§11.7.2.1; lw/3 where Vu > φVc)."): (
-            "Separación de la malla vertical del muro: {s} supera la máxima {s_max} (§11.7.2.1; lw/3 donde Vu > φVc)."
+        "Horizontal wall mesh spacing: {s} exceeds the maximum {s_max} ({clause}).": (
+            "Separación de la malla horizontal del muro: {s} supera la máxima {s_max} ({clause})."
         ),
+        "Vertical wall mesh spacing: {s} exceeds the maximum {s_max} ({clause}).": (
+            "Separación de la malla vertical del muro: {s} supera la máxima {s_max} ({clause})."
+        ),
+        # The clauses the spacing warnings quote (DesignCode.wall_mesh_spacing_clauses).
+        "§11.7.3.1; lw/5 where Vu > φVc": "§11.7.3.1; lw/5 donde Vu > φVc",
+        "§11.7.2.1; lw/3 where Vu > φVc": "§11.7.2.1; lw/3 donde Vu > φVc",
         (
             "Stirrup spacing along the member: {s} exceeds the {s_max} that lateral support of the "
             "{d_b_comp} compression bars allows (16 d_b, 48 d_b of the stirrup, least dimension of the beam)."

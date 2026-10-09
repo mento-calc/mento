@@ -88,7 +88,7 @@ each element and design code as a notebook, including US customary units.
 | Rectangular beam, flexure and shear       |      ✅      |       ✅       |        ✅         |
 | One-way slab, flexure and shear           |      ✅      |       ✅       |        ✅         |
 | Footing section, flexure and shear        |      ✅      |       ✅       |        ✅         |
-| Shear wall, in-plane shear                |      ✅      |       ✅       |   in progress    |
+| Shear wall, in-plane shear                |      ✅      |       ✅       |        ✅         |
 | Slab punching shear                       | in progress |  in progress  |   in progress    |
 
 Across all of them:
@@ -127,8 +127,8 @@ The full documentation is at [mento-docs.readthedocs.io](https://mento-docs.read
 - [x] One way concrete slab and footing check and design for ACI 318-19 and CIRSOC 201-25.
 - [x] One way concrete slab and footing check and design for EN 1992-2004.
 - [x] Shear wall shear check and design for ACI 318-19 and CIRSOC 201-25.
+- [x] Shear wall shear check and design for EN 1992-2004.
 - [x] US customary units in, US customary units out.
-- [ ] Shear wall shear check and design for EN 1992-2004. (in progress)
 - [ ] Slab shear punching check and design for ACI 318-19 and CIRSOC 201-25. (in progress)
 - [ ] Slab shear punching check and design for EN 1992-2004. (in progress)
 - [ ] Shear wall flexure check for ACI 318-19.
