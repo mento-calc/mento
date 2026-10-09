@@ -261,6 +261,14 @@ def test_summary_normalizes_manual_skin_position(raw, normalized):
     assert result.nodes[0].section.skin_rebar.db_piel.to("mm").magnitude == 10
 
 
+def test_summary_names_the_beam_of_a_skin_the_beam_rejects():
+    """A skin below the minimum longitudinal diameter: the beam's error, with the section that gave it."""
+    materials = beam()
+    with pytest.raises(ValueError, match="Beam 'Manual': invalid manual skin") as raised:
+        BeamSummary(materials.concrete, materials.steel_bar, *manual_tables(db_piel=4))
+    assert isinstance(raised.value.__cause__, ValueError)
+
+
 def test_a_table_without_skin_columns_writes_none():
     materials = beam()
     sections, rows = manual_tables()

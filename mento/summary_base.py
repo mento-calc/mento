@@ -735,7 +735,7 @@ class _TwoTableSummary:
             )
         ]
 
-    def _optional_column_used(self, name: str) -> bool:
+    def _optional_column_used(self, name: str) -> bool:  # pragma: no cover - only Level and Notes here
         """Whether a section uses an optional column the table did not give (a summary with one overrides it)."""
         return False
 

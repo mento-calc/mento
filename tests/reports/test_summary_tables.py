@@ -134,7 +134,8 @@ def test_a_single_table_is_read_with_a_deprecation_warning(kind: str, tmp_path: 
             with pytest.warns(DeprecationWarning, match="removed in mento 2.0"):
                 summary = attempt()
             pd.testing.assert_frame_equal(summary.check(), expected)
-        summary = attempts[0]()
+        with pytest.warns(DeprecationWarning):
+            summary = attempts[0]()
         with pytest.warns(DeprecationWarning, match=f"{keyword} is deprecated"):
             assert getattr(summary, keyword) is old
         with pytest.raises(AttributeError, match=f"no {keyword}"):
@@ -161,6 +162,14 @@ def test_a_slab_single_table_is_rejected_with_the_way_out(tmp_path: Path) -> Non
         assert raised.value.code == "single_table"
         assert "split_single_table" not in str(raised.value)
         assert "one row per slab" in str(raised.value)
+
+
+def test_a_single_table_with_a_forces_table_is_rejected() -> None:
+    """Only the single table on its own is read as the deprecated format: with forces it is a mistake."""
+    _, rows = support_and_midspan()
+    with pytest.raises(SummaryInputError) as raised:
+        BeamSummary(CONCRETE, STEEL, OLD_BEAMS, rows)
+    assert raised.value.code == "single_table"
 
 
 def test_import_design_of_a_single_table_file_is_deprecated(tmp_path: Path) -> None:
