@@ -81,6 +81,30 @@ from the release history and are summaries rather than complete lists.
 
 ### Changed
 
+- **The beam section drawing shows the section, not its notes.** On the right, each layer,
+  the skin per side and the stirrups as the section carries them (`2 legs Ø10 mm @ 22 cm`);
+  under it, one line, the steel ratio in kg/m³ (lb/yd³ in US customary units). The spacing
+  between legs, the arrangement of the cage and every caption about pending or failed
+  checks are gone from the figure, and `plot()` no longer warns: those are read in
+  `beam.warnings`, which already carried them (`cage_detailing_infeasible`,
+  `skin_en_service_pending`, ...). Legs between the perimeter stirrup are drawn as ACI
+  crossties, two lines with a 90° leg around the bottom bar and a 135° hook around the
+  top one; mounting bars are drawn and labelled like the other bars, in dark gray, and
+  fill any face of the cage that has no bars even when the drawing falls back to the
+  calculation geometry. The figure is cropped to the drawing.
+- **`str(beam.reinforcement)` and `reinforcement.transverse.notation()` leave out the
+  spacing between legs**: `2 legs Ø10 mm @ 22 cm`. It is a result of the check, which
+  `beam.shear_design.notation()` still prints with its maximum.
+- **A design holds a bar at every stirrup leg.** The first layer of each face a
+  combination puts in tension carries at least as many bars as the section has legs; a
+  design that does not is redesigned with that minimum, as a hard constraint like the bars
+  fitting the width. An ACI 60x40 under 250 kN·m and 300 kN went from 3Ø32 with four legs,
+  two of them on no bar and a cage that could not be detailed, to 7Ø20; a 60x50 under
+  150 kN·m from 3Ø20 to 5Ø16. Shear designs whose legs outnumber the bars of the tension
+  face are no longer offered as alternatives.
+- **`BeamSettings.mounting_bar_diameter` defaults to 8 mm** in metric units (No. 3 in US
+  customary units, as before).
+
 - **A design that does not close keeps the closest layout within the limits** (#169).
   Bars that fit the width, with room for the vibrator on top, and a tension-controlled
   section (§9.3.3.1 / §7.3.3.1; the 4 % under EN 1992-1-1) are never traded for

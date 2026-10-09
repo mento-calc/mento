@@ -212,24 +212,36 @@ The `plot()` method generates a graphical representation of the beam, including 
 This can be useful for verifying the input data and for presentation purposes.
 
 The drawing reads ``beam.detailing_geometry`` (see :ref:`user_guide/design_results`):
-every stirrup of the cage at the legs the shear check spreads across the width,
-the resistant bars placed to support the corners, the label of
-each layer on the right, and under the section the stirrup text in three lines -- legs,
-bar and spacing; the spacing of the legs with its maximum once a shear check has run; and
-the arrangement of the cage -- in the language of ``mento.set_language``. The limits of the
-drawing are widened until every text fits the figure at its default size, and two layer
-labels that would print over one another are moved apart. Where calculated bars are
-insufficient to support all corners, additional mounting bars are drawn in orange and
-labelled separately. Their diameter is ``settings.mounting_bar_diameter`` (10 mm or
-No. 3 by default). These bars are not credited in the calculated resistance.
+every stirrup of the cage at the legs the shear check spreads across the width, the
+legs between the perimeter stirrup drawn as ACI crossties -- a 90° leg around the bottom
+bar and a 135° hook around the top one -- and the longitudinal bars, resistant and
+mounting alike in dark gray. On the right of the section: the label of each layer, the
+skin per side when there is skin, and the stirrups as the section carries them, legs
+first (``2 legs Ø10 mm @ 22 cm``). Under it, one line: the steel ratio of the section,
+in kg/m³ (lb/yd³ in US customary units) -- the longitudinal bars by their area and the
+stirrups by the length of each piece over their spacing. The words follow
+``mento.set_language``. The limits of the drawing are widened until every text fits,
+labels that would print over one another are moved apart, and the figure is cropped to
+the drawing.
+
+Where the bars of a face do not support every corner of the cage, mounting bars fill
+them, labelled ``(mounting)``. Their diameter is ``settings.mounting_bar_diameter``
+(8 mm or No. 3 by default). These bars are not credited in the calculated resistance.
+
+A design holds a bar at every stirrup leg: the first layer of each face a combination
+puts in tension carries at least as many bars as the section has legs, and the design
+takes more, smaller bars when it needs to. A face only ever in compression is held by
+mounting bars where it has none.
 
 The supported layout preserves the calculated bar counts, diameters and vertical
 coordinates. The entered shear legs are a minimum; required compression
 support can add crossties with modelled hooks to the detailing geometry. The plot shows
 the actual count and spacing without crediting that extra steel in resistance. It checks clear spacing, the existing code's
 centre-distance cap, and intersections with the branches and rounded bends. If no
-supported layout is found, ``detailing_geometry`` raises ``CageDetailingError``;
-``plot()`` issues a warning and draws the calculation model with an explicit caption.
+supported layout is found, ``detailing_geometry`` raises ``CageDetailingError`` and
+``plot()`` draws the calculation model. Nothing pending is written on the drawing and the
+drawing warns nothing: that, and every other check of the cage and the skin, is read in
+``beam.warnings`` (``cage_detailing_infeasible``, ``skin_en_service_pending``, ...).
 A narrow stirrup is not presented as a valid hairpin by squeezing its bends.
 Its rejected stirrups are omitted from the fallback drawing. Invalid mounting
 diameter preferences raise ``ValueError`` rather than being presented as a
@@ -310,7 +322,7 @@ against the supported cage. They are shown in green and labelled per lateral
 face. Centres are uniformly spaced from the actual tension-layer anchor up to h/2;
 first-row clearance to flexural layers and steel intersections are checked.
 If the layout cannot fit, it raises ``CageDetailingError`` and the plot
-explicitly falls back to calculation geometry.
+draws the calculation geometry without skin; ``beam.warnings`` says why.
 
 The diameter is independently configurable from mounting steel:
 

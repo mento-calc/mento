@@ -334,7 +334,11 @@ def test_nonconforming_but_fitting_manual_skin_is_drawn():
         set_language("es")
         fig = b.plot(show=False)
         assert sum(p.get_gid() == "skin_bar" for p in fig.axes[0].patches) == 4
-        assert any("NO CUMPLE" in t.get_text() for t in fig.axes[0].texts)
+        texts = [t.get_text() for t in fig.axes[0].texts]
+        assert "2Ø10 por lateral (piel)" in texts
+        # The non-conformity is a warning of the beam, not a caption of the drawing.
+        assert not any("NO CUMPLE" in t for t in texts)
+        assert any(w.code == "skin_reinforcement_failed" for w in b.warnings)
         plt.close(fig)
     finally:
         set_language("en")

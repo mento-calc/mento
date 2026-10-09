@@ -1,6 +1,7 @@
 """Code boundaries, sign envelopes, actual spacing, supplementary steel and fit."""
 
 import math
+import warnings
 
 import matplotlib.pyplot as plt
 import pytest
@@ -33,6 +34,13 @@ def beam(height=120 * cm, concrete=None, cover=30 * mm, width=30 * cm, steel=Non
     b.set_longitudinal_rebar_top(n1=4, d_b1=20 * mm)
     b.set_transverse_rebar(1, 8 * mm, 20 * cm)
     return b
+
+
+def plot_quietly(b):
+    """The drawing, failing on any UserWarning: what is pending or unsupported lives in beam.warnings."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        return b.plot(show=False)
 
 
 @pytest.mark.parametrize("height,required", [(899, False), (900, False), (901, True)])
@@ -100,8 +108,11 @@ def test_unchecked_deep_beam_and_zero_moment():
     assert b.skin_reinforcement.status == "pending"
     assert not b.detailing_geometry.skin_bars
     set_language("es")
-    fig = b.plot()
-    assert any("Armadura de piel pendiente" in text.get_text() for text in fig.axes[0].texts)
+    fig = plot_quietly(b)
+    # Pending skin is a warning of the beam; the drawing writes no note about it.
+    assert "skin_reinforcement_pending" in [w.code for w in b.warnings]
+    assert not any("Armadura de piel pendiente" in text.get_text() for text in fig.axes[0].texts)
+    assert not any(p.get_gid() == "skin_bar" for p in fig.axes[0].patches)
     plt.close(fig)
     set_language("en")
     b.check_flexure([Forces(M_y=0 * kNm)])
@@ -119,9 +130,10 @@ def test_en_zero_moment_stays_pending_and_pure_axial_is_unsupported():
     assert b.skin_reinforcement.status == "pending"
     assert b.skin_reinforcement.pending_reason == "no_tension_case"
     assert "skin_tension_case_pending" in [w.code for w in b.warnings]
-    fig = b.plot()
-    assert any("no tension case identified" in text.get_text() for text in fig.axes[0].texts)
+    fig = plot_quietly(b)
+    assert not any("no tension case identified" in text.get_text() for text in fig.axes[0].texts)
     assert not any("no flexure verification" in text.get_text() for text in fig.axes[0].texts)
+    assert not any(p.get_gid() == "skin_bar" for p in fig.axes[0].patches)
     plt.close(fig)
     b.check_flexure([Forces(N_x=100 * kN, M_y=0 * kNm)])
     assert b.skin_reinforcement.status == "unsupported"
@@ -139,14 +151,16 @@ def test_diameter_is_configurable_and_not_a_code_minimum():
 
 @pytest.mark.parametrize("diameter", [0 * mm, math.nan * mm, 7 * mm, 10])
 def test_invalid_skin_preference_is_rejected_with_labelled_plot_fallback(diameter):
+    """The plot falls back to the base cage with no skin; the invalid input is reported in beam.warnings."""
     b = beam()
     b.settings.skin_bar_diameter = diameter
     b.check_flexure([Forces(M_y=100 * kNm)])
     with pytest.raises(CageDetailingError):
         _ = b.detailing_geometry
-    with pytest.warns(UserWarning, match="Skin detailing is not feasible"):
-        fig = b.plot()
-    assert any("Skin proposal not shown" in t.get_text() for t in fig.axes[0].texts)
+    fig = plot_quietly(b)
+    assert "skin_detailing_invalid" in [w.code for w in b.warnings]
+    assert not any(p.get_gid() == "skin_bar" for p in fig.axes[0].patches)
+    assert not any("Skin proposal not shown" in t.get_text() for t in fig.axes[0].texts)
     plt.close(fig)
 
 
@@ -155,9 +169,10 @@ def test_invalid_skin_keeps_valid_mounting_steel_in_the_plot():
     b.set_longitudinal_rebar_top(n1=0, d_b1=0 * mm)
     b.check_flexure([Forces(M_y=100 * kNm)])
     b.settings.skin_bar_diameter = 0 * mm
-    with pytest.warns(UserWarning, match="Skin detailing is not feasible"):
-        fig = b.plot(show=False)
+    fig = plot_quietly(b)
+    assert "skin_detailing_invalid" in [w.code for w in b.warnings]
     assert any(p.get_gid() == "mounting_bar" for p in fig.axes[0].patches)
+    assert "2Ø8 (mounting)" in [t.get_text() for t in fig.axes[0].texts]
     assert not any(p.get_gid() == "skin_bar" for p in fig.axes[0].patches)
     assert not any("Calculation model only" in t.get_text() for t in fig.axes[0].texts)
     plt.close(fig)
@@ -200,7 +215,10 @@ def test_plot_has_separate_skin_artists_and_notation():
     fig = b.plot()
     assert len([p for p in fig.axes[0].patches if p.get_gid() == "skin_bar"]) == 6
     assert len([p for p in fig.axes[0].patches if p.get_gid() == "resistant_bar"]) == 8
-    assert any("Skin: 3Ø10 per side" in t.get_text() for t in fig.axes[0].texts)
+    texts = [t.get_text() for t in fig.axes[0].texts]
+    # One label on the right, beside the skin bars; no "Skin: ... · s=..." line under the section.
+    assert "3Ø10 per side (skin)" in texts
+    assert not any(t.startswith("Skin:") for t in texts)
     plt.close(fig)
 
 
@@ -313,10 +331,13 @@ def test_en_keeps_its_distribution_and_warns_with_the_actual_zone_intervals(heig
             assert ("not an additional code" if language == "en" else "no un límite normativo") in warning.message
             assert b.skin_reinforcement == before
             assert b.detailing_geometry == geometry
-            fig = b.plot()
+            fig = plot_quietly(b)
             labels = [text.get_text() for text in fig.axes[0].texts]
-            assert any(("Review skin" if language == "en" else "Revisar piel") in text for text in labels)
-            assert any(
+            # The review is the warning above; the drawing only labels the skin it proposes.
+            skin = f"{rows}Ø10 per side (skin)" if language == "en" else f"{rows}Ø10 por lateral (piel)"
+            assert skin in labels
+            assert not any(("Review skin" if language == "en" else "Revisar piel") in text for text in labels)
+            assert not any(
                 ("crack width is not calculated" if language == "en" else "no se calcula el ancho de fisura") in text
                 for text in labels
             )
@@ -432,8 +453,8 @@ def test_en_pending_service_is_visible_and_bilingual():
     try:
         warning = next(w for w in b.warnings if w.code == "skin_en_service_pending")
         assert "servicio" in warning.message
-        fig = b.plot()
-        assert any("faltan datos de servicio" in t.get_text() for t in fig.axes[0].texts)
+        fig = plot_quietly(b)
+        assert not any("faltan datos de servicio" in t.get_text() for t in fig.axes[0].texts)
         assert not any(p.get_gid() == "skin_bar" for p in fig.axes[0].patches)
         plt.close(fig)
     finally:
@@ -506,12 +527,16 @@ def test_en_annex_j_uses_cover_outside_the_links_not_the_sum_with_their_diameter
 
 
 def test_en_axial_case_has_an_explicit_unsupported_plot_caption():
+    """The unsupported axial case is explicit in beam.warnings; the drawing shows no skin and no caption."""
     from mento.units import kN
 
     b = en_beam()
     b.check_flexure([Forces(M_y=100 * kNm, N_x=10 * kN)])
-    fig = b.plot()
-    assert any("Skin not checked" in t.get_text() for t in fig.axes[0].texts)
+    assert b.skin_reinforcement.status == "unsupported"
+    assert "skin_en_axial_unsupported" in [w.code for w in b.warnings]
+    fig = plot_quietly(b)
+    assert not any("Skin not checked" in t.get_text() for t in fig.axes[0].texts)
+    assert not any(p.get_gid() == "skin_bar" for p in fig.axes[0].patches)
     plt.close(fig)
 
 
@@ -536,9 +561,9 @@ def test_skin_stirrup_collision_keeps_the_base_cage_mounting():
     codes = [w.code for w in b.warnings]
     assert "skin_detailing_infeasible" in codes
     assert "cage_detailing_infeasible" not in codes
-    with pytest.warns(UserWarning, match="skin"):
-        fig = b.plot(show=False)
+    fig = plot_quietly(b)
     assert sum(p.get_gid() == "mounting_bar" for p in fig.axes[0].patches) == 2
+    assert not any(p.get_gid() == "skin_bar" for p in fig.axes[0].patches)
     plt.close(fig)
 
 

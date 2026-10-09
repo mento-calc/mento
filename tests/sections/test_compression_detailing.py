@@ -137,7 +137,11 @@ def test_plot_labels_required_compression_support_without_mutating_strength():
     before = b.reinforcement
     fig = b.plot(show=False)
     assert b.compression_detailing.status == "passed"
-    assert any("proposed legs; A_v uses" in t.get_text() for t in fig.axes[0].texts)
+    # The added support leg is drawn and reported in beam.warnings, not written on the figure.
+    assert sum(p.get_gid() == "crosstie" for p in fig.axes[0].patches) == len(b.detailing_geometry.crossties) == 1
+    added = [w for w in b.warnings if w.code == "transverse_legs_added_for_compression_support"]
+    assert added and "A_v still uses 2" in added[0].message
+    assert not any("proposed legs; A_v uses" in t.get_text() for t in fig.axes[0].texts)
     assert b.reinforcement == before
     plt.close(fig)
 

@@ -155,9 +155,9 @@ V103 | Cumple (chequeos modelados) | Cumple (chequeos modelados) |
 Datos de las vigas
 Etiqueta | b | h | cc | As,bot | As,top | Av
  | cm | cm | mm |  |  | 
-V101 | 20 | 50 | 25 | 2Ø12 mm | - | 2 ramas Ø10 mm c/22 cm · 14 cm entre ramas
-V102 | 20 | 50 | 25 | 2Ø12 mm | 2Ø12 mm + 1Ø10 mm | 2 ramas Ø10 mm c/22 cm · 14 cm entre ramas
-V103 | 25 | 60 | 25 | 2Ø16 mm | - | 2 ramas Ø10 mm c/27 cm · 19 cm entre ramas
+V101 | 20 | 50 | 25 | 2Ø12 mm | - | 2 ramas Ø10 mm c/22 cm
+V102 | 20 | 50 | 25 | 2Ø12 mm | 2Ø12 mm + 1Ø10 mm | 2 ramas Ø10 mm c/22 cm
+V103 | 25 | 60 | 25 | 2Ø16 mm | - | 2 ramas Ø10 mm c/27 cm
 Resultados de flexión
 Etiqueta | Comb. | Posición | As,min | As,req top | As,req bot | As | Mu | ØMn | DCR
  |  |  | cm² | cm² | cm² | cm² | kNm | kNm | 

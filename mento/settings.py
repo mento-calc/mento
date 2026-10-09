@@ -38,7 +38,7 @@ class BeamSettings:
     ``max_diameter_diff`` and ``max_bars_per_layer`` bound the search, and are
     the engineer's choice.
 
-    ``mounting_bar_diameter`` is a cross-section detailing preference: 10 mm
+    ``mounting_bar_diameter`` is a cross-section detailing preference: 8 mm
     in metric units, No. 3 (3/8 in.) in imperial units. It supplies missing
     supports at stirrup corners; the supplementary bars are recorded in
     ``beam.detailing_geometry.mounting_bars`` and are not credited in strength.
@@ -84,7 +84,7 @@ class BeamSettings:
         "layers_spacing": 25 * mm,
         "max_diameter_diff": 5 * mm,
         "minimum_longitudinal_diameter": 8 * mm,
-        "mounting_bar_diameter": 10 * mm,
+        "mounting_bar_diameter": 8 * mm,
         "skin_bar_diameter": 10 * mm,
         "skin_crack_width": 0.3 * mm,
         "max_longitudinal_diameter": 32 * mm,

@@ -406,6 +406,8 @@ ES.update(
 ES.update(
     {
         "mounting": "montaje",
+        "{bars} per side (skin)": "{bars} por lateral (piel)",
+        "Steel: {ratio}": "Cuantía: {ratio}",
         "Orange: mounting steel · excluded from resistance": "Montaje en naranja · sin aporte resistente",
         "Calculation model only · cage detailing not feasible": "Solo modelo de cálculo · jaula no detallable",
         "Skin proposal not shown · skin detailing not feasible": "No se muestra la propuesta de piel · detalle de piel inviable",

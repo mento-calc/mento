@@ -20,30 +20,26 @@ from __future__ import annotations
 
 import math
 import textwrap
-import warnings
+from dataclasses import replace
 from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Tuple, cast
 
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
-from matplotlib.patches import Circle, FancyBboxPatch, Rectangle
+from matplotlib.patches import Circle, FancyBboxPatch, Polygon, Rectangle
 from matplotlib.transforms import Bbox
 
 from mento.bar_sizes import bar_designation, is_us_customary
 from mento.cage_detailing import CageDetailingError
-from mento.codes.registry import design_code
 from mento.design_results import (
     GRID,
-    DesignNotRunError,
-    ShearDesign,
-    TransverseReinforcement,
     format_transverse_rebar,
     placed_bars,
 )
-from mento.i18n import get_language, translate
+from mento.i18n import translate
 from mento.precompute import DISPLAY
 from mento.results import CUSTOM_COLORS
 from mento.section_geometry import BarPosition, Crosstie, SectionGeometry
-from mento.units import Quantity
+from mento.units import Quantity, ureg
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -385,51 +381,131 @@ def _add_rounded_stirrup(
     ax.add_patch(inner)
 
 
-def _add_crosstie(ax: "Axes", tie: Crosstie, db_cm: float) -> None:
-    """Rama recta y, si están modelados, arcos y colas tangentes de los ganchos.
-
-    ``gid="crosstie"`` identifica el tramo recto. Los ángulos manuales sin
-    mandril ni cola conservan sus marcas gráficas, sin crédito de sujeción.
-    """
-    x, y_bottom, y_top = _cm(tie.x), _cm(tie.y_bottom), _cm(tie.y_top)
-    modelled = tie.bend_inner_diameter is not None and tie.extension is not None
-    if modelled:
-        assert tie.bend_inner_diameter is not None
-        radius = (_cm(tie.bend_inner_diameter) + db_cm) / 2
-        y_bottom += radius
-        y_top -= radius
-    leg = Rectangle(
-        (x - db_cm / 2, y_bottom - db_cm / 2),
-        db_cm,
-        y_top - y_bottom + db_cm,
-        facecolor=CUSTOM_COLORS["dark_blue"],
-        edgecolor=CUSTOM_COLORS["dark_blue"],
-        gid="crosstie",
+def _band(ax: "Axes", path: Sequence[Tuple[float, float]], db_cm: float, gid: str) -> None:
+    """Draw a bar along its centreline ``path`` (cm) as the stirrups are drawn: two lines, a bar apart."""
+    half = db_cm / 2
+    left, right = [], []
+    for i, (x, y) in enumerate(path):
+        x0, y0 = path[max(i - 1, 0)]
+        x1, y1 = path[min(i + 1, len(path) - 1)]
+        dx, dy = x1 - x0, y1 - y0
+        length = math.hypot(dx, dy) or 1.0
+        nx, ny = -dy / length, dx / length
+        left.append((x + half * nx, y + half * ny))
+        right.append((x - half * nx, y - half * ny))
+    ax.add_patch(
+        Polygon(
+            left + right[::-1],
+            closed=True,
+            facecolor="white",
+            edgecolor=CUSTOM_COLORS["dark_blue"],
+            linewidth=1.0,
+            gid=gid,
+        )
     )
-    ax.add_patch(leg)
-    if modelled:
+
+
+def _arc(cx: float, cy: float, radius: float, start: float, stop: float, side: int) -> List[Tuple[float, float]]:
+    """Points of an arc in degrees from ``start`` to ``stop``, mirrored across x when ``side`` is -1."""
+    steps = max(2, int(abs(stop - start) / 5) + 1)
+    return [
+        (
+            cx + side * radius * math.cos(math.radians(start + (stop - start) * k / (steps - 1))),
+            cy + radius * math.sin(math.radians(start + (stop - start) * k / (steps - 1))),
+        )
+        for k in range(steps)
+    ]
+
+
+def _engaged_bar(tie: Crosstie, geometry: SectionGeometry, face: str) -> Optional[BarPosition]:
+    """The bar of ``face`` the crosstie wraps: the one at its leg, if there is one there."""
+    candidates = [bar for bar in (*geometry.bars, *geometry.mounting_bars) if bar.face == face and bar.layer == 1]
+    if not candidates:
+        return None
+    bar = min(candidates, key=lambda b: abs(_cm(b.x) - _cm(tie.x)))
+    return bar if abs(_cm(bar.x) - _cm(tie.x)) <= 2 * _cm(bar.d_b) + 2 * _cm(geometry.stirrup_d_b) else None
+
+
+def _crosstie_path(tie: Crosstie, geometry: SectionGeometry, db_cm: float, bend_cm: float) -> List[Tuple[float, float]]:
+    """The centreline of a crosstie, in cm: a 90° leg around the bottom bar, the leg, a 135° hook around the top one.
+
+    ACI 318-19 §25.3.5: a crosstie engages a longitudinal bar at each end, with
+    a 135° hook at one and a 90° one at the other, each with an extension of
+    6 d_b (Table 25.3.2). Each bend is drawn tight around the bar it wraps,
+    in the plane of the stirrup's branch, and the leg runs tangent to both;
+    where no bar sits at the leg the bend takes the stirrups' mandrel, inside
+    the branch. A crosstie the detailing modelled keeps its own bends.
+    """
+    side = _tie_side(tie, geometry)
+    if tie.bend_inner_diameter is not None and tie.extension is not None:
         from mento.crosstie_detailing import hook_points
         from mento.units import cm
 
-        for path in hook_points(tie, db_cm * cm):
-            ax.plot(
-                [x / 10 for x, _ in path],
-                [y / 10 for _, y in path],
-                color=CUSTOM_COLORS["dark_blue"],
-                linewidth=db_cm,
-                gid="crosstie_hook",
-            )
-        return
-    stub = 4 * db_cm
-    for (y_end, sign), angle in zip(((y_bottom, 1), (y_top, -1)), tie.hooks):
-        radians = math.radians(180 - angle)
-        ax.plot(
-            [x, x + stub * math.sin(radians)],
-            [y_end, y_end + sign * stub * math.cos(radians)],
-            color=CUSTOM_COLORS["dark_blue"],
-            linewidth=db_cm,
-            gid="crosstie_hook",
-        )
+        hooked_bottom, hooked_top = hook_points(tie, db_cm * cm)
+        return [(px / 10, py / 10) for px, py in (*hooked_bottom[::-1], *hooked_top)]
+    mandrel = (bend_cm + db_cm) / 2
+    extension = 6 * db_cm
+    ends: List[Tuple[Optional[float], float, float]] = []
+    for face, y_branch in (("bottom", _cm(tie.y_bottom)), ("top", _cm(tie.y_top))):
+        bar = _engaged_bar(tie, geometry, face)
+        if bar is None:
+            ends.append((None, mandrel, y_branch + mandrel if face == "bottom" else y_branch - mandrel))
+        else:
+            ends.append((_cm(bar.x), (_cm(bar.d_b) + db_cm) / 2, _cm(bar.y)))
+    (x_bottom, r_bottom, y_bottom), (x_top, r_top, y_top) = ends
+    # The leg is where the check puts it; _align_bars_to_ties draws the bars it wraps beside it.
+    x_leg = _cm(tie.x)
+    bottom = _arc(x_leg + side * r_bottom, y_bottom, r_bottom, 270, 180, side)
+    bottom.insert(0, (x_leg + side * (r_bottom + extension), y_bottom - r_bottom))
+    top = _arc(x_leg + side * r_top, y_top, r_top, 180, 45, side)
+    tail = math.radians(45)
+    end = top[-1]
+    top.append((end[0] + side * extension * math.sin(tail), end[1] - extension * math.cos(tail)))
+    return bottom + top
+
+
+def _tie_side(tie: Crosstie, geometry: SectionGeometry) -> int:
+    """The side a crosstie's hooks open to: where the bar it wraps sits, so that bar moves least."""
+    for face in ("bottom", "top"):
+        bar = _engaged_bar(tie, geometry, face)
+        if bar is not None and not math.isclose(_cm(bar.x), _cm(tie.x)):
+            return 1 if _cm(bar.x) > _cm(tie.x) else -1
+    return 1 if tie.side >= 0 else -1
+
+
+def _align_bars_to_ties(geometry: SectionGeometry) -> SectionGeometry:
+    """The geometry with the bars each crosstie engages drawn beside its leg.
+
+    The leg is where the shear check puts it; the bar it wraps at the bottom
+    and the one at the top are drawn with their edge on it, so the leg runs
+    tangent to both and each hook closes around its bar. The hooks open to
+    the side the bar already sits on (:func:`_tie_side`), so the shift is at
+    most about a bar diameter, and it is only of the drawing.
+    """
+    d_st = _cm(geometry.stirrup_d_b)
+    moved: Dict[int, BarPosition] = {}
+    for tie in geometry.crossties:
+        if tie.bend_inner_diameter is not None and tie.extension is not None:
+            continue  # A crosstie the detailing modelled keeps its bars where it put them.
+        side = _tie_side(tie, geometry)
+        for face in ("bottom", "top"):
+            bar = _engaged_bar(tie, geometry, face)
+            if bar is None:
+                continue
+            x = _cm(tie.x) + side * (_cm(bar.d_b) + d_st) / 2
+            moved[id(bar)] = replace(bar, x=(x * ureg.cm).to(bar.x.units))
+    if not moved:
+        return geometry
+    return replace(
+        geometry,
+        bars=tuple(moved.get(id(bar), bar) for bar in geometry.bars),
+        mounting_bars=tuple(moved.get(id(bar), bar) for bar in geometry.mounting_bars),
+    )
+
+
+def _add_crosstie(ax: "Axes", tie: Crosstie, geometry: SectionGeometry, db_cm: float, bend_cm: float) -> None:
+    """One crosstie, drawn as the stirrups are, with its hooks."""
+    _band(ax, _crosstie_path(tie, geometry, db_cm, bend_cm), db_cm, "crosstie")
 
 
 def _plot_stirrups_in_section(ax: "Axes", geometry: SectionGeometry) -> None:
@@ -455,11 +531,11 @@ def _plot_stirrups_in_section(ax: "Axes", geometry: SectionGeometry) -> None:
             facecolor=CUSTOM_COLORS["light_gray"],
         )
     for tie in geometry.crossties:
-        _add_crosstie(ax, tie, d)
+        _add_crosstie(ax, tie, geometry, d, bend)
 
 
 def _plot_bars(ax: "Axes", geometry: SectionGeometry) -> None:
-    """Resistant steel in gray; supplementary mounting bars in orange."""
+    """Every longitudinal bar, resistant and mounting alike in dark gray; skin bars in green."""
     for bar in (*geometry.bars, *geometry.mounting_bars, *geometry.skin_bars):
         mounting = bar in geometry.mounting_bars
         skin = bar in geometry.skin_bars
@@ -467,11 +543,81 @@ def _plot_bars(ax: "Axes", geometry: SectionGeometry) -> None:
             Circle(
                 (_cm(bar.x), _cm(bar.y)),
                 _cm(bar.d_b) / 2.0,
-                color="#228877" if skin else CUSTOM_COLORS["mounting"] if mounting else CUSTOM_COLORS["dark_gray"],
-                fill=not mounting,
+                color="#228877" if skin else CUSTOM_COLORS["dark_gray"],
                 gid="skin_bar" if skin else "mounting_bar" if mounting else "resistant_bar",
             )
         )
+
+
+def _with_mounting(self: "RectangularBeam", geometry: SectionGeometry) -> SectionGeometry:
+    """The geometry with mounting bars in the corners of any face of the cage that has no bar.
+
+    The detailing places them itself; a drawing that falls back to the
+    calculation geometry has none, and a face of stirrups with nothing to
+    hold them is not how a cage is built. The bars are ``mounting_bar_diameter``
+    (8 mm, No. 3 in US customary units) and, like the detailing's, carry no strength.
+    """
+    perimeter = next((stirrup for stirrup in geometry.stirrups if stirrup.perimeter), None)
+    diameter = _settings(self).mounting_bar_diameter
+    # A diameter the detailing rejects (beam.warnings says why) is not drawn either.
+    valid = isinstance(diameter, Quantity) and diameter.check("[length]") and math.isfinite(diameter.magnitude)
+    if perimeter is None or not valid or diameter < _settings(self).minimum_longitudinal_diameter:
+        return geometry
+    unit = geometry.width.units
+    d_st = _cm(geometry.stirrup_d_b)
+    d_m = _cm(_settings(self).mounting_bar_diameter)
+    r_in = _cm(geometry.stirrup_bend_inner_diameter) / 2
+    # A bar in the corner of the bend, on its inner surface, or against both straight branches.
+    inset = d_st / 2 + (r_in - (r_in - d_m / 2) / math.sqrt(2) if r_in > d_m / 2 else d_m / 2)
+    added = []
+    for face in ("bottom", "top"):
+        if any(bar.face == face for bar in (*geometry.bars, *geometry.mounting_bars)):
+            continue
+        y = _cm(perimeter.y_bottom) + inset if face == "bottom" else _cm(perimeter.y_top) - inset
+        for x in (_cm(perimeter.x_left) + inset, _cm(perimeter.x_right) - inset):
+            added.append(
+                BarPosition(
+                    x=(x * ureg.cm).to(unit),
+                    y=(y * ureg.cm).to(unit),
+                    d_b=_settings(self).mounting_bar_diameter,
+                    face=face,
+                    layer=1,
+                    group=0,
+                )
+            )
+    if not added:
+        return geometry
+    return replace(geometry, mounting_bars=(*geometry.mounting_bars, *added))
+
+
+def steel_ratio(self: "RectangularBeam", geometry: Optional[SectionGeometry] = None) -> Quantity:
+    """The steel of the section per volume of concrete, in kg/m³ (lb/yd³ in US customary units).
+
+    The longitudinal bars -- resistant, mounting and skin -- by their area, and
+    the stirrups by the length of each piece over their spacing along the
+    member: a closed stirrup by its centreline perimeter plus two 135° hook
+    extensions of 6 d_b (at least 75 mm, ACI 318-19 Table 25.3.2), a crosstie
+    or open leg by its height plus two of 6 d_b. Steel weighs 7850 kg/m³.
+    """
+    geometry = self.section_geometry if geometry is None else geometry
+    area_c = _cm(geometry.width) * _cm(geometry.height)
+    longitudinal = sum(
+        math.pi * _cm(bar.d_b) ** 2 / 4 for bar in (*geometry.bars, *geometry.mounting_bars, *geometry.skin_bars)
+    )
+    transverse = 0.0
+    if geometry.stirrups or geometry.crossties:
+        d = _cm(geometry.stirrup_d_b)
+        s_l = _cm(self._stirrup_s_l)
+        hook = max(6 * d, 7.5)
+        length = sum(
+            2 * (_cm(st.x_right) - _cm(st.x_left) + _cm(st.y_top) - _cm(st.y_bottom)) + 2 * hook
+            for st in geometry.stirrups
+        )
+        length += sum(_cm(tie.y_top) - _cm(tie.y_bottom) + 2 * 6 * d for tie in geometry.crossties)
+        if s_l > 0:
+            transverse = math.pi * d**2 / 4 * length / s_l
+    ratio = (longitudinal + transverse) / area_c * 7850 * ureg.kg / ureg.m**3
+    return ratio.to("lb/yd**3") if self.concrete.is_imperial else ratio
 
 
 def _layer_text(bars: Tuple[BarPosition, ...], imperial: bool = False) -> str:
@@ -522,10 +668,39 @@ def _annotate_layers(ax: "Axes", geometry: SectionGeometry) -> List[Tuple["Text"
                 f"{_layer_text(mounting, is_us_customary(geometry.width))} ({suffix})",
                 ha="left",
                 va="center",
-                color=CUSTOM_COLORS["mounting"],
+                color=CUSTOM_COLORS["dark_gray"],
             )
             labels.append((label, anchor))
+    skin = tuple(bar for bar in geometry.skin_bars if bar.face == "left")
+    if skin:
+        anchor = sum(_cm(bar.y) for bar in skin) / len(skin)
+        label = ax.text(
+            x_text,
+            anchor,
+            translate("{bars} per side (skin)", bars=_layer_text(skin, is_us_customary(geometry.width))),
+            ha="left",
+            va="center",
+            color=CUSTOM_COLORS["dark_gray"],
+        )
+        labels.append((label, anchor))
     return labels
+
+
+def _annotate_stirrups(ax: "Axes", self: "RectangularBeam", geometry: SectionGeometry) -> List[Tuple["Text", float]]:
+    """The stirrups, legs first (``2 legs Ø10 mm @ 22 cm``), to the right of the section at mid-height."""
+    if not geometry.stirrups:
+        return []
+    anchor = _cm(geometry.height) / 2
+    label = ax.text(
+        1.1 * _cm(geometry.width),
+        anchor,
+        self.reinforcement.transverse.notation(),
+        ha="left",
+        va="center",
+        color=CUSTOM_COLORS["dark_gray"],
+        gid="stirrup_text",
+    )
+    return [(label, anchor)]
 
 
 def _spread(anchors: Sequence[float], pitch: float) -> List[float]:
@@ -592,19 +767,31 @@ def _fit_texts(ax: "Axes", labels: Sequence[Tuple["Text", float]] = (), margin_p
         ax.set_ylim(min(y_min, y0), max(y_max, y1))
 
 
+def _crop_figure(fig: Figure, ax: "Axes") -> None:
+    """Shrink the figure to the drawing, at the scale it was fitted at.
+
+    With the aspect fixed the axes keep the shape of the drawing and leave the
+    rest of the figure blank; the figure takes the size of the axes instead,
+    and the axes all of it, so no margin is left around the section.
+    """
+    ax.apply_aspect()
+    box = ax.get_position()
+    width, height = fig.get_size_inches()
+    fig.set_size_inches(width * box.width, height * box.height)
+    ax.set_position((0.0, 0.0, 1.0, 1.0))
+
+
 #: Line pitch of the stirrup text under the section, in points.
 _LINE_PT = 14.0
 
 
-def _annotate_cage_text(ax: "Axes", lines: Sequence[str]) -> None:
-    """The stirrup text, one artist per line, under the section, below its width.
+def _annotate_cage_text(ax: "Axes", lines: Sequence[str], gid: str = "steel_ratio") -> None:
+    """Text under the section, one artist per line, below its width: the steel ratio of a beam.
 
-    ``lines`` are the two lines of the notation and the arrangement of the
-    cage. They start at the left face of the section, one line under the
+    The lines start at the left face of the section, one line under the
     width dimension, and are stacked a fixed pitch in points apart, so they
-    read the same at any section size. Under the section they are clear of
-    the layer labels on its right, however shallow the section is; the
-    limits of the drawing are then widened to take them (:func:`_fit_texts`).
+    read the same at any section size; the limits of the drawing are then
+    widened to take them (:func:`_fit_texts`).
     """
     y_anchor = 0.0
     offset = 34.0
@@ -618,47 +805,9 @@ def _annotate_cage_text(ax: "Axes", lines: Sequence[str]) -> None:
             ha="left",
             va="top",
             color=CUSTOM_COLORS["dark_gray"],
-            gid="stirrup_text",
+            gid=gid,
         )
         offset += _LINE_PT * (line.count("\n") + 1) + 2.0
-
-
-def _cage_lines(self: "RectangularBeam", geometry: Optional[SectionGeometry] = None) -> List[str]:
-    """The stirrup text of a beam: its notation on two lines and the cage, in the current language.
-
-    The notation of the last shear check, with the limit the legs were held
-    to, when one has run on the section as it is; the configuration otherwise.
-    """
-    if self._stirrup_n == 0:
-        return []
-    geometry = self.section_geometry if geometry is None else geometry
-    transverse = self.reinforcement.transverse
-    source: ShearDesign | TransverseReinforcement
-    try:
-        source = self.shear_design
-    except DesignNotRunError:
-        source = transverse
-    # Encabezar con la armadura verificada, nunca con acero extra de propuesta.
-    notation = source.notation(separator="\n")
-    lines = [*notation.split("\n"), geometry.arrangement()]
-    if len(geometry.leg_x) != transverse.n_legs:
-        lines.append(
-            translate(
-                "{placed} proposed legs; A_v uses {entered}. Compression support: {status}.",
-                placed=len(geometry.leg_x),
-                entered=transverse.n_legs,
-                status=translate(self.compression_detailing.status),
-            )
-        )
-    if any(t.alternate_hooks and t.extension is not None for t in geometry.crossties):
-        lines.append(
-            translate("135°/90° crossties: alternate the 90° ends along the member; seismic detailing not verified.")
-        )
-    if any(t.extension is None for t in geometry.crossties):
-        lines.append(
-            translate("Open-leg hooks and anchorage are outside this sectional model; verify them separately.")
-        )
-    return lines
 
 
 #: How far the dimension lines and their text sit off the section, in cm.
@@ -780,15 +929,20 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
     Plots the rectangular section with a dark gray border, light gray hatch, and dimensions.
 
     A beam is drawn from its :attr:`~mento.beam.RectangularBeam.detailing_geometry`:
-    every stirrup of the cage at the legs the shear check assumes, resistant
-    bars at supported cage corners, supplementary mounting bars in orange,
-    the label of each layer on the
-    right, and the stirrup text in three lines under the section -- the legs,
-    bar and spacing; the spacing of the legs across the width with its
-    maximum; and the arrangement of the cage. The limits are then widened
-    until every text fits inside the figure at its default size. A slab
-    strip keeps the drawing it always had. If no supported layout is found,
-    a warning and a figure caption explicitly identify calculation geometry.
+    every stirrup of the cage at the legs the shear check assumes, crossties
+    with their 90° and 135° hooks around the bars they hold, and the
+    longitudinal bars -- resistant and mounting alike in dark gray, skin bars
+    in green. On the right, the label of each layer, the skin per side and
+    the stirrups (``2 legs Ø10 mm @ 22 cm``); under the section, the steel
+    ratio in kg/m³ (lb/yd³ in US customary units, :func:`steel_ratio`). A
+    face of the cage with no bars gets mounting bars at its corners. The
+    limits are widened until every text fits, and the figure is cropped to
+    the drawing. A slab strip keeps the drawing it always had.
+
+    Nothing that still needs checking is written on the drawing, and the
+    drawing warns nothing: a cage that cannot be detailed is drawn as the
+    calculation assumes it, and that and every pending check of the cage
+    and the skin are read in :attr:`~mento.beam.RectangularBeam.warnings`.
     """
 
     # Convert dimensions to consistent units (cm)
@@ -810,6 +964,8 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
     )
     ax.add_patch(rect)
 
+    # A layout the detailing cannot build is drawn as the calculation assumes it,
+    # and said in beam.warnings, not on the drawing.
     detail_error = None
     try:
         geometry = self.detailing_geometry
@@ -823,27 +979,13 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
                 geometry = build_cage_detailing(self, include_skin=False)
             except CageDetailingError as base_error:
                 detail_error = base_error
-                warnings.warn(
-                    f"Cage detailing is not feasible: {str(base_error).rstrip('.')}. Showing calculation geometry only.",
-                    UserWarning,
-                    stacklevel=2,
-                )
-            warnings.warn(
-                f"Skin detailing is not feasible: {str(error).rstrip('.')}. Showing the available base geometry without skin steel.",
-                UserWarning,
-                stacklevel=2,
-            )
-        else:
-            warnings.warn(
-                f"Cage detailing is not feasible: {str(error).rstrip('.')}. Showing calculation geometry only.",
-                UserWarning,
-                stacklevel=2,
-            )
+    if geometry.layout != GRID:
+        geometry = _align_bars_to_ties(_with_mounting(self, geometry))
     if geometry.layout != GRID and (detail_error is None or detail_error.reason != "bend"):
         _plot_stirrups_in_section(ax, geometry)
 
-    # Set plot limits with some padding
-    padding = max(width_cm, height_cm) * 0.2
+    # Room for the dimension lines; the texts widen the limits as they need (_fit_texts).
+    padding = _DIM_OFFSET_CM + 1.0
     ax.set_xlim(-padding, width_cm + padding)
     ax.set_ylim(-padding, height_cm + padding)
 
@@ -859,95 +1001,12 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
         _plot_grid_section(self, width_cm, height_cm)
     else:
         _plot_bars(ax, geometry)
-        labels = _annotate_layers(ax, geometry)
-        lines = _cage_lines(self, geometry)
-        if geometry.mounting_bars:
-            lines.append(
-                "Montaje en naranja · sin aporte resistente"
-                if get_language() == "es"
-                else "Orange: mounting steel · excluded from resistance"
-            )
-        if geometry.skin_bars:
-            skin = self.skin_reinforcement
-            assert skin.spacing is not None
-            unit = "inch" if self.concrete.is_imperial else "cm"
-            notation = _layer_text(tuple(b for b in geometry.skin_bars if b.face == "left"), self.concrete.is_imperial)
-            lines.append(
-                f"Piel: {notation} por lateral · s={skin.spacing.to(unit):.3g~P} · sin aporte resistente"
-                if get_language() == "es"
-                else f"Skin: {notation} per side · s={skin.spacing.to(unit):.3g~P} · excluded from resistance"
-            )
-            # All service cases remain in the requirement and warnings; keep
-            # the figure readable by labelling the largest interval per face.
-            for face in dict.fromkeys(review.tension_face for review in skin.distribution_reviews):
-                review = max(
-                    (r for r in skin.distribution_reviews if r.tension_face == face), key=lambda r: r.maximum_interval
-                )
-                lines.append(
-                    translate(
-                        "Review skin ({face}): {rows} rows · max interval {gap}",
-                        face=translate(face.capitalize()),
-                        rows=review.rows_per_side,
-                        gap=f"{review.maximum_interval.to(unit):.3g~P}",
-                    )
-                )
-            if skin.distribution_reviews:
-                lines.append(translate("Informative review · crack width is not calculated"))
-        try:
-            pending_requirement = self.skin_reinforcement
-            if pending_requirement.manual and pending_requirement.failures:
-                lines.append(
-                    translate(
-                        "Supplied skin does not comply: {reason}",
-                        reason="; ".join(translate(reason) for reason in pending_requirement.failures),
-                    )
-                )
-            skin_pending = pending_requirement.status == "pending"
-            skin_unsupported = pending_requirement.status == "unsupported"
-            service_pending = pending_requirement.pending_reason == "service"
-            tension_case_pending = pending_requirement.pending_reason == "no_tension_case"
-        except CageDetailingError:
-            skin_pending = False
-            skin_unsupported = False
-            service_pending = False
-            tension_case_pending = False
-        if skin_unsupported:
-            lines.append(translate("Skin not checked · unsupported design case"))
-        elif skin_pending and tension_case_pending:
-            lines.append(
-                "Armadura de piel pendiente · sin caso de tracción identificado"
-                if get_language() == "es"
-                else "Skin reinforcement pending · no tension case identified"
-            )
-        elif skin_pending and service_pending:
-            lines.append(
-                "Piel EN pendiente · faltan datos de servicio"
-                if get_language() == "es"
-                else "EN skin pending · service inputs missing"
-            )
-        elif skin_pending:
-            lines.append(
-                "Armadura de piel pendiente · sin verificación de flexión"
-                if get_language() == "es"
-                else "Skin reinforcement pending · no flexure verification"
-            )
-        if detail_error:
-            lines.append(
-                translate("Skin proposal not shown · skin detailing not feasible")
-                if detail_error.reason == "skin"
-                else translate("Calculation model only · cage detailing not feasible")
-            )
-        if geometry.stirrups and design_code(self.concrete).max_bar_spacing_tension is not None:
-            try:
-                self.flexure_design
-            except DesignNotRunError:
-                lines.append(translate("Tension-bar spacing pending · no flexure verification"))
-        compression = self.compression_detailing
-        if compression.status in ("failed", "pending") and compression.reason != "flexure_not_checked":
-            lines.append(translate("Required compression-bar support: {status}", status=translate(compression.status)))
-            warnings.warn("Required compression-bar support: " + compression.status, UserWarning, stacklevel=2)
-        _annotate_cage_text(ax, lines)
+        labels = _annotate_layers(ax, geometry) + _annotate_stirrups(ax, self, geometry)
+        unit = "lb/yd³" if self.concrete.is_imperial else "kg/m³"
+        ratio = steel_ratio(self, geometry)
+        _annotate_cage_text(ax, [translate("Steel: {ratio}", ratio=f"{ratio.magnitude:.0f} {unit}")])
     _fit_texts(ax, labels)
+    _crop_figure(fig, ax)
 
     # Store the section figure
     self._fig = fig

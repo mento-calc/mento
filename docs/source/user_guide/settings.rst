@@ -146,7 +146,7 @@ Skin bar diameter
 -----------------
 
 ``skin_bar_diameter`` selects the supplementary longitudinal skin bar diameter:
-10 mm in metric and 3/8 in. (No. 3) in imperial defaults. This is a preference,
+8 mm in metric and 3/8 in. (No. 3) in imperial defaults. This is a preference,
 not a minimum imposed by §9.7.2.3. It must be a positive finite length and meet
 ``minimum_longitudinal_diameter``. It is checked when required skin steel is
 read; 8 mm is permitted with the default metric minimum. Under ACI/CIRSOC

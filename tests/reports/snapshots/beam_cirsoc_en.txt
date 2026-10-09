@@ -257,7 +257,7 @@ Shear reinforcing 2 legs Ø8 mm @ 15 cm · 14.2 cm between legs (max 40 cm), $A_
 2 legs Ø8 mm @ 15 cm · 14.2 cm between legs (max 40 cm)
 
 ### reinforcement.transverse
-2 legs Ø8 mm @ 15 cm · 14.2 cm between legs
+2 legs Ø8 mm @ 15 cm
 
 ### warnings
 
@@ -268,5 +268,4 @@ Shear reinforcing 2 legs Ø8 mm @ 15 cm · 14.2 cm between legs (max 40 cm), $A_
 2Ø20+1Ø16
 2Ø16+1Ø12
 2 legs Ø8 mm @ 15 cm
-14.2 cm between legs (max 40 cm)
-single perimeter stirrup
+Steel: 140 kg/m³
