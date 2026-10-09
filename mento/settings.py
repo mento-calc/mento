@@ -44,6 +44,11 @@ class BeamSettings:
     ``beam.detailing_geometry.mounting_bars`` and are not credited in strength.
     This preference is not a code minimum.
 
+    ``skin_bar_diameter`` is the smallest diameter mento's skin criterion uses
+    (8 mm / No. 3), and ``skin_bar_spacing`` the most its skin bars are apart
+    under a code that prints no spacing for them, EN 1992-1-1 (280 mm / 11 in.);
+    see :mod:`mento.skin_reinforcement`.
+
     Available Parameters with Default Values:
     -----------------------------------------
     Unit system: "metric" or "imperial"
@@ -85,7 +90,8 @@ class BeamSettings:
         "max_diameter_diff": 5 * mm,
         "minimum_longitudinal_diameter": 8 * mm,
         "mounting_bar_diameter": 8 * mm,
-        "skin_bar_diameter": 10 * mm,
+        "skin_bar_diameter": 8 * mm,
+        "skin_bar_spacing": 280 * mm,
         "skin_crack_width": 0.3 * mm,
         "max_longitudinal_diameter": 32 * mm,
         "max_bars_per_layer": 12,
@@ -101,6 +107,7 @@ class BeamSettings:
         "minimum_longitudinal_diameter": 3 / 8 * inch,
         "mounting_bar_diameter": 3 / 8 * inch,
         "skin_bar_diameter": 3 / 8 * inch,
+        "skin_bar_spacing": 11 * inch,
         "skin_crack_width": 0.3 * mm,
         "max_longitudinal_diameter": 1.693 * inch,
         "max_bars_per_layer": 12,
@@ -121,6 +128,7 @@ class BeamSettings:
     mounting_bar_diameter: Any = field(default=_NOT_SET)
     # Skin-steel detailing preference, not a code minimum or resistant steel.
     skin_bar_diameter: Any = field(default=_NOT_SET)
+    skin_bar_spacing: Any = field(default=_NOT_SET)
     skin_crack_width: Any = field(default=_NOT_SET)
 
     def __post_init__(self) -> None:

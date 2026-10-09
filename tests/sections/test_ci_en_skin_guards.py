@@ -52,7 +52,8 @@ def test_zero_demand_is_pending_without_a_tension_case():
         ("stress", "stress exceeds f_yk"),
         ("table", "skin_crack_width"),
         ("axis", "inside the section"),
-        ("distribution", "cannot be distributed"),
+        # x = 1150 mm leaves a zone 48..50 mm that no row reaches: no count gives the area of Eq. (7.1).
+        ("distribution", "cannot reach the minimum area"),
     ],
 )
 def test_service_adapter_rejects_invalid_or_unbuildable_proposals(fault, message, monkeypatch):

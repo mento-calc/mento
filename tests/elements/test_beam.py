@@ -3048,6 +3048,11 @@ def test_plot_draws_every_stirrup_at_the_legs_the_check_assumes() -> None:
 
     The old drawing capped the cage at three stirrups at fixed places, whose
     legs were up to 36.30 cm apart against the 20 cm the modelled 15.87 cm meets.
+
+    Skin: layers at 30 + 12 + 16 = 58 mm and, with no top bars, 1500 - 52 = 1448 mm; s_max =
+    380 - 2.5 * 42 = 275 mm, n = ceil(1390 / 275) - 1 = 5 rows. Eq. (7.1): 0.2 * 2.565 * 1500 * 1500 / 2
+    / 420 / 2 = 687 mm² from the three rows below 900 mm (x = 0.4 h): Ø16 603 mm², Ø20 942 mm².
+    The 10 Ø20 replace the old 6 Ø10: +2670 mm² of steel, 21 kg/m over 2.25 m³/m, 89 -> 98 kg/m³.
     """
     beam = _wide_cirsoc_beam()
     Node(section=beam, forces=[Forces(label="C1", M_y=5000 * kNm, V_z=5000 * kN)]).design()
@@ -3066,10 +3071,10 @@ def test_plot_draws_every_stirrup_at_the_legs_the_check_assumes() -> None:
     assert gaps == pytest.approx([15.8667] * 9, abs=1e-4)
 
     circles = [p for p in ax.patches if isinstance(p, Circle)]
-    assert len(circles) == 28
+    assert len(circles) == 32
     assert len([c for c in circles if c.get_gid() == "resistant_bar"]) == 12
     assert len([c for c in circles if c.get_gid() == "mounting_bar"]) == 10
-    assert len([c for c in circles if c.get_gid() == "skin_bar"]) == 6
+    assert len([c for c in circles if c.get_gid() == "skin_bar"]) == 10
     # Mounting bars are drawn as the resistant ones are: filled, dark gray.
     assert {c.get_facecolor() for c in circles if c.get_gid() != "skin_bar"} == {to_rgba(CUSTOM_COLORS["dark_gray"])}
     all_bars = geometry.bars + geometry.mounting_bars + geometry.skin_bars
@@ -3087,9 +3092,9 @@ def test_plot_draws_every_stirrup_at_the_legs_the_check_assumes() -> None:
     assert texts[4:] == [
         "12Ø32",
         "10Ø8 (mounting)",
-        "3Ø10 per side (skin)",
+        "5Ø20 per side (skin)",
         "10 legs Ø12 mm @ 14 cm",
-        "Steel: 89 kg/m³",
+        "Steel: 98 kg/m³",
     ]
     assert _stirrup_label(ax) == "10 legs Ø12 mm @ 14 cm"
     assert beam.shear_design.notation() == "10 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)"
@@ -3168,9 +3173,9 @@ def test_plot_follows_the_language() -> None:
     assert texts[4:] == [
         "12Ø32",
         "10Ø8 (montaje)",
-        "3Ø10 por lateral (piel)",
+        "5Ø20 por lateral (piel)",
         "10 ramas Ø12 mm c/14 cm",
-        "Cuantía: 89 kg/m³",
+        "Cuantía: 98 kg/m³",
     ]
     assert "estribo perimetral + 8 patas abiertas" not in texts
     assert "Montaje en naranja · sin aporte resistente" not in texts

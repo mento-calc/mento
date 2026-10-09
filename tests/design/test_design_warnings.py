@@ -331,7 +331,9 @@ def test_a_thin_stirrup_placed_for_shear_alone_is_not_below_any_code_minimum(con
 
 
 def test_warnings_are_empty_before_any_check() -> None:
-    assert _beam().warnings == ()
+    assert _beam(height=59 * cm).warnings == ()
+    # From 60 cm mento lays out skin, which waits for a flexure check to know the tension face.
+    assert [w.code for w in _beam().warnings] == ["skin_reinforcement_pending"]
 
 
 def test_slab_bar_spacing_limits_are_warned() -> None:
