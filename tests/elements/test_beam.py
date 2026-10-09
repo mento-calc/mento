@@ -1783,24 +1783,24 @@ def test_design_flexure_ACI_318_19_gap_past_cap_negative_moment_upgrades_bottom(
 
 def test_design_flexure_CIRSOC_201_25_narrow_web_fits_the_bars_its_stirrup_leaves_room_for() -> None:
     """
-    Viga 12x30 cm, H25, ADN 420, c_c = 2.5 cm, Mu = +40 kN·m, Vu = 50 kN.
+    Viga 13x30 cm, H25, ADN 420, c_c = 2.5 cm, Mu = +40 kN·m, Vu = 50 kN.
 
-    Con el estribo de arranque de 8 mm el ancho libre es 12 - 2·(2.5 + 0.8) =
-    5.4 cm: dos barras por capa y como mucho Ø12 (54 - 2·16 = 22 mm < 25 mm
-    de separacion libre, §25.2.1). Lo mas que entraba era 2Ø12 + 2Ø12 =
-    4.52 cm², por debajo de los 5.13 cm² que pide el momento, y el diseño
-    quedaba con DCR 1.129 y ``As_below_required``. Pero el diseño de corte
-    elige 1eØ6/12 para 50 kN, y con el Ø6 el ancho libre es 5.8 cm: 2Ø16
-    entran (58 - 32 = 26 mm ≥ 25 mm). El diseño completo rehace la flexion
-    con el estribo con el que termina y deja 2Ø16 + 2Ø12 = 6.28 cm² abajo
-    sobre 2Ø12 arriba: DCR 0.803; el arriostramiento de compresión queda pendiente. Antes quedaba con la seccion
-    declarada corta por un estribo que no lleva.
+    Con el estribo de arranque de 8 mm el ancho libre es 13 - 2·(2.5 + 0.8) =
+    6.4 cm, y sus dobleces (mandril de 32 mm) apartan cada barra de esquina
+    (32 - d_b)/2 de la rama: no entra ningun par (dos Ø10 quedan a 64 - 2·11
+    - 20 = 22 mm < 25 mm, §25.2.1). Pero el diseño de corte elige 1eØ6/12
+    para 50 kN, y con el Ø6 el ancho libre es 6.8 cm y el mandril de 24 mm
+    aparta un Ø16 solo 4 mm: 2Ø16 entran (68 - 8 - 32 = 28 mm ≥ 25 mm). El
+    diseño completo rehace la flexion con el estribo con el que termina y
+    deja 2Ø16 + 2Ø12 = 6.28 cm² abajo sobre 2Ø10 arriba: DCR 0.805, y la
+    jaula cierra. Antes quedaba con la seccion declarada corta por un
+    estribo que no lleva.
     """
     beam = RectangularBeam(
         label="101",
         concrete=Concrete_CIRSOC_201_25(name="H25", f_c=25 * MPa),
         steel_bar=SteelBar(name="ADN 420", f_y=420 * MPa),
-        width=12 * cm,
+        width=13 * cm,
         height=30 * cm,
         c_c=25 * mm,
     )
@@ -1811,28 +1811,29 @@ def test_design_flexure_CIRSOC_201_25_narrow_web_fits_the_bars_its_stirrup_leave
     assert beam._stirrup_d_b.to("mm").magnitude == pytest.approx(6.0)
     assert [(layer.n, layer.d_b.to("mm").magnitude) for layer in bottom.layers] == [(2, 16), (2, 12)]
     assert bottom.A_s.to("cm**2").magnitude == pytest.approx(6.283, rel=1e-3)
-    assert bottom.DCR == pytest.approx(0.803, rel=1e-3)
-    assert [w.code for w in node.warnings] == ["compression_detailing_pending", "cage_detailing_infeasible"]
+    assert bottom.DCR == pytest.approx(0.805, rel=1e-3)
+    assert node.warnings == ()
 
 
 def test_design_flexure_CIRSOC_201_25_narrow_web_gives_the_most_that_fits() -> None:
     """
-    Viga 12x30 cm, H25, ADN 420, c_c = 2.5 cm, Mu = +60 kN·m, Vu = 50 kN.
+    Viga 13x30 cm, H25, ADN 420, c_c = 2.5 cm, Mu = +60 kN·m, Vu = 50 kN.
 
-    Con el 1eØ6/12 que elige el corte el ancho libre es 5.8 cm: dos barras
-    por capa y como mucho Ø16 (58 - 2·16 = 26 mm ≥ 25 mm de §25.2.1; el Ø20
-    dejaria 18). Lo mas que entra es 2Ø16 + 2Ø16 = 8.04 cm², por debajo de
-    los 8.14 cm² que pide el momento, y con lo que entra arriba no queda
-    controlada por traccion: DCR 1.137 con ``not_tension_controlled``, que
-    §9.3.3.1 no admite (issue #169). Lo mas cercano dentro de ese limite es
-    2Ø16 + 2Ø12 = 6.28 cm², DCR 1.204: el diseño lo deja y dice que la
-    sección no alcanza.
+    Con el 1eØ6/12 que elige el corte el ancho libre es 6.8 cm, y el mandril
+    de 24 mm aparta cada barra de esquina (24 - d_b)/2 de la rama: dos
+    barras por capa y como mucho Ø16 (68 - 2·4 - 2·16 = 28 mm ≥ 25 mm de
+    §25.2.1; el Ø20 dejaria 68 - 2·2 - 40 = 24). Lo mas que entra es 2Ø16 +
+    2Ø16 = 8.04 cm², por debajo de los 8.11 cm² que pide el momento, y con lo
+    que entra arriba no queda controlada por traccion: DCR 1.154 con
+    ``not_tension_controlled``, que §9.3.3.1 no admite (issue #169). Lo mas
+    cercano dentro de ese limite es 2Ø16 + 2Ø12 = 6.28 cm², DCR 1.195: el
+    diseño lo deja y dice que la sección no alcanza.
     """
     beam = RectangularBeam(
         label="101",
         concrete=Concrete_CIRSOC_201_25(name="H25", f_c=25 * MPa),
         steel_bar=SteelBar(name="ADN 420", f_y=420 * MPa),
-        width=12 * cm,
+        width=13 * cm,
         height=30 * cm,
         c_c=25 * mm,
     )
@@ -1842,7 +1843,7 @@ def test_design_flexure_CIRSOC_201_25_narrow_web_gives_the_most_that_fits() -> N
     bottom = beam.flexure_design.bottom
     assert [(layer.n, layer.d_b.to("mm").magnitude) for layer in bottom.layers] == [(2, 16), (2, 12)]
     assert bottom.A_s.to("cm**2").magnitude == pytest.approx(6.283, rel=1e-3)
-    assert bottom.DCR == pytest.approx(1.204, rel=1e-3)
+    assert bottom.DCR == pytest.approx(1.195, rel=1e-3)
     assert beam.flexure_checks[0].bottom.admissible
     assert "bottom" in [w.face for w in node.warnings if w.code == "As_below_required"]
     assert "section_too_small_for_moment" in [w.code for w in node.warnings]
@@ -1854,9 +1855,11 @@ def test_design_flexure_ACI_318_19_compression_bottom_exceeds_provided_bottom() 
     momento negativo supera lo que el primer pase de esa cara alcanzo a
     proveer (A_s_comp_bot > A_prov_bot dentro del lazo de Picard).
 
-    Seccion 15x30 cm, fc=25 MPa, fy=420 MPa, c_c=2.5 cm, estribo Ø8,
+    Seccion 16x30 cm, fc=25 MPa, fy=420 MPa, c_c=2.5 cm, estribo Ø8,
     Mu = -80 kN·m (traccion arriba, compresion abajo).
-    Ancho libre = 8.4 cm → solo 2 barras por capa.
+    Ancho libre = 9.4 cm, y el mandril de 32 mm aparta cada Ø25 de esquina
+    3.5 mm de la rama → solo 2 barras por capa (94 - 7 - 50 = 37 mm ≥ 30 mm
+    del vibrador arriba; en 15 cm quedaban 27 y 2Ø25 ya no entraban).
 
     La cara inferior, en su primer pase, solo lleva el 1.8‰ de b·h: no hay
     momento positivo. La compresion que le pide la traccion de arriba es mucho
@@ -1866,25 +1869,25 @@ def test_design_flexure_ACI_318_19_compression_bottom_exceeds_provided_bottom() 
     ØMn = 86.0 kN·m, pero con A_s = 12.57 > A_s_max_total = 11.78 cm² la seccion
     no estaba controlada por traccion, y el chequeo lo tapaba recortando A_s.
     Ahora la compresion se dimensiona para el acero colocado, y el diseño queda
-    en 2Ø25 arriba (una capa) y 2Ø25 abajo:
+    en 2Ø25 arriba (una capa) y 2Ø20 abajo:
 
-      d = 30 - (2.5 + 0.8 + 1.25) = 25.45 cm ; d' = 4.55 cm ; β1 = 0.85
+      d = 30 - (2.5 + 0.8 + 1.25) = 25.45 cm ; d' = 2.5 + 0.8 + 1.0 = 4.30 cm ; β1 = 0.85
       ρmax = 0.85·0.85·25/420·(0.003/0.0081) = 0.01593
-      A_s_max_top = 0.01593·254.5·150 = 6.08 cm² < 9.82 → hace falta compresion
-      c_t = 0.003·254.5/0.0081 = 94.3 mm ; f's = (94.3 - 45.5)/94.3·600 = 310.5 MPa
-      A_s_max_total = 6.08 + 9.82·(310.5 - 21.25)/420 = 12.84 cm² >= 9.82 ✓
+      A_s_max_top = 0.01593·254.5·160 = 6.49 cm² < 9.82 → hace falta compresion
+      c_t = 0.003·254.5/0.0081 = 94.3 mm ; f's = (94.3 - 43.0)/94.3·600 = 326.3 MPa
+      A_s_max_total = 6.49 + 6.28·(326.3 - 21.25)/420 = 11.05 cm² >= 9.82 ✓
 
-    Equilibrio (acero comprimido sin fluir), c = 74.8 mm, a = 63.6 mm:
-      Cc = 0.85·25·150·63.6 = 202.7 kN ; f's = 600·(74.8 - 45.5)/74.8 = 235.0 MPa
-      Cs = 982·(235.0 - 21.25) = 209.9 kN ; T = 982·420 = 412.4 kN ✓
-      Mn = 202.7·(254.5 - 31.8) + 209.9·(254.5 - 45.5) = 89.0 kN·m
-      ØMn = 0.9·89.0 = 80.1 kN·m >= 80 ; εt = 0.003·(254.5 - 74.8)/74.8 = 0.0072
+    Equilibrio (acero comprimido sin fluir), c = 83.8 mm, a = 71.2 mm:
+      Cc = 0.85·25·160·71.2 = 242.2 kN ; f's = 600·(83.8 - 43.0)/83.8 = 292.2 MPa
+      Cs = 628·(292.2 - 21.25) = 170.2 kN ; T = 982·420 = 412.4 kN ✓
+      Mn = 242.2·(254.5 - 35.6) + 170.2·(254.5 - 43.0) = 89.0 kN·m
+      ØMn = 0.9·89.0 = 80.1 kN·m >= 80 ; εt = 0.003·(254.5 - 83.8)/83.8 = 0.0061
     """
     beam = RectangularBeam(
         label="comp_bottom_reupgrade",
         concrete=Concrete_ACI_318_19(name="C25", f_c=25 * MPa),
         steel_bar=SteelBar(name="ADN 420", f_y=420 * MPa),
-        width=15 * cm,
+        width=16 * cm,
         height=30 * cm,
         c_c=2.5 * cm,
     )
@@ -1896,14 +1899,14 @@ def test_design_flexure_ACI_318_19_compression_bottom_exceeds_provided_bottom() 
     assert beam._doubly_reinforced is True
     flexure = beam.flexure_design
     assert [(layer.n, layer.d_b.to("mm").magnitude) for layer in flexure.top.layers] == [(2, 25)]
-    assert [(layer.n, layer.d_b.to("mm").magnitude) for layer in flexure.bottom.layers] == [(2, 25)]
+    assert [(layer.n, layer.d_b.to("mm").magnitude) for layer in flexure.bottom.layers] == [(2, 20)]
 
     check_results = node.check_flexure()
     assert check_results.iloc[1]["Position"] == "Top"
-    assert check_results.iloc[1]["ØMn"] == pytest.approx(80.06, rel=1e-3)
+    assert check_results.iloc[1]["ØMn"] == pytest.approx(80.1, rel=1e-3)
     assert check_results.iloc[1]["DCR"] <= 1.0
-    # Strength is tension-controlled; compression detailing remains pending.
-    assert [w.code for w in node.warnings] == ["compression_detailing_pending", "cage_detailing_infeasible"]
+    # Strength is tension-controlled, and the cage braces the compression bars.
+    assert node.warnings == ()
 
 
 def test_check_flexure_ACI_318_19_negative_moment_no_top_steel(

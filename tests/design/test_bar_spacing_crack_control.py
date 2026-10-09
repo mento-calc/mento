@@ -147,9 +147,10 @@ def test_a_footing_takes_the_cap_with_its_own_cover() -> None:
 def _wide_beam() -> RectangularBeam:
     """60x50 ACI beam, c_c 25 mm, Ø10 stirrups, 2Ø25 bottom and 2Ø12 top.
 
-    Between the stirrup legs there are 600 - 2*(25 + 10) = 530 mm. Bottom:
-    530 - 2*25 = 480 mm clear, 505 mm centre to centre. Top: 530 - 24 = 506
-    clear, 518 centre to centre. The cap, with 35 mm from the bars to either
+    Between the stirrup legs there are 600 - 2*(25 + 10) = 530 mm, and the Ø10
+    bends on a 40 mm mandrel hold each corner bar (40 - d_b)/2 off the leg.
+    Bottom: 530 - 2*7.5 - 2*25 = 465 mm clear, 490 mm centre to centre. Top:
+    530 - 2*14 - 24 = 478 clear, 490 centre to centre. The cap, with 35 mm from the bars to either
     face: 380*(280/280) - 2.5*35 = 292.5 mm against 300, so 292.5 mm.
     """
     beam = _beam(Concrete_ACI_318_19(name="H25", f_c=25 * MPa), 60 * cm)
@@ -169,9 +170,9 @@ def test_a_beam_face_in_tension_is_held_to_table_24_3_2() -> None:
     warning = found["bar_spacing_exceeds_max"]
     assert warning.face == "bottom"
     assert warning.combinations == ("pos",)
-    assert warning.values["s"].to("mm").magnitude == pytest.approx(505.0)
+    assert warning.values["s"].to("mm").magnitude == pytest.approx(490.0)
     assert warning.values["s_max"].to("mm").magnitude == pytest.approx(292.5)
-    assert warning.message == "Bar spacing on the bottom face: 50.5 cm exceeds the maximum 29.2 cm."
+    assert warning.message == "Bar spacing on the bottom face: 49 cm exceeds the maximum 29.2 cm."
 
 
 def test_the_cap_is_checked_on_the_face_the_combination_pulls() -> None:
@@ -194,7 +195,7 @@ def test_the_report_of_a_beam_gets_the_two_rows() -> None:
     rows = beam._data_min_max_flexure
     assert rows["Check"][4:] == ["Maximum spacing top", "Maximum spacing bottom"]
     assert rows["Unit"][4:] == ["mm", "mm"]
-    assert rows["Value"][4:] == [pytest.approx(518.0), pytest.approx(505.0)]
+    assert rows["Value"][4:] == [pytest.approx(490.0), pytest.approx(490.0)]
     assert rows["Min."][4:] == ["", ""]
     assert rows["Max."][4:] == [pytest.approx(292.5), pytest.approx(292.5)]
     assert rows["Ok?"][4:] == ["✅", "❌"]
@@ -223,15 +224,16 @@ def test_the_rows_read_in_spanish() -> None:
 
 
 def test_a_beam_narrow_enough_passes_and_gets_no_warning() -> None:
-    """20x50 with 2Ø16: 200 - 2*(25 + 10) - 2*16 = 98 mm clear, 114 mm centre
-    to centre, well inside 292.5 mm."""
+    """20x50 with 2Ø16: 200 - 2*(25 + 10) - 2*(40 - 16)/2 - 2*16 = 74 mm clear,
+    the corner bars held clear of the Ø10 bends; 90 mm centre to centre, well
+    inside 292.5 mm."""
     beam = _beam(Concrete_ACI_318_19(name="H25", f_c=25 * MPa), 20 * cm)
     beam.set_longitudinal_rebar_bot(n1=2, d_b1=16 * mm)
     beam.set_transverse_rebar(n_stirrups=1, d_b=10 * mm, s_l=20 * cm)
     Node(section=beam, forces=[Forces(label="pos", M_y=60 * kNm)]).check_flexure()
 
     rows = beam._data_min_max_flexure
-    assert rows["Value"][5] == pytest.approx(114.0)
+    assert rows["Value"][5] == pytest.approx(90.0)
     assert rows["Ok?"][5] == "✅"
     assert "bar_spacing_exceeds_max" not in {w.code for w in beam.warnings}
 
@@ -254,23 +256,25 @@ def test_a_single_bar_is_measured_by_the_width_of_the_face() -> None:
 
 
 def test_a_mixed_layer_is_read_at_its_larger_bar() -> None:
-    """50x50, Ø10 stirrups, 2Ø20 + 1Ø16 in one layer: 430 - 40 - 16 = 374 mm
-    over two gaps, 187 mm clear; the centres of a Ø20 and the Ø16 sit
-    187 + 18 = 205 mm apart, and the row takes 187 + 20 = 207 mm, the safe
-    side of the pair. Inside 292.5 either way."""
+    """50x50, Ø10 stirrups, 2Ø20 + 1Ø16 in one layer: 430 - 2*10 - 40 - 16 =
+    354 mm over two gaps once the Ø20 corner bars clear the 40 mm bends,
+    177 mm clear; the centres of a Ø20 and the Ø16 sit 177 + 18 = 195 mm
+    apart, and the row takes 177 + 20 = 197 mm, the safe side of the pair.
+    Inside 292.5 either way."""
     beam = _beam(Concrete_ACI_318_19(name="H25", f_c=25 * MPa), 50 * cm)
     beam.set_longitudinal_rebar_bot(n1=2, d_b1=20 * mm, n2=1, d_b2=16 * mm)
     beam.set_transverse_rebar(n_stirrups=1, d_b=10 * mm, s_l=20 * cm)
     Node(section=beam, forces=[Forces(label="pos", M_y=100 * kNm)]).check_flexure()
 
-    assert beam._data_min_max_flexure["Value"][5] == pytest.approx(207.0)
+    assert beam._data_min_max_flexure["Value"][5] == pytest.approx(197.0)
     assert "bar_spacing_exceeds_max" not in {w.code for w in beam.warnings}
 
 
 def test_an_imperial_beam_reads_the_in_lb_table() -> None:
     """24x24 in, 1.5 in cover, #3 stirrups, 2 No. 8: between the legs
-    24 - 2*(1.5 + 0.375) = 20.25 in, 18.25 in clear, 19.25 in centre to
-    centre. Grade 60, f_s = 40 ksi, 1.875 in to the face: min(15 - 4.69, 12)
+    24 - 2*(1.5 + 0.375) = 20.25 in; the #3 bends on a 1.5 in mandrel, which
+    holds each No. 8 (1.5 - 1)/2 = 0.25 in off the leg: 17.75 in clear, 18.75 in
+    centre to centre. Grade 60, f_s = 40 ksi, 1.875 in to the face: min(15 - 4.69, 12)
     = 10.31 in."""
     beam = RectangularBeam(
         label="V1",
@@ -285,7 +289,7 @@ def test_an_imperial_beam_reads_the_in_lb_table() -> None:
     Node(section=beam, forces=[Forces(label="pos", M_y=100 * kip * inch * 12)]).check_flexure()
 
     found = {w.code: w for w in beam.warnings}
-    assert found["bar_spacing_exceeds_max"].values["s"].to("inch").magnitude == pytest.approx(19.25)
+    assert found["bar_spacing_exceeds_max"].values["s"].to("inch").magnitude == pytest.approx(18.75)
     assert found["bar_spacing_exceeds_max"].values["s_max"].to("inch").magnitude == pytest.approx(10.3125)
 
 
@@ -304,19 +308,20 @@ def test_an_en_beam_has_no_such_row() -> None:
 def test_a_designed_wide_beam_keeps_its_bars_within_table_24_3_2() -> None:
     """The bar search holds a beam's layer to the cap while it lays it out.
 
-    A 40x50 ACI beam under 80 kN·m is held to A_s,min of §9.6.1.2,
-    max(0.25*sqrt(25), 1.4)/420*400*457.7 = 6.10 cm². 2Ø20 = 6.28 cm² carry
-    it, but between the legs of the Ø10 stirrup the design ends with, 400 -
-    2*(25 + 10) = 330 mm, the two bars sit 290 mm clear and 310 mm centre to
-    centre, past the 292.5 mm of Table 24.3.2 (f_s = (2/3)*420 = 280 MPa,
-    c_c = 35 mm to the bar: min(380 - 87.5, 300)). PR #164 laid it out so,
-    and so does the search without the cap -- the check then warns
-    ``bar_spacing_exceeds_max``. With the cap the same area goes in as
-    2Ø16 + 2Ø12 in one layer: (330 - 2*16 - 2*12)/3 = 91.3 mm clear, 107.3 mm
-    centre to centre, and the design passes its own check with nothing to
-    warn about.
+    A 41x50 ACI beam under 80 kN·m is held to A_s,min of §9.6.1.2,
+    max(0.25*sqrt(25), 1.4)/420*410*457.7 = 6.26 cm². 2Ø20 = 6.28 cm² carry
+    it, but between the legs of the Ø10 stirrup the design ends with, 410 -
+    2*(25 + 10) = 340 mm, less (40 - 20)/2 = 10 mm each side for the bends,
+    the two bars sit 280 mm clear and 300 mm centre to centre, past the
+    292.5 mm of Table 24.3.2 (f_s = (2/3)*420 = 280 MPa, c_c = 35 mm to the
+    bar: min(380 - 87.5, 300)). The search without the cap lays it out so --
+    the check then warns ``bar_spacing_exceeds_max``. With the cap the same
+    area goes in as 2Ø16 + 2Ø12 in one layer: (340 - 2*12 - 2*16 - 2*12)/3 =
+    86.7 mm clear, 102.7 mm centre to centre, and the design passes its own
+    check with nothing to warn about. (A 40 cm web no longer shows it: there
+    the bends bring 2Ø20 to 290 mm, inside the cap.)
     """
-    beam = _beam(Concrete_ACI_318_19(name="H25", f_c=25 * MPa), 40 * cm)
+    beam = _beam(Concrete_ACI_318_19(name="H25", f_c=25 * MPa), 41 * cm)
     Node(section=beam, forces=[Forces(label="C1", M_y=80 * kNm)]).design()
 
     assert str(beam.reinforcement.bottom) == "2Ø16 mm + 2Ø12 mm"
@@ -325,7 +330,7 @@ def test_a_designed_wide_beam_keeps_its_bars_within_table_24_3_2() -> None:
     assert beam.reinforcement.bottom.A_s.to("cm**2").magnitude == pytest.approx(6.28, abs=5e-3)
     rows = beam._data_min_max_flexure
     assert rows["Check"][-1] == "Maximum spacing bottom"
-    assert rows["Value"][-1] == pytest.approx(107.33, abs=0.01)
+    assert rows["Value"][-1] == pytest.approx(102.67, abs=0.01)
     assert rows["Ok?"][-1] == "✅"
 
 
@@ -334,8 +339,9 @@ def test_a_designed_beam_reports_the_spacing_of_its_tension_bars() -> None:
 
     A 60x50 ACI beam under 150 kN·m and 50 kN comes out as 3Ø20 with two
     Ø10 stirrups -- PR #164 designed it so as well, the cap has nothing to
-    change here: 600 - 2*(25 + 10) = 530 mm between the legs, (530 - 60)/2 =
-    235 mm clear and 255 mm centre to centre, inside 292.5.
+    change here: 600 - 2*(25 + 10) = 530 mm between the legs, less (40 -
+    20)/2 = 10 mm each side for the bends, (510 - 60)/2 = 225 mm clear and
+    245 mm centre to centre, inside 292.5.
     """
     beam = _beam(Concrete_ACI_318_19(name="H25", f_c=25 * MPa), 60 * cm)
     Node(section=beam, forces=[Forces(label="C1", M_y=150 * kNm, V_z=50 * kN)]).design()
@@ -344,7 +350,7 @@ def test_a_designed_beam_reports_the_spacing_of_its_tension_bars() -> None:
     assert beam.reinforcement.transverse.d_b == 10 * mm
     rows = beam._data_min_max_flexure
     assert rows["Check"][-1] == "Maximum spacing bottom"
-    assert rows["Value"][-1] == pytest.approx(255.0)
+    assert rows["Value"][-1] == pytest.approx(245.0)
     assert rows["Ok?"][-1] == "✅"
     assert "bar_spacing_exceeds_max" not in {
         w.code for w in beam.warnings
@@ -367,7 +373,8 @@ def test_the_search_cap_leaves_a_compression_face_alone() -> None:
     ``As_below_required`` below. Now the top gets its 2Ø10 and the design
     ends clean on 1eØ6/16 (see
     ``test_compression_bars_that_make_the_tension_steel_admissible_are_braced``):
-    308 mm between the Ø6 legs, the two Ø10 298 mm apart against a 265 mm
+    308 mm between the Ø6 legs, the two Ø10 held (24 - 10)/2 = 7 mm off
+    each by the bends, 284 mm apart against a 265 mm
     cap (c_c = 46 mm to the bar), which the report prints on the top face
     without holding it there, since no combination pulls that face.
     """
@@ -389,7 +396,7 @@ def test_the_search_cap_leaves_a_compression_face_alone() -> None:
     assert check.bottom.DCR == pytest.approx(0.965, abs=5e-4)
     rows = beam._data_min_max_flexure
     assert rows["Check"][4:] == ["Maximum spacing top", "Maximum spacing bottom"]
-    assert rows["Value"][4] == pytest.approx(298.0)
+    assert rows["Value"][4] == pytest.approx(284.0)
     assert rows["Max."][4] == pytest.approx(265.0)
     assert rows["Ok?"][4] == "✅"
 

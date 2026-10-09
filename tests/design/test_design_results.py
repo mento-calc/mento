@@ -925,7 +925,7 @@ def test_shear_design_limits_are_the_envelope_not_the_last_combination() -> None
 
 @pytest.mark.parametrize(
     "code, M_kNm, V_kN, table_cm",
-    [("CIRSOC", 300, 100, 21.73), ("ACI", 260, 60, 21.62)],
+    [("CIRSOC", 300, 100, 21.025), ("ACI", 260, 60, 21.62)],
 )
 def test_the_governing_along_length_limit_folds_in_the_compression_support_cap(
     code: str, M_kNm: float, V_kN: float, table_cm: float

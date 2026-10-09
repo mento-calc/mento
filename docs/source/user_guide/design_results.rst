@@ -249,7 +249,12 @@ a quantity in the display unit of the section (cm, or in). The positions are the
   spacing apart -- the clear spacing the checks read -- with the ``n1`` bars of a layer at
   its ends and the ``n2`` bars between them; the layers at the offsets the effective depth
   is computed with. The stirrup diameter is the one the section reserves, also with no
-  stirrups placed.
+  stirrups placed. The end bars clear the stirrup's bends: a bar thinner than the
+  mandrel sits ``(D_bend - d_b)/2`` further from the leg, where the bend meets the
+  straight branch, which is where ``detailing_geometry`` puts its corner bars. The rebar
+  search and the clear spacing the checks report use the same rule
+  (``mento.section_geometry.corner_setback``), so a layout they accept is one the cage
+  can hold.
 
 The legs are not tied to the bars -- the checks do not do that either -- so an inner leg
 may sit where there is no bar. That is the calculation model.
@@ -329,7 +334,7 @@ The stirrup alternatives are one layout per other bar diameter the code offers, 
 heavier alike, in order of diameter: each is the widest spacing with the fewest legs that
 covers the demand read at the depth that bar gives the section. Where the spacing limit
 governs they share one spacing (a 20×40 under 100 kN and 30 kN·m: ``2 legs Ø10/17``,
-``2 legs Ø12/17``, ``2 legs Ø16/17``); where the demand
+``2 legs Ø12/17``; the bends of a Ø16 leave its 2Ø12 + 1Ø10 no room); where the demand
 governs, a lighter bar sits closer and a heavier one further apart. Every alternative is
 built on the finished section and checked there -- shear and flexure, since a heavier
 stirrup lowers the effective depth -- and only the ones the section passes with are kept, so

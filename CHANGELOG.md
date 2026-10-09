@@ -81,6 +81,26 @@ from the release history and are summaries rather than complete lists.
 
 ### Changed
 
+- **The design layout holds the bars clear of the stirrup bends, as the cage does.** A
+  bar thinner than the stirrup's mandrel (ACI/CIRSOC Table 25.3.2, EN Table 8.1N) sits,
+  at the depth the checks place it, at the end of the bend rather than in the square
+  corner of the inner faces: `(D_bend - d_b)/2` further from the leg on each side. The
+  rebar search, the clear spacing the checks report (`clear_spacing_below_min`,
+  `clear_spacing_below_vibrator`, the §24.3.2 centre spacing), `section_geometry` and
+  `detailing_geometry` now share that one rule (`section_geometry.corner_setback`), so
+  a layout the design or the check accepts is one the cage can hold: a 20x40 with a
+  Ø10 stirrup and 3Ø16 on top, which the check passed at 41 mm while the cage refused
+  it, now reads 29 mm against the vibrator's 30 on both. In a sweep of 3200
+  single-stirrup sections the check and the cage disagreed on 358 and now agree on
+  all; of 360 designs, those ending on a single-stirrup cage the detailing refuses
+  fell from 102 to 2.
+  What the cage can still refuse on its own is outside the width rule: crossties for
+  compression bars, inner stirrup corners, or mounting bars on an empty face too
+  narrow for the vibrator. Narrow webs fit fewer and thinner bars than before -- a
+  12 cm web with 25 mm cover fits no pair of bars beside a Ø10 stirrup -- and a
+  heavier stirrup alternative is dropped when its bends leave the longitudinal bars no
+  room. Reported clear spacings and the corner positions of the calculation geometry
+  change accordingly.
 - **A design that does not close keeps the closest layout within the limits** (#169).
   Bars that fit the width, with room for the vibrator on top, and a tension-controlled
   section (§9.3.3.1 / §7.3.3.1; the 4 % under EN 1992-1-1) are never traded for

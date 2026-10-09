@@ -9,6 +9,7 @@ from mento.codes.aci_318_19.equations import shear as aci_shear_eq
 from mento.codes.en_1992_2004.equations import shear as en_shear_eq
 from mento.codes.registry import design_code
 from mento.precompute import CANONICAL, DISPLAY, section_floats
+from mento.section_geometry import corner_setback, stirrup_bend_inner_diameter
 from mento.units import mm, cm, inch
 from mento.bar_sizes import ASTM_BAR_DIAMETERS, bar_designation, bar_diameter
 
@@ -790,6 +791,18 @@ class Rebar:
         eff_width_mm = effective_width.to("mm").magnitude
         max_diam_diff_mm = self.beam.settings.max_diameter_diff.to("mm").magnitude
         max_bars = self.beam.settings.max_bars_per_layer
+        layers_spacing_mm = self.beam.settings.layers_spacing.to("mm").magnitude
+        # The end bars sit clear of the stirrup's bends, as the check and the
+        # cage put them (section_geometry.corner_setback): a layer is laid out
+        # in the width left between them. Layer 1 always ends in its n1 = 2
+        # bars, layer 2 in its n3 = 2. None on a slab strip, which has no cage.
+        bend = stirrup_bend_inner_diameter(self.beam)[0] if self.mode != "slab" else None
+        bend_mm = None if bend is None else float(bend.to("mm").magnitude)
+
+        def layer_width_mm(d_end_mm: float, offset_mm: float) -> float:
+            if bend_mm is None:
+                return eff_width_mm
+            return eff_width_mm - 2 * corner_setback(bend_mm, d_end_mm, offset_mm + d_end_mm / 2)
 
         # n1 is fixed at 2, and A_s_req > 0 is guaranteed by the early exit above,
         # so both area limits are loop-invariant and are computed once.
@@ -824,6 +837,7 @@ class Rebar:
         # re-filtering the list with a pint comparison on each pass.
         for i1 in range(len(valid_rebar_diameters)):
             area1, d1_mm = areas_cm2[i1], diams_mm[i1]
+            width1_mm = layer_width_mm(d1_mm, 0.0)
             for i2 in range(i1 + 1):
                 area2, d2_mm = areas_cm2[i2], diams_mm[i2]
 
@@ -839,7 +853,9 @@ class Rebar:
                     continue
 
                 for i3 in range(i2 + 1):
-                    area3 = areas_cm2[i3]
+                    area3, d3_mm = areas_cm2[i3], diams_mm[i3]
+                    # Layer 2 sits behind the larger bar of layer 1, d_b1.
+                    width2_mm = layer_width_mm(d3_mm, d1_mm + layers_spacing_mm)
                     for i4 in range(i3 + 1):
                         area4, d4_mm = areas_cm2[i4], diams_mm[i4]
 
@@ -859,7 +875,7 @@ class Rebar:
                             if n1 + n2 > max_bars:
                                 continue  # Skip if the total bars in layer 1 exceed the limit
 
-                            clear_mm = self._layer_clear_spacing_mm(n1, n2, d1_mm, d2_mm, eff_width_mm)
+                            clear_mm = self._layer_clear_spacing_mm(n1, n2, d1_mm, d2_mm, width1_mm)
                             if clear_mm is None:
                                 continue
                             self._clear_spacing = clear_mm * mm
@@ -927,6 +943,14 @@ class Rebar:
                                             continue
                                         if n3 == 0 and n4 > 0:
                                             continue
+                                        # Fewer, thinner bars than layer 1, so only the bends
+                                        # can leave layer 2 tighter: the check reads the
+                                        # tighter of the two against the face's minimum.
+                                        if n3 > 0 and width2_mm < width1_mm:
+                                            clear2_mm = (width2_mm - n3 * d3_mm - n4 * d4_mm) / (n3 + n4 - 1)
+                                            limit2_mm = max(self._clear_limit_mm, self._vibrator_mm, d1_mm)
+                                            if clear2_mm < limit2_mm and not math.isclose(clear2_mm, limit2_mm):
+                                                continue
                                         A_s_layer_2 = n3 * area3 + (n4 * area4 if n4 > 0 else 0.0)
 
                                         total_as = A_s_layer_1 + A_s_layer_2

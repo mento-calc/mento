@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING
 
 from mento.codes.registry import design_code
 from mento.design_results import DesignNotRunError
-from mento.section_geometry import BarPosition, SectionGeometry, build_section_geometry
+from mento.section_geometry import BarPosition, SectionGeometry, build_section_geometry, corner_setback
 from mento.units import Quantity
 
 if TYPE_CHECKING:
@@ -68,8 +68,10 @@ def _supported_layer(
 
     def x_at(corner: int, bar: BarPosition) -> float:
         leg, side, corner_radius = corners[corner]
-        # Tangent to the horizontal branch and clear of its rounded bend.
-        return leg + side * max(corner_radius, (d_st + diameters[id(bar)]) / 2)
+        d_b = diameters[id(bar)]
+        # Tangent to the horizontal branch and clear of its rounded bend: the
+        # rule the rebar search and the checks lay the bars out with.
+        return leg + side * ((d_st + d_b) / 2 + corner_setback(2 * corner_radius - d_st, d_b, d_b / 2))
 
     def steps(items: list[BarPosition]) -> list[float]:
         return [(diameters[id(a)] + diameters[id(b)]) / 2 + clear for a, b in zip(items, items[1:])]

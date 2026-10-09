@@ -68,7 +68,12 @@ from mento.rectangular import RectangularSection
 from mento.reports import views
 from mento.reports.documents import flexure_report_doc, shear_report_doc
 from mento.reports.tables import build_flexure_report, build_shear_report
-from mento.section_geometry import SectionGeometry, build_section_geometry
+from mento.section_geometry import (
+    SectionGeometry,
+    build_section_geometry,
+    layer_end_setbacks,
+    stirrup_bend_inner_diameter,
+)
 from mento.settings import BeamSettings
 from mento.units import Quantity, cm, dimensionless, inch, kN, m, mm
 
@@ -1038,14 +1043,26 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             + area(self._n4_t, self._d_b4_t)
         )
 
-    def _layer_clear_spacing(self, n_a: int, d_a: Quantity, n_b: int, d_b: Quantity) -> Quantity:
+    def _layer_clear_spacing(
+        self, n_a: int, d_a: Quantity, n_b: int, d_b: Quantity, offset: Optional[Quantity] = None
+    ) -> Quantity:
         """The clear distance between the bars of one layer, spread evenly between the stirrup legs.
+
+        The end bars sit clear of the stirrup's bends, not in the square
+        corner of the inner faces: a bar thinner than the bend's inside
+        diameter is pushed inward by :func:`~mento.section_geometry.corner_setback`,
+        ``(D_bend - d_b)/2`` per side on the layer nearest the face. The
+        rebar search, the calculation geometry and ``detailing_geometry`` use
+        the same rule, so a layout that fits here is one the cage can hold.
 
         Parameters:
             n_a (int): Number of bars in the first group of the layer.
             d_a (Quantity): Diameter of bars in the first group of the layer.
             n_b (int): Number of bars in the second group of the layer.
             d_b (Quantity): Diameter of bars in the second group of the layer.
+            offset (Quantity): How far behind the stirrup's horizontal branch
+                the layer starts: ``None`` or zero for the layer nearest the
+                face, ``max(d_b1, d_b2) + layers_spacing`` for the second.
 
         Returns:
             Quantity: Clear spacing for the given layer -- for a layer of one
@@ -1055,8 +1072,17 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         total_bars = n_a + n_b
         if total_bars <= 1:
             return effective_width - max(d_a, d_b)  # Clear space for one bar
+        bend, _ = stirrup_bend_inner_diameter(self)
+        left, right = layer_end_setbacks(
+            None if bend is None else float(bend.to(mm).magnitude),
+            n_a,
+            float(d_a.to(mm).magnitude),
+            n_b,
+            float(d_b.to(mm).magnitude),
+            0.0 if offset is None else float(offset.to(mm).magnitude),
+        )
         total_bar_width = n_a * d_a + n_b * d_b
-        return (effective_width - total_bar_width) / (total_bars - 1)
+        return (effective_width - (left + right) * mm - total_bar_width) / (total_bars - 1)
 
     def _tension_bar_spacing(self, face: str) -> Optional[Tuple[Quantity, Quantity]]:
         """The centre-to-centre spacing of the bars nearest ``face``, and the most the code allows it.
@@ -1109,8 +1135,11 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
 
         # AVAIABLE CLEAR SPACING FOR BOTTOM BARS
         # Calculate clear spacing for each layer
+        layers_spacing = self.settings.layers_spacing
         spacing_layer1_b = layer_clear_spacing(self._n1_b, self._d_b1_b, self._n2_b, self._d_b2_b)
-        spacing_layer2_b = layer_clear_spacing(self._n3_b, self._d_b3_b, self._n4_b, self._d_b4_b)
+        spacing_layer2_b = layer_clear_spacing(
+            self._n3_b, self._d_b3_b, self._n4_b, self._d_b4_b, max(self._d_b1_b, self._d_b2_b) + layers_spacing
+        )
 
         # Return the maximum clear spacing between the two layers
         self._available_s_bot = min(spacing_layer1_b, spacing_layer2_b)
@@ -1118,7 +1147,9 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         # AVAIABLE CLEAR SPACING FOR TOP BARS
         # Calculate clear spacing for each layer
         spacing_layer1_t = layer_clear_spacing(self._n1_t, self._d_b1_t, self._n2_t, self._d_b2_t)
-        spacing_layer2_t = layer_clear_spacing(self._n3_t, self._d_b3_t, self._n4_t, self._d_b4_t)
+        spacing_layer2_t = layer_clear_spacing(
+            self._n3_t, self._d_b3_t, self._n4_t, self._d_b4_t, max(self._d_b1_t, self._d_b2_t) + layers_spacing
+        )
 
         # Return the maximum clear spacing between the two layers
         self._available_s_top = min(spacing_layer1_t, spacing_layer2_t)

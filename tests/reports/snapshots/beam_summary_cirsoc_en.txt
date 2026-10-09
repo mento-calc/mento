@@ -70,7 +70,7 @@ Check | Unit | Value | Min. | Max. | Ok?
 Min/Max As rebar top | cm² | 0.0 | 0.0 | 17.09 | ✅
 Minimum spacing top | mm | 138.0 |  |  | ✅
 Min/Max As rebar bottom | cm² | 2.26 | 1.8 | 14.75 | ✅
-Minimum spacing bottom | mm | 114.0 | 25 |  | ✅
+Minimum spacing bottom | mm | 102.0 | 25 |  | ✅
 Flexural Capacity Top
 Top reinforcement check | Variable | Value | Unit
 First layer bars | n1+n2 | - | 
