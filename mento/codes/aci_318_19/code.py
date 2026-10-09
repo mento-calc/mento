@@ -475,6 +475,12 @@ _COMMON = dict(
     # selected inside the design itself.
     design_shear_wall=_design_shear_ACI_318_19_wall,
     apply_wall_shear_state=apply_wall_shear_state,
+    # §11.7.3.1 / §11.7.2.1, the same numbering and numbers in both.
+    wall_mesh_spacing_clauses={
+        "h": "§11.7.3.1; lw/5 where Vu > φVc",
+        "v": "§11.7.2.1; lw/3 where Vu > φVc",
+    },
+    wall_summary_columns={"rho_h": "ρt", "rho_v": "ρl", "shear_demand": "Vu,max", "shear_capacity": "ØVn"},
     # Two-way shear. `design_punching` is Phase 4; requires() names the code.
     check_punching=check_punching_ACI_318_19,
     flexure_symbols=_FLEXURE_SYMBOLS,

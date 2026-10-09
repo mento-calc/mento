@@ -441,6 +441,31 @@ class WallShearCheckState:
     s_v_max: Quantity
     DCR: float
 
+    def public_values(self) -> Dict[str, Any]:
+        """The fields of :class:`mento.wall_results.WallShearCheck` this state fills.
+
+        Each wall state answers in these names, whatever its code calls them,
+        so the public result is read off any of them the same way.
+        """
+        return {
+            "V_u": self.V_u,
+            "N_u": self.N_u,
+            "V_capacity": min(self.phi_V_n_wall, self.phi_V_n_max_wall),
+            "V_max": self.phi_V_n_max_wall,
+            "rho_t_req": _ratio(self.rho_t_req),
+            "rho_t_min": _ratio(self.rho_t_min),
+            "rho_l_min": _ratio(self.rho_l_min),
+            "rho_l_max": None,
+            "s_h_max": self.s_h_max,
+            "s_v_max": self.s_v_max,
+            "DCR": float(self.DCR),
+        }
+
+
+def _ratio(value: Any) -> float:
+    """A reinforcement ratio as a float, whether it arrives as a quantity or not."""
+    return float(value.to("").magnitude) if isinstance(value, Quantity) else float(value)
+
 
 def new_wall_shear_state(section: "ShearWall") -> WallShearCheckState:
     """A zeroed wall state carrying the section's unit system."""
@@ -475,6 +500,131 @@ def apply_wall_shear_state(section: "ShearWall", state: WallShearCheckState) -> 
     """Copy a wall state onto the section — the same compatibility layer."""
     for field_name, attribute in WALL_BEAM_ATTRIBUTES.items():
         setattr(section, attribute, getattr(state, field_name))
+
+
+#: The EN wall state, back in pint for the report tables. Its own attribute
+#: names: the wall inherits the beam's ``_V_Rd_c``, ``_z`` and friends, which
+#: describe a section the wall is not.
+EN_WALL_ATTRIBUTES = {
+    "V_Ed": ("_V_Ed_wall", "force"),
+    "N_Ed": ("_N_Ed_wall", "force"),
+    "A_c": ("_A_c_wall", "area"),
+    "d": ("_d_wall", "length"),
+    "z": ("_z_wall", "length"),
+    "f_cd": ("_f_cd_wall", "stress"),
+    "f_ywd": ("_f_ywd_wall", "stress"),
+    "k_value": ("_k_wall", "raw"),
+    "rho_l": ("_rho_l_shear_wall", "raw"),
+    "sigma_cp": ("_sigma_cp_wall", "stress"),
+    "alpha_cw": ("_alpha_cw_wall", "raw"),
+    "nu_1": ("_nu_1_wall", "raw"),
+    "V_Rd_c": ("_V_Rd_c_wall", "force"),
+    "theta": ("_theta_wall", "raw"),
+    "cot_theta": ("_cot_theta_wall", "raw"),
+    "V_Rd_max": ("_V_Rd_max_wall", "force"),
+    "V_Rd_s": ("_V_Rd_s_wall", "force"),
+    "V_Rd": ("_V_Rd_wall", "force"),
+    "section_shear_limit": ("_V_Rd_max_45_wall", "force"),
+    "max_shear_ok": ("_max_shear_ok_wall", "raw"),
+    "rho_w_min": ("_rho_w_min_wall", "raw"),
+    "A_sh": ("_A_sh_wall", "per_length"),
+    "A_sv": ("_A_sv_wall", "per_length"),
+    "A_sh_str": ("_A_sh_str_wall", "per_length"),
+    "A_sh_w": ("_A_sh_w_wall", "per_length"),
+    "A_sh_min": ("_A_sh_min_wall", "per_length"),
+    "A_sh_req": ("_A_sh_req_wall", "per_length"),
+    "A_sv_min": ("_A_sv_min_wall", "per_length"),
+    "A_sv_max": ("_A_sv_max_wall", "per_length"),
+    "length_ratio": ("_lw_t_wall", "raw"),
+    "s_h_max": ("_s_h_max", "spacing"),
+    "s_v_max": ("_s_v_max", "spacing"),
+    "DCR": ("_DCRv_wall", "raw"),
+}
+
+
+@dataclass
+class ENWallShearCheckState:
+    """One combination's EN 1992-1-1 in-plane wall shear result, in N, mm, mm²/mm and MPa.
+
+    Floats, as the EN beam state is (ADR-0005); EN 1992 is metric only. The
+    reinforcement is per unit length of wall: ``A_sh`` per unit height, the
+    horizontal bars that carry the shear, and ``A_sv`` per unit length, the
+    vertical ones, both faces together.
+    """
+
+    t: float
+    V_Ed: float
+    N_Ed: float
+    A_c: float
+    d: float
+    z: float
+    f_cd: float
+    f_ywd: float
+    k_value: float
+    rho_l: float
+    sigma_cp: float
+    alpha_cw: float
+    nu_1: float
+    V_Rd_c: float
+    theta: float
+    cot_theta: float
+    V_Rd_max: float
+    V_Rd_s: float
+    V_Rd: float
+    #: V_Rd,max of Eq. (6.9) at theta = 45 deg: the most the wall can carry
+    #: however it is reinforced, §6.2.1(6). ``V_Rd_max`` is the strut at the
+    #: angle the demand fixed.
+    section_shear_limit: float
+    max_shear_ok: bool
+    rho_w_min: float
+    A_sh: float
+    A_sv: float
+    A_sh_str: float
+    A_sh_w: float
+    A_sh_min: float
+    A_sh_req: float
+    A_sv_min: float
+    A_sv_max: float
+    length_ratio: float
+    s_h_max: float
+    s_v_max: float
+    DCR: float
+
+    def public_values(self) -> Dict[str, Any]:
+        """The fields of :class:`mento.wall_results.WallShearCheck` this state fills.
+
+        EN names them V_Ed, V_Rd and V_Rd,max; the public result keeps the
+        names it has always had. The areas become ratios over the thickness,
+        as the result carries them, and the section limit is the strut at
+        45 deg, as for an EN beam.
+        """
+        return {
+            "V_u": to_display(self.V_Ed, "force", False),
+            "N_u": to_display(self.N_Ed, "force", False),
+            "V_capacity": to_display(self.V_Rd, "force", False),
+            "V_max": to_display(self.section_shear_limit, "force", False),
+            "rho_t_req": self.A_sh_req / self.t,
+            "rho_t_min": self.A_sh_min / self.t,
+            "rho_l_min": self.A_sv_min / self.t,
+            "rho_l_max": self.A_sv_max / self.t,
+            "s_h_max": self.s_h_max * mm,
+            "s_v_max": self.s_v_max * mm,
+            "DCR": float(self.DCR),
+        }
+
+
+def new_en_wall_shear_state() -> ENWallShearCheckState:
+    """A zeroed EN wall state. Every field is a float, so there is nothing to convert."""
+    zeros: Dict[str, Any] = {name: 0.0 for name in ENWallShearCheckState.__dataclass_fields__}
+    zeros["max_shear_ok"] = False
+    return ENWallShearCheckState(**zeros)
+
+
+def apply_en_wall_shear_state(section: "ShearWall", state: ENWallShearCheckState) -> None:
+    """Copy an EN wall state onto the section, back in pint, for the report tables."""
+    for field_name, (attribute, kind) in EN_WALL_ATTRIBUTES.items():
+        value = getattr(state, field_name)
+        setattr(section, attribute, value * mm if kind == "spacing" else to_display(value, kind, False))
 
 
 #: Flexure reports per face, so its state nests two of them.

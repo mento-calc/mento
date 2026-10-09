@@ -10,11 +10,13 @@ from pandas import DataFrame
 from mento import MPa, cm, ft, inch, kip, kN, kNm, m, mm
 from mento.bar_sizes import bar_designation
 from mento.beam_summary import _declared, _is_unlabelled
+from mento.codes.registry import design_code
 from mento.design_results import spacing_separator
 from mento.forces import Forces
 from mento.i18n import translate_dataframe
 from mento.material import Concrete, SteelBar
 from mento.node import Node
+from mento.precompute import shown
 from mento.reports.summaries import wall_summary_doc
 from mento.shear_wall import ShearWall
 
@@ -23,11 +25,12 @@ def _wall_passes(wall: ShearWall) -> bool:
     """Whether the wall carries every combination of its last check and misses no limit.
 
     Read off the public results rather than the report's flag, which holds the
-    combination that ran last. The warnings cover the mesh ratios of §11.6.2,
-    the spacing of §11.7 and the section limit of §11.5.4.2, each over every
-    combination; the DCR covers the strength of each one, with the tolerance
-    the warnings use: a wall at exactly ØVn,max can come out at DCR
-    1.0000000000000002, and that is 1.
+    combination that ran last. The warnings cover the mesh ratios, the spacing
+    and the section limit of the wall's code -- §11.6.2, §11.7 and §11.5.4.2
+    of ACI 318-19 / CIRSOC 201-25, §9.6.2, §9.6.3 and Eq. (6.9) of EN
+    1992-1-1 -- each over every combination; the DCR covers the strength of
+    each one, with the tolerance the warnings use: a wall at exactly ØVn,max
+    can come out at DCR 1.0000000000000002, and that is 1.
     """
     return all(check.DCR <= 1 or math.isclose(check.DCR, 1.0) for check in wall.shear_checks) and not wall.warnings
 
@@ -193,6 +196,11 @@ class ShearWallSummary:
         """
         results_list = []
         imperial = self.concrete.unit_system != "metric"
+        # What the code calls the ratios, the demand and the capacity: ρt / Vu / ØVn
+        # under ACI 318-19 and CIRSOC 201-25, ρh / VEd / VRd under EN 1992-1-1.
+        names = design_code(self.concrete).wall_summary_columns
+        rho_h, rho_v = names["rho_h"], names["rho_v"]
+        demand, capacity = names["shear_demand"], names["shear_capacity"]
 
         for node in self.nodes:
             wall: ShearWall = node.section  # type: ignore
@@ -212,8 +220,9 @@ class ShearWallSummary:
 
             node.check_shear()
 
-            limiting = wall.limiting_case_shear
-            dcr = limiting["DCR"]
+            # The combination with the largest DCR, read off the public results
+            # rather than the check table, whose columns are named per code.
+            limiting = max(wall.shear_checks, key=lambda check: check.DCR)
 
             rebar_h = _mesh_label(wall._d_b_h, wall._s_h, imperial)
             rebar_v = _mesh_label(wall._d_b_v, wall._s_v, imperial)
@@ -242,11 +251,11 @@ class ShearWallSummary:
                     "hw": hw,
                     "Horiz.": rebar_h,
                     "Vert.": rebar_v,
-                    "ρt": round(float(wall._rho_t.magnitude), 5),
-                    "ρl": round(float(wall._rho_l.magnitude), 5),
-                    "Vu,max": round(limiting["Vu"], 1),
-                    "ØVn": round(limiting["ØVn"], 1),
-                    "DCR": round(dcr, 3),
+                    rho_h: round(float(wall._rho_t.magnitude), 5),
+                    rho_v: round(float(wall._rho_l.magnitude), 5),
+                    demand: round(shown(limiting.V_u, "force", imperial, 2), 1),
+                    capacity: round(shown(limiting.V_capacity, "force", imperial, 2), 1),
+                    "DCR": round(limiting.DCR, 3),
                     "Status": status,
                 }
             )
@@ -266,10 +275,10 @@ class ShearWallSummary:
                         "hw": l_unit,
                         "Horiz.": mesh_unit,
                         "Vert.": mesh_unit,
-                        "ρt": "",
-                        "ρl": "",
-                        "Vu,max": v_unit,
-                        "ØVn": v_unit,
+                        rho_h: "",
+                        rho_v: "",
+                        demand: v_unit,
+                        capacity: v_unit,
                         "DCR": "",
                         "Status": "",
                     }
