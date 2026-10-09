@@ -228,12 +228,31 @@ def _max_bar_spacing_tension(section: "RectangularBeam") -> Any:
     the clause is written on the bars closest to the face in tension, and a
     combination pulls one face or the other.
     """
+    return _max_bar_spacing_for_cover(section, section.c_c + section._stirrup_d_b)
+
+
+def _max_bar_spacing_for_cover(section: "RectangularBeam", cover: Any) -> Any:
+    """ACI 318-19 / CIRSOC 201-25 §24.3.2, Table 24.3.2.
+
+    Uses fs=2fy/3 permitted by §24.3.2.1 and the actual clear cover.
+    For skin steel, §9.7.2.3 defines this cover from the side face.
+    """
     imperial = section.concrete.is_imperial
     stress = psi if imperial else MPa
     length = inch if imperial else mm
     f_s = (2 / 3) * section.steel_bar.f_y.to(stress).magnitude
-    c_c = (section.c_c + section._stirrup_d_b).to(length).magnitude
+    c_c = cover.to(length).magnitude
     return flexure_eq.max_bar_spacing_crack_control(f_s, c_c, is_imperial=imperial) * length
+
+
+def _skin_threshold(concrete: Any) -> Any:
+    """ACI 318-19 §9.7.2.3: h > 900 mm (SI) / 36 in. (in-lb)."""
+    return 36 * inch if concrete.is_imperial else 900 * mm
+
+
+def _skin_threshold_cirsoc(concrete: Any) -> Any:
+    """CIRSOC 201-25 §9.7.2.3: h > 900 mm; no in-lb edition."""
+    return 900 * mm
 
 
 def _min_bar_spacing_slab(section: "RectangularBeam") -> Any:
@@ -510,6 +529,8 @@ _COMMON = dict(
 ACI_318_19 = register(
     DesignCode(
         title="ACI 318-19",
+        skin_reinforcement_threshold=_skin_threshold,
+        max_skin_bar_spacing=_max_bar_spacing_for_cover,
         year=2019,
         materials=(Concrete_ACI_318_19,),
         transverse_rebar=_transverse_rebar_aci,
@@ -527,6 +548,8 @@ ACI_318_19 = register(
 CIRSOC_201_25 = register(
     DesignCode(
         title="CIRSOC 201-25",
+        skin_reinforcement_threshold=_skin_threshold_cirsoc,
+        max_skin_bar_spacing=_max_bar_spacing_for_cover,
         year=2025,
         materials=(Concrete_CIRSOC_201_25,),
         # What CIRSOC does differently: the bar sizes of art. 20.2.1.3,

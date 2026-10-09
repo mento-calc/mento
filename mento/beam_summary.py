@@ -196,6 +196,44 @@ class BeamSummary:
         # Validate the units row
         self.validate_units(self.units_row)
 
+        skin_columns = {"db_piel", "cant_piel_cara", "posicion"}
+        if skin_columns.intersection(data.columns):
+            if not skin_columns.issubset(data.columns):
+                raise ValueError("Manual skin input requires db_piel, cant_piel_cara and posicion together.")
+            for col in ("cant_piel_cara", "posicion"):
+                if self.units_row[data.columns.get_loc(col)] != "":
+                    raise ValueError(f"{col} must have a blank units cell.")
+            from mento.skin_reinforcement import ManualSkinRebar
+
+            for index, row in data.iterrows():
+                values = [row[col] for col in ("db_piel", "cant_piel_cara", "posicion")]
+                position = "" if pd.isna(row["posicion"]) else str(row["posicion"]).strip().lower()
+                data.loc[index, "posicion"] = position
+                if not position and all(pd.isna(value) or value == "" or value == 0 for value in values[:2]):
+                    data.loc[index, ["db_piel", "cant_piel_cara", "posicion"]] = [0, 0, ""]
+                    continue  # Celdas vacías o ceros sin posición conservan el automático.
+                try:
+                    skin_unit = self.get_unit_variable(self.units_row[data.columns.get_loc("db_piel")])
+                except ValueError as error:
+                    raise ValueError(f"Invalid db_piel unit (row {index}).") from error
+                raw_count = row["cant_piel_cara"]
+                try:
+                    count = float(raw_count)
+                    diameter = float(row["db_piel"])
+                except (TypeError, ValueError) as error:
+                    raise ValueError(f"Invalid manual skin input (row {index}).") from error
+                if (
+                    pd.api.types.is_bool(raw_count)
+                    or pd.api.types.is_bool(row["db_piel"])
+                    or not math.isfinite(count)
+                    or count != int(count)
+                ):
+                    raise ValueError(f"cant_piel_cara must be a finite integer (row {index}).")
+                try:
+                    ManualSkinRebar(diameter * skin_unit, int(count), position)
+                except ValueError as error:
+                    raise ValueError(f"Invalid manual skin input (row {index}): {error}") from error
+
         # Validate counts before numeric coercion can hide fractions or typos.
         counts = []
         for index, row in data.iterrows():
@@ -223,7 +261,10 @@ class BeamSummary:
         # forces-only summary with no rebar yet) are inferred as the new `str`
         # dtype, and writing floats into them in place raises a TypeError.
         for col in data.columns[2:]:
-            data[col] = pd.to_numeric(data[col], errors="coerce").fillna(0)
+            if col == "posicion":
+                data[col] = data[col].fillna("")
+            else:
+                data[col] = pd.to_numeric(data[col], errors="coerce").fillna(0)
         # Fill absent paired values from the explicit input; never reinterpret ns.
         for col in count_columns:
             data[col] = counts if col == "ns" else [2 * count for count in counts]
@@ -390,6 +431,21 @@ class BeamSummary:
             bars = _declared(face_rows, self._FACE_COLUMNS, label, f"{face} bars", element)
             if bars is not None:
                 self._set_face(section, face, bars)
+
+        # Manual skin belongs to the beam, like its stirrups: the rows that
+        # give it must give the same; rows with no position keep the automatic.
+        if "posicion" in self.data.columns:
+            skin_rows = [row for row in rows if row["posicion"]]
+            skin = _declared(
+                skin_rows,
+                ("db_piel", "cant_piel_cara", "posicion"),
+                label,
+                "skin reinforcement",
+                element,
+                include_empty=True,
+            )
+            if skin is not None:
+                section.set_skin_rebar(skin[0], int(skin[1]), skin[2])
 
         forces = [Forces(label=row["Comb."], M_y=row["My"], N_x=row["Nx"], V_z=row["Vz"]) for row in rows]
         return Node(section=section, forces=forces)

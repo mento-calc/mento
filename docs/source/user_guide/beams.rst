@@ -292,6 +292,213 @@ and negative moments verify both tension faces:
 On a US customary section the dimensions and the stirrup text are in inches and the
 bar labels use ASTM sizes (for example ``3#6`` and ``2#3 (mounting)``).
 
+Longitudinal skin reinforcement
+***********************************
+
+ACI 318-19 / CIRSOC 201-25 §9.7.2.3 requires supplementary longitudinal
+steel on both lateral faces when h exceeds 900 mm (ACI in-lb: 36 in.).
+The proposal covers h/2 measured from every tension face found in the
+flexure checks. Reversing moments cover both halves; the pair at mid-height
+is shared. Clear cover to side bars is c_c plus the stirrup diameter,
+and Table 24.3.2 supplies the cap with f_s = 2f_y/3 (§24.3.2.1).
+
+``beam.skin_reinforcement`` publishes status, tension_faces, d_b,
+side_cover, s_max, spacing and n_per_side. Status ``required`` describes
+an obligation and a proposal, not a check of independently supplied skin steel.
+``beam.detailing_geometry.skin_bars`` validates the proposed supplementary bars
+against the supported cage. They are shown in green and labelled per lateral
+face. Centres are uniformly spaced from the actual tension-layer anchor up to h/2;
+first-row clearance to flexural layers and steel intersections are checked.
+If the layout cannot fit, it raises ``CageDetailingError`` and the plot
+explicitly falls back to calculation geometry.
+
+The diameter is independently configurable from mounting steel:
+
+.. code-block:: python
+
+    beam.settings.skin_bar_diameter = 10*mm  # default; 8 mm permitted by default settings
+    node.check_flexure()                     # or node.check() / node.design()
+    requirement = beam.skin_reinforcement
+    print(requirement.status, requirement.n_per_side, requirement.s_max)
+    geometry = beam.detailing_geometry
+    print(geometry.to_dict("mm")["skin_bars"])
+    beam.plot()
+
+No skin bars are credited to flexural or shear capacity, areas or centroids.
+The original ``section_geometry`` remains the calculation model.
+The current Word flexure/shear reports and summary tables do not include the
+skin proposal or its distribution review. An OK in those reports verifies
+their stated checks, not this supplementary detailing. Read
+``beam.skin_reinforcement``, ``beam.warnings`` and the actual section plot
+separately; adding skin information to Word is outside this proposal.
+``skin_reinforcement_required`` identifies a supplementary detailing requirement
+beside the strength checks. Before flexure verification a beam above the height threshold reports ``pending``;
+no tension face is assumed. EN uses the separate rule documented below.
+Slab strips are not applicable.
+This feature does not implement strut-and-tie design, anchorage, splice lengths,
+seismic detailing or a full bending schedule. These are outside the sectional
+scope and do not automatically make skin verification pending.
+
+Entrada manual de piel
+~~~~~~~~~~~~~~~~~~~~~~
+
+La piel se puede diseñar automáticamente o ingresar de forma simétrica en
+los dos laterales del alma:
+
+.. code-block:: python
+
+    beam.set_skin_rebar(db_piel=10*mm, cant_piel_cara=3, posicion="total")
+    node.check()
+    print(beam.skin_verification_status)
+    beam.plot(show=False)
+
+``cant_piel_cara`` cuenta barras por cada lateral: tres significan seis en
+total. ``bottom`` las distribuye desde la capa longitudinal inferior hasta
+media altura, incluyendo una barra a media altura. ``top`` hace lo propio
+desde la capa superior. ``total`` las distribuye uniformemente entre las
+capas longitudinales de ambas caras, sin duplicar barras longitudinales.
+Si falta una capa longitudinal, se conserva el límite físico de recubrimiento
+para esa cara. No se admiten posiciones individuales arbitrarias.
+
+Mento conserva exactamente la cantidad ingresada. Comprueba la cobertura
+y separación de las zonas requeridas en ACI/CIRSOC; en EN comprueba área por
+zona de servicio y diámetro, con los mismos datos SLS y criterios de Mento
+en revisión que utiliza la propuesta automática. También comprueba el ajuste
+geométrico. Una cantidad cero expresa ausencia de piel y falla si esta es
+requerida. Una piel voluntaria también se dibuja y se comprueba geométricamente.
+
+``beam.skin_verification_status`` indica ``passed`` si la piel satisface los
+chequeos seccionales implementados, ``failed`` ante un incumplimiento concreto
+y ``pending`` si faltan datos o el caso no está soportado. ``required`` en
+``beam.skin_reinforcement.status`` indica una necesidad, no un incumplimiento.
+Una propuesta válida ya no reprueba el estado global de detallado por el mero
+hecho de requerir piel. Los otros chequeos de la jaula conservan su estado.
+Anclajes y empalmes no condicionan este estado seccional.
+
+``beam.clear_skin_rebar()`` vuelve al diseño automático con el diámetro
+configurado en ``BeamSettings``. La entrada manual pertenece a la viga;
+no modifica settings compartidos ni recibe crédito resistente.
+
+``BeamSummary`` admite las tres columnas opcionales ``db_piel``,
+``cant_piel_cara`` y ``posicion`` juntas. La fila de unidades usa una unidad
+de longitud para ``db_piel`` y celdas vacías para las otras dos. Una fila
+con las tres celdas vacías conserva el diseño automático; entradas parciales
+o cantidades fraccionarias se rechazan. Exportar e importar Excel conserva
+la entrada manual. Los casos SLS de EN siguen ingresándose por la API existente.
+
+For a 30 x 120 cm CIRSOC beam with four Ø20 bars on each horizontal face,
+Ø8 stirrups and 30 mm cover, Mento proposes three Ø10 skin bars per lateral
+face at 27.6 cm for +100/-80 kNm bending: two per half with the middle bar
+shared. With positive bending alone, two Ø10 per side cover the lower half.
+These are proposed layouts, not a code-mandated diameter or bar count.
+Spacing starts at the innermost lateral tension-layer bar and ends at h/2,
+following ACI Fig. R9.7.2.3 / CIRSOC Fig. C 9.7.2.3. This avoids clashes with
+a second layer or large cover caused by measuring the first interval from
+the concrete face. The ``spacing`` result is the largest pitch if the two
+halves differ; explicit ``rows`` retains the actual levels.
+
+.. image:: /_static/beam_skin_reversal.png
+   :alt: Actual Mento output with four bottom and top bars and three green skin bars per lateral face.
+
+EN 1992-1-1:2004 skin steel
+--------------------------------
+
+The separate EN rule applies from h >= 1000 mm (§7.3.3(3)). For rectangular
+pure bending, Eq. (7.1) uses k_c=0.4, k=0.5, f_ct,eff=f_ctm and sigma_s=f_yk.
+A_ct=b*h/2 is the tensile area immediately before cracking; the additional
+area is divided equally between the lateral faces. Main flexural bars are
+not credited to this supplementary minimum.
+
+EN needs independently assessed cracked-service steel stress and neutral
+axis for each service case. Mento's ultimate force checks do not supply them.
+Keep the stress and axis from the same SLS analysis together in a
+``SkinServiceCase``. The axis is measured from the compression face. Give
+separate cases for bottom and top tension, and additional cases if their
+service zones differ. Labels identify SLS combinations, not necessarily ULS
+combinations. Set the cases after the section has been designed:
+
+.. code-block:: python
+
+    # Illustrative SLS inputs, NOT calculated from the ultimate moments:
+    from mento import SkinServiceCase
+    beam.set_skin_service_cases([
+        SkinServiceCase("SLS+", "bottom", 400*MPa, 240*mm),
+        SkinServiceCase("SLS-", "top", 300*MPa, 320*mm),
+    ])
+    beam.settings.skin_crack_width = 0.3*mm
+    beam.settings.skin_bar_diameter = 10*mm
+
+The proposal uses the diameter route of Table 7.2N, with half the supplied
+main-steel stress. Stress is rounded up to a tabulated row; values below
+160 MPa use that first row. The tabulated diameter is corrected using
+Eq. (7.7N). EN does not explicitly define the geometric substitution for
+lateral skin bars. Mento takes the smaller of two interpretations: h_cr=h/2
+with h-d to the main outer tension layer, and a web treated as a tie across
+its width, with h_cr=b and h-d to the actual skin-bar centroid from the side.
+This minimum is a conservative Mento project rule, not an additional EN
+equation. Both the uncracked tensile area b*h/2 and this geometric treatment
+must be reviewed for the project. This simplified route does not directly
+calculate w_k under §7.3.4 and does not certify its value.
+Available crack widths are 0.2, 0.3 and 0.4 mm; the 0.3 mm default is a
+preference to review against exposure and the applicable National Annex,
+not a universal limit. This implementation assumes high-bond reinforcement
+and f_ct,eff=f_ctm; early-age restraint is outside its scope.
+
+Bars are uniformly distributed inside the links between the tension layer
+and the supplied service neutral axis. With moment reversal, a single grid
+covers the union, with enough area inside EACH tension zone. Extra bars in
+compression receive no strength credit. The requirement publishes
+area_min_per_side, area_per_side, diameter_max and actual rows.
+The reported ``diameter_max`` is evaluated for the selected skin diameter;
+it depends on that diameter's centroid and is not a solved largest bar size.
+In wide or very tall webs the two geometric corrections can both exceed one:
+the project rule then permits a diameter above the unadjusted table value.
+That domain requires review of the table assumptions; this proposal adds no
+unapproved extra cap.
+The spacing describes the proposal; s_max is None because the selected
+diameter method does not introduce a separate code spacing cap.
+
+EN service inputs are required for every face identified as tensioned by the
+last ULS flexure check. A ULS reversal with only one supplied SLS face remains
+pending; this API cannot yet declare that the other face never sees service
+tension. Supplied cases for other faces are not used. For ACI/CIRSOC the skin
+proposal does not use these EN service inputs.
+
+The proposal retains a single row when the minimum area permits it. It does
+not impose a Mento minimum of two rows. ``skin_distribution_review`` reports one global informative warning,
+showing the largest interval among all reviewed service cases and their
+labels. Its global warning never attributes that interval to a tension face,
+even when there is only one case. The separate records in
+``skin_reinforcement.distribution_reviews`` retain every case and face.
+The warning gives rows per lateral side and interval including boundaries;
+these are not clear distances or an additional EN spacing limit. The
+diameter-route proposal does not directly calculate or certify crack width.
+The drawing displays this review alongside the actual skin-steel proposal.
+All service zones are checked separately for minimum area; the warning data
+retains their SLS labels. The drawing summarizes the largest interval per
+tension face to remain readable.
+
+Service cases belong to the beam, not to shareable ``BeamSettings``. Inputs
+and returned cases are copied defensively. Rebar setters and the design's
+own placements invalidate them; material, section or layer-spacing changes
+are also detected. Rechecking unchanged reinforcement preserves the cases.
+Missing data for either required tension face leaves the proposal pending.
+
+A zero-moment or capacity-only check on a section within the skin-steel
+scope leaves the requirement ``pending`` with reason ``no_tension_case``;
+it does not establish that skin reinforcement is unnecessary. EN axial
+cases are ``unsupported`` even when their moment is zero.
+
+Missing service inputs produce pending and no skin bars. Invalid inputs,
+an excessive diameter or a physical clash raise CageDetailingError.
+Axial-force combinations explicitly report unsupported: the pure-bending
+minimum cannot be reused for them. Surface mesh outside the links (Annex J)
+is a different detail; large bars or cover above 70 mm produce a separate
+warning even for a beam below 1000 mm. This proposal does not verify that mesh.
+
+.. image:: /_static/beam_skin_en.png
+   :alt: Actual EN Mento output with supplementary green skin bars using explicit service inputs.
+
 
 Jaula mixta: cerrados y patas abiertas
 --------------------------------------
@@ -335,3 +542,16 @@ vistas y ``geometry.stirrups``/``geometry.crossties`` para las piezas reales.
 Las columnas nuevas usan ``legs``; para una entrada impar no combinarla con
 la columna histórica ``ns``. El archivo editable conserva una sola cantidad
 canónica para evitar un supuesto medio estribo en la entrada antigua.
+
+
+Precisiones de piel manual
+--------------------------------
+
+Las filas parten de la capa longitudinal más interior que tenga al menos dos
+barras; si no hay barras, se usa el recubrimiento. ``top`` y ``bottom`` llegan
+a media altura. En EN esa media altura puede no cubrir la zona completa hasta
+el eje neutro de servicio: se conserva la entrada y se advierte la distribución,
+según el criterio geométrico de Mento en revisión. No se afirma una exención normativa.
+La piel ingresada que cabe pero no cumple sigue visible y rotulada como no conforme.
+Con axil EN fuera de alcance se comprueba cabida, pero la verificación sigue pendiente.
+Anclajes y empalmes no se verifican aquí; siguen siendo requisitos a comprobar aparte.

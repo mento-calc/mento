@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from mento.codes.en_1992_2004.skin import requirement as _skin_requirement
+from mento.codes.en_1992_2004.skin import warnings as _skin_warnings
 from mento.codes.check_state import apply_en_flexure_state, apply_en_shear_state, apply_en_wall_shear_state
 from mento.codes.EN_1992_2004_beam import (
     _check_flexure_EN_1992_2004,
@@ -240,5 +242,7 @@ EN_1992_2004 = register(
         min_thickness_on_soil=_min_thickness_on_soil,
         # A_s,max caps either face, §9.2.1.1(3): what a layout is held to.
         flexure_admissible=_flexure_admissible_EN_1992_2004,
+        skin_requirement=_skin_requirement,
+        skin_warnings=_skin_warnings,
     )
 )

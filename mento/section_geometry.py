@@ -65,6 +65,7 @@ if TYPE_CHECKING:
 class BarPosition:
     """One longitudinal bar: its centre and its diameter.
 
+    Skin bars use face="left"/"right" and layer=group=0.
     ``x`` is measured from the left face of the section and ``y`` from its
     bottom face. ``face`` is ``"bottom"`` or ``"top"``; ``layer`` is 1 for the
     layer nearest that face and 2 for the one behind it; ``group`` is the
@@ -174,6 +175,9 @@ class SectionGeometry:
     # En la propuesta pueden agregarse ramas, sin alterar la geometría de cálculo.
     input_legs: Optional[int] = None
     calculation_s_w: Optional[Quantity] = None
+    # Supplementary longitudinal skin steel; face=left/right, layer=group=0.
+    # Excluded from bars_on() and all calculated steel areas/capacities.
+    skin_bars: Tuple[BarPosition, ...] = ()
 
     def arrangement(self, language: Optional[str] = None) -> str:
         """The cage in words (see :func:`mento.design_results.describe_stirrup_cage`); empty on a slab strip."""
@@ -291,6 +295,17 @@ class SectionGeometry:
                     "group": bar.group,
                 }
                 for bar in self.mounting_bars
+            ],
+            "skin_bars": [
+                {
+                    "x": f(bar.x),
+                    "y": f(bar.y),
+                    "d_b": f(bar.d_b),
+                    "face": bar.face,
+                    "layer": bar.layer,
+                    "group": bar.group,
+                }
+                for bar in self.skin_bars
             ],
         }
 

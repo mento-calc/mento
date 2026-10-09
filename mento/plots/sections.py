@@ -39,7 +39,7 @@ from mento.design_results import (
     format_transverse_rebar,
     placed_bars,
 )
-from mento.i18n import translate
+from mento.i18n import get_language, translate
 from mento.precompute import DISPLAY
 from mento.results import CUSTOM_COLORS
 from mento.section_geometry import BarPosition, Crosstie, SectionGeometry
@@ -460,15 +460,16 @@ def _plot_stirrups_in_section(ax: "Axes", geometry: SectionGeometry) -> None:
 
 def _plot_bars(ax: "Axes", geometry: SectionGeometry) -> None:
     """Resistant steel in gray; supplementary mounting bars in orange."""
-    for bar in (*geometry.bars, *geometry.mounting_bars):
+    for bar in (*geometry.bars, *geometry.mounting_bars, *geometry.skin_bars):
         mounting = bar in geometry.mounting_bars
+        skin = bar in geometry.skin_bars
         ax.add_patch(
             Circle(
                 (_cm(bar.x), _cm(bar.y)),
                 _cm(bar.d_b) / 2.0,
-                color=CUSTOM_COLORS["mounting"] if mounting else CUSTOM_COLORS["dark_gray"],
+                color="#228877" if skin else CUSTOM_COLORS["mounting"] if mounting else CUSTOM_COLORS["dark_gray"],
                 fill=not mounting,
-                gid="mounting_bar" if mounting else "resistant_bar",
+                gid="skin_bar" if skin else "mounting_bar" if mounting else "resistant_bar",
             )
         )
 
@@ -815,11 +816,29 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
     except CageDetailingError as error:
         geometry = self.section_geometry
         detail_error = error
-        warnings.warn(
-            f"Cage detailing is not feasible: {str(error).rstrip('.')}. Showing calculation geometry only.",
-            UserWarning,
-            stacklevel=2,
-        )
+        if error.reason == "skin":
+            from mento.cage_detailing import build_cage_detailing
+
+            try:
+                geometry = build_cage_detailing(self, include_skin=False)
+            except CageDetailingError as base_error:
+                detail_error = base_error
+                warnings.warn(
+                    f"Cage detailing is not feasible: {str(base_error).rstrip('.')}. Showing calculation geometry only.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            warnings.warn(
+                f"Skin detailing is not feasible: {str(error).rstrip('.')}. Showing the available base geometry without skin steel.",
+                UserWarning,
+                stacklevel=2,
+            )
+        else:
+            warnings.warn(
+                f"Cage detailing is not feasible: {str(error).rstrip('.')}. Showing calculation geometry only.",
+                UserWarning,
+                stacklevel=2,
+            )
     if geometry.layout != GRID and (detail_error is None or detail_error.reason != "bend"):
         _plot_stirrups_in_section(ax, geometry)
 
@@ -843,9 +862,81 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
         labels = _annotate_layers(ax, geometry)
         lines = _cage_lines(self, geometry)
         if geometry.mounting_bars:
-            lines.append(translate("Orange: mounting steel · excluded from resistance"))
+            lines.append(
+                "Montaje en naranja · sin aporte resistente"
+                if get_language() == "es"
+                else "Orange: mounting steel · excluded from resistance"
+            )
+        if geometry.skin_bars:
+            skin = self.skin_reinforcement
+            assert skin.spacing is not None
+            unit = "inch" if self.concrete.is_imperial else "cm"
+            notation = _layer_text(tuple(b for b in geometry.skin_bars if b.face == "left"), self.concrete.is_imperial)
+            lines.append(
+                f"Piel: {notation} por lateral · s={skin.spacing.to(unit):.3g~P} · sin aporte resistente"
+                if get_language() == "es"
+                else f"Skin: {notation} per side · s={skin.spacing.to(unit):.3g~P} · excluded from resistance"
+            )
+            # All service cases remain in the requirement and warnings; keep
+            # the figure readable by labelling the largest interval per face.
+            for face in dict.fromkeys(review.tension_face for review in skin.distribution_reviews):
+                review = max(
+                    (r for r in skin.distribution_reviews if r.tension_face == face), key=lambda r: r.maximum_interval
+                )
+                lines.append(
+                    translate(
+                        "Review skin ({face}): {rows} rows · max interval {gap}",
+                        face=translate(face.capitalize()),
+                        rows=review.rows_per_side,
+                        gap=f"{review.maximum_interval.to(unit):.3g~P}",
+                    )
+                )
+            if skin.distribution_reviews:
+                lines.append(translate("Informative review · crack width is not calculated"))
+        try:
+            pending_requirement = self.skin_reinforcement
+            if pending_requirement.manual and pending_requirement.failures:
+                lines.append(
+                    translate(
+                        "Supplied skin does not comply: {reason}",
+                        reason="; ".join(translate(reason) for reason in pending_requirement.failures),
+                    )
+                )
+            skin_pending = pending_requirement.status == "pending"
+            skin_unsupported = pending_requirement.status == "unsupported"
+            service_pending = pending_requirement.pending_reason == "service"
+            tension_case_pending = pending_requirement.pending_reason == "no_tension_case"
+        except CageDetailingError:
+            skin_pending = False
+            skin_unsupported = False
+            service_pending = False
+            tension_case_pending = False
+        if skin_unsupported:
+            lines.append(translate("Skin not checked · unsupported design case"))
+        elif skin_pending and tension_case_pending:
+            lines.append(
+                "Armadura de piel pendiente · sin caso de tracción identificado"
+                if get_language() == "es"
+                else "Skin reinforcement pending · no tension case identified"
+            )
+        elif skin_pending and service_pending:
+            lines.append(
+                "Piel EN pendiente · faltan datos de servicio"
+                if get_language() == "es"
+                else "EN skin pending · service inputs missing"
+            )
+        elif skin_pending:
+            lines.append(
+                "Armadura de piel pendiente · sin verificación de flexión"
+                if get_language() == "es"
+                else "Skin reinforcement pending · no flexure verification"
+            )
         if detail_error:
-            lines.append(translate("Calculation model only · cage detailing not feasible"))
+            lines.append(
+                translate("Skin proposal not shown · skin detailing not feasible")
+                if detail_error.reason == "skin"
+                else translate("Calculation model only · cage detailing not feasible")
+            )
         if geometry.stirrups and design_code(self.concrete).max_bar_spacing_tension is not None:
             try:
                 self.flexure_design

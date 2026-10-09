@@ -1,50 +1,49 @@
 import math
 import warnings
-from typing import Any
-
-import pytest
-import numpy as np
-import pandas as pd
 from pathlib import Path
-from pint import Quantity
+from typing import Any
 from unittest.mock import patch
 
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pytest
 from matplotlib.colors import to_rgba
-from matplotlib.patches import Circle, Rectangle, FancyBboxPatch
+from matplotlib.patches import Circle, FancyBboxPatch, Rectangle
+from pint import Quantity
 
-from mento.node import Node
 from mento.beam import RectangularBeam
-from mento.material import (
-    Concrete_ACI_318_19,
-    SteelBar,
-    Concrete_EN_1992_2004,
-    Concrete_CIRSOC_201_25,
-)
-from mento.precompute import section_floats
-from mento.codes.registry import design_code
-from mento.units import psi, kip, inch, ksi, mm, kN, cm, MPa, ft, kNm
-from mento.forces import Forces
 from mento.codes.ACI_318_19_beam import (
-    _minimum_flexural_reinforcement_ratio_ACI_318_19,
     _flexure_capacity_ACI_318_19,
     _flexure_ductile_ACI_318_19,
+    _minimum_flexural_reinforcement_ratio_ACI_318_19,
 )
-from mento.codes.flexure_design import _best_visited_pair
 from mento.codes.EN_1992_2004_beam import (
     _compression_zone_limits_EN_1992_2004,
     _initialize_variables_EN_1992_2004,
     _simple_determine_nominal_moment_EN_1992_2004,
 )
+from mento.codes.flexure_design import _best_visited_pair
+from mento.codes.registry import design_code
+from mento.forces import Forces
+from mento.material import (
+    Concrete_ACI_318_19,
+    Concrete_CIRSOC_201_25,
+    Concrete_EN_1992_2004,
+    SteelBar,
+)
+from mento.node import Node
+from mento.plots.sections import _format_rebar_layer_text
+from mento.precompute import section_floats
+from mento.rebar import Rebar
 from mento.results import CUSTOM_COLORS, DocumentBuilder
 from mento.settings import BeamSettings
-from mento.rebar import Rebar
-from mento.plots.sections import _format_rebar_layer_text
+from mento.units import MPa, cm, ft, inch, kip, kN, kNm, ksi, mm, psi
 from tests.helpers import (
-    us,
     _flexural_reinforcement_in_pint,
     _nominal_moment_double_in_pint,
     _nominal_moment_simple_in_pint,
+    us,
 )
 
 
@@ -761,7 +760,8 @@ def test_wide_cirsoc_beam_takes_five_stirrups_for_the_across_width_limit() -> No
     threshold = 0.33 * math.sqrt(25) * beam._A_cv.to("mm**2").magnitude / 1000
     assert threshold == pytest.approx(3568.95, abs=0.01)
     assert shear.DCR == pytest.approx(0.9904, abs=1e-4)
-    assert [w.code for w in node.warnings] == ["open_leg_anchorage_outside_model"]
+    # Strength passes; the deep beam still requires supplementary web steel.
+    assert tuple(w.code for w in node.warnings) == ("open_leg_anchorage_outside_model", "skin_reinforcement_required")
 
 
 def test_check_state_records_the_row_of_table_9_7_6_2_2() -> None:
@@ -869,7 +869,7 @@ def test_flexure_check_EN_1992_2004_03(
 def test_flexure_check_EN_1992_2004_04(
     beam_example_EN_1992_2004_03: RectangularBeam,
 ) -> None:
-    # Example from Lecture-3-Bending-and-Shear-in-Beams-Concrete Centre - Page 14
+    # Regression adapted from the lecture's geometry, not its published C30/B500 case.
     f = Forces(M_y=-370 * kNm)
     beam_example_EN_1992_2004_03.set_longitudinal_rebar_top(n1=6, d_b1=25 * mm)
     beam_example_EN_1992_2004_03.set_transverse_rebar(n_stirrups=1, d_b=6 * mm, s_l=20 * cm)
@@ -878,7 +878,9 @@ def test_flexure_check_EN_1992_2004_04(
     results = node.check_flexure()
     assert results.iloc[1]["Label"] == "B_Example_EN_03"
     assert results.iloc[1]["Position"] == "Top"
-    assert results.iloc[1]["As,min"] == pytest.approx(4.048, rel=1e-3)
+    # Table 3.1 C60: fctm=2.12*ln(1+68/10)=4.354742 MPa.
+    # §9.2.1.1: .26*fctm/400 * 300 * 451.5 = 383.402 mm², shown in cm².
+    assert results.iloc[1]["As,min"] == pytest.approx(3.83, abs=0.005)
     # f_ck = 60 MPa: lambda = 0.775, eta = 0.95. Same lever-arm correction as
     # test_flexure_check_EN_1992_2004_01 (was 25.639).
     assert results.iloc[1]["As,req top"] == pytest.approx(25.85, rel=1e-3)
@@ -3032,19 +3034,21 @@ def test_plot_draws_every_stirrup_at_the_legs_the_check_assumes() -> None:
     assert gaps == pytest.approx([15.8667] * 9, abs=1e-4)
 
     circles = [p for p in ax.patches if isinstance(p, Circle)]
-    assert len(circles) == 22
+    assert len(circles) == 28
     assert len([c for c in circles if c.get_gid() == "resistant_bar"]) == 12
     assert len([c for c in circles if c.get_gid() == "mounting_bar"]) == 10
-    all_bars = geometry.bars + geometry.mounting_bars
+    assert len([c for c in circles if c.get_gid() == "skin_bar"]) == 6
+    all_bars = geometry.bars + geometry.mounting_bars + geometry.skin_bars
     assert [c.get_center()[0] for c in circles] == pytest.approx([b.x.to("cm").magnitude for b in all_bars])
     assert [c.get_center()[1] for c in circles] == pytest.approx([b.y.to("cm").magnitude for b in all_bars])
 
     texts = [t.get_text() for t in ax.texts]
-    assert [t for t in texts if not t.startswith("Open-leg")][-4:] == [
+    assert [t for t in texts if not t.startswith("Open-leg")][-5:] == [
         "10 legs Ø12 mm @ 14 cm",
         "15.87 cm between legs (max 20 cm)",
         "perimeter stirrup + 8 open legs",
         "Orange: mounting steel · excluded from resistance",
+        "Skin: 3Ø10 per side · s=23.1 cm · excluded from resistance",
     ]
     assert "12Ø32" in texts
     plt.close()
@@ -3112,8 +3116,9 @@ def test_plot_follows_the_language() -> None:
     beam.plot()
     texts = [t.get_text() for t in beam._ax.texts]
     assert "estribo perimetral + 8 patas abiertas" in texts
-    assert texts[-1] == "Montaje en naranja · sin aporte resistente"
-    assert any(t.startswith("10 ramas") for t in texts)
+    assert "Montaje en naranja · sin aporte resistente" in texts
+    assert texts[-1] == "Piel: 3Ø10 por lateral · s=23.1 cm · sin aporte resistente"
+    assert any(text.startswith("10 ramas") for text in texts)
     plt.close()
 
 

@@ -9,6 +9,11 @@ A cage that cannot accommodate its bars is rejected, rather than drawn with
 unsupported corners or overlapping bars. This checks a cross-section layout,
 including the modelled crosstie hooks, not development lengths, seismic
 detailing, longitudinal execution or a bar bending schedule.
+
+Crack-control centre-spacing limits come from the registered code (ACI 318-19
+/ CIRSOC 201-25 §24.3.2, Table 24.3.2); the positioning search and mounting-bar
+diameter are Mento choices. Rounded corners use the registered code mandrel rule
+documented in SectionGeometry, with its diameter and code limits.
 """
 
 from __future__ import annotations
@@ -203,7 +208,7 @@ def build_cage_detailing(beam: RectangularBeam, *, include_skin: bool = True) ->
 
 def _complete_skin_detail(beam: RectangularBeam, geometry: SectionGeometry) -> SectionGeometry:
     """En PR174 no hay piel; la rama piel completa y comprueba esta misma jaula."""
-    return geometry
+    return _build_candidate(beam, geometry, include_skin=True)
 
 
 def _search_cage_detailing(beam: RectangularBeam, *, include_skin: bool = False) -> SectionGeometry:
@@ -293,8 +298,10 @@ def _build_candidate(beam: RectangularBeam, geometry: SectionGeometry, *, includ
     This does not mutate the beam or include mounting bars in its resistance.
     ``bars`` remain the resistant bars; ``mounting_bars`` are additional steel.
     """
+    from mento.skin_reinforcement import add_skin_bars
+
     if not geometry.stirrups:
-        return geometry
+        return add_skin_bars(beam, geometry) if include_skin else geometry
     settings = beam.settings
     assert settings is not None
     diameter = settings.mounting_bar_diameter
@@ -388,11 +395,18 @@ def _build_candidate(beam: RectangularBeam, geometry: SectionGeometry, *, includ
 
     # Retained second layers must also fit; added mounting bars may not clash
     # with bars of the opposite face or a second layer.
-    all_bars = bars + mounting_bars
+    geometry = replace(geometry, bars=tuple(bars), mounting_bars=tuple(mounting_bars))
+    if include_skin:
+        geometry = add_skin_bars(beam, geometry)
+    all_bars = bars + mounting_bars + list(geometry.skin_bars)
+    skin_ids = {id(bar) for bar in geometry.skin_bars}
     for index, bar in enumerate(all_bars):
         radius = _mm(bar.d_b) / 2
         if not radius <= _mm(bar.y) <= _mm(geometry.height) - radius:
-            raise CageDetailingError("The supported bars do not fit within the section height.")
+            raise CageDetailingError(
+                "The supported bars do not fit within the section height.",
+                reason="skin" if id(bar) in skin_ids else "layout",
+            )
         for stirrup in geometry.stirrups:
             half_w = _mm(stirrup.x_right - stirrup.x_left) / 2
             half_h = _mm(stirrup.y_top - stirrup.y_bottom) / 2
@@ -401,20 +415,27 @@ def _build_candidate(beam: RectangularBeam, geometry: SectionGeometry, *, includ
             dy = abs(_mm(bar.y - (stirrup.y_bottom + stirrup.y_top) / 2)) - (half_h - bend)
             distance_to_line = abs(math.hypot(max(dx, 0), max(dy, 0)) + min(max(dx, dy), 0) - bend)
             if distance_to_line < radius + d_st / 2 - 1e-8:
-                raise CageDetailingError("A longitudinal bar would intersect a stirrup branch or bend.")
+                raise CageDetailingError(
+                    "A longitudinal bar would intersect a stirrup branch or bend.",
+                    reason="skin" if id(bar) in skin_ids else "layout",
+                )
         for tie in geometry.crossties:
             # Tramo recto de la rama; los ganchos modelados se comprueban al final.
             dx = abs(_mm(bar.x - tie.x))
             dy = max(_mm(tie.y_bottom - bar.y), _mm(bar.y - tie.y_top), 0.0)
             if math.hypot(dx, dy) < radius + d_st / 2 - 1e-8:
-                raise CageDetailingError("A longitudinal bar would intersect an open leg.", reason="layout")
+                raise CageDetailingError(
+                    "A longitudinal bar would intersect an open leg.",
+                    reason="skin" if id(bar) in skin_ids else "layout",
+                )
         for other in all_bars[index + 1 :]:
             distance = math.hypot(_mm(bar.x - other.x), _mm(bar.y - other.y))
             required = (_mm(bar.d_b) + _mm(other.d_b)) / 2 + _mm(settings.clear_spacing)
             if distance < required - 1e-8:
                 raise CageDetailingError(
-                    "The supported cage leaves insufficient clear spacing between longitudinal bars."
+                    "The supported cage leaves insufficient clear spacing between longitudinal bars.",
+                    reason="skin" if id(bar) in skin_ids or id(other) in skin_ids else "layout",
                 )
     from mento.crosstie_detailing import finalize_crossties
 
-    return finalize_crossties(replace(geometry, bars=tuple(bars), mounting_bars=tuple(mounting_bars)))
+    return finalize_crossties(geometry)

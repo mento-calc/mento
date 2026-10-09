@@ -1,46 +1,35 @@
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any, Callable, FrozenSet, Iterator, NamedTuple, Optional, Dict, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    FrozenSet,
+    Iterable,
+    Iterator,
+    Literal,
+    NamedTuple,
+    Optional,
+    Tuple,
+)
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
-from mento.units import Quantity
-import numpy as np
-import pandas as pd
-from pandas import DataFrame
+
+    from mento.skin_reinforcement import ManualSkinRebar, SkinReinforcementRequirement
+    from mento.skin_service import SkinServiceCase
 import math
 
 from mento.compression_detailing import CompressionDetailing
-# from devtools import debug
 
-from mento.rectangular import RectangularSection
+import numpy as np
+import pandas as pd
+from pandas import DataFrame
+
 from mento.bar_sizes import bar_designation
 from mento.codes.registry import design_code, units_row
-from mento.precompute import refresh_section_floats
-from mento.rebar import Rebar
-from mento.units import mm, inch, kN, m, cm, dimensionless
-from mento.design_warnings import (
-    DesignWarning,
-    collect,
-    combination_label,
-    flexure_warnings,
-    compression_detailing_warnings,
-    cage_detailing_warnings,
-    shear_warnings,
-    shortfall_warnings,
-    spacing_warnings,
-    unread_force_warnings,
-)
-from mento.verification import resolve_legs, validate_supported_forces, verification_status
-from mento.forces import Forces
-from mento.settings import BeamSettings
-from mento.reports import views
-from mento.reports.documents import flexure_report_doc, shear_report_doc
-from mento.plots.sections import plot_beam_section
-from mento.section_geometry import SectionGeometry, build_section_geometry
-from mento.reports.tables import build_flexure_report, build_shear_report
 from mento.design_results import (
-    _transverse_stirrup_count,
     FlexureCheck,
     FlexureDesign,
     RebarLayer,
@@ -49,12 +38,39 @@ from mento.design_results import (
     ShearCheck,
     ShearDesign,
     StirrupOption,
+    _transverse_stirrup_count,
     build_flexure_design,
     build_reinforcement,
     build_shear_design,
     capture_flexure_check,
     capture_shear_check,
 )
+from mento.design_warnings import (
+    DesignWarning,
+    collect,
+    combination_label,
+    flexure_warnings,
+    compression_detailing_warnings,
+    shear_warnings,
+    shortfall_warnings,
+    skin_warnings,
+    spacing_warnings,
+    unread_force_warnings,
+)
+from mento.verification import resolve_legs, validate_supported_forces, verification_status
+from mento.forces import Forces
+from mento.plots.sections import plot_beam_section
+from mento.precompute import refresh_section_floats
+from mento.rebar import Rebar
+
+# from devtools import debug
+from mento.rectangular import RectangularSection
+from mento.reports import views
+from mento.reports.documents import flexure_report_doc, shear_report_doc
+from mento.reports.tables import build_flexure_report, build_shear_report
+from mento.section_geometry import SectionGeometry, build_section_geometry
+from mento.settings import BeamSettings
+from mento.units import Quantity, cm, dimensionless, inch, kN, m, mm
 
 
 def _positive_or_none(value: Quantity) -> Optional[Quantity]:
@@ -303,6 +319,9 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         self._c_d_bot: float = 0
         self._shear_checked = False  # Tracks if shear check or design has been done
         self._flexure_checked = False  # Tracks if shear check or design has been done
+        self._skin_service_cases: tuple[SkinServiceCase, ...] = ()
+        self._manual_skin_rebar: Optional[ManualSkinRebar] = None
+        self._skin_service_reference: tuple[Any, ...] | None = None
         # Depth of design calls in progress: their own bar placements keep the results.
         self._designing = 0
         self._doubly_reinforced = False  # Tracks if doubly reinforced section is used
@@ -559,7 +578,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         compression: set[str] = set()
         for force in forces:
             state = self._run_flexure_check(force, report=False)
-            check = capture_flexure_check(self, force.label, state)
+            check = capture_flexure_check(self, force.label, state, has_axial_force=force.N_x.magnitude != 0)
             worst = max(worst, check.bottom.DCR, check.top.DCR)
             clean = clean and not flexure_warnings(self, force.label, state)
             tension = "bot" if force._M_y > 0 * kN * m else "top" if force._M_y < 0 * kN * m else None
@@ -782,6 +801,10 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         (``bars_do_not_fit``). What reads the section as it is now -- the
         reinforcement, the bar spacing -- is not a result and stays.
         """
+        # SLS results are external to the design operation. Even a design's
+        # own bar placements invalidate the section they were assessed on.
+        self._skin_service_cases = ()
+        self._skin_service_reference = None
         if getattr(self, "_designing", 0):
             return
         self._flexure_checked = False
@@ -1255,7 +1278,9 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         self._compression_faces = set()
         for position, force in enumerate(forces, 1):
             state = self._run_flexure_check(force, report=False)
-            self._flexure_checks.append(capture_flexure_check(self, force.label, state))
+            self._flexure_checks.append(
+                capture_flexure_check(self, force.label, state, has_axial_force=force.N_x.magnitude != 0)
+            )
             self._flexure_warnings.extend(flexure_warnings(self, combination_label(force.label, position), state))
             self._flexure_warnings.extend(unread_force_warnings(force, combination_label(force.label, position)))
             self._note_compression_face(force, state)
@@ -1405,7 +1430,9 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             # The result is a value of the check itself, not a reading of the
             # attributes it left on the beam -- those describe the last
             # combination only, and are on their way out with them.
-            self._flexure_checks.append(capture_flexure_check(self, force.label, state))
+            self._flexure_checks.append(
+                capture_flexure_check(self, force.label, state, has_axial_force=force.N_x.magnitude != 0)
+            )
             self._flexure_warnings.extend(flexure_warnings(self, combination_label(force.label, position), state))
             self._flexure_warnings.extend(unread_force_warnings(force, combination_label(force.label, position)))
 
@@ -1787,7 +1814,12 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         """
         needed: Dict[str, Quantity] = {}
         for force in forces:
-            check = capture_flexure_check(self, force.label, self._run_flexure_check(force, report=False))
+            check = capture_flexure_check(
+                self,
+                force.label,
+                self._run_flexure_check(force, report=False),
+                has_axial_force=force.N_x.magnitude != 0,
+            )
             for face, result in (("bot", check.bottom), ("top", check.top)):
                 if result.DCR > 1.0 and result.A_s_req is not None:
                     needed[face] = max(needed[face], result.A_s_req) if face in needed else result.A_s_req
@@ -1863,7 +1895,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         if scope.reason != "base_cage_unavailable":
             return scope
         try:
-            geometry = build_cage_detailing(self)
+            geometry = build_cage_detailing(self, include_skin=False)
         except (CageDetailingError, ValueError) as error:
             return check_compression_detailing(self, unavailable=str(error))
         return check_compression_detailing(self, geometry)
@@ -1879,6 +1911,112 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         from mento.cage_detailing import build_cage_detailing
 
         return build_cage_detailing(self)
+
+    @property
+    def skin_reinforcement(self) -> "SkinReinforcementRequirement":
+        """Skin-steel requirement and proposed spacing, separate from resistance.
+
+        Read after a flexure check/design to identify the tension faces. A
+        deep unchecked beam reports pending; unsupported codes report unsupported.
+        Only detailing_geometry validates the proposed bars against the cage.
+        """
+        from mento.skin_reinforcement import skin_requirement
+
+        return skin_requirement(self)
+
+    def set_skin_rebar(
+        self, db_piel: Quantity, cant_piel_cara: int, posicion: Literal["top", "bottom", "total"] = "total"
+    ) -> None:
+        """Piel simétrica por lateral, con zona top, bottom o total.
+
+        Respeta la cantidad ingresada. No modifica la resistencia ni los
+        resultados resistentes; los chequeos de piel se leen del estado actual.
+        """
+        from mento.skin_reinforcement import ManualSkinRebar
+        from copy import deepcopy
+        from mento.design_results import GRID, transverse_layout
+
+        supplied = ManualSkinRebar(db_piel, cant_piel_cara, posicion)
+        if transverse_layout(self) == GRID:
+            raise ValueError("Manual skin reinforcement is supported for beam cages, not grid sections.")
+        assert self.settings is not None
+        if db_piel < self.settings.minimum_longitudinal_diameter:
+            raise ValueError("db_piel is below minimum_longitudinal_diameter.")
+        self._manual_skin_rebar = deepcopy(supplied)
+
+    @property
+    def skin_rebar(self) -> "ManualSkinRebar | None":
+        """Entrada manual defensiva; None significa diseño automático."""
+        from copy import deepcopy
+
+        return deepcopy(self._manual_skin_rebar)
+
+    def clear_skin_rebar(self) -> None:
+        """Volver a diseño automático con el diámetro de piel configurado."""
+        self._manual_skin_rebar = None
+
+    @property
+    def skin_verification_status(self) -> str:
+        """Estado seccional de la piel propuesta o ingresada, separado de resistencia."""
+        from mento.cage_detailing import CageDetailingError
+
+        try:
+            req = self.skin_reinforcement
+        except CageDetailingError:
+            return "pending"  # El requisito no pudo evaluarse; no aprobarlo silenciosamente.
+        if req.status == "not_applicable":
+            return "not_applicable"
+        if req.failures:
+            return "failed"
+        if req.status in ("pending", "unsupported"):
+            return "pending"
+        if req.status == "not_required" and not req.manual:
+            return "not_required"
+        try:
+            geometry = self.detailing_geometry
+            if len(geometry.skin_bars) != 2 * req.n_per_side:
+                return "pending"
+        except CageDetailingError as error:
+            return "failed" if error.reason == "skin" else "pending"
+        return "passed"
+
+    def set_skin_service_cases(self, cases: Iterable["SkinServiceCase"]) -> None:
+        """Attach independent SLS cases to this section's current reinforcement.
+
+        Data is copied, not shared through BeamSettings. Set after design;
+        any subsequent reinforcement placement requires fresh service inputs.
+        """
+        from copy import deepcopy
+
+        from mento.skin_service import SkinServiceCase, service_reference
+
+        cases = tuple(cases)
+        keys = set()
+        for case in cases:
+            if not isinstance(case, SkinServiceCase):
+                raise ValueError("Every skin service case must be a SkinServiceCase.")
+            key = (case.label, case.tension_face)
+            if key in keys:
+                raise ValueError(f"Duplicate skin service case {case.label!r} for {case.tension_face} tension.")
+            keys.add(key)
+            if case.steel_stress > self.steel_bar.f_y or case.neutral_axis >= self.height:
+                raise ValueError(
+                    f"Skin service case {case.label!r}: stress exceeds f_yk or neutral axis is outside the section."
+                )
+        self._skin_service_cases = deepcopy(tuple(cases))
+        self._skin_service_reference = deepcopy(service_reference(self))
+
+    @property
+    def skin_service_cases(self) -> tuple["SkinServiceCase", ...]:
+        """Defensive copies of SLS cases; an altered section has none."""
+        from copy import deepcopy
+
+        from mento.skin_service import service_reference
+
+        if self._skin_service_reference != service_reference(self):
+            self._skin_service_cases = ()
+            self._skin_service_reference = None
+        return deepcopy(self._skin_service_cases)
 
     @property
     def flexure_design(self) -> FlexureDesign:
@@ -1923,7 +2061,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         from mento.design_warnings import transverse_proposal_warnings
 
         raws += transverse_proposal_warnings(self)
-        raws += cage_detailing_warnings(self)
+        raws += skin_warnings(self)
         raws += shortfall_warnings(self)
         raws += list(self._shear_warnings) if self._shear_checked else []
         return collect(raws)

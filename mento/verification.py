@@ -75,10 +75,23 @@ WARNING_CATEGORY: dict[str, str] = {
     "open_leg_anchorage_outside_model": "informative",
     "crosstie_alternation_required": "informative",
     "compression_detailing_en_pending": "pending",
-    "cage_detailing_infeasible": "failed",
     "cage_detailing_pending": "pending",
     "compression_detailing_failed": "failed",
     "compression_detailing_pending": "pending",
+    "skin_reinforcement_required": "informative",
+    "skin_reinforcement_failed": "failed",
+    "skin_reinforcement_pending": "pending",
+    "skin_tension_case_pending": "pending",
+    "skin_detailing_invalid": "pending",
+    "skin_detailing_pending": "pending",
+    "skin_reinforcement_unsupported": "pending",
+    "skin_detailing_infeasible": "failed",
+    "cage_detailing_infeasible": "failed",
+    "skin_distribution_review": "informative",
+    "skin_en_required": "informative",
+    "skin_en_service_pending": "pending",
+    "skin_en_axial_unsupported": "pending",
+    "skin_en_surface_pending": "pending",
     "As_below_min": "resistance",
     "As_above_max": "resistance",
     "not_tension_controlled": "resistance",
@@ -145,7 +158,7 @@ def verification_status(beam: RectangularBeam) -> dict[str, str]:
         from mento.cage_detailing import CageDetailingError, build_cage_detailing
 
         try:
-            geometry = build_cage_detailing(beam)
+            geometry = build_cage_detailing(beam, include_skin=False)
             cage_pending = not geometry.bend_supported
         except CageDetailingError as error:
             cage_pending = error.reason in ("unsupported_bend", "compression_support_search")

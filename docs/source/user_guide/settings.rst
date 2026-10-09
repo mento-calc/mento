@@ -141,3 +141,35 @@ The attributes of the settings class are as follows:
   - minimum_longitudinal_diameter
   - max_longitudinal_diameter
   - max_bars_per_layer
+
+Skin bar diameter
+-----------------
+
+``skin_bar_diameter`` selects the supplementary longitudinal skin bar diameter:
+10 mm in metric and 3/8 in. (No. 3) in imperial defaults. This is a preference,
+not a minimum imposed by §9.7.2.3. It must be a positive finite length and meet
+``minimum_longitudinal_diameter``. It is checked when required skin steel is
+read; 8 mm is permitted with the default metric minimum. Under ACI/CIRSOC
+the spacing cap is independent of diameter. Under EN the selected diameter
+controls the required count and is checked against the adjusted crack-control
+limit.
+
+EN skin service inputs
+-----------------------
+
+Service stress and neutral-axis depth are section results, not preferences.
+They are supplied with ``beam.set_skin_service_cases()`` and
+``SkinServiceCase`` after design, separately for each tension face and service
+combination. The beam copies the cases and invalidates them on reinforcement
+changes. ``BeamSettings`` remains shareable without sharing these SLS results.
+``skin_crack_width`` defaults to 0.3 mm; choose 0.2, 0.3 or 0.4 mm according
+to the project and National Annex. These settings do not change the resistant
+model or perform the global service analysis; see the beams guide.
+
+For asymmetric bending signs, for example::
+
+    from mento import SkinServiceCase
+    beam.set_skin_service_cases([
+        SkinServiceCase("SLS+", "bottom", 400*MPa, 240*mm),
+        SkinServiceCase("SLS-", "top", 300*MPa, 320*mm),
+    ])

@@ -1,7 +1,9 @@
 """Structured warnings: the detailing limits a section does not meet.
 
-The detailed reports mark these with a ❌ in their limit tables and a line of
-text. A program reading a design needs them as data, so every check and design
+The detailed reports mark their supported limits with a ❌ in their limit
+tables and a line of text. Skin-steel requirements and distribution reviews
+are currently exposed through this API and section plots, not Word reports.
+A program reading a design needs warnings as data, so every check and design
 also records them here::
 
     node.design()
@@ -216,11 +218,32 @@ _MESSAGES: Dict[str, str] = {
     "transverse_legs_added_for_compression_support": "Detailing proposes {placed_legs} legs instead of {input_legs}: {pieces}. Enter the proposed legs to confirm; A_v still uses {input_legs}.",
     "open_leg_anchorage_outside_model": "Open-leg hooks and anchorage are outside this sectional model; verify them separately.",
     "crosstie_alternation_required": "135°/90° crossties: alternate the 90° ends along the member; seismic detailing not verified.",
-    "cage_detailing_infeasible": "The base cage cannot be detailed: {reason}",
+    "skin_detailing_pending": "Skin layout is not verified: the detailing geometry does not contain the specified skin bars.",
+    "skin_reinforcement_failed": "The supplied skin reinforcement does not comply: {reason}",
     "cage_detailing_pending": "The base cage cannot yet be verified: {reason}",
     "compression_detailing_en_pending": "EN compression-bar support (§9.2.1.2(3), 15φ) is not verified by Mento.",
     "compression_detailing_failed": "Required compression-bar support fails (§9.7.6.4.4): {reason}.",
     "compression_detailing_pending": "Required compression-bar support is not fully verified (§9.7.6.4.4): {reason}.",
+    "skin_reinforcement_required": (
+        "Longitudinal skin reinforcement is required on both side faces (§9.7.2.3), "
+        "at spacing no greater than {s_max}. See detailing_geometry for the supplementary proposal; "
+        "it is excluded from resistance."
+    ),
+    "skin_reinforcement_pending": "Skin reinforcement is pending: verify flexure to identify the tension face.",
+    "skin_tension_case_pending": "Skin reinforcement is pending: the checked combinations identify no tension face. A zero-moment or capacity check does not establish an exemption.",
+    "skin_detailing_invalid": "Skin detailing cannot be evaluated: {reason}",
+    "skin_reinforcement_unsupported": "Skin reinforcement is not supported for this design case; this is not an exemption.",
+    "skin_detailing_infeasible": "The supplementary skin proposal cannot be fitted in the cage: {reason}",
+    "cage_detailing_infeasible": "The base cage cannot be detailed: {reason}",
+    "skin_distribution_review": (
+        "Review skin-steel distribution, worst of {cases} service cases: {rows} rows per side in that zone, "
+        "largest vertical interval {gap}, including zone boundaries. This is informative, not an additional code "
+        "spacing limit; the diameter-route proposal does not verify crack width directly."
+    ),
+    "skin_en_required": "EN §7.3.3(3): longitudinal skin steel is required; minimum {area} per side, adjusted maximum diameter {diameter}. Excluded from resistance.",
+    "skin_en_service_pending": "EN skin detailing is pending: supply cracked-service steel stress and neutral-axis depth; ultimate forces cannot replace them.",
+    "skin_en_axial_unsupported": "EN skin detailing with axial force is not supported; the pure-bending skin proposal cannot be used.",
+    "skin_en_surface_pending": "EN surface reinforcement outside the links requires separate review: Annex J covers bars >32 mm, equivalent bundles >32 mm (bundles are not modelled; check separately), or cover >70 mm. Section 8.8(8) specifies 0.01*A_ct,ext perpendicular and 0.02*A_ct,ext parallel to large bars. Longitudinal skin bars do not replace this mesh.",
     "As_below_min": (
         "Steel on the {face}: A_s = {A_s} is below the minimum it has to meet, A_s,min,eff = {A_s_min_eff}."
     ),
@@ -795,7 +818,7 @@ def unread_force_warnings(force: "Forces", label: str) -> List[_Raw]:
 
 
 def collect(raws: List[_Raw]) -> Tuple[DesignWarning, ...]:
-    """Collapse the raw findings into one worded warning per limit and face.
+    """Collapse the raw findings into one worded warning per limit and face, except the global skin-distribution review.
 
     The same limit missed under several combinations is one warning, with the
     values of the combination that misses it by most and the labels of all of
@@ -804,17 +827,28 @@ def collect(raws: List[_Raw]) -> Tuple[DesignWarning, ...]:
     groups: Dict[Tuple[str, Optional[str], Optional[str], Optional[str]], List[_Raw]] = {}
     for raw in raws:
         # A force component is a limit of its own, as a direction is.
-        key = (raw.code, raw.face, raw.values.get("direction"), raw.values.get("component"))
+        key = (
+            raw.code,
+            None if raw.code == "skin_distribution_review" else raw.face,
+            raw.values.get("direction"),
+            raw.values.get("component"),
+        )
         groups.setdefault(key, []).append(raw)
 
     warnings: List[DesignWarning] = []
     for (code, face, direction, _component), group in groups.items():
         worst = max(group, key=lambda raw: raw.severity)
+        if code == "skin_distribution_review":
+            face = None  # Aviso global: no atribuir ambas caras a una sola.
         labels = tuple(dict.fromkeys(raw.combination for raw in group if raw.combination is not None))
         # The direction picks the template and stays in the values, where a
         # program reads it; it is a word, not a number to print.
         values = dict(worst.values)
+        if code == "skin_distribution_review":
+            values["cases"] = len(group)
         template = _MESSAGES[f"{code}_{direction}" if direction else code]
+        if code == "skin_distribution_review" and values["cases"] == 1:
+            template = template.replace("service cases", "service case")
         # A text value (the clause a limit comes from) is quoted as it is, in
         # the language of the day where it carries words.
         fields = _fields({n: v for n, v in values.items() if n != "direction" and not isinstance(v, str)})
@@ -833,12 +867,81 @@ def collect(raws: List[_Raw]) -> Tuple[DesignWarning, ...]:
     return tuple(warnings)
 
 
+def skin_warnings(beam: "RectangularBeam") -> List[_Raw]:
+    """Flag the supplementary requirement even when a strength DCR is below 1."""
+    from mento.cage_detailing import CageDetailingError, build_cage_detailing
+    from mento.skin_reinforcement import skin_requirement
+
+    requirement = None
+    result: List[_Raw] = []
+    base_feasible = True
+    try:
+        build_cage_detailing(beam, include_skin=False)
+    except CageDetailingError as error:
+        base_feasible = False
+        code = (
+            "cage_detailing_pending"
+            if error.reason in ("unsupported_bend", "compression_support_search")
+            else "cage_detailing_infeasible"
+        )
+        result.append(_Raw(code, {"reason": str(error)}))
+    try:
+        requirement = skin_requirement(beam)
+    except CageDetailingError as error:
+        result.append(_Raw("skin_detailing_invalid", {"reason": str(error)}))
+    if requirement is not None and requirement.status == "not_applicable":
+        return result
+    hook = design_code(beam.concrete).skin_warnings
+    if hook is not None:
+        result.extend(hook(beam, requirement))
+    if requirement is None:
+        return result
+    if requirement.failures:
+        result.append(
+            _Raw(
+                "skin_reinforcement_failed", {"reason": " ".join(translate(reason) for reason in requirement.failures)}
+            )
+        )
+    if (requirement.status == "required" or requirement.manual) and base_feasible and not requirement.failures:
+        try:
+            geometry = beam.detailing_geometry
+            if len(geometry.skin_bars) != 2 * requirement.n_per_side:
+                result.append(_Raw("skin_detailing_pending", {}))
+        except CageDetailingError as error:
+            code = "skin_detailing_infeasible" if error.reason == "skin" else "cage_detailing_infeasible"
+            result.append(_Raw(code, {"reason": str(error)}))
+    for review in requirement.distribution_reviews:
+        result.append(
+            _Raw(
+                "skin_distribution_review",
+                {"rows": review.rows_per_side, "gap": review.maximum_interval},
+                face=review.tension_face,
+                combination=review.combination,
+                severity=float(review.maximum_interval.to(mm).magnitude),
+            )
+        )
+    if requirement.pending_reason == "no_tension_case":
+        result.append(_Raw("skin_tension_case_pending", {}))
+    if hook is None and requirement.status == "required":
+        if requirement.s_max is not None:
+            result.append(_Raw("skin_reinforcement_required", {"s_max": requirement.s_max}))
+        else:
+            result.append(_Raw("skin_reinforcement_unsupported", {}))
+    elif hook is None and requirement.status == "unsupported":
+        result.append(_Raw("skin_reinforcement_unsupported", {}))
+    if requirement.status == "pending" and requirement.pending_reason not in ("no_tension_case", "service"):
+        result.append(_Raw("skin_reinforcement_pending", {}))
+    return result
+
+
 def compression_detailing_warnings(beam: "RectangularBeam") -> List[_Raw]:
     """Required compression bars: modelled §9.7.6.4.4 failures or pending checks."""
+    from mento.compression_detailing import EN_COMPRESSION_PENDING_REASON
+
     result = beam.compression_detailing
     if result.status not in ("failed", "pending"):
         return []
-    if beam.concrete.design_code == "EN 1992-2004":
+    if result.reason == EN_COMPRESSION_PENDING_REASON:
         return [_Raw("compression_detailing_en_pending", {})]
     if result.reason == "flexure_not_checked":
         return []  # Existing plot caption says verification is pending.
@@ -876,24 +979,6 @@ _COMPRESSION_REASONS = {
     "closed_stirrups_missing": "Required compression steel has no closed stirrups",
     "unsupported_bend": "The stirrup bend is outside the supported model",
 }
-
-
-def cage_detailing_warnings(beam: "RectangularBeam") -> List[_Raw]:
-    """Diagnóstico geométrico, separado de los cálculos resistentes."""
-    from mento.cage_detailing import CageDetailingError, build_cage_detailing
-
-    if beam._stirrups_optional or not beam._stirrup_n:
-        return []
-    try:
-        build_cage_detailing(beam)
-    except CageDetailingError as error:
-        code = (
-            "cage_detailing_pending"
-            if error.reason in ("unsupported_bend", "compression_support_search")
-            else "cage_detailing_infeasible"
-        )
-        return [_Raw(code, {"reason": str(error)})]
-    return []
 
 
 def transverse_proposal_warnings(beam: "RectangularBeam") -> List[_Raw]:

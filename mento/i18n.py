@@ -47,6 +47,7 @@ DEFAULT_LANGUAGE = "en"
 
 ES: Dict[str, str] = {
     "Detailing notes": "Notas de detallado",
+    "Supplied skin does not comply: {reason}": "Piel ingresada: NO CUMPLE: {reason}",
     "{placed} proposed legs; A_v uses {entered}. Compression support: {status}.": "{placed} ramas propuestas; A_v usa {entered}. Sujeción comprimida: {status}.",
     "passed": "cumple",
     "failed": "no cumple",
@@ -407,12 +408,43 @@ ES.update(
         "mounting": "montaje",
         "Orange: mounting steel · excluded from resistance": "Montaje en naranja · sin aporte resistente",
         "Calculation model only · cage detailing not feasible": "Solo modelo de cálculo · jaula no detallable",
+        "Skin proposal not shown · skin detailing not feasible": "No se muestra la propuesta de piel · detalle de piel inviable",
+        "The base cage cannot be detailed: {reason}": "La jaula principal no puede detallarse: {reason}",
         "Tension-bar spacing pending · no flexure verification": "Separación por tracción pendiente · sin verificación de flexión",
     }
 )
 
 # English is the source language, so its catalog is empty: every lookup falls
 # through to the key itself.
+ES.update(
+    {
+        "Longitudinal skin reinforcement is required on both side faces (§9.7.2.3), "
+        "at spacing no greater than {s_max}. See detailing_geometry for the supplementary proposal; "
+        "it is excluded from resistance.": "Se requiere armadura longitudinal de piel en ambos laterales (§9.7.2.3), "
+        "con separación no mayor que {s_max}. Ver la propuesta complementaria en detailing_geometry; "
+        "no se computa en la resistencia.",
+        "Skin reinforcement is pending: verify flexure to identify the tension face.": "Armadura de piel pendiente: verificar flexión para identificar la cara traccionada.",
+        "Skin detailing cannot be evaluated: {reason}": "No se puede evaluar el detalle de piel: {reason}",
+        "Skin reinforcement is not supported for this design case; this is not an exemption.": "La armadura de piel no está implementada para este caso de diseño; esto no constituye una exención.",
+        "The supplementary skin proposal cannot be fitted in the cage: {reason}": "La propuesta complementaria de piel no entra en la jaula: {reason}",
+        "The skin reinforcement preference cannot satisfy the detailing limits.": "La configuración de armadura de piel no permite cumplir los límites del detalle.",
+    }
+)
+
+ES.update(
+    {
+        "EN §7.3.3(3): longitudinal skin steel is required; minimum {area} per side, adjusted maximum diameter {diameter}. Excluded from resistance.": "EN §7.3.3(3): se requiere piel longitudinal; mínimo {area} por lateral, diámetro máximo corregido {diameter}. Sin aporte resistente.",
+        "EN skin detailing is pending: supply cracked-service steel stress and neutral-axis depth; ultimate forces cannot replace them.": "Detalle de piel EN pendiente: indicar tensión del acero y profundidad del eje neutro en servicio fisurado; los esfuerzos últimos no los reemplazan.",
+        "EN skin detailing with axial force is not supported; the pure-bending skin proposal cannot be used.": "La piel EN con esfuerzo axial no está implementada; no corresponde aplicar la propuesta de flexión pura.",
+        "Skin reinforcement is pending: the checked combinations identify no tension face. A zero-moment or capacity check does not establish an exemption.": "La armadura de piel está pendiente: las combinaciones verificadas no identifican una cara traccionada. Una comprobación con momento nulo o de capacidad no establece una exención.",
+        "Review skin ({face}): {rows} rows · max interval {gap}": "Revisar piel ({face}): {rows} filas · intervalo máx. {gap}",
+        "Informative review · crack width is not calculated": "Aviso informativo · no se calcula el ancho de fisura",
+        "Skin not checked · unsupported design case": "Piel no comprobada · caso de diseño no implementado",
+        "Review skin-steel distribution, worst of {cases} service cases: {rows} rows per side in that zone, largest vertical interval {gap}, including zone boundaries. This is informative, not an additional code spacing limit; the diameter-route proposal does not verify crack width directly.": "Revisar la distribución de piel, peor de {cases} casos de servicio: {rows} filas por lateral en esa zona, mayor intervalo vertical {gap}, incluyendo los bordes de la zona. Es informativo, no un límite normativo adicional de separación; la propuesta por diámetro no comprueba directamente el ancho de fisura.",
+        "EN surface reinforcement outside the links requires separate review: Annex J covers bars >32 mm, equivalent bundles >32 mm (bundles are not modelled; check separately), or cover >70 mm. Section 8.8(8) specifies 0.01*A_ct,ext perpendicular and 0.02*A_ct,ext parallel to large bars. Longitudinal skin bars do not replace this mesh.": "La armadura superficial EN fuera de los estribos requiere revisión aparte: Anexo J para barras >32 mm, paquetes equivalentes >32 mm (mento no modela paquetes; revisarlos aparte) o recubrimiento >70 mm. El §8.8(8) especifica 0,01*A_ct,ext perpendicular y 0,02*A_ct,ext paralela a barras grandes. La piel longitudinal no sustituye esa malla.",
+    }
+)
+
 _CATALOGS: Dict[str, Dict[str, str]] = {
     "en": {},
     "es": ES,
@@ -572,5 +604,29 @@ ES.update(
     {
         "The base cage cannot yet be verified: {reason}": "La jaula principal todavía no puede verificarse: {reason}",
         "The base cage cannot be detailed: {reason}": "La jaula principal no puede detallarse: {reason}",
+    }
+)
+
+
+# Singular del aviso global; conserva las etiquetas, sin atribuir una cara.
+ES.update(
+    {
+        "Skin layout is not verified: the detailing geometry does not contain the specified skin bars.": "La piel no está verificada: la geometría de detallado no contiene las barras de piel especificadas.",
+        "The supplied skin reinforcement does not comply: {reason}": "La armadura de piel ingresada no cumple: {reason}",
+        "No height is available for the supplied skin zone.": "No hay altura disponible para la zona de piel ingresada.",
+        "The supplied skin bars cannot fit with the required clear spacing.": "Las barras de piel ingresadas no entran con la separación libre requerida.",
+        "The supplied skin diameter exceeds the supported EN diameter limit.": "El diámetro de piel ingresado excede el límite de la propuesta EN implementada.",
+        "The supplied skin does not cover the bottom tension zone.": "La piel ingresada no cubre la zona inferior traccionada.",
+        "The supplied skin does not cover the top tension zone.": "La piel ingresada no cubre la zona superior traccionada.",
+        "The supplied skin spacing exceeds the limit in the bottom tension zone.": "La separación de piel excede el límite en la zona inferior traccionada.",
+        "The supplied skin spacing exceeds the limit in the top tension zone.": "La separación de piel excede el límite en la zona superior traccionada.",
+        "The supplied skin area is insufficient in the bottom tension zone.": "El área de piel es insuficiente en la zona inferior traccionada.",
+        "The supplied skin area per lateral face is insufficient.": "El área de piel por cara lateral es insuficiente.",
+        "The supplied skin area is insufficient in the top tension zone.": "El área de piel es insuficiente en la zona superior traccionada.",
+    }
+)
+ES.update(
+    {
+        "Review skin-steel distribution, worst of {cases} service case: {rows} rows per side in that zone, largest vertical interval {gap}, including zone boundaries. This is informative, not an additional code spacing limit; the diameter-route proposal does not verify crack width directly.": "Revisar la distribución de piel, peor de {cases} caso de servicio: {rows} filas por lateral en esa zona, mayor intervalo vertical {gap}, incluyendo los bordes de la zona. Es informativo, no un límite normativo adicional de separación; la propuesta por diámetro no comprueba directamente el ancho de fisura.",
     }
 )
