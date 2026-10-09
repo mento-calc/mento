@@ -17,9 +17,9 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, cast
 from IPython.display import Markdown, display
 
 from mento.codes.registry import design_code
-from mento.design_results import GRID, STIRRUPS, format_transverse_rebar, transverse_layout
+from mento.design_results import GRID
 from mento.i18n import get_language, translate
-from mento.precompute import DISPLAY
+from mento.precompute import DISPLAY, unit_label
 from mento.results import Formatter, TablePrinter
 from mento.units import cm
 
@@ -145,30 +145,6 @@ def flexure_results(self: "RectangularBeam") -> None:
     _show(markdown_content)
 
 
-def _transverse_label(self: "RectangularBeam", reinforcement: Dict[str, Any], imperial: bool) -> str:
-    """The stirrups of the shear line, read off the rows of the detail table.
-
-    The three rows are the ones ``_transverse_rebar_rows`` writes, and they are
-    not the same three on every element: a beam reads count, diameter and
-    spacing, a slab strip diameter and a spacing each way. Reading them by
-    position alone once took a slab's Ø10 for ten stirrups.
-    """
-    values, units = reinforcement["Value"], reinforcement["Unit"]
-    if transverse_layout(self) == GRID:
-        diameter, s_l, s_w = values[:3]
-        unit = units[1]
-        # The table writes a US bar by its size already, "#3".
-        bar = diameter if imperial else f"Ø{diameter:g}"
-        # SI writes the unit once, "Ø10/21×43 cm"; after a US spacing each
-        # direction carries its own, "#3@8 in×12 in", as the dataclasses do.
-        if imperial:
-            return format_transverse_rebar(GRID, 1, bar, f"{s_l:g} {unit}", f"{s_w:g} {unit}", imperial=True)
-        return f"{format_transverse_rebar(GRID, 1, bar, f'{s_l:g}', f'{s_w:g}')} {unit}"
-    count, diameter, spacing = values[:3]
-    bar = diameter if imperial else f"Ø{diameter}"
-    return f"{format_transverse_rebar(STIRRUPS, int(count), bar, str(spacing), '', imperial=imperial)} {units[2]}"
-
-
 def shear_results(self: "RectangularBeam") -> None:
     if not self._shear_checked:
         warnings.warn(
@@ -191,11 +167,16 @@ def shear_results(self: "RectangularBeam") -> None:
         formatter = Formatter()
         formatted_DCR = formatter.DCR(_details(limiting_shear_concrete)["Value"][-1])
         reinforcement = _details(limiting_reinforcement)
-        imperial = self.concrete.is_imperial
         if self._A_v == 0 * cm:
             rebar_v = "not assigned"
         else:
-            rebar_v = _transverse_label(self, reinforcement, imperial)
+            # English on purpose: the notebook summary line is (see language.rst).
+            rebar_v = self.shear_design.notation(language="en")
+            if self.reinforcement.transverse.layout == GRID and not self.concrete.is_imperial:
+                # Preserve the published SI notebook format, with one unit
+                # after the two grid spacings. The data still comes from Mento.
+                rebar_v = self.shear_design.notation(language="en", compact=True, imperial=False)
+                rebar_v += f" {unit_label('length', False)}"
         # Limitng cases checks
         warning = "⚠️ Some checks failed, see detailed results." if not checks_pass else ""
         # Each code names these quantities its own way, and puts its capacity
@@ -203,9 +184,12 @@ def shear_results(self: "RectangularBeam") -> None:
         symbols = design_code(self.concrete).shear_symbols
         capacity = _details(limiting_shear_concrete)["Value"][symbols["capacity_row"]]
         force_unit = _details(limiting_forces)["Unit"][1]
+        reinforcement_row = next(iter(reinforcement.values())).index("Defined shear reinforcing")
+        rebar_value = reinforcement["Value"][reinforcement_row]
+        rebar_unit = reinforcement["Unit"][reinforcement_row]
         markdown_content = (
             f"Shear reinforcing {rebar_v}, ${symbols['reinforcement']}$"
-            f"={reinforcement['Value'][6]} {reinforcement['Unit'][6]}"
+            f"={rebar_value} {rebar_unit}"
             f", ${symbols['demand']}$={_details(limiting_forces)['Value'][1]} {force_unit}"
             f", ${symbols['capacity']}$={capacity} {force_unit} → {formatted_DCR} {warning}"
         )
@@ -450,3 +434,28 @@ def shear_results_detailed(self: "RectangularBeam", force: Optional[Forces] = No
     min_max_printer.print_table_data(result_data["min_max"], headers="keys")
     concrete_printer = TablePrinter("CONCRETE STRENGTH", language)
     concrete_printer.print_table_data(result_data["shear_concrete"], headers="keys")
+    TablePrinter("Resistance and detailing", language).print_table_data(verification_table(self), headers="keys")
+
+
+def verification_table(beam: "RectangularBeam") -> Dict[str, Any]:
+    """Resumen visible; no reemplaza los DCR ni vuelve opcional el detallado."""
+    from mento.verification import status_text
+
+    state = beam.verification_status
+    return {
+        "Verification": ["Resistance", "Detailing (modelled checks)"],
+        "Status": [status_text(state["resistance"]), status_text(state["detailing"])],
+        "Detailing notes": [
+            "",
+            "; ".join(
+                w.message
+                for w in beam.warnings
+                if w.code
+                in (
+                    "transverse_legs_added_for_compression_support",
+                    "open_leg_anchorage_outside_model",
+                    "crosstie_alternation_required",
+                )
+            ),
+        ],
+    }

@@ -28,6 +28,8 @@ __all__ = [
     "max_yield_strength_for_shear",
     "min_shear_reinforcement_ratio",
     "shear_strength_of_reinforcement",
+    "stirrup_spacing_threshold",
+    "stirrup_spacing_halved",
     "max_stirrup_spacing",
     "max_stirrup_spacing_for_compression_support",
     "min_stirrup_diameter_for_compression_support",
@@ -264,7 +266,7 @@ def min_shear_reinforcement_threshold_stress(
 
     Returns:
         The stress to compare V_u/(phi_v*A_cv) against (MPa, or psi). Below it,
-        the clause waives both A_v_min and A_v_req.
+        the clause waives A_v_min only; required shear strength remains a separate check.
     """
     coeff = (1 if is_imperial else 0.083) if coefficient is None else coefficient
     return coeff * lambda_factor * math.sqrt(f_c)
@@ -316,6 +318,41 @@ def min_shear_reinforcement_ratio(f_c: float, f_yt: float, b_w: float, *, is_imp
     return max(0.062 * math.sqrt(f_c) / f_yt, 0.35 / f_yt) * b_w
 
 
+def stirrup_spacing_threshold(f_c: float, A_cv: float, *, is_imperial: bool = False) -> float:
+    """V_s above which the spacing limits halve — ACI 318-19 Table 9.7.6.2.2 / CIRSOC 201-25 Tabla 9.7.6.2.2.
+
+    ``0.33·√f'c·bw·d`` (``4·√f'c·bw·d`` in psi), the same in both codes. The
+    root is the plain square root of f'c: the table carries neither the
+    §22.5.3.1 ceiling on it nor λ.
+
+    Args:
+        f_c: Specified concrete compressive strength (MPa, or psi).
+        A_cv: Effective shear area bw·d (mm², or in²).
+
+    Returns:
+        The threshold on the nominal V_s the stirrups must carry (N, or lb).
+    """
+    threshold_coeff = 4 if is_imperial else 0.33
+    return threshold_coeff * math.sqrt(f_c) * A_cv
+
+
+def stirrup_spacing_halved(V_s_req: float, f_c: float, A_cv: float, *, is_imperial: bool = False) -> bool:
+    """Whether the second row of ACI 318-19 Table 9.7.6.2.2 / CIRSOC 201-25 Tabla 9.7.6.2.2 applies.
+
+    True once the nominal V_s the stirrups must carry passes
+    :func:`stirrup_spacing_threshold`: the limits are then d/4 along the
+    member and d/2 across it, instead of d/2 and d. A V_s exactly at the
+    threshold stays on the first row. Written as ``not (V_s_req <= threshold)``
+    so that a NaN demand falls on the stricter row.
+
+    Args:
+        V_s_req: Nominal shear the stirrups must carry, (Vu − φVc)/φ (N, or lb).
+        f_c: Specified concrete compressive strength (MPa, or psi).
+        A_cv: Effective shear area bw·d (mm², or in²).
+    """
+    return not (V_s_req <= stirrup_spacing_threshold(f_c, A_cv, is_imperial=is_imperial))
+
+
 def max_stirrup_spacing(
     V_s_req: float,
     f_c: float,
@@ -330,7 +367,8 @@ def max_stirrup_spacing(
 
     Once the shear the stirrups carry passes the table's threshold,
     0.33·√f'c·bw·d (4·√f'c·bw·d in psi), the spacing limits halve, because a
-    wider crack needs more legs crossing it. The threshold is on the NOMINAL
+    wider crack needs more legs crossing it (:func:`stirrup_spacing_threshold`,
+    :func:`stirrup_spacing_halved`). The threshold is on the NOMINAL
     required Vs = (Vu − φVc)/φ, and it carries no λ: the table has none. Both
     codes print the same threshold and the same d/2, d, d/4 and d/2 limits;
     the clause that sends here is §9.7.6.2.2 in both.
@@ -351,9 +389,7 @@ def max_stirrup_spacing(
         ``(s_max_l, s_max_w)`` — the limits along the member and across its
         width (mm, or in).
     """
-    threshold_coeff = 4 if is_imperial else 0.33
-
-    if V_s_req <= threshold_coeff * math.sqrt(f_c) * A_cv:
+    if not stirrup_spacing_halved(V_s_req, f_c, A_cv, is_imperial=is_imperial):
         return min(d / 2, cap_low), min(d, cap_low)
     return min(d / 4, cap_high), min(d / 2, cap_high)
 

@@ -6,17 +6,33 @@ Calcpad case, a wall from a code table — stay in the module that asserts again
 them, next to the expected values they were chosen to reproduce.
 """
 
+from typing import Iterator
+
 import matplotlib
 import pytest
 
 from mento.beam import RectangularBeam
 from mento.material import Concrete, Concrete_ACI_318_19, Concrete_EN_1992_2004, SteelBar
+from mento.i18n import get_language, set_language
 from mento.units import MPa, cm, inch, ksi, psi
 
 # Force a non-interactive backend for the whole suite, before any test module
 # imports pyplot. Several modules exercise the plotting code, and without this
 # they depend on whatever backend the machine happens to default to.
 matplotlib.use("Agg")
+
+
+@pytest.fixture(autouse=True)
+def _restore_language() -> Iterator[None]:
+    """Put the package language back after every test.
+
+    ``mento.set_language`` is global, and the stirrup notation, the drawing and
+    the summaries follow it; a test that switches to Spanish must not leave the
+    English pins of the next one reading Spanish.
+    """
+    language = get_language()
+    yield
+    set_language(language)
 
 
 @pytest.fixture()

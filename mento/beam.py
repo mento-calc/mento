@@ -9,7 +9,8 @@ import numpy as np
 import pandas as pd
 from pandas import DataFrame
 import math
-from numbers import Integral
+
+from mento.compression_detailing import CompressionDetailing
 # from devtools import debug
 
 from mento.rectangular import RectangularSection
@@ -23,18 +24,23 @@ from mento.design_warnings import (
     collect,
     combination_label,
     flexure_warnings,
+    compression_detailing_warnings,
+    cage_detailing_warnings,
     shear_warnings,
     shortfall_warnings,
     spacing_warnings,
     unread_force_warnings,
 )
+from mento.verification import resolve_legs, validate_supported_forces, verification_status
 from mento.forces import Forces
 from mento.settings import BeamSettings
 from mento.reports import views
 from mento.reports.documents import flexure_report_doc, shear_report_doc
 from mento.plots.sections import plot_beam_section
+from mento.section_geometry import SectionGeometry, build_section_geometry
 from mento.reports.tables import build_flexure_report, build_shear_report
 from mento.design_results import (
+    _transverse_stirrup_count,
     FlexureCheck,
     FlexureDesign,
     RebarLayer,
@@ -49,6 +55,11 @@ from mento.design_results import (
     capture_flexure_check,
     capture_shear_check,
 )
+
+
+def _positive_or_none(value: Quantity) -> Optional[Quantity]:
+    """A spacing limit of a search row, or None where the row set none (zero)."""
+    return value if value.magnitude > 0 else None
 
 
 class _Verdict(NamedTuple):
@@ -248,7 +259,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         self._stirrup_s_w: Quantity = 0 * cm
         self._stirrup_s_max_l: Quantity = 0 * cm
         self._stirrup_s_max_w: Quantity = 0 * cm
-        self._stirrup_n: int = 0
+        self._stirrup_n: float = 0  # Equivalente de dos ramas; no cuenta piezas físicas.
         self._A_v_min: Quantity = 0 * cm**2 / m
         self._A_v: Quantity = 0 * cm**2 / m
         self._A_s_req_bot: Quantity = 0 * cm**2
@@ -669,6 +680,10 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
                 functional=float(row["functional"]),
                 layout=layout,
                 section_DCR=DCR,
+                # The limits the search held this row to, at the depth its own
+                # stirrup gives the section: §9.7.6.4.3 folded into s_max_l.
+                s_max_l=_positive_or_none(row["s_max_l"]),
+                s_max_w=_positive_or_none(row["s_max_w"]),
             )
 
         options = []
@@ -770,6 +785,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         if getattr(self, "_designing", 0):
             return
         self._flexure_checked = False
+        self._compression_faces = set()
         self._shear_checked = False
         self._flexure_checks = []
         self._flexure_warnings = []
@@ -781,20 +797,31 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
 
     def set_transverse_rebar(
         self,
-        n_stirrups: int = 0,
+        n_stirrups: Optional[int] = None,
         d_b: Quantity = 0 * mm,
         s_l: Quantity = 0 * cm,
+        *,
+        n_legs: Optional[int] = None,
+        legs: Optional[int] = None,
     ) -> None:
         """Set transverse reinforcement or clear it with an all-zero input.
+
+        Prefer ``legs``; ``n_legs`` is a compatible alias. The current model
+        supports integer counts >= 2, with one perimeter closed stirrup,
+        compression-support crossties with modelled hooks and remaining open legs.
+        Contradictory counts are rejected.
+
+        Use keyword-only ``legs`` for the number of shear legs. Legacy
+        ``n_stirrups`` (including positional calls) still accepts integer
+        two-leg equivalents, not a guaranteed number of closed pieces. If both are supplied they must
+        agree. Zero with zero diameter and spacing clears the reinforcement.
 
         Drops the flexure and shear results of the last check or design (see
         :meth:`_drop_results`).
         """
 
-        # Reject booleans and non-integer stirrup counts.
-        if isinstance(n_stirrups, bool) or not isinstance(n_stirrups, Integral):
-            raise TypeError("n_stirrups must be an integer.")
-        n_stirrups = int(n_stirrups)
+        n_legs = resolve_legs(legs, n_legs)
+        equivalent_count = _transverse_stirrup_count(n_stirrups, n_legs)
 
         # Diameter and spacing must be physical lengths.
         if not isinstance(d_b, Quantity) or not d_b.check("[length]"):
@@ -810,7 +837,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             raise ValueError("s_l must be finite.")
 
         # An all-zero input explicitly removes the transverse reinforcement.
-        if n_stirrups == 0 and diameter_mm == 0 and spacing_mm == 0:
+        if equivalent_count == 0 and diameter_mm == 0 and spacing_mm == 0:
             self._stirrup_n = 0
             self._stirrup_d_b = d_b
             self._stirrup_s_l = s_l
@@ -820,20 +847,21 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             return
 
         # Every non-empty reinforcement configuration must be strictly positive.
-        if n_stirrups <= 0:
-            raise ValueError("n_stirrups must be greater than zero.")
+        if equivalent_count <= 0:
+            name = "n_legs" if n_legs is not None else "n_stirrups"
+            raise ValueError(f"{name} must be greater than zero.")
         if diameter_mm <= 0:
             raise ValueError("d_b must be greater than zero.")
         if spacing_mm <= 0:
             raise ValueError("s_l must be greater than zero.")
 
         # Store the inputs only after all validations pass.
-        self._stirrup_n = n_stirrups
+        self._stirrup_n = equivalent_count
         self._stirrup_d_b = d_b
         self._stirrup_s_l = s_l
 
         # A closed stirrup contributes two vertical legs.
-        n_legs = n_stirrups * 2
+        n_legs = int(equivalent_count * 2)
         A_db = d_b**2 * math.pi / 4
         A_vs = n_legs * A_db
 
@@ -1160,6 +1188,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         The alternatives kept for each face are verified on the section it
         leaves (see :meth:`_verify_longitudinal_options`).
         """
+        validate_supported_forces(self, forces)
         with self._design_in_progress():
             all_results = self._design_flexure(forces)
             self._verify_longitudinal_options(forces)
@@ -1174,6 +1203,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         would be work thrown away.
         """
         # Initialize limiting cases
+        validate_supported_forces(self, forces)
         max_M_y_top = 0 * kN * m  # For negative M_y (top reinforcement design)
         max_M_y_bot = 0 * kN * m  # For positive M_y (bottom reinforcement design)
         # Identify the limiting cases
@@ -1219,6 +1249,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         Nothing is written to the section on the ACI and CIRSOC path: the check
         returns its result and only the reporting path copies it back.
         """
+        validate_supported_forces(self, forces)
         self._flexure_checks = []
         self._flexure_warnings = []
         self._compression_faces = set()
@@ -1242,7 +1273,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         on the face opposite the one it puts in tension (see
         :meth:`_compression_face_of`). The shear design and the shear warnings read
         the faces so recorded through the code's ``stirrup_compression_support``.
-        A code whose state does not say (EN 1992-1-1) records nothing.
+        EN records the face whose compression steel its resistance credits.
         """
         face = self._compression_face_of(force, state)
         if face is not None:
@@ -1265,6 +1296,8 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         are what make that admissible. ``None`` otherwise, and for a code
         whose state does not say.
         """
+        if hasattr(state, "compression_face"):
+            return state.compression_face
         if not hasattr(state, "doubly_reinforced") or force._M_y == 0 * kN * m:
             return None
         tension = "bot" if force._M_y > 0 * kN * m else "top"
@@ -1293,6 +1326,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         loop over many stations safe — see :meth:`flexure_check_results` for the
         flexure counterpart, which still writes.
         """
+        validate_supported_forces(self, forces)
         self._shear_checks = []
         self._shear_warnings = []
         for position, force in enumerate(forces, 1):
@@ -1311,6 +1345,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         :mod:`mento.reports.tables`, which still reads the element — so the
         state is copied back only when a report is wanted.
         """
+        validate_supported_forces(self, [force])
         code = design_code(self.concrete)
         state: Any = code.check_flexure(self, force)
         if report:
@@ -1326,16 +1361,18 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         have been written to. Building a report does need that, because the
         tables still read the element — the compatibility layer of ADR-0001.
         """
+        validate_supported_forces(self, [force])
         code = design_code(self.concrete)
         state = code.check_shear(self, force)
         if report:
             code.apply_shear_state(self, state)
         if report:
-            self._shear_report_row = build_shear_report(self, force)
+            self._shear_report_row = build_shear_report(self, force, state)
         return state
 
     def check_flexure(self, forces: list[Forces]) -> DataFrame:
         # Initialize variables to track limiting cases
+        validate_supported_forces(self, forces)
         max_dcr_top: float = 0
         max_dcr_bot: float = 0
         limiting_case_top = None
@@ -1518,11 +1555,13 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         -- 8 → 10 → 8 -- left the last one applied against the demand of the
         other.
         """
+        validate_supported_forces(self, forces)
         with self._design_in_progress():
             return self._design_shear(forces)
 
     def _design_shear(self, forces: list[Forces]) -> DataFrame:
         """:meth:`design_shear` without marking a design in progress."""
+        validate_supported_forces(self, forces)
         self._shear_options = ()
         self._stirrup_d_b = self._design_start_stirrup()
         self._update_longitudinal_rebar_attributes()
@@ -1562,6 +1601,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
 
     # Factory method to select the shear check method
     def check_shear(self, forces: list[Forces]) -> DataFrame:
+        validate_supported_forces(self, forces)
         self._shear_results_list = []  # Store individual results for each force
         self._shear_results_detailed_list: Dict[Any, Dict[str, Any]] = {}  # Store detailed results by force ID
         max_dcr = 0  # Track the maximum DCR to identify the limiting case
@@ -1631,6 +1671,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         last, on the section the shear design finished: its stirrup sets the
         depth the bars sit at.
         """
+        validate_supported_forces(self, forces)
         # What the search for the closest layout of a design that does not
         # close finds, by stirrup, moments and starting pair: the rounds of
         # :meth:`_settle_design` can run it again on the same ones. Only for
@@ -1789,6 +1830,54 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         return build_reinforcement(self)
 
     @property
+    def section_geometry(self) -> SectionGeometry:
+        """Where the bars and the stirrup legs of this section are, as data.
+
+        Configuration, like :attr:`reinforcement`: readable at any time. The
+        positions are the model the checks use -- the legs evenly spread at
+        the ``s_w`` the shear check reads, the bars one clear spacing apart --
+        so a drawing can show that section without deriving anything::
+
+            geometry = beam.section_geometry
+            geometry.leg_x, geometry.stirrups, geometry.bars_on("bottom")
+            geometry.to_dict("cm")
+
+        See :mod:`mento.section_geometry`.
+        """
+        return build_section_geometry(self)
+
+    @property
+    def compression_detailing(self) -> "CompressionDetailing":
+        """Required compression-steel support in the modelled cross-section.
+
+        Status is passed, failed, pending, not_required or not_applicable.
+        Does not change resistance; the detailing state covers modelled checks.
+        """
+        from mento.compression_detailing import check_compression_detailing
+        from mento.cage_detailing import CageDetailingError, build_cage_detailing
+
+        scope = check_compression_detailing(self)
+        if scope.reason != "base_cage_unavailable":
+            return scope
+        try:
+            geometry = build_cage_detailing(self)
+        except (CageDetailingError, ValueError) as error:
+            return check_compression_detailing(self, unavailable=str(error))
+        return check_compression_detailing(self, geometry)
+
+    @property
+    def detailing_geometry(self) -> SectionGeometry:
+        """A supported cage, with supplementary mounting steel listed separately.
+
+        The calculated bar areas and vertical coordinates are preserved. Bars
+        are placed at the cage corners, and mounting bars fill missing supports.
+        Raises ``CageDetailingError`` if the layout cannot satisfy spacing.
+        """
+        from mento.cage_detailing import build_cage_detailing
+
+        return build_cage_detailing(self)
+
+    @property
     def flexure_design(self) -> FlexureDesign:
         """Longitudinal reinforcement of this beam, as plain data.
 
@@ -1803,6 +1892,11 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             DesignNotRunError: if no flexure check or design has been run.
         """
         return build_flexure_design(self)
+
+    @property
+    def verification_status(self) -> dict[str, str]:
+        """Estados separados de resistencia y de los chequeos de detallado modelados."""
+        return verification_status(self)
 
     @property
     def warnings(self) -> Tuple[DesignWarning, ...]:
@@ -1822,6 +1916,11 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         """
         raws = list(self._flexure_warnings) if self._flexure_checked else []
         raws += spacing_warnings(self)
+        raws += compression_detailing_warnings(self)
+        from mento.design_warnings import transverse_proposal_warnings
+
+        raws += transverse_proposal_warnings(self)
+        raws += cage_detailing_warnings(self)
         raws += shortfall_warnings(self)
         raws += list(self._shear_warnings) if self._shear_checked else []
         return collect(raws)

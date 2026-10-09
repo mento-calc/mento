@@ -89,23 +89,27 @@ Design forces                     Variable     Value  Unit
 Axial, positive for compression      Nu            0  kN
 Shear                                Vu          150  kN 
 
-Shear reinforcement strength     Variable     Value  Unit
-------------------------------  ----------  -------  ------
-Stirrup diameter                    db           10  mm
-Stirrup spacing along length        sl           21  cm
-Stirrup spacing along width         sw           43  cm
-Effective height                    d          43.2  cm
-Minimum shear reinforcing         Av,min          0  cm²/m
-Required shear reinforcing        Av,req          0  cm²/m
-Defined shear reinforcing           Av          8.7  cm²/m
-Shear rebar strength               ØVs       118.36  kN 
+Shear reinforcement strength                             Variable     Value  Unit
+------------------------------------------------------  ----------  -------  ------
+Stirrup diameter                                            db           10  mm
+Stirrup spacing along length                                sl           21  cm
+Stirrup spacing along width                                 sw           43  cm
+Effective height                                            d          43.2  cm
+Minimum shear reinforcing                                 Av,min          0  cm²/m
+Required shear reinforcing                                Av,req          0  cm²/m
+Defined shear reinforcing                                   Av          8.7  cm²/m
+Shear rebar strength                                       ØVs       118.36  kN
+Nominal shear the stirrups must carry (Vu/φ − Vc)         Vs,req          0  kN
+Threshold of Table 9.7.6.2.2 (0.33√f'c·bw·d)              Vs,lim      712.8  kN
+Vs,req ≤ Vs,lim → Table 9.7.6.2.2: d/2 along, d across
+Absolute cap of Table 9.7.6.2.2 in this row               s,cap          60  cm 
 
-Check                          Unit     Value  Min.      Max.  Ok?
-----------------------------  ------  -------  ------  ------  -----
-Stirrup spacing along length    cm         21            21.6  ✅
-Stirrup spacing along width     cm         43            43.2  ✅
-Minimum shear reinforcement   cm²/m       8.7  0               ✅
-Minimum rebar diameter          mm         10                  ✅ 
+Check                                           Unit     Value  Min.      Max.  Ok?
+---------------------------------------------  ------  -------  ------  ------  -----
+Stirrup spacing along length                     cm         21            21.6  ✅
+Stirrup spacing along width (Table 9.7.6.2.2)    cm         43            43.2  ✅
+Minimum shear reinforcement                    cm²/m       8.7  0               ✅
+Minimum rebar diameter                           mm         10                  ✅ 
 
 Shear strength                     Variable     Value  Unit
 --------------------------------  ----------  -------  ------
@@ -119,6 +123,11 @@ Maximum shear strength              ØVmax      1344.6  kN
 Total shear strength                 ØVn       393.76  kN
 Max shear check                                    ✅
 Demand Capacity Ratio                DCR         0.38  ✅ 
+
+Verification                         Status            Detailing notes
+---------------------------  ----------------------  -----------------
+Resistance                   Pass (modelled checks)
+Detailing (modelled checks)  Pass (modelled checks) 
 
 
 
@@ -194,19 +203,23 @@ Shear | Vu | 150.0 | kN
 Limit checks
 Check | Unit | Value | Min. | Max. | Ok?
 Stirrup spacing along length | cm | 21.0 |  | 21.6 | ✅
-Stirrup spacing along width | cm | 43.0 |  | 43.2 | ✅
+Stirrup spacing along width (Table 9.7.6.2.2) | cm | 43.0 |  | 43.2 | ✅
 Minimum shear reinforcement | cm²/m | 8.7 | 0.0 |  | ✅
 Minimum rebar diameter | mm | 10.0 |  |  | ✅
 Strength Checks
 Shear reinforcement strength | Variable | Value | Unit
-Stirrup diameter | db | 10.0 | mm
-Stirrup spacing along length | sl | 21.0 | cm
+Stirrup diameter | db | 10 | mm
+Stirrup spacing along length | sl | 21 | cm
 Stirrup spacing along width | sw | 43.0 | cm
 Effective height | d | 43.2 | cm
 Minimum shear reinforcing | Av,min | 0.0 | cm²/m
 Required shear reinforcing | Av,req | 0.0 | cm²/m
 Defined shear reinforcing | Av | 8.7 | cm²/m
 Shear rebar strength | ØVs | 118.4 | kN
+Nominal shear the stirrups must carry (Vu/φ − Vc) | Vs,req | 0.0 | kN
+Threshold of Table 9.7.6.2.2 (0.33√f'c·bw·d) | Vs,lim | 712.8 | kN
+Vs,req ≤ Vs,lim → Table 9.7.6.2.2: d/2 along, d across |  |  | 
+Absolute cap of Table 9.7.6.2.2 in this row | s,cap | 60.0 | cm
 Shear strength | Variable | Value | Unit
 Effective shear area | Acv | 4320.0 | cm²
 Longitudinal reinforcement ratio | ρw | 0.00212 | 
@@ -218,6 +231,10 @@ Maximum shear strength | ØVmax | 1344.6 | kN
 Total shear strength | ØVn | 393.8 | kN
 Max shear check |  | ✅ | 
 Demand Capacity Ratio | DCR | 0.38 | ✅
+Resistance and detailing
+Verification | Status | Detailing notes
+Resistance | Pass (modelled checks) | 
+Detailing (modelled checks) | Pass (modelled checks) | 
 
 ### results
 Slab Z1, $b$=100.00 cm, $h$=50.00 cm, $c_{c}$=5.00 cm,                         Concrete H25, Rebar ADN 420.

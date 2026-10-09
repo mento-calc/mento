@@ -193,12 +193,16 @@ def shear_report_doc(self: "RectangularBeam", force: Optional[Forces] = None) ->
     df_materials = pd.DataFrame(self._materials_shear)
     df_geometry = pd.DataFrame(self._geometry_shear)
     df_forces = pd.DataFrame(result_data["forces"])
-    df_shear_reinforcement = pd.DataFrame(result_data["shear_reinforcement"])
+    # Object columns: a count of stirrups or legs prints as the whole number it is.
+    df_shear_reinforcement = pd.DataFrame(result_data["shear_reinforcement"], dtype=object)
     df_data_min_max = pd.DataFrame(result_data["min_max"])
     df_shear_concrete = pd.DataFrame(result_data["shear_concrete"])
 
     # Create a document builder instance
     doc_builder = DocumentBuilder(title=self._report_text["shear_doc_title"], language=get_language())
+    # The leg and spacing-limit rows need more room than the former three-row
+    # reinforcement table. Keep the annex readable at its normal font size.
+    doc_builder.set_margins(top=2.0, bottom=1.5)
 
     # Add first section and table
     doc_builder.add_heading(self._report_text["shear_heading"], level=1, label=self.label)
@@ -218,6 +222,11 @@ def shear_report_doc(self: "RectangularBeam", force: Optional[Forces] = None) ->
     doc_builder.add_heading("Strength Checks", level=2)
     doc_builder.add_table_data(df_shear_reinforcement)
     doc_builder.add_table_dcr(df_shear_concrete)
+
+    from mento.reports.views import verification_table
+
+    doc_builder.add_heading("Resistance and detailing", level=2)
+    doc_builder.add_table_data(pd.DataFrame(verification_table(self)))
 
     # Save the Word doc
     doc_builder.save(self._report_file_name("shear_heading"))

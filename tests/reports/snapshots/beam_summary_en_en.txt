@@ -1,16 +1,16 @@
 ### check
-   Beam   b   h     As,top        As,bot       Av   MEd    VEd   NEd DCRb,top DCRb,bot   DCRv Ok?
-0        cm  cm                                     kNm     kN    kN                             
-1  V101  20  50        2Ø8     2Ø12+1Ø10        -   0.0   20.0   0.0      0.0      0.0  0.539   ✅
-2  V102  20  50  2Ø12+1Ø16           2Ø8  1sØ6/20 -35.0   50.0   0.0    0.439      0.0  0.391   ✅
-3  V103  25  60        2Ø8  3Ø16 ++ 2Ø12  1sØ8/15  60.0  100.0  10.0      0.0    0.334  0.278   ✅
+   Beam   b   h     As,top        As,bot            Av   MEd    VEd   NEd DCRb,top DCRb,bot   DCRv Ok?
+0        cm  cm                                          kNm     kN    kN                             
+1  V101  20  50        2Ø8     2Ø12+1Ø10             -   0.0   20.0   0.0      0.0      0.0  0.539   ✅
+2  V102  20  50  2Ø12+1Ø16           2Ø8  2 legs Ø6/20 -35.0   50.0   0.0    0.439      0.0  0.391   ✅
+3  V103  25  60        2Ø8  3Ø16 ++ 2Ø12  2 legs Ø8/15  60.0  100.0  10.0      0.0    0.334  0.278   ✅
 
 ### check capacity
-   Beam   b   h     As,top        As,bot       Av As,top,real As,bot,real Av,real MRd,top MRd,bot     VRd
-0        cm  cm                                           cm²         cm²   cm²/m     kNm     kNm      kN
-1  V101  20  50        2Ø8     2Ø12+1Ø10        -         1.0         3.0     0.0    19.9    58.0   37.11
-2  V102  20  50  2Ø12+1Ø16           2Ø8  1sØ6/20         4.3         1.0     2.8    79.7    20.0  127.81
-3  V103  25  60        2Ø8  3Ø16 ++ 2Ø12  1sØ8/15         1.0         8.3     6.7    24.3   179.4  359.55
+   Beam   b   h     As,top        As,bot            Av As,top,real As,bot,real Av,real MRd,top MRd,bot     VRd
+0        cm  cm                                                cm²         cm²   cm²/m     kNm     kNm      kN
+1  V101  20  50        2Ø8     2Ø12+1Ø10             -         1.0         3.0     0.0    19.9    58.0   37.11
+2  V102  20  50  2Ø12+1Ø16           2Ø8  2 legs Ø6/20         4.3         1.0     2.8    79.7    20.0  127.81
+3  V103  25  60        2Ø8  3Ø16 ++ 2Ø12  2 legs Ø8/15         1.0         8.3     6.7    24.3   179.4  359.55
 
 ### design
   Label  Comb.         b         h        cc        Nx         Vz           My  ns      dbs        sl  n1       db1  n2       db2  n3 db3  n4 db4
@@ -117,18 +117,21 @@ Shear | VEd,2 | 20.0 | kN
 Limit checks
 Check | Unit | Value | Min. | Max. | Ok?
 Stirrup spacing along length | cm | 34.0 |  | 34.8 | ✅
-Stirrup spacing along width | cm | 14.4 |  | 34.8 | ✅
+Leg spacing across width (§9.2.2(8)) | cm | 14.4 |  | 34.8 | ✅
 Minimum shear reinforcement | cm²/m | 1.66 | 1.6 |  | ✅
 Strength Checks
 Shear reinforcement strength | Variable | Value | Unit
-Number of stirrups | ns | 1.0 | 
-Stirrup diameter | db | 6.0 | mm
-Stirrup spacing | s | 34.0 | cm
+Number of legs | nl | 2 | 
+Stirrup diameter | db | 6 | mm
+Stirrup spacing | s | 34 | cm
+Leg spacing across width | sw | 14.4 | cm
 Effective height | d | 46.4 | cm
 Minimum shear reinforcing | Asw,min | 1.6 | cm²/m
 Required shear reinforcing | Asw,req | 1.6 | cm²/m
 Defined shear reinforcing | Asw | 1.66 | cm²/m
 Shear rebar strength | VRd,s | 75.5 | kN
+Expression (9.6N) along: 0.75·d·(1 + cot α), capped at 400 mm by mento |  |  | 
+Expression (9.8N) across: 0.75·d, at most 600 mm |  |  | 
 Shear strength | Variable | Value | Unit
 Longitudinal reinforcement ratio | ρl | 0.0017 | 
 k value | k | 1.66 | 
@@ -140,12 +143,17 @@ Total shear strength | VRd | 75.5 | kN
 Max shear check |  | ✅ | 
 Demand Capacity Ratio | DCR | 0.27 | ✅
 Summary - All Beams
+Resistance and detailing
+Label | Resistance | Detailing (modelled checks) | Detailing notes
+V101 | Pass (modelled checks) | Pass (modelled checks) | 
+V102 | Pass (modelled checks) | Pass (modelled checks) | 
+V103 | Pass (modelled checks) | Pass (modelled checks) | 
 Beam Data
-Label | b | h | cc | ns | dbs | sl | n1 | db1 | n2 | db2 | n3 | db3 | n4 | db4
- | cm | cm | mm |  | mm | cm |  | mm |  | mm |  | mm |  | mm
-V101 | 20 | 50 | 25 | 0 | 0 | 0 | 2.0 | 12 | 1.0 | 10 | 0.0 | 0 | 0 | 0
-V102 | 20 | 50 | 25 | 1.0 | 6 | 20 | 2 | 12 | 1 | 16 | 0.0 | 0 | 0.0 | 0
-V103 | 25 | 60 | 25 | 1.0 | 8 | 15 | 3.0 | 16 | 0.0 | 0 | 2.0 | 12 | 0 | 0
+Label | b | h | cc | As,bot | As,top | Av
+ | cm | cm | mm |  |  | 
+V101 | 20 | 50 | 25 | 2Ø10 mm | - | 2 legs Ø6 mm @ 34 cm · 14.4 cm between legs
+V102 | 20 | 50 | 25 | 2Ø10 mm | 2Ø12 mm | 2 legs Ø6 mm @ 34 cm · 14.4 cm between legs
+V103 | 25 | 60 | 25 | 2Ø12 mm + 1Ø10 mm | - | 2 legs Ø6 mm @ 28 cm · 19.4 cm between legs
 Flexure Results
 Label | Comb. | Position | As,min | As,req top | As,req bot | As | MEd | MRd | DCR
  |  |  | cm² | cm² | cm² | cm² | kNm | kNm | 
@@ -161,6 +169,6 @@ V103 | ELU 3 | 2.0 | 2.0 | 2.02 | 10.0 | 100.0 | 51.1 | 111.3 | 111.3 | 393.3 | 
 Design Check Summary
 Beam | b | h | As,top | As,bot | Av | MEd | VEd | NEd | DCRb,top | DCRb,bot | DCRv | Ok?
  | cm | cm |  |  |  | kNm | kN | kN |  |  |  | 
-V101 | 20 | 50 | - | 2Ø10 | 1sØ6/34 | 0.0 | 20.0 | 0.0 | 0.0 | 0.0 | 0.27 | ✅
-V102 | 20 | 50 | 2Ø12 | 2Ø10 | 1sØ6/34 | -35.0 | 50.0 | 0.0 | 0.8 | 0.0 | 0.66 | ✅
-V103 | 25 | 60 | - | 2Ø12+1Ø10 | 1sØ6/28 | 60.0 | 100.0 | 10.0 | 0.0 | 0.83 | 0.9 | ✅
+V101 | 20 | 50 | - | 2Ø10 | 2 legs Ø6/34 | 0.0 | 20.0 | 0.0 | 0.0 | 0.0 | 0.27 | ✅
+V102 | 20 | 50 | 2Ø12 | 2Ø10 | 2 legs Ø6/34 | -35.0 | 50.0 | 0.0 | 0.8 | 0.0 | 0.66 | ✅
+V103 | 25 | 60 | - | 2Ø12+1Ø10 | 2 legs Ø6/28 | 60.0 | 100.0 | 10.0 | 0.0 | 0.83 | 0.9 | ✅

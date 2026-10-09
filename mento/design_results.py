@@ -19,14 +19,16 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional, Sequence, Tuple
-
-from mento.units import Quantity
+from numbers import Integral
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Tuple, cast
 
 from mento.bar_sizes import bar_designation, is_us_customary
 from mento.codes.check_state import to_display
-from mento.i18n import stirrup_mark
+from mento.codes.registry import design_code
 from mento.design_warnings import steel_above_maximum
+from mento.i18n import checked_language, translate
+from mento.precompute import DISPLAY
+from mento.units import Quantity, ureg
 
 if TYPE_CHECKING:
     from mento.beam import RectangularBeam
@@ -34,6 +36,23 @@ if TYPE_CHECKING:
 
 class DesignNotRunError(RuntimeError):
     """Raised when results are read before a check or design has been run."""
+
+
+def _transverse_stirrup_count(n_stirrups: Optional[int], n_legs: Optional[int]) -> float:
+    """Resolve legacy stirrup input and explicit legs without changing their meaning."""
+    for name, value in (("n_stirrups", n_stirrups), ("n_legs", n_legs)):
+        if value is not None:
+            if isinstance(value, bool) or not isinstance(value, Integral):
+                raise TypeError(f"{name} must be an integer.")
+            if value < 0:
+                raise ValueError(f"{name} must be non-negative.")
+    if n_legs is not None:
+        if n_legs == 1:
+            raise ValueError("legs/n_legs: At least two legs are needed for the perimeter stirrup.")
+        if n_stirrups is not None and n_legs != 2 * n_stirrups:
+            raise ValueError("n_legs must equal 2 * n_stirrups when both are provided.")
+        return n_legs / 2
+    return 0 if n_stirrups is None else int(n_stirrups)
 
 
 def spacing_separator(imperial: bool) -> str:
@@ -266,6 +285,23 @@ class ShearCheck:
     ``V_capacity`` is the design shear resistance the ``DCR`` was formed from
     -- ``ØVn``, capped by ``ØVmax``, under ACI 318-19 and CIRSOC 201-25;
     ``VRd`` under EN 1992-1-1. See :class:`FlexureFaceCheck` for the naming.
+
+    ``label`` is the name of the load combination, not a description of the
+    stirrups: that is :meth:`ShearDesign.notation`.
+
+    The spacing limits of this combination. ``s_max_l_table``
+    and ``s_max_w`` are the limits along the member and across its width
+    that ACI 318-19 / CIRSOC 201-25 Table 9.7.6.2.2 set -- Expressions (9.6N)
+    and (9.8N) under EN 1992-1-1, the first with mento's own 400 mm cap. The
+    along-length one carries ``_table`` in its name because it is not always
+    the limit the stirrups are held to: §9.7.6.4.3 can cap it further on a
+    section that relies on compression bars, a limit of the section rather
+    than of one combination, which :attr:`ShearDesign.s_max_l` folds in.
+    ``V_s_req`` is the nominal shear the stirrups must carry, ``V_s_threshold``
+    the ``0.33·√f'c·bw·d`` (``4·√f'c·bw·d`` in psi) past which the table
+    halves its limits, and ``spacing_halved`` whether this combination passed
+    it. Each is ``None`` where the code has no such quantity (those three
+    under EN 1992-1-1) or the check set no limit (EN with no stirrups).
     """
 
     label: str
@@ -273,6 +309,11 @@ class ShearCheck:
     A_v_min: Optional[Quantity]
     DCR: float
     V_capacity: Optional[Quantity] = None
+    V_s_req: Optional[Quantity] = None
+    V_s_threshold: Optional[Quantity] = None
+    spacing_halved: Optional[bool] = None
+    s_max_l_table: Optional[Quantity] = None
+    s_max_w: Optional[Quantity] = None
 
 
 def _worst(values: Sequence[Optional[Quantity]]) -> Optional[Quantity]:
@@ -330,14 +371,45 @@ def envelope_flexure_face(checks: Sequence[FlexureCheck], face: str) -> FlexureF
     )
 
 
+def _largest_demand(checks: Sequence[ShearCheck]) -> Optional[ShearCheck]:
+    """The combination that asks the stirrups for the most shear, or None if none set ``V_s_req``."""
+    present = [check for check in checks if check.V_s_req is not None]
+    if not present:
+        return None
+    return max(present, key=lambda check: cast(Quantity, check.V_s_req))
+
+
+def _any_halved(checks: Sequence[ShearCheck]) -> Optional[bool]:
+    """Whether some combination took the halved row of Table 9.7.6.2.2; None if none recorded a row."""
+    rows = [check.spacing_halved for check in checks if check.spacing_halved is not None]
+    return any(rows) if rows else None
+
+
 def envelope_shear(checks: Sequence[ShearCheck]) -> ShearCheck:
-    """Worst shear demand across every combination checked."""
+    """Worst shear demand across every combination checked.
+
+    The spacing limits are the tightest of any combination, which is what the
+    warnings hold each one to. The fields that say why agree with them:
+    ``V_s_req`` is the largest of any combination, ``V_s_threshold`` is the
+    one that same combination was compared with, and ``spacing_halved`` is
+    True when any combination took the halved row of Table 9.7.6.2.2 -- the
+    row the tightest limits come from. So the envelope reads as one
+    combination would: halved exactly when ``V_s_req`` is past
+    ``V_s_threshold``. ``V_capacity`` follows the governing DCR, as on
+    :func:`envelope_flexure_face`.
+    """
+    demand = _largest_demand(checks)
     return ShearCheck(
         label="envelope",
         A_v_req=_worst([c.A_v_req for c in checks]),
         A_v_min=_worst([c.A_v_min for c in checks]),
         DCR=max([c.DCR for c in checks], default=0.0),
         V_capacity=_governing([(c.DCR, c.V_capacity) for c in checks]),
+        V_s_req=None if demand is None else demand.V_s_req,
+        V_s_threshold=None if demand is None else demand.V_s_threshold,
+        spacing_halved=_any_halved(checks),
+        s_max_l_table=_least([c.s_max_l_table for c in checks]),
+        s_max_w=_least([c.s_max_w for c in checks]),
     )
 
 
@@ -378,12 +450,18 @@ def capture_shear_check(beam: RectangularBeam, label: str, state: Any) -> ShearC
     """
     imperial = beam.concrete.is_imperial
     A_v_req, A_v_min = state.shear_reinforcement_quantities(imperial)
+    V_s_req, V_s_threshold, spacing_halved, s_max_l_table, s_max_w = state.spacing_quantities(imperial)
     return ShearCheck(
         label=label,
         A_v_req=A_v_req,
         A_v_min=A_v_min,
         DCR=float(state.DCR),
         V_capacity=state.shear_capacity_quantity(imperial),
+        V_s_req=V_s_req,
+        V_s_threshold=V_s_threshold,
+        spacing_halved=spacing_halved,
+        s_max_l_table=s_max_l_table,
+        s_max_w=s_max_w,
     )
 
 
@@ -428,27 +506,187 @@ GRID = "grid"
 
 
 def format_transverse_rebar(
-    layout: str, n_stirrups: int, bar: str, s_l: str, s_w: str, *, imperial: bool = False
+    layout: str,
+    n_stirrups: float,
+    bar: str,
+    s_l: str,
+    s_w: str,
+    *,
+    n_legs: Optional[int] = None,
+    s_max_w: Optional[str] = None,
+    language: Optional[str] = "en",
+    separator: str = " · ",
+    imperial: bool = False,
 ) -> str:
     """Label the transverse reinforcement in the notation of its element.
 
-    A beam is a number of closed stirrups of one bar at one spacing along the
-    length, so the count leads, marked as stirrups in the report language:
-    ``2eØ10/15cm`` (*estribos*), ``2sØ10/15cm`` (*stirrups*), ``2s#3@6 in``. A
-    slab strip has no cage -- the same bar sits on a grid -- so what identifies
-    it is the bar once and a spacing each way, longitudinal first:
-    ``Ø10/15cm×20cm``. The bar is not repeated: both directions are the same one.
+    A beam is a cage of closed stirrups, and what the shear check counts is
+    its legs, so the legs lead, then the bar and the spacing along the
+    length, then the spacing of the legs across the width -- which is what
+    ``s_max_w`` limits, and is printed after it when given:
+    ``10 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)``. ``n_legs``
+    defaults to two per stirrup. A slab strip has no cage -- the same bar sits
+    on a grid -- so what identifies it is the diameter once and a spacing each
+    way, longitudinal first: ``Ø10/15cm×20cm``. The diameter is not repeated:
+    both directions are the same bar.
 
-    Takes the bar (with its symbol) and the spacings already written, so each
-    caller keeps its own precision and units while the shape of the label is
-    decided in one place.
+    Takes the numbers already formatted, so each caller keeps its own precision
+    and units while the shape of the label is decided in one place. The words
+    are looked up in the catalog of ``language`` (English by default, the
+    language of the moment with ``None``; see :mod:`mento.i18n`), and
+    ``separator`` joins the two halves of a beam's label -- a line break
+    splits it in two for a drawing. An explicit ``language`` without a
+    catalog raises ``ValueError``, as :func:`mento.set_language` does.
     """
+    checked_language(language)
     if n_stirrups == 0:
-        return "no stirrups"
-    separator = spacing_separator(imperial)
+        return translate("no stirrups", language)
+    d_b = bar.removeprefix("Ø")
+    bar = bar if bar.startswith(("Ø", "#")) else f"Ø{bar}"
     if layout == GRID:
-        return f"{bar}{separator}{s_l}×{s_w}"
-    return f"{n_stirrups}{stirrup_mark()}{bar}{separator}{s_l}"
+        return f"{bar}{spacing_separator(imperial)}{s_l}×{s_w}"
+    raw_legs = 2 * n_stirrups if n_legs is None else n_legs
+    if not math.isfinite(raw_legs) or raw_legs != int(raw_legs) or raw_legs < 2:
+        raise ValueError("The transverse count must represent an integer number of legs >= 2.")
+    legs = int(raw_legs)
+    text = translate("{n_legs} legs Ø{d_b} @ {s_l}", language, n_legs=legs, d_b=d_b.removeprefix("Ø"), s_l=s_l).replace(
+        "Ø#", "#"
+    )
+    text += separator + translate("{s_w} between legs", language, s_w=s_w)
+    if s_max_w is not None:
+        text += " " + translate("(max {s_max_w})", language, s_max_w=s_max_w)
+    return text
+
+
+def _is_imperial_length(value: Quantity) -> bool:
+    """Whether a spacing is in US customary units (inches or feet)."""
+    return value.units in (ureg.inch, ureg.foot)
+
+
+def transverse_notation(
+    layout: str,
+    n_stirrups: float,
+    d_b: Quantity,
+    s_l: Quantity,
+    s_w: Quantity,
+    s_max_w: Optional[Quantity] = None,
+    language: Optional[str] = None,
+    *,
+    separator: str = " · ",
+    compact: bool = False,
+    imperial: Optional[bool] = None,
+) -> str:
+    """The notation of a transverse reinforcement given as quantities.
+
+    What :meth:`TransverseReinforcement.notation` and its siblings print. The
+    spacings across the width are shown in the unit of ``s_l``, so a beam
+    built in millimetres and designed in centimetres reads in one unit;
+    ``d_b`` keeps its own. Numbers take mento's ``.4g`` format with a dot.
+
+    ``compact`` is the form for a narrow column: bare numbers, the bar in mm
+    and the spacing in cm -- ASTM sizes and inches when ``imperial`` is True -- and neither
+    the spacing across the width nor its maximum: ``10 legs Ø12/14`` on a
+    beam, ``Ø10/8×16`` on a slab strip. The numbers carry no unit, so the
+    caller says which system they are in: pass the section's
+    (``beam.concrete.is_imperial``), or the system of the table they sit in.
+    With ``imperial`` left as ``None`` the compact form follows the unit of
+    ``s_l``: ASTM sizes and inches when it is in inches or feet, mm and cm otherwise.
+
+    ``language`` is the catalog the words come from, the current one with
+    ``None``; an explicit code without a catalog raises ``ValueError``, as
+    :func:`mento.set_language` does.
+    """
+    checked_language(language)
+    if imperial is None:
+        imperial = _is_imperial_length(s_l)
+    if compact:
+        if n_stirrups == 0:
+            return translate("no stirrups", language)
+        d_unit, s_unit = ("inch", "inch") if imperial else ("mm", "cm")
+        d_shown = bar_designation(d_b) if imperial else f"{d_b.to(d_unit).magnitude:.4g}"
+        s_shown = f"{s_l.to(s_unit).magnitude:.4g}"
+        if layout == GRID:
+            return f"{d_shown if imperial else f'Ø{d_shown}'}{spacing_separator(imperial)}{s_shown}×{s_w.to(s_unit).magnitude:.4g}"
+        return (
+            translate(
+                "{n_legs} legs Ø{d_b}/{s_l}",
+                language,
+                n_legs=int(2 * n_stirrups),
+                d_b=d_shown.removeprefix("Ø"),
+                s_l=s_shown,
+            )
+            .replace("Ø#", "#")
+            .replace("/", "@" if imperial else "/")
+        )
+    if layout == GRID:
+        # The grid is written as it always was, each spacing in its own unit.
+        s_w_shown = f"{s_w:.4g~P}"
+        max_shown = None
+    else:
+        s_w_shown = f"{s_w.to(s_l.units):.4g~P}"
+        max_shown = None if s_max_w is None else f"{s_max_w.to(s_l.units):.4g~P}"
+    return format_transverse_rebar(
+        layout,
+        n_stirrups,
+        bar_designation(d_b) if imperial else f"{d_b:.4g~P}",
+        f"{s_l:.4g~P}",
+        s_w_shown,
+        n_legs=int(2 * n_stirrups),
+        s_max_w=max_shown,
+        language=language,
+        separator=separator,
+        imperial=imperial,
+    )
+
+
+def cage_legs(n_legs: int) -> Tuple[Tuple[Tuple[int, int], ...], Tuple[int, ...]]:
+    """Base seccional: un cerrado perimetral y las restantes patas abiertas.
+
+    El detallador propone trabas con ganchos cuando la sujeción por compresión
+    las necesita. Esta función, sin fuerzas ni barras, no acredita esa sujeción.
+    """
+    if isinstance(n_legs, bool) or not isinstance(n_legs, Integral):
+        raise TypeError("n_legs must be an integer.")
+    if n_legs < 0 or n_legs == 1:
+        raise ValueError("legs/n_legs: At least two legs are needed for the perimeter stirrup.")
+    if n_legs == 0:
+        return (), ()
+    return ((0, n_legs - 1),), tuple(range(1, n_legs - 1))
+
+
+def describe_stirrup_cage(n_legs: int, language: Optional[str] = None) -> str:
+    """The cage of :func:`cage_legs` in words, for whoever details it.
+
+    Base layout: one perimeter stirrup and the remaining open legs.
+    The force-dependent transverse pieces are described by SectionGeometry.
+    A single leg cannot form the mandatory perimeter. In the language of the moment unless
+    ``language`` says otherwise; an explicit code without a catalog raises
+    ``ValueError``, as :func:`mento.set_language` does.
+    """
+    checked_language(language)
+    if n_legs <= 0:
+        return translate("no stirrups", language)
+    stirrups, crossties = cage_legs(n_legs)
+    parts = []
+    if len(stirrups) == 1 and not crossties:
+        return translate("single perimeter stirrup", language)
+    if stirrups:
+        parts.append(translate("perimeter stirrup", language))
+    if crossties:
+        parts.append(
+            translate("1 open leg", language)
+            if len(crossties) == 1
+            else translate("{n} open legs", language, n=len(crossties))
+        )
+    return " + ".join(parts)
+
+
+def _transverse_arrangement(layout: str, n_stirrups: float, language: Optional[str] = None) -> str:
+    """The cage of a beam's stirrups in words; empty on a slab strip, which has no cage."""
+    checked_language(language)
+    if layout == GRID:
+        return ""
+    return describe_stirrup_cage(int(2 * n_stirrups), language)
 
 
 @dataclass(frozen=True)
@@ -461,7 +699,7 @@ class TransverseReinforcement:
     what ``layout`` distinguishes.
     """
 
-    n_stirrups: int
+    n_stirrups: float
     d_b: Quantity
     s_l: Quantity
     A_v: Quantity
@@ -471,17 +709,41 @@ class TransverseReinforcement:
     @property
     def n_legs(self) -> int:
         """Number of stirrup legs crossing the shear plane."""
-        return self.n_stirrups * 2
+        return int(self.n_stirrups * 2)
 
-    def __str__(self) -> str:
-        return format_transverse_rebar(
+    def notation(
+        self,
+        language: Optional[str] = None,
+        *,
+        separator: str = " · ",
+        compact: bool = False,
+        imperial: Optional[bool] = None,
+    ) -> str:
+        """The stirrups in the notation of the element, in ``language`` (the current one by default).
+
+        The configuration carries no limit, so no maximum is printed.
+        See :func:`transverse_notation` for ``separator``, ``compact`` and ``imperial``.
+        """
+        return transverse_notation(
             self.layout,
             self.n_stirrups,
-            bar_mark(self.d_b),
-            f"{self.s_l:.4g~P}",
-            f"{self.s_w:.4g~P}",
-            imperial=is_us_customary(self.d_b),
+            self.d_b,
+            self.s_l,
+            self.s_w,
+            None,
+            language,
+            separator=separator,
+            compact=compact,
+            imperial=imperial,
         )
+
+    def arrangement(self, language: Optional[str] = None) -> str:
+        """Base cage layout without force-dependent transverse pieces; read detailing_geometry.arrangement() for the actual pieces. Empty on a slab."""
+        return _transverse_arrangement(self.layout, self.n_stirrups, language)
+
+    def __str__(self) -> str:
+        """Always English, like the ``str()`` of every result of this module; :meth:`notation` follows the language."""
+        return self.notation(language="en")
 
 
 @dataclass(frozen=True)
@@ -608,7 +870,13 @@ class FlexureDesign:
 class StirrupOption:
     """One transverse layout a shear design found.
 
-    The fields read as those of :class:`ShearDesign`. ``functional`` says how
+    The fields read as those of :class:`ShearDesign`, with one difference in
+    the limits: ``s_max_l`` means the same on both -- the along-length limit
+    the stirrups are held to, Table 9.7.6.2.2 and §9.7.6.4.3 together -- but
+    an option carries no ``s_max_l_table`` / ``s_max_l_support`` split, and
+    its two limits are the ones the search read at the depth this option's
+    own stirrup gives the section (``None`` where the search
+    recorded none). ``functional`` says how
     much steel the option adds: the excess of ``A_v`` over what the section
     asks for with this stirrup on it, ``A_v / A_v_req - 1``, plus one for
     every stirrup beyond the fewest any option needs.
@@ -623,7 +891,7 @@ class StirrupOption:
     applied layout carries its own, whatever it is.
     """
 
-    n_stirrups: int
+    n_stirrups: float
     d_b: Quantity
     s_l: Quantity
     s_w: Quantity
@@ -631,28 +899,54 @@ class StirrupOption:
     functional: float
     layout: str = STIRRUPS
     section_DCR: Optional[float] = None
+    s_max_l: Optional[Quantity] = None
+    s_max_w: Optional[Quantity] = None
 
     @property
     def n_legs(self) -> int:
         """Number of stirrup legs crossing the shear plane."""
-        return self.n_stirrups * 2
+        return int(self.n_stirrups * 2)
 
-    def __str__(self) -> str:
-        return format_transverse_rebar(
+    def notation(
+        self,
+        language: Optional[str] = None,
+        *,
+        separator: str = " · ",
+        compact: bool = False,
+        imperial: Optional[bool] = None,
+    ) -> str:
+        """The stirrups in the notation of the element, in ``language`` (the current one by default).
+
+        Ends with the maximum spacing of the legs, ``s_max_w``, when there is one.
+        See :func:`transverse_notation` for ``separator``, ``compact`` and ``imperial``.
+        """
+        return transverse_notation(
             self.layout,
             self.n_stirrups,
-            bar_mark(self.d_b),
-            f"{self.s_l:.4g~P}",
-            f"{self.s_w:.4g~P}",
-            imperial=is_us_customary(self.d_b),
+            self.d_b,
+            self.s_l,
+            self.s_w,
+            self.s_max_w,
+            language,
+            separator=separator,
+            compact=compact,
+            imperial=imperial,
         )
+
+    def arrangement(self, language: Optional[str] = None) -> str:
+        """Base cage layout without force-dependent transverse pieces; read detailing_geometry.arrangement() for the actual pieces. Empty on a slab."""
+        return _transverse_arrangement(self.layout, self.n_stirrups, language)
+
+    def __str__(self) -> str:
+        """Always English, like the ``str()`` of every result of this module; :meth:`notation` follows the language."""
+        return self.notation(language="en")
 
 
 @dataclass(frozen=True)
 class ShearDesign:
     """Transverse reinforcement of the section.
 
-    ``n_stirrups`` counts the stirrups; ``n_legs`` counts the legs crossing
+    ``n_stirrups`` is the legacy two-leg equivalent, not the number of closed pieces; ``n_legs`` counts the legs crossing
     the shear plane, which is what enters the ``A_v`` calculation.
 
     ``A_v_req``, ``A_v_min`` and ``DCR`` are the envelope over every load
@@ -675,9 +969,29 @@ class ShearDesign:
     the section built with it, flexure included -- not always this result's
     ``DCR``, which is the shear's. Empty when the stirrups were not
     designed, or were changed by hand afterwards.
+
+    The spacing limits are envelopes over every combination
+    checked, the tightest of each -- what the warnings hold the stirrups to:
+
+    - ``s_max_w``: the limit across the width, on the legs -- ACI 318-19 /
+      CIRSOC 201-25 Table 9.7.6.2.2, Expression (9.8N) under EN 1992-1-1.
+    - ``s_max_l_table``: the limit along the member of that same table --
+      Expression (9.6N) under EN 1992-1-1, with the 400 mm cap that is
+      mento's own, not the code's.
+    - ``s_max_l_support``: the cap of §9.7.6.4.3 on the stirrups that brace
+      compression bars -- the least of 16 d_b of the bar, 48 d_b of the
+      stirrup and the least dimension of the beam -- or ``None`` when the
+      code has no such clause or the section relies on no compression bars.
+    - ``s_max_l``: the along-length limit the stirrups are held to, the
+      least of the two above.
+
+    Each is ``None`` where there is none: EN 1992-1-1 sets no limit on a
+    section without stirrups. ``s_w`` reads against ``s_max_w`` and ``s_l``
+    against ``s_max_l``. The threshold and the row of Table 9.7.6.2.2 that
+    set them are on each :class:`ShearCheck`.
     """
 
-    n_stirrups: int
+    n_stirrups: float
     d_b: Quantity
     s_l: Quantity
     A_v: Quantity
@@ -688,21 +1002,49 @@ class ShearDesign:
     s_w: Quantity
     layout: str = STIRRUPS
     options: Tuple[StirrupOption, ...] = ()
+    s_max_l: Optional[Quantity] = None
+    s_max_w: Optional[Quantity] = None
+    s_max_l_table: Optional[Quantity] = None
+    s_max_l_support: Optional[Quantity] = None
 
     @property
     def n_legs(self) -> int:
         """Number of stirrup legs crossing the shear plane."""
-        return self.n_stirrups * 2
+        return int(self.n_stirrups * 2)
 
-    def __str__(self) -> str:
-        return format_transverse_rebar(
+    def notation(
+        self,
+        language: Optional[str] = None,
+        *,
+        separator: str = " · ",
+        compact: bool = False,
+        imperial: Optional[bool] = None,
+    ) -> str:
+        """The stirrups in the notation of the element, in ``language`` (the current one by default).
+
+        Ends with the maximum spacing of the legs, ``s_max_w``, when there is one.
+        See :func:`transverse_notation` for ``separator``, ``compact`` and ``imperial``.
+        """
+        return transverse_notation(
             self.layout,
             self.n_stirrups,
-            bar_mark(self.d_b),
-            f"{self.s_l:.4g~P}",
-            f"{self.s_w:.4g~P}",
-            imperial=is_us_customary(self.d_b),
+            self.d_b,
+            self.s_l,
+            self.s_w,
+            self.s_max_w,
+            language,
+            separator=separator,
+            compact=compact,
+            imperial=imperial,
         )
+
+    def arrangement(self, language: Optional[str] = None) -> str:
+        """Base cage layout without force-dependent transverse pieces; read detailing_geometry.arrangement() for the actual pieces. Empty on a slab."""
+        return _transverse_arrangement(self.layout, self.n_stirrups, language)
+
+    def __str__(self) -> str:
+        """Always English, like the ``str()`` of every result of this module; :meth:`notation` follows the language."""
+        return self.notation(language="en")
 
 
 def transverse_layout(beam: RectangularBeam) -> str:
@@ -781,7 +1123,7 @@ def _current_shear_options(beam: RectangularBeam) -> Tuple[StirrupOption, ...]:
         return ()
     first = options[0]
     if (
-        first.n_stirrups != int(beam._stirrup_n)
+        first.n_stirrups != beam._stirrup_n
         or not math.isclose(first.d_b.to("mm").magnitude, beam._stirrup_d_b.to("mm").magnitude)
         or not math.isclose(first.s_l.to("mm").magnitude, beam._stirrup_s_l.to("mm").magnitude)
     ):
@@ -801,7 +1143,7 @@ def build_reinforcement(beam: RectangularBeam) -> SectionReinforcement:
         bottom=FaceReinforcement(layers=_layers(beam, "b"), A_s=beam._A_s_bot),
         top=FaceReinforcement(layers=_layers(beam, "t"), A_s=beam._A_s_top),
         transverse=TransverseReinforcement(
-            n_stirrups=int(beam._stirrup_n),
+            n_stirrups=beam._stirrup_n,
             d_b=beam._stirrup_d_b,
             s_l=beam._stirrup_s_l,
             A_v=beam._A_v,
@@ -840,9 +1182,10 @@ def build_shear_design(beam: RectangularBeam) -> ShearDesign:
     # so the envelope is taken over the results of every combination checked.
     worst = envelope_shear(getattr(beam, "_shear_checks", ()))
     no_capacity: Quantity = to_display(0.0, "force", beam.concrete.is_imperial)
+    s_max_l_support = _compression_support_spacing(beam)
 
     return ShearDesign(
-        n_stirrups=int(beam._stirrup_n),
+        n_stirrups=beam._stirrup_n,
         d_b=beam._stirrup_d_b,
         s_l=beam._stirrup_s_l,
         A_v=A_v,
@@ -853,4 +1196,24 @@ def build_shear_design(beam: RectangularBeam) -> ShearDesign:
         s_w=beam._leg_spacing_across_width(),
         layout=transverse_layout(beam),
         options=_current_shear_options(beam),
+        s_max_l=_least([worst.s_max_l_table, s_max_l_support]),
+        s_max_w=worst.s_max_w,
+        s_max_l_table=worst.s_max_l_table,
+        s_max_l_support=s_max_l_support,
     )
+
+
+def _compression_support_spacing(beam: RectangularBeam) -> Optional[Quantity]:
+    """The §9.7.6.4.3 cap on the stirrup spacing, or None where it does not apply.
+
+    ACI 318-19 / CIRSOC 201-25 §9.7.6.4.3, through the code's
+    ``stirrup_compression_support`` with the stirrup the section carries --
+    the same call the warnings make. ``None`` for a code without the clause
+    (EN 1992-1-1) and for a section that relies on no compression bars.
+    """
+    hook = design_code(beam.concrete).stirrup_compression_support
+    support = None if hook is None else hook(beam, beam._stirrup_d_b)
+    if support is None:
+        return None
+    s_max: Quantity = support.s_max.to(DISPLAY[beam.concrete.is_imperial]["length"])
+    return s_max

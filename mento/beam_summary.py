@@ -2,18 +2,19 @@ from typing import Any, List, Dict, Optional
 from pandas import DataFrame
 import pandas as pd
 import copy
+import math
 from collections import OrderedDict
 
 from mento.material import (
     Concrete,
     SteelBar,
 )
+from mento.verification import normalize_leg_column
 from mento.forces import Forces
 from mento.beam import RectangularBeam
-from mento.bar_sizes import bar_designation
+from mento.design_results import _transverse_stirrup_count
 from mento.codes.registry import design_code
-from mento.design_results import spacing_separator
-from mento.i18n import stirrup_mark, translate, translate_dataframe
+from mento.i18n import translate, translate_dataframe
 from mento.precompute import shown, unit_label
 from mento.results import FAIL_MARK, PASS_MARK, VERDICT_COLUMN
 from mento import mm, cm, kN, MPa, m, inch, ft, kNm, kip, psi, ksi
@@ -29,24 +30,6 @@ from mento.reports.summaries import BEAM_REPORT, beam_summary_doc
 _WORD_COLUMNS = ("Position",)
 
 
-def _stirrups_label(beam: RectangularBeam) -> str:
-    """The stirrups of a beam as the summary writes them: ``1eØ8/15`` (mm/cm), ``1s#3@6`` (in).
-
-    A whole number of centimetres in SI, as the table has always shown them; in
-    inches up to four significant figures, since truncating 5.5 in to 5 would
-    write a spacing nobody placed.
-    """
-    if beam._stirrup_n == 0:
-        return "-"
-    imperial = beam.concrete.is_imperial
-    spacing = shown(beam._stirrup_s_l, "length", imperial)
-    if imperial:
-        bar, spacing_text = bar_designation(beam._stirrup_d_b), f"{spacing:.4g}"
-    else:
-        bar, spacing_text = f"Ø{int(beam._stirrup_d_b.to('mm').magnitude)}", f"{int(spacing)}"
-    return f"{int(beam._stirrup_n)}{stirrup_mark()}{bar}{spacing_separator(imperial)}{spacing_text}"
-
-
 def _section_dimension(length: Quantity, imperial: bool) -> Any:
     """A width or height for the summary table: whole where it is whole, else to two decimals."""
     value = shown(length, "length", imperial, 2)
@@ -57,8 +40,11 @@ def _translated(df: DataFrame) -> DataFrame:
     """A summary table in the language reports are currently rendered in.
 
     Only the columns holding words are touched. The symbol columns -- ``b``,
-    ``As,bot``, ``Av``, ``Mu``, ``DCRv`` -- are variable names, and units and
-    numbers read the same in every language, so they are left alone.
+    ``As,bot``, ``Mu``, ``DCRv`` -- are variable names, and units and
+    numbers read the same in every language, so they are left alone. The
+    ``Av`` cells of :meth:`BeamSummary.check` hold the compact stirrup
+    notation (``10 legs Ø12/14``), which is written in the current language
+    when the row is built, so it needs nothing here.
     """
     out = df.copy()
     for column in _WORD_COLUMNS:
@@ -152,6 +138,7 @@ class BeamSummary:
         self.convert_to_nodes()
 
     def check_and_process_input(self) -> None:
+        self.beam_list = normalize_leg_column(self.beam_list)
         # Separate the header, units, and data
         self.units_row = self.beam_list.iloc[0].tolist()  # Second row (units)
         data = self.beam_list.iloc[1:].copy()  # Data rows (after removing the units row)
@@ -162,6 +149,34 @@ class BeamSummary:
         # Validate the units row
         self.validate_units(self.units_row)
 
+        # Validate counts before numeric coercion can hide fractions or typos.
+        # A summary of an element with no stirrups (OneWaySlabSummary) has no
+        # count columns, and must not be asked for them.
+        count_columns = [col for col in ("ns", "n_legs") if col in data.columns]
+        if self._TRANSVERSE_COLUMNS and not count_columns:
+            raise ValueError("BeamSummary requires 'n_legs' or legacy 'ns'.")
+        for col in count_columns:
+            if self.units_row[data.columns.get_loc(col)] != "":
+                raise ValueError(f"{col} is a count and must have a blank units cell.")
+        counts = []
+        for index, row in data.iterrows():
+            supplied: Dict[str, Optional[int]] = {}
+            for col, name in (("ns", "n_stirrups"), ("n_legs", "n_legs")):
+                value = row.get(col)
+                if pd.isna(value) or value == "":
+                    supplied[name] = None
+                    continue
+                if pd.api.types.is_bool(value):
+                    raise TypeError(f"{col} must be an integer (row {index}).")
+                try:
+                    number = pd.to_numeric(value, errors="raise")
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(f"{col} must be an integer (row {index}).") from exc
+                if not math.isfinite(number) or number != int(number):
+                    raise ValueError(f"{col} must be a finite integer (row {index}).")
+                supplied[name] = int(number)
+            counts.append(_transverse_stirrup_count(supplied["n_stirrups"], supplied["n_legs"]))
+
         # Convert NaN to 0 in the data rows.
         # Assign per-column by label (replaces the column, including its dtype)
         # rather than via `.iloc[:, 2:] =`, which writes in place and preserves
@@ -170,8 +185,11 @@ class BeamSummary:
         # dtype, and writing floats into them in place raises a TypeError.
         for col in data.columns[2:]:
             data[col] = pd.to_numeric(data[col], errors="coerce").fillna(0)
+        # Fill absent paired values from the explicit input; never reinterpret ns.
+        for col in count_columns:
+            data[col] = counts if col == "ns" else [2 * count for count in counts]
         # Convert specific columns to int and others to float
-        columns_to_int = ["ns", "n1", "n2", "n3", "n4"]
+        columns_to_int = ["n_legs", "n1", "n2", "n3", "n4"]
         for col in columns_to_int:
             if col in data.columns:
                 data[col] = data[col].astype(int)
@@ -187,6 +205,12 @@ class BeamSummary:
                 unit = self.get_unit_variable(unit_str)
                 col = data.columns[i]
                 data[col] = data[col].apply(lambda x: x * unit)
+
+        if "legs" in data.columns:
+            data["legs"] = data["n_legs"]
+        # The stirrup columns the nodes read: closed stirrups, whichever count was given.
+        if self._TRANSVERSE_COLUMNS and "ns" not in data.columns:
+            data["ns"] = counts
 
         # Store the processed data
         self.data = data
@@ -315,7 +339,7 @@ class BeamSummary:
 
     def _set_transverse(self, section: RectangularBeam, values: tuple) -> None:
         n_stirrups, d_b, s_l = values
-        section.set_transverse_rebar(n_stirrups=n_stirrups, d_b=d_b, s_l=s_l)
+        section.set_transverse_rebar(legs=int(2 * n_stirrups), d_b=d_b, s_l=s_l)
 
     def _set_face(self, section: RectangularBeam, face: str, values: tuple) -> None:
         setter = section.set_longitudinal_rebar_bot if face == "bottom" else section.set_longitudinal_rebar_top
@@ -332,6 +356,9 @@ class BeamSummary:
         node.design_shear()
         shear_row = beam.shear_design_results.iloc[0]  # take best row
         transverse = {"ns": int(shear_row["n_stir"]), "dbs": shear_row["d_b"], "sl": shear_row["s_l"]}
+        for column in ("n_legs", "legs"):
+            if column in self.data.columns:
+                transverse[column] = 2 * int(shear_row["n_stir"])
         return faces, transverse
 
     def _rebar_labels(self, section: RectangularBeam) -> tuple[str, str, str]:
@@ -348,7 +375,40 @@ class BeamSummary:
         b = section
         top = face(b._n1_t, b._d_b1_t, b._n2_t, b._d_b2_t, b._n3_t, b._d_b3_t, b._n4_t, b._d_b4_t)
         bottom = face(b._n1_b, b._d_b1_b, b._n2_b, b._d_b2_b, b._n3_b, b._d_b3_b, b._n4_b, b._d_b4_b)
-        return top, bottom, _stirrups_label(section)
+        if section._stirrup_n == 0:
+            return top, bottom, "-"
+        imperial = section.concrete.is_imperial
+        return top, bottom, section.reinforcement.transverse.notation(compact=True, imperial=imperial)
+
+    def section_data(self) -> DataFrame:
+        """Sección física completa, ambas caras y recubrimiento en mm/in."""
+        imperial = self.concrete.is_imperial
+        cover = "in" if imperial else "mm"
+        units = {
+            "Label": "",
+            "b": unit_label("length", imperial),
+            "h": unit_label("length", imperial),
+            "cc": cover,
+            "As,bot": "",
+            "As,top": "",
+            "Av": "",
+        }
+        rows = []
+        for node in self.nodes:
+            section = node.section
+            rebar = section.reinforcement
+            rows.append(
+                {
+                    "Label": section.label,
+                    "b": _section_dimension(section.width, imperial),
+                    "h": _section_dimension(section.height, imperial),
+                    "cc": round(section.c_c.to(cover).magnitude, 2),
+                    "As,bot": str(rebar.bottom) if rebar.bottom.n_bars else "-",
+                    "As,top": str(rebar.top) if rebar.top.n_bars else "-",
+                    "Av": rebar.transverse.notation() if rebar.transverse.n_stirrups else "-",
+                }
+            )
+        return DataFrame([units, *rows])
 
     def check(self, capacity_check: bool = False) -> DataFrame:
         """
@@ -512,7 +572,7 @@ class BeamSummary:
     def design(self) -> DataFrame:
         """
         Run design for all beams in the summary.
-        Fills in the rebar columns (n1–n4, db1–db4, ns, dbs, sl)
+        Fills in the rebar columns (n1–n4, db1–db4, ns/n_legs, dbs, sl)
         with the suggested designs for shear and flexure. Each beam is designed
         for the envelope of its rows, and every row of it gets the same
         stirrups and the bars of the face its moment puts in tension.
@@ -679,6 +739,17 @@ class BeamSummary:
             ],
             ignore_index=True,
         )
+        # Una única cantidad editable: las piezas cerradas no son ns=legs/2.
+        # A slab has no stirrups, and no count to write.
+        if "n_legs" in df_export.columns or "ns" in df_export.columns:
+            if "n_legs" in df_export.columns:
+                canonical = df_export["n_legs"].copy()
+            else:
+                canonical = df_export["ns"].copy()
+                canonical.iloc[1:] = pd.to_numeric(canonical.iloc[1:]) * 2
+            canonical.iloc[0] = ""
+            df_export = df_export.drop(columns=[col for col in ("ns", "n_legs", "legs") if col in df_export.columns])
+            df_export["legs"] = canonical
         df_export.to_excel(path, index=False)
         print(f"✅ {self._ELEMENT_COLUMN} design exported to {path}")
 

@@ -1417,7 +1417,7 @@ def test_beam_data_lists_the_section_and_its_bars_only(
         assert dropped not in header
 
     widths = [round(Emu(cell.width).cm, 2) for cell in table.rows[0].cells]
-    assert widths == [round(Cm(w).cm, 2) for w in [2, 1, 1, 1] + [0.9] * 11]
+    assert widths == [round(Cm(w).cm, 2) for w in [2, 1, 1, 1, 4, 4, 3]]
     assert _table_width_cm(table) <= _usable_width_cm(doc) + 0.05
 
 
