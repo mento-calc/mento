@@ -197,15 +197,19 @@ class DesignCode:
     #: states no such limit, read as every layout admissible.
     flexure_admissible: Callable[..., bool] | None = None
 
-    #: Depth above which §9.7.2.3 requires longitudinal skin reinforcement.
-    #: None means unsupported, not an exemption. ACI: 900 mm / 36 in.;
-    #: CIRSOC: 900 mm regardless of display units.
+    #: Depth from which the code requires longitudinal skin reinforcement.
+    #: None means unsupported, not an exemption. ACI: h > 900 mm / 36 in.;
+    #: CIRSOC: h > 900 mm regardless of display units; EN: h >= 1 m.
     skin_reinforcement_threshold: Callable[..., Any] | None = None
+    #: Whether a section exactly at the threshold already requires skin (EN: "1 m or more").
+    skin_threshold_inclusive: bool = False
+    #: The largest skin diameter the code admits, (section, tension faces, diameter) -> Quantity:
+    #: EN Table 7.2N / Eq. (7.7N). None where the code caps no diameter.
+    skin_diameter_cap: Callable[..., Any] | None = None
     #: §24.3.2 using clear cover to a SIDE face, not to flexural bars.
-    #: (section, side_cover) -> Quantity. EN uses skin_requirement instead.
+    #: (section, side_cover) -> Quantity. None where the code prints no cap:
+    #: mento's ``skin_bar_spacing`` sets the count then (EN).
     max_skin_bar_spacing: Callable[..., Any] | None = None
-    #: A code-specific requirement when the ACI spacing-only rule does not apply.
-    skin_requirement: Callable[..., Any] | None = None
     #: Code-specific supplementary skin/surface warnings, including cases
     #: where requirement could not be evaluated. (section, requirement | None).
     skin_warnings: Callable[..., Any] | None = None

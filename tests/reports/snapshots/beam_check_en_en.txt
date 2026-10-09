@@ -248,7 +248,7 @@ Shear reinforcing 2 legs Ø6 mm @ 40 cm · 14.4 cm between legs (max 34.27 cm), 
 2 legs Ø6 mm @ 40 cm · 14.4 cm between legs (max 34.27 cm)
 
 ### reinforcement.transverse
-2 legs Ø6 mm @ 40 cm · 14.4 cm between legs
+2 legs Ø6 mm @ 40 cm
 
 ### warnings
 As_below_min: Steel on the top face: A_s = 1.01 cm² is below the minimum it has to meet, A_s,min,eff = 1.24 cm².
@@ -264,7 +264,4 @@ stirrup_spacing_exceeds_max: Stirrup spacing along the member: 40 cm exceeds the
 2Ø10+5Ø25
 2Ø8
 2 legs Ø6 mm @ 40 cm
-14.4 cm between legs (max 34.27 cm)
-single perimeter stirrup
-Calculation model only · cage detailing not feasible
-Required compression-bar support: pending
+Steel: 220 kg/m³

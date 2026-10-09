@@ -532,34 +532,56 @@ reproduce; the regression rows, whose only reference is a Calcpad sheet, are tes
      - ``test_design_flexure_EN_1992_2004_infeasible_does_not_crash``
      - Public contract
 
-Supplementary web reinforcement
---------------------------------
+.. _en-skin:
 
-``skin_reinforcement`` implements a limited, rectangular pure-bending
-proposal under EN 1992-1-1:2004 §7.3.3(3), for h >= 1000 mm. Minimum area
-uses §7.3.2(2), Eq. (7.1), with k=0.5 and sigma_s=f_yk. Taking k_c=0.4,
-A_ct=b*h/2 and splitting additional area equally between side faces are
-Mento's rectangular-bending interpretation, not a general axial-force rule.
+Skin reinforcement
+------------------
 
-The Table 7.2N diameter route uses half the independently supplied main
-service stress. Table 7.3N is an alternative and is not imposed cumulatively.
-The geometric substitution in Eq. (7.7N) is not specified expressly for
-skin bars. Mento uses the smaller of its bending-depth and web-as-tie
-interpretations; see the beams guide for both substitutions and limitations.
-Table 7.2N Note 1 assumptions and the need for evenly distributed skin
-under §7.3.3(3) still require engineering review.
-The chosen crack-width row must be justified for the project and applicable
-National Annex. ``diameter_max`` is the cap evaluated for the selected skin
-diameter: its web-as-tie cover substitution depends on that diameter, so it
-is not an independently solved maximum permitted bar size.
+§7.3.3(3) asks for skin reinforcement in beams 1 m deep or more, evenly distributed
+between the tension steel and the neutral axis, inside the links. Its area follows
+§7.3.2(2), Eq. (7.1), with :math:`k = 0.5` and :math:`\sigma_s = f_{yk}`; for a
+rectangular section in bending, :math:`k_c = 0.4` and the tensile area just before
+cracking is :math:`A_{ct} = b\,h/2`. mento splits it equally between the two side faces:
 
-This does not calculate crack width using §7.3.4, does not verify cracking
-of the main reinforcement, and does not implement restraint/early-age
-cracking, prestressing, strut-and-tie design, torsion or seismic detailing.
-Axial cases explicitly report unsupported. Informative Annex J surface
-mesh outside the links remains a separate project/National Annex review.
-Equation/table regression tests for this feature must not be mistaken for
-independent published beam validation or a direct calculated w_k check.
+.. math::
+
+   A_{s,min} = \frac{1}{2}\,\frac{0.4 \cdot 0.5 \cdot f_{ct,eff}\,(b\,h/2)}{f_{yk}}
+   \quad \text{per side}, \qquad f_{ct,eff} = f_{ctm}
+
+Its diameter is limited by Table 7.2N, read with half the main service steel stress
+(§7.3.3(3)), and corrected by Eq. (7.7N):
+
+.. math::
+
+   \phi_{s} = \phi_{s}^{*}\,\frac{f_{ct,eff}}{2.9}\,\frac{h_{cr}}{8\,(h - d)}
+
+EN does not say which :math:`h_{cr}` and :math:`h - d` apply to side bars. mento takes the
+smaller of two readings: :math:`h_{cr} = h/2` over the main tension layer, and the web as a
+tie across its width, :math:`h_{cr} = b` over the skin bar itself. Neither computes a crack
+width (§7.3.4).
+
+mento's criterion (the same under every code, :ref:`aci-skin`):
+
+- **From 60 cm**, below the 1 m of the clause, with the bars over the whole height between
+  the layers so they serve span and support alike. Their count keeps them at most
+  ``BeamSettings.skin_bar_spacing`` apart (28 cm): EN prints no spacing for skin bars, and
+  28 cm is what ACI / CIRSOC §24.3.2 gives with B500-like steel and usual covers.
+- **Below 1 m**: Ø8 up to a 40 cm web, Ø10 above -- not a requirement of EN.
+- **From 1 m**: the smallest diameter whose bars inside the tension zone give
+  :math:`A_{s,min}` and stay within the Table 7.2N cap, with more bars if none does. Wide
+  webs take larger bars: :math:`A_{s,min}` grows with :math:`b`.
+- **Service data.** The tension zone ends at the service neutral axis and the cap reads the
+  service stress. With a ``SkinServiceCase`` for the face in tension mento uses its values;
+  without one it assumes :math:`\sigma_s = 0.6\,f_{yk}`, the order of the quasi-permanent
+  stress of a beam designed at ULS, and :math:`x = 0.4\,h`, and reports
+  ``skin_en_service_assumed``. Neither is sensitive in practice: the cap stays above
+  Ø15 for :math:`\sigma_s \le 400` MPa, and 0.4 h lies on the safe side of the usual
+  0.35-0.45 h.
+
+The status is ``required`` from 1 m and ``proposed`` from 60 cm. With an axial force the
+pure-bending reading does not hold, and a beam from 1 m reports ``unsupported``. The Annex J
+surface mesh outside the links (bars above Ø32, cover above 70 mm) is a separate detail,
+only warned. Skin steel is not credited to the moment or shear resistance.
 
 Compression-bar support
 -----------------------

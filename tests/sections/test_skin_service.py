@@ -56,8 +56,15 @@ def test_shared_preferences_do_not_share_service_cases():
     a.set_skin_service_cases(cases())
     assert a.settings is b.settings
     assert a.skin_reinforcement.status == "required"
-    assert b.skin_reinforcement.status == "pending"
+    # b has no cases of its own: it is checked with the assumed x = 0.4 * 1200 = 480 mm, not a's 240 / 320 mm.
+    assert b.skin_reinforcement.status == "required"
     assert b.skin_service_cases == ()
+    assert [z.combination for z in a.skin_reinforcement.check_zones] == ["frequent+", "frequent-"]
+    assert [z.upper.to("mm").magnitude for z in a.skin_reinforcement.check_zones][0] == pytest.approx(960)
+    assert [z.combination for z in b.skin_reinforcement.check_zones] == ["", ""]
+    assert [z.upper.to("mm").magnitude for z in b.skin_reinforcement.check_zones][0] == pytest.approx(720)
+    assert "skin_en_service_assumed" in [w.code for w in b.warnings]
+    assert "skin_en_service_assumed" not in [w.code for w in a.warnings]
 
 
 def test_service_quantities_are_copied_in_and_out():
@@ -88,8 +95,13 @@ def test_reinforcement_changes_invalidate_service_results_even_inside_design(cha
         b.design([Forces(M_y=100 * kNm)])
     b.check_flexure([Forces(M_y=100 * kNm)])
     assert b.skin_service_cases == ()
-    assert b.skin_reinforcement.status == "pending"
-    assert b.skin_reinforcement.pending_reason == "service"
+    # The discarded case no longer sets the zone: the assumed x = 0.4 * 1200 = 480 mm does (upper 720 mm).
+    req = b.skin_reinforcement
+    assert req.status == "required"
+    assert req.pending_reason is None
+    assert [(z.tension_face, z.combination) for z in req.check_zones] == [("bottom", "")]
+    assert req.check_zones[0].upper.to("mm").magnitude == pytest.approx(720)
+    assert "skin_en_service_assumed" in [w.code for w in b.warnings]
 
 
 def test_readonly_recheck_does_not_discard_external_service_cases():
@@ -100,16 +112,32 @@ def test_readonly_recheck_does_not_discard_external_service_cases():
     assert b.skin_service_cases == before
 
 
+def test_each_service_case_sets_the_zone_of_its_face():
+    """frequent+ (bottom, x = 240): zone 48..960; frequent- (top, x = 320): zone 320..1152; no review warning."""
+    b = section()
+    b.set_skin_service_cases(cases())
+    req = b.skin_reinforcement
+    assert [
+        (z.tension_face, z.combination, z.lower.to("mm").magnitude, z.upper.to("mm").magnitude) for z in req.check_zones
+    ] == [
+        ("bottom", "frequent+", pytest.approx(48), pytest.approx(960)),
+        ("top", "frequent-", pytest.approx(320), pytest.approx(1152)),
+    ]
+    assert req.distribution_reviews == ()
+    assert "skin_distribution_review" not in [w.code for w in b.warnings]
+
+
 def test_each_service_pair_is_checked_including_multiple_cases_on_one_face():
+    """rare+ (bottom, x = 800 mm, 450 MPa) adds a zone 48..400 mm holding only the row at 324 mm: one bar
+    has to give 92.3 mm², so Ø12; and its stress caps the diameter at 16 * fct / 2.9 * 300 / (8 * 44) = 12.06 mm."""
     b = section()
     supplied = cases() + [SkinServiceCase("rare+", "bottom", 450 * MPa, 800 * mm)]
     b.set_skin_service_cases(supplied)
     req = b.skin_reinforcement
-    assert {r.combination for r in req.distribution_reviews} == {c.label for c in supplied}
-    assert all(r.rows_per_side >= 2 for r in req.distribution_reviews)
-    warnings = [w for w in b.warnings if w.code == "skin_distribution_review"]
-    assert len(warnings) == 1
-    assert set(warnings[0].combinations) == {c.label for c in supplied}
+    assert {z.combination for z in req.check_zones} == {c.label for c in supplied}
+    assert req.d_b == 12 * mm
+    fct = 0.3 * 25 ** (2 / 3)
+    assert req.diameter_max.to("mm").magnitude == pytest.approx(16 * fct / 2.9 * 300 / (8 * 44))
 
 
 def test_duplicate_service_case_is_rejected():

@@ -67,8 +67,10 @@ def designed() -> RectangularBeam:
     return beam
 
 
-def _es_beam(n_legs: int, d_b: str, s_l: str, s_w: str, s_max_w: str | None = None) -> str:
+def _es_beam(n_legs: int, d_b: str, s_l: str, s_w: str | None, s_max_w: str | None = None) -> str:
     text = ES["{n_legs} legs Ø{d_b} @ {s_l}"].format(n_legs=n_legs, d_b=d_b, s_l=s_l)
+    if s_w is None:  # The reinforcement as configured: no spacing between legs.
+        return text
     text += " · " + ES["{s_w} between legs"].format(s_w=s_w)
     if s_max_w is not None:
         text += " " + ES["(max {s_max_w})"].format(s_max_w=s_max_w)
@@ -82,23 +84,24 @@ def _es_beam(n_legs: int, d_b: str, s_l: str, s_w: str, s_max_w: str | None = No
 
 def test_the_wide_cirsoc_beam_reads_legs_first_in_english(designed: RectangularBeam) -> None:
     shear = designed.shear_design
-    assert str(designed.reinforcement.transverse) == "10 legs Ø12 mm @ 14 cm · 15.87 cm between legs"
+    assert str(designed.reinforcement.transverse) == "10 legs Ø12 mm @ 14 cm"
     assert str(shear) == "10 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)"
+    # 16 legs would need 16 bars at the bottom, which carries 12: every leg holds a bar.
     assert [str(option) for option in shear.options] == [
         "10 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)",
-        "16 legs Ø6 mm @ 5 cm · 9.56 cm between legs (max 20 cm)",
         "10 legs Ø8 mm @ 6 cm · 15.91 cm between legs (max 20 cm)",
+        "10 legs Ø10 mm @ 9 cm · 15.89 cm between legs (max 20 cm)",
     ]
     assert shear.notation(compact=True) == "10 legs Ø12/14"
     assert shear.arrangement() == "perimeter stirrup + 8 open legs"
-    assert shear.options[1].arrangement() == "perimeter stirrup + 14 open legs"
+    assert shear.options[1].arrangement() == "perimeter stirrup + 8 open legs"
 
 
 def test_the_wide_cirsoc_beam_in_spanish_is_built_from_the_catalog(designed: RectangularBeam) -> None:
     shear = designed.shear_design
-    assert designed.reinforcement.transverse.notation("es") == _es_beam(10, "12 mm", "14 cm", "15.87 cm")
+    assert designed.reinforcement.transverse.notation("es") == _es_beam(10, "12 mm", "14 cm", None)
     assert shear.notation("es") == _es_beam(10, "12 mm", "14 cm", "15.87 cm", "20 cm")
-    assert shear.options[1].notation("es") == _es_beam(16, "6 mm", "5 cm", "9.56 cm", "20 cm")
+    assert shear.options[1].notation("es") == _es_beam(10, "8 mm", "6 cm", "15.91 cm", "20 cm")
     assert shear.notation("es", compact=True) == ES["{n_legs} legs Ø{d_b}/{s_l}"].format(n_legs=10, d_b=12, s_l=14)
     assert shear.arrangement("es") == " + ".join([ES["perimeter stirrup"], ES["{n} open legs"].format(n=8)])
 
@@ -107,7 +110,7 @@ def test_the_spanish_wording_is_pinned(designed: RectangularBeam) -> None:
     """Pinned on purpose: the Spanish wording the notation was specified with, the one test that owns how it reads."""
     shear = designed.shear_design
     assert shear.notation("es") == "10 ramas Ø12 mm c/14 cm · 15.87 cm entre ramas (máx. 20 cm)"
-    assert designed.reinforcement.transverse.notation("es") == "10 ramas Ø12 mm c/14 cm · 15.87 cm entre ramas"
+    assert designed.reinforcement.transverse.notation("es") == "10 ramas Ø12 mm c/14 cm"
     assert shear.notation("es", compact=True) == "10 ramas Ø12/14"
     assert shear.arrangement("es") == "estribo perimetral + 8 patas abiertas"
 
@@ -176,7 +179,7 @@ def test_str_stays_english_whatever_the_language(designed: RectangularBeam) -> N
     mento.set_language("es")
     assert str(designed.shear_design).startswith("10 legs Ø12 mm @ 14 cm")
     assert str(designed.reinforcement) == (
-        "bottom: 2Ø32 mm + 10Ø32 mm / top: no reinforcement / stirrups: 10 legs Ø12 mm @ 14 cm · 15.87 cm between legs"
+        "bottom: 2Ø32 mm + 10Ø32 mm / top: no reinforcement / stirrups: 10 legs Ø12 mm @ 14 cm"
     )
     # notation() and arrangement() follow the language of the moment ...
     assert designed.shear_design.notation() == _es_beam(10, "12 mm", "14 cm", "15.87 cm", "20 cm")
@@ -227,9 +230,9 @@ def test_the_width_spacings_read_in_the_unit_of_s_l() -> None:
     """A beam built in mm with its stirrups set in mm prints every spacing in one unit."""
     beam = _wide_cirsoc_beam(width=1500 * mm)
     beam.set_transverse_rebar(n_stirrups=5, d_b=12 * mm, s_l=140 * mm)
-    assert str(beam.reinforcement.transverse) == "10 legs Ø12 mm @ 140 mm · 158.7 mm between legs"
+    assert str(beam.reinforcement.transverse) == "10 legs Ø12 mm @ 140 mm"
     beam.set_transverse_rebar(n_stirrups=5, d_b=12 * mm, s_l=14 * cm)
-    assert str(beam.reinforcement.transverse) == "10 legs Ø12 mm @ 14 cm · 15.87 cm between legs"
+    assert str(beam.reinforcement.transverse) == "10 legs Ø12 mm @ 14 cm"
 
 
 def test_the_compact_form_on_imperial_and_grid_sections() -> None:

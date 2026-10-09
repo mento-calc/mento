@@ -81,6 +81,46 @@ from the release history and are summaries rather than complete lists.
 
 ### Changed
 
+- **Skin reinforcement follows mento's criterion, the same under every code.** Every
+  beam 60 cm (24 in.) deep or more gets skin on both side faces, spread over the whole
+  height between the bottom and top layers -- so the same bars serve span and support of a
+  continuous beam -- at most the code's spacing apart (ACI / CIRSOC §24.3.2; under EN
+  1992-1-1 the new `BeamSettings.skin_bar_spacing`, 280 mm). Below 1 m its diameter is Ø8 up
+  to a 40 cm web and Ø10 above; from 1 m it is the smallest that gives, in the tension zone,
+  the minimum area of EN §7.3.3(3), under every code, and under EN within the Table 7.2N
+  cap. The status is `required` where the code requires skin and the new `proposed` below
+  that. EN no longer leaves skin pending without service data: it assumes
+  σ_s = 0.6 f_yk and x = 0.4 h for each face in tension that has no `SkinServiceCase`, and
+  says so (`skin_en_service_assumed`, which replaces `skin_en_service_pending`). Every
+  service case of a face is checked, each with its own zone and stress, not only the
+  first. `skin_bar_diameter` defaults to 8 mm and is the smallest diameter used. The skin
+  bars are drawn in dark gray, like the other bars. A CIRSOC 30x120 under +700 / -500 kN·m
+  takes three Ø10 per side over the whole height.
+
+- **The beam section drawing shows the section, not its notes.** On the right, each layer,
+  the skin per side and the stirrups as the section carries them (`2 legs Ø10 mm @ 22 cm`);
+  under it, one line, the steel ratio in kg/m³ (lb/yd³ in US customary units). The spacing
+  between legs, the arrangement of the cage and every caption about pending or failed
+  checks are gone from the figure, and `plot()` no longer warns: those are read in
+  `beam.warnings`, which already carried them (`cage_detailing_infeasible`,
+  `skin_en_service_pending`, ...). Legs between the perimeter stirrup are drawn as ACI
+  crossties, two lines with a 90° leg around the bottom bar and a 135° hook around the
+  top one; mounting bars are drawn and labelled like the other bars, in dark gray, and
+  fill any face of the cage that has no bars even when the drawing falls back to the
+  calculation geometry. The figure is cropped to the drawing.
+- **`str(beam.reinforcement)` and `reinforcement.transverse.notation()` leave out the
+  spacing between legs**: `2 legs Ø10 mm @ 22 cm`. It is a result of the check, which
+  `beam.shear_design.notation()` still prints with its maximum.
+- **A design holds a bar at every stirrup leg.** The first layer of each face a
+  combination puts in tension carries at least as many bars as the section has legs; a
+  design that does not is redesigned with that minimum, as a hard constraint like the bars
+  fitting the width. An ACI 60x40 under 250 kN·m and 300 kN went from 3Ø32 with four legs,
+  two of them on no bar and a cage that could not be detailed, to 7Ø20; a 60x50 under
+  150 kN·m from 3Ø20 to 5Ø16. Shear designs whose legs outnumber the bars of the tension
+  face are no longer offered as alternatives.
+- **`BeamSettings.mounting_bar_diameter` defaults to 8 mm** in metric units (No. 3 in US
+  customary units, as before).
+
 - **A design that does not close keeps the closest layout within the limits** (#169).
   Bars that fit the width, with room for the vibrator on top, and a tension-controlled
   section (§9.3.3.1 / §7.3.3.1; the 4 % under EN 1992-1-1) are never traded for

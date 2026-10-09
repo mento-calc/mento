@@ -243,7 +243,7 @@ def test_a_longitudinal_alternative_past_the_shear_limit_of_its_section_is_dropp
     Node(section=beam, forces=forces).design()
     options = beam.flexure_design.bottom.options
 
-    assert str(beam.reinforcement.transverse) == "2 legs Ø10 mm @ 5 cm · 6 cm between legs"
+    assert str(beam.reinforcement.transverse) == "2 legs Ø10 mm @ 5 cm"
     assert "2Ø10 mm + 2Ø10 mm" not in [str(o) for o in options]
     assert [str(o) for o in options[:2]] == ["2Ø10 mm", "2Ø12 mm"]
     assert [round(o.section_DCR, 3) for o in options[:2]] == [0.994, 0.999]  # type: ignore[arg-type]
@@ -278,7 +278,7 @@ def test_an_en_alternative_that_lowers_the_shear_resistance_past_the_demand_is_d
     top = beam.flexure_design.top.options
 
     assert str(top[0]) == "2Ø20 mm"
-    assert str(beam.reinforcement.transverse) == "2 legs Ø6 mm @ 37 cm · 9.4 cm between legs"
+    assert str(beam.reinforcement.transverse) == "2 legs Ø6 mm @ 37 cm"
     assert not {"2Ø25 mm", "2Ø16 mm + 2Ø12 mm"} & {str(o) for o in top}
     assert all(o.section_DCR is not None and o.section_DCR <= 1.0 for o in top)
     assert top[0].section_DCR == pytest.approx(beam.shear_design.DCR)
