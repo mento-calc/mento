@@ -616,7 +616,7 @@ def steel_ratio(self: "RectangularBeam", geometry: Optional[SectionGeometry] = N
         length += sum(_cm(tie.y_top) - _cm(tie.y_bottom) + 2 * 6 * d for tie in geometry.crossties)
         if s_l > 0:
             transverse = math.pi * d**2 / 4 * length / s_l
-    ratio = (longitudinal + transverse) / area_c * 7850 * ureg.kg / ureg.m**3
+    ratio: Quantity = (longitudinal + transverse) / area_c * 7850 * ureg.kg / ureg.m**3
     return ratio.to("lb/yd**3") if self.concrete.is_imperial else ratio
 
 
