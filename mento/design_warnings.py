@@ -130,19 +130,10 @@ Codes
     §9.7.6.4.3 gives that stirrup, ``s_max``. No combination label, as
     above. A one-way slab is not held to it.
 
-    §9.7.6.4.1 sends the lateral support to §9.7.6.4.2 through §9.7.6.4.4,
-    and none of the three codes above reads the last: that every corner and
-    alternate compression bar sit in a stirrup corner of at most 135°, with
-    no bar farther than 150 mm clear (CIRSOC 201-25: 15 d_b of the stirrup or
-    150 mm) along the stirrup from one that does. mento does not know which
-    bars the legs enclose, so a wide compression face passes it unchecked.
-``force_component_not_checked``
-    A combination gives a component no check of a beam, slab, footing or wall
-    reads: ``V_y``, ``M_z`` or the torsion ``M_x``. The check runs on
-    ``N_x``, ``V_z`` and ``M_y`` and passes over the rest, so a DCR below 1
-    says nothing about them. One warning per component, quoting the largest
-    value given and every combination that gives it; ``values`` carries
-    ``component``, its name, and ``value``.
+    §9.7.6.4.4 is checked separately by ``compression_detailing`` on the
+    modelled first row: corner and alternate-bar support, and two-sided
+    clear distances. Second-row support and differing CIRSOC
+    limit outcomes remain explicitly pending, rather than silently passing.
 """
 
 from __future__ import annotations
@@ -212,6 +203,14 @@ class _Raw:
 #: The English wording of each code; the text is also the key of the Spanish
 #: catalog in :mod:`mento.i18n`. ``{face}`` is filled with the translated face.
 _MESSAGES: Dict[str, str] = {
+    "transverse_legs_added_for_compression_support": "Detailing proposes {placed_legs} legs instead of {input_legs}: {pieces}. Enter the proposed legs to confirm; A_v still uses {input_legs}.",
+    "open_leg_anchorage_outside_model": "Open-leg hooks and anchorage are outside this sectional model; verify them separately.",
+    "crosstie_alternation_required": "135°/90° crossties: alternate the 90° ends along the member; seismic detailing not verified.",
+    "cage_detailing_infeasible": "The base cage cannot be detailed: {reason}",
+    "cage_detailing_pending": "The base cage cannot yet be verified: {reason}",
+    "compression_detailing_en_pending": "EN compression-bar support (§9.2.1.2(3), 15φ) is not verified by Mento.",
+    "compression_detailing_failed": "Required compression-bar support fails (§9.7.6.4.4): {reason}.",
+    "compression_detailing_pending": "Required compression-bar support is not fully verified (§9.7.6.4.4): {reason}.",
     "As_below_min": (
         "Steel on the {face}: A_s = {A_s} is below the minimum it has to meet, A_s,min,eff = {A_s_min_eff}."
     ),
@@ -817,3 +816,93 @@ def collect(raws: List[_Raw]) -> Tuple[DesignWarning, ...]:
             )
         )
     return tuple(warnings)
+
+
+def compression_detailing_warnings(beam: "RectangularBeam") -> List[_Raw]:
+    """Required compression bars: modelled §9.7.6.4.4 failures or pending checks."""
+    result = beam.compression_detailing
+    if result.status not in ("failed", "pending"):
+        return []
+    if beam.concrete.design_code == "EN 1992-2004":
+        return [_Raw("compression_detailing_en_pending", {})]
+    if result.reason == "flexure_not_checked":
+        return []  # Existing plot caption says verification is pending.
+    if not result.faces:
+        return [
+            _Raw(
+                "compression_detailing_pending" if result.status == "pending" else "compression_detailing_failed",
+                {"reason": translate(_COMPRESSION_REASONS.get(result.reason, result.reason)).rstrip(".")},
+            )
+        ]
+    return [
+        _Raw(
+            "compression_detailing_" + item.status,
+            {
+                "reason": "; ".join(translate(_COMPRESSION_REASONS[reason]) for reason in item.reasons),
+                "distance": item.maximum_clear_distance,
+            },
+            face=item.face,
+        )
+        for item in result.faces
+        if item.status in ("failed", "pending")
+    ]
+
+
+_COMPRESSION_REASONS = {
+    "corner_bar_unbraced": "A corner bar is not braced by a stirrup corner",
+    "alternate_bars_unbraced": "Two successive compression bars lack corner support",
+    "bar_outside_closed_stirrup": "A required compression bar lies outside the closed stirrup",
+    "clear_distance_exceeded": "The clear distance on a side exceeds the permitted limit",
+    "cirsoc_limit_interpretation": "The 15 d_be and 150 mm limits give different outcomes; interpretation pending",
+    "second_row_support_not_modelled": "Second-row compression support requires a separate detail",
+    "crosstie_anchorage_not_verified": "Crosstie anchorage is not verified",
+    "crosstie_hook_rule_not_modelled": "The crosstie hook size is outside the supported model",
+    "first_row_missing": "The required first compression row is missing",
+    "closed_stirrups_missing": "Required compression steel has no closed stirrups",
+    "unsupported_bend": "The stirrup bend is outside the supported model",
+}
+
+
+def cage_detailing_warnings(beam: "RectangularBeam") -> List[_Raw]:
+    """Diagnóstico geométrico, separado de los cálculos resistentes."""
+    from mento.cage_detailing import CageDetailingError, build_cage_detailing
+
+    if beam._stirrups_optional or not beam._stirrup_n:
+        return []
+    try:
+        build_cage_detailing(beam)
+    except CageDetailingError as error:
+        code = (
+            "cage_detailing_pending"
+            if error.reason in ("unsupported_bend", "compression_support_search")
+            else "cage_detailing_infeasible"
+        )
+        return [_Raw(code, {"reason": str(error)})]
+    return []
+
+
+def transverse_proposal_warnings(beam: "RectangularBeam") -> List[_Raw]:
+    """La propuesta de jaula no modifica la entrada ni aprueba ramas no confirmadas."""
+    from mento.cage_detailing import CageDetailingError, build_cage_detailing
+
+    if beam._stirrups_optional or not beam._stirrup_n:
+        return []
+    try:
+        geometry = build_cage_detailing(beam, include_skin=False)
+    except CageDetailingError:
+        return []
+    result = []
+    entered = int(2 * beam._stirrup_n)
+    placed = len(geometry.leg_x)
+    if placed != entered:
+        result.append(
+            _Raw(
+                "transverse_legs_added_for_compression_support",
+                {"input_legs": entered, "placed_legs": placed, "pieces": geometry.arrangement()},
+            )
+        )
+    if any(t.extension is not None and t.alternate_hooks for t in geometry.crossties):
+        result.append(_Raw("crosstie_alternation_required", {}))
+    if any(t.extension is None for t in geometry.crossties):
+        result.append(_Raw("open_leg_anchorage_outside_model", {}))
+    return result

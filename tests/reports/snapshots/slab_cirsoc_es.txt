@@ -91,23 +91,27 @@ Solicitaciones                 Variable     Valor  Unidad
 Axil, positivo en compresión      Nu            0  kN
 Corte                             Vu           60  kN 
 
-Resistencia de la armadura de corte                   Variable     Valor  Unidad
----------------------------------------------------  ----------  -------  --------
-Diámetro del estribo                                     db            0  mm
-Separación de estribos en la dirección longitudinal      sl            0  cm
-Separación de estribos en la dirección transversal       sw            0  cm
-Altura útil                                              d          16.9  cm
-Armadura mínima de corte                               Av,min          0  cm²/m
-Armadura de corte requerida                            Av,req          0  cm²/m
-Armadura de corte adoptada                               Av            0  cm²/m
-Resistencia de la armadura de corte                     ØVs            0  kN 
+Resistencia de la armadura de corte                                Variable     Valor  Unidad
+----------------------------------------------------------------  ----------  -------  --------
+Diámetro del estribo                                                  db            0  mm
+Separación de estribos en la dirección longitudinal                   sl            0  cm
+Separación de estribos en la dirección transversal                    sw            0  cm
+Altura útil                                                           d          16.9  cm
+Armadura mínima de corte                                            Av,min          0  cm²/m
+Armadura de corte requerida                                         Av,req          0  cm²/m
+Armadura de corte adoptada                                            Av            0  cm²/m
+Resistencia de la armadura de corte                                  ØVs            0  kN
+Corte nominal que deben resistir los estribos (Vu/φ − Vc)           Vs,req          0  kN
+Umbral de la Tabla 9.7.6.2.2 (0.33√f'c·bw·d)                        Vs,lim     278.85  kN
+Vs,req ≤ Vs,lim → Tabla 9.7.6.2.2: d/2 a lo largo, d en el ancho
+Tope absoluto de la Tabla 9.7.6.2.2 en esta fila                    s,cap          40  cm 
 
-Verificación                                          Unidad     Valor  Mín.      Máx.  ¿Ok?
----------------------------------------------------  --------  -------  ------  ------  ------
-Separación de estribos en la dirección longitudinal     cm           0            8.45  ✅
-Separación de estribos en la dirección transversal      cm           0            16.9  ✅
-Armadura mínima de corte                              cm²/m          0  0               ✅
-Diámetro mínimo de barra                                mm           0  0               ✅ 
+Verificación                                                           Unidad     Valor  Mín.      Máx.  ¿Ok?
+--------------------------------------------------------------------  --------  -------  ------  ------  ------
+Separación de estribos en la dirección longitudinal                      cm           0            8.45  ✅
+Separación de estribos en la dirección transversal (Tabla 9.7.6.2.2)     cm           0            16.9  ✅
+Armadura mínima de corte                                               cm²/m          0  0               ✅
+Diámetro mínimo de barra                                                 mm           0  0               ✅ 
 
 Resistencia al corte                     Variable     Valor  Unidad
 --------------------------------------  ----------  -------  --------
@@ -122,8 +126,8 @@ Resistencia total al corte                 ØVn        67.39  kN
 Verificación de corte máximo                             ✅
 Factor de Utilización                      DCR         0.89  ✅ 
 
-Verificación                              Estado
-------------------------------  ---------------------------
+Verificación                              Estado               Notas de detallado
+------------------------------  ---------------------------  --------------------
 Resistencia                     Cumple (chequeos modelados)
 Detallado (chequeos modelados)  Cumple (chequeos modelados) 
 
@@ -201,19 +205,23 @@ Corte | Vu | 60.0 | kN
 Verificaciones de límites
 Verificación | Unidad | Valor | Mín. | Máx. | ¿Ok?
 Separación de estribos en la dirección longitudinal | cm | 0.0 |  | 8.45 | ✅
-Separación de estribos en la dirección transversal | cm | 0.0 |  | 16.9 | ✅
+Separación de estribos en la dirección transversal (Tabla 9.7.6.2.2) | cm | 0.0 |  | 16.9 | ✅
 Armadura mínima de corte | cm²/m | 0.0 | 0.0 |  | ✅
 Diámetro mínimo de barra | mm | 0.0 | 0 |  | ✅
 Verificaciones de resistencia
 Resistencia de la armadura de corte | Variable | Valor | Unidad
-Diámetro del estribo | db | 0.0 | mm
-Separación de estribos en la dirección longitudinal | sl | 0.0 | cm
+Diámetro del estribo | db | 0 | mm
+Separación de estribos en la dirección longitudinal | sl | 0 | cm
 Separación de estribos en la dirección transversal | sw | 0.0 | cm
 Altura útil | d | 16.9 | cm
 Armadura mínima de corte | Av,min | 0.0 | cm²/m
 Armadura de corte requerida | Av,req | 0.0 | cm²/m
 Armadura de corte adoptada | Av | 0.0 | cm²/m
 Resistencia de la armadura de corte | ØVs | 0.0 | kN
+Corte nominal que deben resistir los estribos (Vu/φ − Vc) | Vs,req | 0.0 | kN
+Umbral de la Tabla 9.7.6.2.2 (0.33√f'c·bw·d) | Vs,lim | 278.9 | kN
+Vs,req ≤ Vs,lim → Tabla 9.7.6.2.2: d/2 a lo largo, d en el ancho |  |  | 
+Tope absoluto de la Tabla 9.7.6.2.2 en esta fila | s,cap | 40.0 | cm
 Resistencia al corte | Variable | Valor | Unidad
 Área efectiva de corte | Acv | 1690.0 | cm²
 Cuantía de armadura longitudinal | ρw | 0.00418 | 
@@ -226,9 +234,9 @@ Resistencia total al corte | ØVn | 67.4 | kN
 Verificación de corte máximo |  | ✅ | 
 Factor de Utilización | DCR | 0.89 | ✅
 Resistencia y detallado
-Verificación | Estado
-Resistencia | Cumple (chequeos modelados)
-Detallado (chequeos modelados) | Cumple (chequeos modelados)
+Verificación | Estado | Notas de detallado
+Resistencia | Cumple (chequeos modelados) | 
+Detallado (chequeos modelados) | Cumple (chequeos modelados) | 
 
 ### results
 Slab L1, $b$=100.00 cm, $h$=20.00 cm, $c_{c}$=2.50 cm,                         Concrete H25, Rebar ADN 420.

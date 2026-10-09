@@ -51,6 +51,8 @@ extensions = [
 # Hide input and output prompts
 nbsphinx_input_prompt = "%.0s"
 nbsphinx_output_prompt = "%.0s"
+# Documentation builds must not execute examples or write generated workbooks.
+nbsphinx_execute = "never"
 
 master_doc = "index"
 

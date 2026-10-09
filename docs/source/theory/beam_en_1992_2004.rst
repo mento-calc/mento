@@ -371,13 +371,29 @@ Minimum reinforcement and spacing
 
 with :math:`\alpha` the stirrup inclination, fixed at 90° (vertical stirrups).
 
-Spacing limits, §9.2.2(6) and (8):
+Spacing limits, §9.2.2(6) and (8), Expressions (9.6N) and (9.8N):
 
 .. math::
 
    s_{max,l} = \min\left(0.75\,d\,(1 + \cot\alpha),\ 400\ \text{mm}\right)
    \qquad
    s_{max,w} = \min\left(0.75\,d,\ 600\ \text{mm}\right)
+
+Expression (9.8N) carries the 600 mm cap. Expression (9.6N) has none: the 400 mm on
+:math:`s_{max,l}` is mento's own, not the code's, and is kept as it is. EN 1992-1-1 has no
+threshold that halves these limits, so a ``ShearCheck`` of this code reports
+``V_s_req``, ``V_s_threshold`` and ``spacing_halved`` as ``None``; on a section with no
+stirrups the check sets no limit, and ``s_max_l_table`` and ``s_max_w`` are ``None`` too.
+
+The limit across the width is on the legs, spread as under ACI 318-19: ``n`` closed
+stirrups put :math:`2n` legs evenly between the centres of the outermost pair,
+
+.. math::
+
+   s_w = \frac{b - 2c_c - d_{b,st}}{2n - 1}
+
+in calculation geometry with one perimeter and open interior legs. EN compression
+support remains pending; detailing is a separate proposal.
 
 .. note::
 

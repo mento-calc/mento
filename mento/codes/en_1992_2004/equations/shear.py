@@ -223,8 +223,9 @@ def max_stirrup_spacing(d: float, alpha: float) -> tuple[float, float]:
             stirrups are pi/2, for which the longitudinal limit is 0.75*d.
 
     Returns:
-        ``(s_max_l, s_max_w)`` in mm, each capped by the clause — 400 mm along
-        the member, 600 mm across it.
+        ``(s_max_l, s_max_w)`` in mm, each capped: 400 mm along the member
+        (mento's own cap; Expression (9.6N) has none), 600 mm across it
+        (Expression (9.8N)).
     """
     s_max_l = min(0.75 * d * (1 + 1 / math.tan(alpha)), 400.0)
     s_max_w = min(0.75 * d, 600.0)

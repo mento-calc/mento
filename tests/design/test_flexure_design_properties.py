@@ -186,7 +186,7 @@ def test_a_full_design_passes_its_own_check_with_the_stirrups_it_ends_with() -> 
     assert beam._stirrup_d_b.to("mm").magnitude == pytest.approx(10.0)
     assert beam.flexure_checks[0].bottom.DCR <= 1.0
     assert beam.shear_checks[0].DCR <= 1.0
-    assert node.warnings == ()
+    assert [w.code for w in node.warnings] == ["cage_detailing_infeasible"]
     assert beam.flexure_design.bottom.A_s >= beam.flexure_design.bottom.A_s_req
 
     node.design()
@@ -299,7 +299,7 @@ def test_a_design_that_does_not_close_keeps_the_closest_layout_within_the_limits
 
     assert str(beam.reinforcement.bottom) == "2Ø20 mm"
     assert str(beam.reinforcement.top) == "2Ø10 mm + 1Ø10 mm"
-    assert str(beam.reinforcement.transverse) == "1sØ6 mm/9 cm"
+    assert str(beam.reinforcement.transverse) == "2 legs Ø6 mm @ 9 cm · 11.4 cm between legs"
     assert beam.flexure_design.bottom.DCR == pytest.approx(1.114, abs=0.0005)
     assert beam.flexure_checks[0].bottom.admissible
     assert "bottom" in [w.face for w in node.warnings if w.code == "As_below_required"]
@@ -332,17 +332,23 @@ def test_a_round_whose_bars_leave_no_room_for_the_vibrator_is_no_solution() -> N
     assert beam._stirrup_d_b.to("mm").magnitude == pytest.approx(10.0)
     assert beam.flexure_design.top.DCR == pytest.approx(1.092, abs=0.0005)
     assert [(w.code, w.face) for w in node.warnings] == [
+        ("compression_detailing_pending", None),
+        ("cage_detailing_infeasible", None),
         ("As_below_required", "top"),
         ("section_too_small_for_moment", None),
     ]
-    short = node.warnings[0]
+    short = next(w for w in node.warnings if w.code == "As_below_required")
     assert short.values["A_s_req"].to("cm**2").magnitude == pytest.approx(3.50, abs=0.005)
 
     # The same bars a check is given by hand say what the design would not leave.
     beam.set_longitudinal_rebar_top(n1=2, d_b1=12 * mm, n3=2, d_b3=10 * mm)
     node.check()
     assert beam.flexure_checks[0].top.DCR == pytest.approx(0.907, abs=0.0005)
-    assert [(w.code, w.face) for w in node.warnings] == [("clear_spacing_below_vibrator", "top")]
+    assert [(w.code, w.face) for w in node.warnings] == [
+        ("clear_spacing_below_vibrator", "top"),
+        ("compression_detailing_pending", None),
+        ("cage_detailing_infeasible", None),
+    ]
 
 
 def test_the_design_rounds_stop_on_a_repeated_state(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -421,7 +427,8 @@ def test_the_search_for_the_closest_layout_can_find_one_that_closes() -> None:
     not tension-controlled. A 40 cm web fits more layouts than the search
     tries, so it spreads its 16 over them, the lightest and the heaviest
     always among them, and 7Ø20 on each face closes: tension-controlled,
-    DCR 0.929, no warning at all (issue #169).
+    DCR 0.929, no flexure warning (issue #169); what is left is the
+    detailing of the cage around the compression bars.
     """
     beam = _aci_beam(40, 25, 25)
     forces = [Forces(label="+", M_y=130 * kNm, V_z=50 * kN), Forces(label="-", M_y=-130 * kNm, V_z=50 * kN)]
@@ -432,7 +439,10 @@ def test_the_search_for_the_closest_layout_can_find_one_that_closes() -> None:
     assert str(beam.reinforcement.top) == "2Ø20 mm + 5Ø20 mm"
     assert beam.flexure_design.DCR == pytest.approx(0.929, abs=0.0005)
     assert all(check.complies for check in beam.flexure_checks)
-    assert node.warnings == ()
+    assert [(w.code, w.face) for w in node.warnings] == [
+        ("compression_detailing_pending", None),
+        ("cage_detailing_infeasible", None),
+    ]
 
 
 def test_the_search_leaves_a_face_with_no_bars_bare() -> None:

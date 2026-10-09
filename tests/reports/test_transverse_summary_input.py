@@ -61,7 +61,6 @@ def test_leg_input_excel_and_current_word(tmp_path, monkeypatch):
 @pytest.mark.parametrize(
     "column,value",
     [
-        ("n_legs", 3),
         ("n_legs", 2.5),
         ("n_legs", -2),
         ("n_legs", True),
@@ -76,18 +75,18 @@ def test_rejects_invalid_counts_before_numeric_coercion(column, value):
     if column == "ns":
         table = table.rename(columns={"n_legs": "ns"})
     table.loc[1, column] = value
-    with pytest.raises(ValueError, match="count|even"):
+    with pytest.raises((TypeError, ValueError), match=column):
         BeamSummary(*materials(), table)
 
 
 def test_rejects_conflicting_counts_and_count_units():
     table = beam_table()
     table["ns"] = ["", 1]
-    with pytest.raises(ValueError, match="different reinforcement"):
+    with pytest.raises(ValueError, match="equal"):
         BeamSummary(*materials(), table)
     table = beam_table()
     table.loc[0, "n_legs"] = "mm"
-    with pytest.raises(ValueError, match="dimensionless"):
+    with pytest.raises(ValueError, match="blank units cell"):
         BeamSummary(*materials(), table)
 
 

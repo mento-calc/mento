@@ -91,21 +91,26 @@ Solicitaciones                 Variable     Valor  Unidad
 Axil, positivo en compresión      Nu            0  kN
 Corte                             Vu          150  kN 
 
-Resistencia de la armadura de corte     Variable     Valor  Unidad
--------------------------------------  ----------  -------  --------
-Número de estribos                         ns            1
-Diámetro del estribo                       db            8  mm
-Separación de estribos                     s            15  cm
-Altura útil                                d         45.75  cm
-Armadura mínima de corte                 Av,min       1.67  cm²/m
-Armadura de corte requerida              Av,req       6.36  cm²/m
-Armadura de corte adoptada                 Av          6.7  cm²/m
-Resistencia de la armadura de corte       ØVs        96.58  kN 
+Resistencia de la armadura de corte                                Variable     Valor  Unidad
+----------------------------------------------------------------  ----------  -------  --------
+Número de ramas                                                       nl            2
+Diámetro del estribo                                                  db            8  mm
+Separación de estribos                                                s            15  cm
+Separación de ramas en el ancho                                       sw         14.2  cm
+Altura útil                                                           d         45.75  cm
+Armadura mínima de corte                                            Av,min       1.67  cm²/m
+Armadura de corte requerida                                         Av,req       6.36  cm²/m
+Armadura de corte adoptada                                            Av          6.7  cm²/m
+Resistencia de la armadura de corte                                  ØVs        96.58  kN
+Corte nominal que deben resistir los estribos (Vu/φ − Vc)           Vs,req     122.23  kN
+Umbral de la Tabla 9.7.6.2.2 (0.33√f'c·bw·d)                        Vs,lim     150.97  kN
+Vs,req ≤ Vs,lim → Tabla 9.7.6.2.2: d/2 a lo largo, d en el ancho
+Tope absoluto de la Tabla 9.7.6.2.2 en esta fila                    s,cap          40  cm 
 
 Verificación                                          Unidad     Valor  Mín.      Máx.  ¿Ok?
 ---------------------------------------------------  --------  -------  ------  ------  ------
 Separación de estribos en la dirección longitudinal     cm          15           22.87  ✅
-Separación de estribos en la dirección transversal      cm        14.2              40  ✅
+Separación de ramas en el ancho (Tabla 9.7.6.2.2)       cm        14.2              40  ✅
 Armadura mínima de corte                              cm²/m        6.7  1.67            ✅
 Diámetro mínimo de barra                                mm           8                  ✅ 
 
@@ -122,8 +127,8 @@ Resistencia total al corte                 ØVn       154.91  kN
 Verificación de corte máximo                             ✅
 Factor de Utilización                      DCR         0.97  ✅ 
 
-Verificación                              Estado
-------------------------------  ---------------------------
+Verificación                              Estado               Notas de detallado
+------------------------------  ---------------------------  --------------------
 Resistencia                     Cumple (chequeos modelados)
 Detallado (chequeos modelados)  Cumple (chequeos modelados) 
 
@@ -201,19 +206,24 @@ Corte | Vu | 150.0 | kN
 Verificaciones de límites
 Verificación | Unidad | Valor | Mín. | Máx. | ¿Ok?
 Separación de estribos en la dirección longitudinal | cm | 15.0 |  | 22.87 | ✅
-Separación de estribos en la dirección transversal | cm | 14.2 |  | 40.0 | ✅
+Separación de ramas en el ancho (Tabla 9.7.6.2.2) | cm | 14.2 |  | 40.0 | ✅
 Armadura mínima de corte | cm²/m | 6.7 | 1.67 |  | ✅
 Diámetro mínimo de barra | mm | 8.0 |  |  | ✅
 Verificaciones de resistencia
 Resistencia de la armadura de corte | Variable | Valor | Unidad
-Número de estribos | ns | 1.0 | 
-Diámetro del estribo | db | 8.0 | mm
-Separación de estribos | s | 15.0 | cm
+Número de ramas | nl | 2 | 
+Diámetro del estribo | db | 8 | mm
+Separación de estribos | s | 15 | cm
+Separación de ramas en el ancho | sw | 14.2 | cm
 Altura útil | d | 45.75 | cm
 Armadura mínima de corte | Av,min | 1.67 | cm²/m
 Armadura de corte requerida | Av,req | 6.36 | cm²/m
 Armadura de corte adoptada | Av | 6.7 | cm²/m
 Resistencia de la armadura de corte | ØVs | 96.6 | kN
+Corte nominal que deben resistir los estribos (Vu/φ − Vc) | Vs,req | 122.2 | kN
+Umbral de la Tabla 9.7.6.2.2 (0.33√f'c·bw·d) | Vs,lim | 151.0 | kN
+Vs,req ≤ Vs,lim → Tabla 9.7.6.2.2: d/2 a lo largo, d en el ancho |  |  | 
+Tope absoluto de la Tabla 9.7.6.2.2 en esta fila | s,cap | 40.0 | cm
 Resistencia al corte | Variable | Valor | Unidad
 Área efectiva de corte | Acv | 914.97 | cm²
 Cuantía de armadura longitudinal | ρw | 0.00906 | 
@@ -226,16 +236,16 @@ Resistencia total al corte | ØVn | 154.9 | kN
 Verificación de corte máximo |  | ✅ | 
 Factor de Utilización | DCR | 0.97 | ✅
 Resistencia y detallado
-Verificación | Estado
-Resistencia | Cumple (chequeos modelados)
-Detallado (chequeos modelados) | Cumple (chequeos modelados)
+Verificación | Estado | Notas de detallado
+Resistencia | Cumple (chequeos modelados) | 
+Detallado (chequeos modelados) | Cumple (chequeos modelados) | 
 
 ### results
 Beam V101, $b$=20.00 cm, $h$=50.00 cm, $c_{c}$=2.50 cm,                         Concrete H25, Rebar ADN 420.
 Top longitudinal rebar: 2Ø16+1Ø12, $A_{s,top}$ = 5.15 cm², $M_u$ = -80.0 kNm, $\phi M_n$ = 84.52 kNm → $\color{#efc200}{\text{DCR}=0.95}$ 
 
 Bottom longitudinal rebar: 2Ø20+1Ø16, $A_{s,bot}$ = 8.29 cm², $M_u$ = 120.0 kNm, $\phi M_n$ = 130.58 kNm → $\color{#439b00}{\text{DCR}=0.92}$ 
-Shear reinforcing 1eØ8/15 cm, $A_v$=6.7 cm²/m, $V_u$=150.0 kN, $\phi V_n$=154.91 kN → $\color{#efc200}{\text{DCR}=0.97}$ 
+Shear reinforcing 2 legs Ø8 mm @ 15 cm · 14.2 cm between legs (max 40 cm), $A_v$=6.7 cm²/m, $V_u$=150.0 kN, $\phi V_n$=154.91 kN → $\color{#efc200}{\text{DCR}=0.97}$ 
 
 ### flexure_design
 2Ø16 mm
@@ -244,10 +254,10 @@ Shear reinforcing 1eØ8/15 cm, $A_v$=6.7 cm²/m, $V_u$=150.0 kN, $\phi V_n$=154.
 1Ø16 mm
 
 ### shear_design
-1eØ8 mm/15 cm
+2 legs Ø8 mm @ 15 cm · 14.2 cm between legs (max 40 cm)
 
 ### reinforcement.transverse
-1eØ8 mm/15 cm
+2 legs Ø8 mm @ 15 cm · 14.2 cm between legs
 
 ### warnings
 
@@ -257,4 +267,6 @@ Shear reinforcing 1eØ8/15 cm, $A_v$=6.7 cm²/m, $V_u$=150.0 kN, $\phi V_n$=154.
 50 cm
 2Ø20+1Ø16
 2Ø16+1Ø12
-1eØ8/15
+2 ramas Ø8 mm c/15 cm
+14.2 cm entre ramas (máx. 40 cm)
+estribo perimetral

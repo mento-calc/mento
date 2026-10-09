@@ -105,6 +105,9 @@ class OneWaySlabSummary(BeamSummary):
             for face, suffix in (("bottom", "b"), ("top", "t"))
         }
 
+    def _report_labels(self, section: Any) -> tuple[str, str, str]:
+        return self._rebar_labels(section)
+
     def _rebar_labels(self, section: Any) -> tuple[str, str, str]:
         imperial = section.concrete.is_imperial
         placed = section.reinforcement

@@ -1,16 +1,16 @@
 ### check
-   Viga   b   h     As,top        As,bot       Av   MEd    VEd   NEd DCRb,top DCRb,bot   DCRv ¿Ok?
-0        cm  cm                                     kNm     kN    kN                              
-1  V101  20  50        2Ø8     2Ø12+1Ø10        -   0.0   20.0   0.0      0.0      0.0  0.539    ✅
-2  V102  20  50  2Ø12+1Ø16           2Ø8  1eØ6/20 -35.0   50.0   0.0    0.439      0.0  0.391    ✅
-3  V103  25  60        2Ø8  3Ø16 ++ 2Ø12  1eØ8/15  60.0  100.0  10.0      0.0    0.334  0.278    ✅
+   Viga   b   h     As,top        As,bot             Av   MEd    VEd   NEd DCRb,top DCRb,bot   DCRv ¿Ok?
+0        cm  cm                                           kNm     kN    kN                              
+1  V101  20  50        2Ø8     2Ø12+1Ø10              -   0.0   20.0   0.0      0.0      0.0  0.539    ✅
+2  V102  20  50  2Ø12+1Ø16           2Ø8  2 ramas Ø6/20 -35.0   50.0   0.0    0.439      0.0  0.391    ✅
+3  V103  25  60        2Ø8  3Ø16 ++ 2Ø12  2 ramas Ø8/15  60.0  100.0  10.0      0.0    0.334  0.278    ✅
 
 ### check capacity
-   Viga   b   h     As,top        As,bot       Av As,top,real As,bot,real Av,real MRd,top MRd,bot     VRd
-0        cm  cm                                           cm²         cm²   cm²/m     kNm     kNm      kN
-1  V101  20  50        2Ø8     2Ø12+1Ø10        -         1.0         3.0     0.0    19.9    58.0   37.11
-2  V102  20  50  2Ø12+1Ø16           2Ø8  1eØ6/20         4.3         1.0     2.8    79.7    20.0  127.81
-3  V103  25  60        2Ø8  3Ø16 ++ 2Ø12  1eØ8/15         1.0         8.3     6.7    24.3   179.4  359.55
+   Viga   b   h     As,top        As,bot             Av As,top,real As,bot,real Av,real MRd,top MRd,bot     VRd
+0        cm  cm                                                 cm²         cm²   cm²/m     kNm     kNm      kN
+1  V101  20  50        2Ø8     2Ø12+1Ø10              -         1.0         3.0     0.0    19.9    58.0   37.11
+2  V102  20  50  2Ø12+1Ø16           2Ø8  2 ramas Ø6/20         4.3         1.0     2.8    79.7    20.0  127.81
+3  V103  25  60        2Ø8  3Ø16 ++ 2Ø12  2 ramas Ø8/15         1.0         8.3     6.7    24.3   179.4  359.55
 
 ### design
   Label  Comb.         b         h        cc        Nx         Vz           My  ns      dbs        sl  n1       db1  n2       db2  n3      db3  n4      db4 n1_bot   db1_bot n2_bot   db2_bot n3_bot  db3_bot n4_bot  db4_bot n1_top   db1_top n2_top  db2_top n3_top  db3_top n4_top  db4_top
@@ -117,18 +117,21 @@ Corte | VEd,2 | 20.0 | kN
 Verificaciones de límites
 Verificación | Unidad | Valor | Mín. | Máx. | ¿Ok?
 Separación de estribos en la dirección longitudinal | cm | 34.0 |  | 34.8 | ✅
-Separación de estribos en la dirección transversal | cm | 14.4 |  | 34.8 | ✅
+Separación de ramas en el ancho (§9.2.2(8)) | cm | 14.4 |  | 34.8 | ✅
 Armadura mínima de corte | cm²/m | 1.66 | 1.6 |  | ✅
 Verificaciones de resistencia
 Resistencia de la armadura de corte | Variable | Valor | Unidad
-Número de estribos | ns | 1.0 | 
-Diámetro del estribo | db | 6.0 | mm
-Separación de estribos | s | 34.0 | cm
+Número de ramas | nl | 2 | 
+Diámetro del estribo | db | 6 | mm
+Separación de estribos | s | 34 | cm
+Separación de ramas en el ancho | sw | 14.4 | cm
 Altura útil | d | 46.4 | cm
 Armadura mínima de corte | Asw,min | 1.6 | cm²/m
 Armadura de corte requerida | Asw,req | 1.6 | cm²/m
 Armadura de corte adoptada | Asw | 1.66 | cm²/m
 Resistencia de la armadura de corte | VRd,s | 75.5 | kN
+Expresión (9.6N) a lo largo: 0.75·d·(1 + cot α), tope de 400 mm de mento |  |  | 
+Expresión (9.8N) en el ancho: 0.75·d, como máximo 600 mm |  |  | 
 Resistencia al corte | Variable | Valor | Unidad
 Cuantía de armadura longitudinal | ρl | 0.0017 | 
 Valor de k | k | 1.66 | 
@@ -141,16 +144,16 @@ Verificación de corte máximo |  | ✅ |
 Factor de Utilización | DCR | 0.27 | ✅
 Resumen - Todas las vigas
 Resistencia y detallado
-Etiqueta | Resistencia | Detallado (chequeos modelados)
-V101 | Cumple (chequeos modelados) | Cumple (chequeos modelados)
-V102 | Cumple (chequeos modelados) | Cumple (chequeos modelados)
-V103 | Cumple (chequeos modelados) | Cumple (chequeos modelados)
+Etiqueta | Resistencia | Detallado (chequeos modelados) | Notas de detallado
+V101 | Cumple (chequeos modelados) | Cumple (chequeos modelados) | 
+V102 | Cumple (chequeos modelados) | Cumple (chequeos modelados) | 
+V103 | Cumple (chequeos modelados) | Cumple (chequeos modelados) | 
 Datos de las vigas
 Etiqueta | b | h | cc | As,bot | As,top | Av
  | cm | cm | mm |  |  | 
-V101 | 20 | 50 | 25 | 2Ø10 | - | 1eØ6/34
-V102 | 20 | 50 | 25 | 2Ø10 | 2Ø12 | 1eØ6/34
-V103 | 25 | 60 | 25 | 2Ø12+1Ø10 | - | 1eØ6/28
+V101 | 20 | 50 | 25 | 2Ø10 mm | - | 2 ramas Ø6 mm c/34 cm · 14.4 cm entre ramas
+V102 | 20 | 50 | 25 | 2Ø10 mm | 2Ø12 mm | 2 ramas Ø6 mm c/34 cm · 14.4 cm entre ramas
+V103 | 25 | 60 | 25 | 2Ø12 mm + 1Ø10 mm | - | 2 ramas Ø6 mm c/28 cm · 19.4 cm entre ramas
 Resultados de flexión
 Etiqueta | Comb. | Posición | As,min | As,req top | As,req bot | As | MEd | MRd | DCR
  |  |  | cm² | cm² | cm² | cm² | kNm | kNm | 
@@ -166,6 +169,6 @@ V103 | ELU 3 | 2.0 | 2.0 | 2.02 | 10.0 | 100.0 | 51.1 | 111.3 | 111.3 | 393.3 | 
 Resumen de verificaciones
 Viga | b | h | As,top | As,bot | Av | MEd | VEd | NEd | DCRb,top | DCRb,bot | DCRv | ¿Ok?
  | cm | cm |  |  |  | kNm | kN | kN |  |  |  | 
-V101 | 20 | 50 | - | 2Ø10 | 1eØ6/34 | 0.0 | 20.0 | 0.0 | 0.0 | 0.0 | 0.27 | ✅
-V102 | 20 | 50 | 2Ø12 | 2Ø10 | 1eØ6/34 | -35.0 | 50.0 | 0.0 | 0.8 | 0.0 | 0.66 | ✅
-V103 | 25 | 60 | - | 2Ø12+1Ø10 | 1eØ6/28 | 60.0 | 100.0 | 10.0 | 0.0 | 0.83 | 0.9 | ✅
+V101 | 20 | 50 | - | 2Ø10 | 2 ramas Ø6/34 | 0.0 | 20.0 | 0.0 | 0.0 | 0.0 | 0.27 | ✅
+V102 | 20 | 50 | 2Ø12 | 2Ø10 | 2 ramas Ø6/34 | -35.0 | 50.0 | 0.0 | 0.8 | 0.0 | 0.66 | ✅
+V103 | 25 | 60 | - | 2Ø12+1Ø10 | 2 ramas Ø6/28 | 60.0 | 100.0 | 10.0 | 0.0 | 0.83 | 0.9 | ✅

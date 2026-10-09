@@ -1,12 +1,13 @@
-import pytest
 import pandas as pd
+import pytest
 from mento import Concrete_ACI_318_19, SteelBar, MPa, set_language
 from mento.beam_summary import BeamSummary
 from mento.results import DocumentBuilder
+from mento.units import mm
 
 
-@pytest.mark.parametrize("grouped", [False, True])
-def test_word_rechecks_real_forces_after_capacity_check(monkeypatch, grouped):
+@pytest.mark.parametrize("invalid_mounting", [False, True])
+def test_word_rechecks_real_forces_after_capacity_check(monkeypatch, invalid_mounting):
     data = pd.DataFrame(
         {
             "Label": ["", "V1", "V2"],
@@ -30,16 +31,14 @@ def test_word_rechecks_real_forces_after_capacity_check(monkeypatch, grouped):
             "db4": ["mm", 0, 0],
         }
     )
-    if grouped:
-        extra = data.iloc[[2]].copy()
-        extra["Comb."] = "C3"
-        extra["My"] = 350
-        data = pd.concat([data, extra], ignore_index=True)
     summary = BeamSummary(
         concrete=Concrete_ACI_318_19(name="C25", f_c=25 * MPa),
         steel_bar=SteelBar(name="420", f_y=420 * MPa),
         beam_list=data,
     )
+    if invalid_mounting:
+        for node in summary.nodes:
+            node.section.settings.minimum_longitudinal_diameter = 12 * mm
     summary.check()
     assert summary.nodes[1].section.verification_status["resistance"] == "failed"
     summary.check(capacity_check=True)
@@ -54,8 +53,5 @@ def test_word_rechecks_real_forces_after_capacity_check(monkeypatch, grouped):
         row = next(row for row in table if row[0] == "V2")
         assert row[1] == "No cumple"
         assert row[2] == "No cumple"
-        section = summary.nodes[1].section
-        assert len(section.flexure_checks) == (2 if grouped else 1)
-        assert len(section.shear_checks) == (2 if grouped else 1)
     finally:
         set_language("en")

@@ -1944,7 +1944,7 @@ def test_section_data_keeps_a_second_layer_when_the_first_is_empty(sample_concre
     summary = BeamSummary(sample_concrete, sample_steel, _beam_rows([{"Label": "V1", "Comb.": "U"}]))
     beam = summary.nodes[0].section
     beam.set_longitudinal_rebar_bot(n1=0, d_b1=0 * mm, n3=2, d_b3=20 * mm)
-    assert summary.section_data().iloc[1]["As,bot"] == "2Ø20"
+    assert summary.section_data().iloc[1]["As,bot"] == "2Ø20 mm"
     face = summary._current_faces(beam)["bottom"]
     assert face["n1"] == 0 and face["n3"] == 2
 

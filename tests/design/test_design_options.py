@@ -243,7 +243,7 @@ def test_a_longitudinal_alternative_past_the_shear_limit_of_its_section_is_dropp
     Node(section=beam, forces=forces).design()
     options = beam.flexure_design.bottom.options
 
-    assert str(beam.reinforcement.transverse) == "1sØ10 mm/5 cm"
+    assert str(beam.reinforcement.transverse) == "2 legs Ø10 mm @ 5 cm · 6 cm between legs"
     assert "2Ø10 mm + 2Ø10 mm" not in [str(o) for o in options]
     assert [str(o) for o in options[:2]] == ["2Ø10 mm", "2Ø12 mm"]
     assert [round(o.section_DCR, 3) for o in options[:2]] == [0.994, 0.999]  # type: ignore[arg-type]
@@ -278,7 +278,7 @@ def test_an_en_alternative_that_lowers_the_shear_resistance_past_the_demand_is_d
     top = beam.flexure_design.top.options
 
     assert str(top[0]) == "2Ø20 mm"
-    assert str(beam.reinforcement.transverse) == "1sØ6 mm/37 cm"
+    assert str(beam.reinforcement.transverse) == "2 legs Ø6 mm @ 37 cm · 9.4 cm between legs"
     assert not {"2Ø25 mm", "2Ø16 mm + 2Ø12 mm"} & {str(o) for o in top}
     assert all(o.section_DCR is not None and o.section_DCR <= 1.0 for o in top)
     assert top[0].section_DCR == pytest.approx(beam.shear_design.DCR)
@@ -415,7 +415,10 @@ def test_an_alternative_past_the_shear_limit_of_its_own_section_is_dropped() -> 
     Node(section=beam, forces=[Forces(label="ELU", V_z=350 * kN, M_y=150 * kNm)]).design()
     options = beam.shear_design.options
 
-    assert [str(o) for o in options] == ["1sØ10 mm/8 cm", "1sØ12 mm/11 cm"]
+    assert [str(o) for o in options] == [
+        "2 legs Ø10 mm @ 8 cm · 19 cm between legs (max 22.62 cm)",
+        "2 legs Ø12 mm @ 11 cm · 18.8 cm between legs (max 22.53 cm)",
+    ]
     assert [round(o.section_DCR, 3) for o in options] == [0.994, 0.998]  # type: ignore[arg-type]
     assert [row.d_b.to("mm").magnitude for row in beam.shear_design_results.itertuples()] == [10, 12, 16]
 
@@ -442,7 +445,10 @@ def test_an_alternative_that_lowers_the_flexural_capacity_past_the_moment_is_dro
     options = beam.shear_design.options
 
     assert str(beam.reinforcement.bottom) == "2Ø20 mm"
-    assert [str(o) for o in options] == ["1sØ10 mm/22 cm", "1sØ12 mm/22 cm"]
+    assert [str(o) for o in options] == [
+        "2 legs Ø10 mm @ 22 cm · 14 cm between legs (max 45.5 cm)",
+        "2 legs Ø12 mm @ 22 cm · 13.8 cm between legs (max 45.3 cm)",
+    ]
     assert [round(o.section_DCR, 3) for o in options] == [0.993, 0.998]  # type: ignore[arg-type]
     assert options[0].section_DCR == pytest.approx(beam.flexure_design.DCR)
 
@@ -704,6 +710,11 @@ def test_options_read_like_the_reinforcement() -> None:
     assert bottom.n_bars == beam.reinforcement.bottom.n_bars
     assert str(stirrups) == str(beam.shear_design)
     assert stirrups.n_legs == beam.shear_design.n_legs
+    # The same, field by field: the applied option is the design, its limits included.
+    design = beam.shear_design
+    assert (stirrups.n_stirrups, stirrups.d_b, stirrups.s_l) == (design.n_stirrups, design.d_b, design.s_l)
+    assert stirrups.s_max_w == design.s_max_w
+    assert stirrups.s_max_l == design.s_max_l
     assert str(RebarOption(layers=(), A_s=0 * cm**2)) == "no reinforcement"
 
 

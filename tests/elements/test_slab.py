@@ -891,6 +891,39 @@ def test_a_slab_is_drawn_with_the_whole_bars_that_cover_the_strip() -> None:
     assert "9Ø10" in [t.get_text() for t in slab._ax.texts]
 
 
+def test_a_slab_keeps_its_own_drawing_of_bars() -> None:
+    """A strip is drawn as it always was: the beam's geometry gives a slab no bars.
+
+    A second layer is labelled behind the first, and bars set as a count (the
+    beam setter a slab inherits) are spread the way the strip drawing does it.
+    """
+    from matplotlib.patches import Circle
+
+    def slab() -> OneWaySlab:
+        return OneWaySlab(
+            label="Slab drawn",
+            concrete=Concrete_ACI_318_19(name="H25", f_c=25 * MPa),
+            steel_bar=SteelBar(name="ADN 420", f_y=420 * MPa),
+            width=100 * cm,
+            height=30 * cm,
+            c_c=25 * mm,
+        )
+
+    layered = slab()
+    layered.set_slab_longitudinal_rebar_bot(d_b1=12 * mm, s_b1=20 * cm, d_b3=10 * mm, s_b3=25 * cm)
+    layered.plot()
+    texts = {t.get_text(): t.get_position()[1] for t in layered._ax.texts}
+    assert texts["5Ø12"] < texts["4Ø10"]
+
+    counted = slab()
+    counted.set_longitudinal_rebar_bot(n1=1, d_b1=12 * mm, n2=2, d_b2=10 * mm)
+    counted.plot()
+    circles = [p for p in counted._ax.patches if isinstance(p, Circle)]
+    bottom = sorted(c.get_center()[0] for c in circles if c.get_center()[1] < 15)
+    assert len(bottom) == 3
+    assert 50.0 in [round(x, 6) for x in bottom]
+
+
 def test_an_imperial_slab_is_designed_to_a_whole_inch_spacing() -> None:
     slab = OneWaySlab(
         label="Slab imperial flexure",

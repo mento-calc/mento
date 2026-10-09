@@ -42,7 +42,7 @@ def test_legs_preferred_with_compatible_alias():
 
 
 @pytest.mark.parametrize(
-    "options", [{"legs": 7}, {"legs": True}, {"legs": 4, "n_legs": 6}, {"legs": 4, "n_stirrups": 1}]
+    "options", [{"legs": 1}, {"legs": True}, {"legs": 4, "n_legs": 6}, {"legs": 4, "n_stirrups": 1}]
 )
 def test_unsupported_or_conflicting_legs_do_not_change_beam(options):
     beam = make_beam()
@@ -63,7 +63,7 @@ def test_legs_table_normalizes_without_changing_caller():
 @pytest.mark.parametrize(
     "frame",
     [
-        pd.DataFrame({"legs": ["", 7]}),
+        pd.DataFrame({"legs": ["", 1]}),
         pd.DataFrame({"legs": ["", 4], "n_legs": ["", 6]}),
         pd.DataFrame({"legs": ["mm", 4]}),
     ],

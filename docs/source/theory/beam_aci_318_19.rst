@@ -402,21 +402,55 @@ and the required area is
 Spacing limits
 ^^^^^^^^^^^^^^
 
-Table 9.7.6.2.2, keyed on :math:`V_s` demand:
+Table 9.7.6.2.2, keyed on the nominal :math:`V_s` the stirrups must carry,
+:math:`V_{s,req} = (V_u - \phi V_c)/\phi`. The threshold is
+:math:`0.33\sqrt{f'_c}\,b_w d` (:math:`4\sqrt{f'_c}\,b_w d` in psi), with the plain root:
+the table carries neither the §22.5.3.1 ceiling on :math:`\sqrt{f'_c}` nor
+:math:`\lambda`. CIRSOC 201-25 Tabla 9.7.6.2.2 prints the same threshold and fractions with
+other absolute caps:
 
 .. list-table::
    :header-rows: 1
-   :widths: 40 30 30
+   :widths: 34 22 22 22
 
    * - Condition
      - :math:`s_{max}` along length
      - :math:`s_{max}` across width
-   * - :math:`V_s \le 0.083\lambda\sqrt{f'_c}A_{cv}`
+     - CIRSOC 201-25 caps
+   * - :math:`V_s \le 0.33\sqrt{f'_c}\,b_w d`
      - :math:`\min(d/2,\ 600\ \text{mm})`
      - :math:`\min(d,\ 600\ \text{mm})`
-   * - :math:`V_s > 0.083\lambda\sqrt{f'_c}A_{cv}`
+     - 400 mm, 400 mm
+   * - :math:`V_s > 0.33\sqrt{f'_c}\,b_w d`
      - :math:`\min(d/4,\ 300\ \text{mm})`
      - :math:`\min(d/2,\ 300\ \text{mm})`
+     - 200 mm, 200 mm
+
+The check records the threshold and the row it took (``ShearCheck.V_s_threshold``,
+``spacing_halved``), and the report prints both.
+
+The limit across the width is on the legs. mento's cage is ``n`` closed stirrups, so
+:math:`2n` legs, spread evenly between the centres of the outermost pair:
+
+.. math::
+
+   s_w = \frac{b - 2c_c - d_{b,st}}{2n - 1}
+
+-- one closed perimeter and open interior legs in calculation geometry.
+Detailing may propose 135°/90° crossties for required compression support
+(§25.3.5 and Table 25.3.2), with longitudinal alternation explicitly required;
+read ``beam.detailing_geometry`` for the physical arrangement. A design starts from the fewest legs that keep
+:math:`s_w \le s_{max,w}`: a 150×150 CIRSOC beam whose :math:`V_{s,req}` = 4828 kN passes
+the 3569 kN threshold is held to 200 mm, which eight legs (20.40 cm) miss and ten
+(15.87 cm) meet, so it takes ten calculation legs (five two-leg equivalents).
+
+Where the stirrups also brace compression bars, §9.7.6.4.3 caps the spacing along the
+member at the least of 16 :math:`d_b` of the bar, 48 :math:`d_b` of the stirrup and the least
+dimension of the beam. It is a limit of the section, reported apart as
+``ShearDesign.s_max_l_support``; ``s_max_l`` is the lesser of it and the table's. The
+report's limits table gives it a row of its own, with the verdict of the warning
+``stirrup_spacing_exceeds_compression_support``, beside the along-length row it may
+undercut.
 
 .. _aci-decisions:
 
@@ -621,6 +655,16 @@ so is not counted as a validation.
    * - Shear design, CIRSOC catalogue
      - ``test_shear_design_CIRSOC_201_2025``
      - CIRSOC 201-25 bar catalogue
+   * - Threshold of Table 9.7.6.2.2
+     - ``test_max_stirrup_spacing_threshold_is_033_not_0083``
+       (in ``tests/equations/test_aci_318_19_shear_equations.py``)
+     - Table 9.7.6.2.2: :math:`0.33\sqrt{f'_c}\,b_w d`
+   * - Legs across the width
+     - ``test_min_legs_along_width``
+     - Hand count of :math:`s_w = (b - 2c_c - d_b)/(n_{legs} - 1)`
+   * - Five stirrups for the across-width limit
+     - ``test_wide_cirsoc_beam_takes_five_stirrups_for_the_across_width_limit``
+     - CIRSOC 201-25 Tabla 9.7.6.2.2, 200 mm cap
    * - Geometric minimum at :math:`M_u = 0`
      - ``test_design_flexure_ACI_318_19_zero_moment_adopts_geometric_minimum``
      - Internal consistency: :math:`\rho_w > 0`, :math:`V_c > 0`

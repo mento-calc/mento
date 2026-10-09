@@ -36,18 +36,10 @@ SUMMARY_FONT_SIZE = 7
 #: What the Beam Data table lists: the section and the bars it carries. The
 #: input frame also holds the position and the demands, which belong to the
 #: per-combination tables rather than to a list of sections.
-BEAM_DATA_COLUMNS = (
-    "Label",
-    "b",
-    "h",
-    "cc",
-    "As,bot",
-    "As,top",
-    "Av",
-)
+BEAM_DATA_COLUMNS = ("Label", "b", "h", "cc", "As,bot", "As,top", "Av")
 
 #: The label needs room for a beam name and the dimensions for two digits; the
-#: complete reinforcement labels have their own columns for both faces.
+#: eleven rebar columns hold a count or a diameter and no more.
 BEAM_DATA_WIDTHS = [Cm(2), Cm(1), Cm(1), Cm(1), Cm(4), Cm(4), Cm(3)]
 
 #: A slab carries a diameter and a spacing per layer instead of a count and a
@@ -272,7 +264,8 @@ def beam_summary_doc(self: "BeamSummary", index: int = 1) -> None:
     df_shear_materials = pd.DataFrame(beam._materials_shear)
     df_shear_geometry = pd.DataFrame(beam._geometry_shear)
     df_shear_forces = pd.DataFrame(result_data["forces"])
-    df_shear_reinforcement = pd.DataFrame(result_data["shear_reinforcement"])
+    # Object columns: a count of stirrups or legs prints as the whole number it is.
+    df_shear_reinforcement = pd.DataFrame(result_data["shear_reinforcement"], dtype=object)
     df_shear_min_max = pd.DataFrame(result_data["min_max"])
     df_shear_concrete = pd.DataFrame(result_data["shear_concrete"])
 
@@ -303,6 +296,16 @@ def beam_summary_doc(self: "BeamSummary", index: int = 1) -> None:
                 "Label": checked_node.section.label,
                 "Resistance": status_text(state["resistance"]),
                 "Detailing (modelled checks)": status_text(state["detailing"]),
+                "Detailing notes": "; ".join(
+                    w.message
+                    for w in cast("RectangularBeam", checked_node.section).warnings
+                    if w.code
+                    in (
+                        "transverse_legs_added_for_compression_support",
+                        "open_leg_anchorage_outside_model",
+                        "crosstie_alternation_required",
+                    )
+                ),
             }
         )
     doc_builder.add_table_data(pd.DataFrame(verification_rows))

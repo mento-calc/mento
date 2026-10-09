@@ -449,6 +449,11 @@ class ShearWall(RectangularBeam):
         self._not_a_beam("beam reinforcement")
 
     @property
+    def section_geometry(self) -> NoReturn:  # type: ignore[override]
+        """Not available on a wall: it has no bars or stirrups to place. Raises :class:`NotABeamError`."""
+        self._not_a_beam("section geometry")
+
+    @property
     def flexure_design(self) -> NoReturn:  # type: ignore[override]
         """Not available on a wall: flexure is not implemented (Phase 0). Raises :class:`NotABeamError`."""
         self._not_a_beam("flexure design")

@@ -91,23 +91,28 @@ Design forces                     Variable     Value  Unit
 Axial, positive for compression      Nu            0  kN
 Shear                                Vu          150  kN 
 
-Shear reinforcement strength     Variable     Value  Unit
-------------------------------  ----------  -------  ------
-Number of stirrups                  ns            1
-Stirrup diameter                    db           10  mm
-Stirrup spacing                     s            22  cm
-Effective height                    d         45.55  cm
-Minimum shear reinforcing         Av,min       1.67  cm²/m
-Required shear reinforcing        Av,req       6.41  cm²/m
-Defined shear reinforcing           Av         7.14  cm²/m
-Shear rebar strength               ØVs       102.44  kN 
+Shear reinforcement strength                             Variable     Value  Unit
+------------------------------------------------------  ----------  -------  ------
+Number of legs                                              nl            2
+Stirrup diameter                                            db           10  mm
+Stirrup spacing                                             s            22  cm
+Leg spacing across width                                    sw           14  cm
+Effective height                                            d         45.55  cm
+Minimum shear reinforcing                                 Av,min       1.67  cm²/m
+Required shear reinforcing                                Av,req       6.41  cm²/m
+Defined shear reinforcing                                   Av         7.14  cm²/m
+Shear rebar strength                                       ØVs       102.44  kN
+Nominal shear the stirrups must carry (Vu/φ − Vc)         Vs,req     122.57  kN
+Threshold of Table 9.7.6.2.2 (0.33√f'c·bw·d)              Vs,lim     150.31  kN
+Vs,req ≤ Vs,lim → Table 9.7.6.2.2: d/2 along, d across
+Absolute cap of Table 9.7.6.2.2 in this row               s,cap          60  cm 
 
-Check                          Unit     Value  Min.      Max.  Ok?
-----------------------------  ------  -------  ------  ------  -----
-Stirrup spacing along length    cm         22           22.77  ✅
-Stirrup spacing along width     cm         14           45.55  ✅
-Minimum shear reinforcement   cm²/m      7.14  1.67            ✅
-Minimum rebar diameter          mm         10                  ✅ 
+Check                                        Unit     Value  Min.      Max.  Ok?
+------------------------------------------  ------  -------  ------  ------  -----
+Stirrup spacing along length                  cm         22           22.77  ✅
+Leg spacing across width (Table 9.7.6.2.2)    cm         14           45.55  ✅
+Minimum shear reinforcement                 cm²/m      7.14  1.67            ✅
+Minimum rebar diameter                        mm         10                  ✅ 
 
 Shear strength                     Variable     Value  Unit
 --------------------------------  ----------  -------  ------
@@ -122,8 +127,8 @@ Total shear strength                 ØVn       160.52  kN
 Max shear check                                    ✅
 Demand Capacity Ratio                DCR         0.93  ✅ 
 
-Verification                         Status
----------------------------  ----------------------
+Verification                         Status            Detailing notes
+---------------------------  ----------------------  -----------------
 Resistance                   Pass (modelled checks)
 Detailing (modelled checks)  Pass (modelled checks) 
 
@@ -201,19 +206,24 @@ Shear | Vu | 150.0 | kN
 Limit checks
 Check | Unit | Value | Min. | Max. | Ok?
 Stirrup spacing along length | cm | 22.0 |  | 22.77 | ✅
-Stirrup spacing along width | cm | 14.0 |  | 45.55 | ✅
+Leg spacing across width (Table 9.7.6.2.2) | cm | 14.0 |  | 45.55 | ✅
 Minimum shear reinforcement | cm²/m | 7.14 | 1.67 |  | ✅
 Minimum rebar diameter | mm | 10.0 |  |  | ✅
 Strength Checks
 Shear reinforcement strength | Variable | Value | Unit
-Number of stirrups | ns | 1.0 | 
-Stirrup diameter | db | 10.0 | mm
-Stirrup spacing | s | 22.0 | cm
+Number of legs | nl | 2 | 
+Stirrup diameter | db | 10 | mm
+Stirrup spacing | s | 22 | cm
+Leg spacing across width | sw | 14.0 | cm
 Effective height | d | 45.55 | cm
 Minimum shear reinforcing | Av,min | 1.67 | cm²/m
 Required shear reinforcing | Av,req | 6.41 | cm²/m
 Defined shear reinforcing | Av | 7.14 | cm²/m
 Shear rebar strength | ØVs | 102.4 | kN
+Nominal shear the stirrups must carry (Vu/φ − Vc) | Vs,req | 122.6 | kN
+Threshold of Table 9.7.6.2.2 (0.33√f'c·bw·d) | Vs,lim | 150.3 | kN
+Vs,req ≤ Vs,lim → Table 9.7.6.2.2: d/2 along, d across |  |  | 
+Absolute cap of Table 9.7.6.2.2 in this row | s,cap | 60.0 | cm
 Shear strength | Variable | Value | Unit
 Effective shear area | Acv | 910.97 | cm²
 Longitudinal reinforcement ratio | ρw | 0.0091 | 
@@ -226,16 +236,16 @@ Total shear strength | ØVn | 160.5 | kN
 Max shear check |  | ✅ | 
 Demand Capacity Ratio | DCR | 0.93 | ✅
 Resistance and detailing
-Verification | Status
-Resistance | Pass (modelled checks)
-Detailing (modelled checks) | Pass (modelled checks)
+Verification | Status | Detailing notes
+Resistance | Pass (modelled checks) | 
+Detailing (modelled checks) | Pass (modelled checks) | 
 
 ### results
 Beam V101, $b$=20.00 cm, $h$=50.00 cm, $c_{c}$=2.50 cm,                         Concrete H25, Rebar ADN 420.
 Top longitudinal rebar: 2Ø16+1Ø12, $A_{s,top}$ = 5.15 cm², $M_u$ = -80.0 kNm, $\phi M_n$ = 84.13 kNm → $\color{#efc200}{\text{DCR}=0.95}$ 
 
 Bottom longitudinal rebar: 2Ø20+1Ø16, $A_{s,bot}$ = 8.29 cm², $M_u$ = 120.0 kNm, $\phi M_n$ = 129.95 kNm → $\color{#439b00}{\text{DCR}=0.92}$ 
-Shear reinforcing 1sØ10/22 cm, $A_v$=7.14 cm²/m, $V_u$=150.0 kN, $\phi V_n$=160.52 kN → $\color{#439b00}{\text{DCR}=0.93}$ 
+Shear reinforcing 2 legs Ø10 mm @ 22 cm · 14 cm between legs (max 45.55 cm), $A_v$=7.14 cm²/m, $V_u$=150.0 kN, $\phi V_n$=160.52 kN → $\color{#439b00}{\text{DCR}=0.93}$ 
 
 ### flexure_design
 2Ø16 mm
@@ -244,10 +254,10 @@ Shear reinforcing 1sØ10/22 cm, $A_v$=7.14 cm²/m, $V_u$=150.0 kN, $\phi V_n$=16
 1Ø16 mm
 
 ### shear_design
-1sØ10 mm/22 cm
+2 legs Ø10 mm @ 22 cm · 14 cm between legs (max 45.55 cm)
 
 ### reinforcement.transverse
-1sØ10 mm/22 cm
+2 legs Ø10 mm @ 22 cm · 14 cm between legs
 
 ### warnings
 
@@ -257,4 +267,6 @@ Shear reinforcing 1sØ10/22 cm, $A_v$=7.14 cm²/m, $V_u$=150.0 kN, $\phi V_n$=16
 50 cm
 2Ø20+1Ø16
 2Ø16+1Ø12
-1sØ10/22
+2 legs Ø10 mm @ 22 cm
+14 cm between legs (max 45.55 cm)
+single perimeter stirrup
