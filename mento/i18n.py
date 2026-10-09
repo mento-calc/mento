@@ -197,6 +197,7 @@ ES: Dict[str, str] = {
     # Only the columns that hold words. The symbol columns (b, h, As,bot, Av,
     # Mu, DCRv) are variable names and stay as they are, like everywhere else.
     "Beam": "Viga",
+    "Slab": "Losa",
     "Label": "Etiqueta",
     "Level": "Nivel",
     "Position": "Posición",
@@ -211,6 +212,10 @@ ES: Dict[str, str] = {
     "Summary - All Beams": "Resumen - Todas las vigas",
     "Summary - All Walls": "Resumen - Todos los tabiques",
     "Beam Data": "Datos de las vigas",
+    "Slab Summary Analysis": "Análisis del resumen de losas",
+    "This report presents the detailed results for the first slab of the summary, followed by summary tables for all slabs.": "Este informe presenta los resultados detallados de la primera losa del resumen, seguidos de las tablas resumen de todas las losas.",
+    "Summary - All Slabs": "Resumen - Todas las losas",
+    "Slab Data": "Datos de las losas",
     "Wall Data": "Datos de los tabiques",
     "Flexure Results": "Resultados de flexión",
     "Shear Results": "Resultados de corte",

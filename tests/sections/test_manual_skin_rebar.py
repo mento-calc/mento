@@ -222,6 +222,24 @@ def test_summary_excel_keeps_manual_skin_input(tmp_path):
     assert summary.nodes[0].section.skin_rebar == b.skin_rebar
 
 
+def test_summary_skin_belongs_to_the_beam_of_its_rows():
+    """Rows that share a Label are one beam: the skin given on one row is the beam's."""
+    materials = beam()
+    table = manual_table()
+    second = table.iloc[1].copy()
+    second["Comb."], second["My"] = "C2", -80
+    second["db_piel"], second["cant_piel_cara"], second["posicion"] = "", "", ""
+    table = pd.concat([table, second.to_frame().T], ignore_index=True)
+    summary = BeamSummary(materials.concrete, materials.steel_bar, table)
+    assert len(summary.nodes) == 1
+    skin = summary.nodes[0].section.skin_rebar
+    assert skin.cant_piel_cara == 2 and skin.posicion == "bottom"
+
+    table.loc[2, ["db_piel", "cant_piel_cara", "posicion"]] = [10, 3, "bottom"]
+    with pytest.raises(ValueError, match="different skin reinforcement"):
+        BeamSummary(materials.concrete, materials.steel_bar, table)
+
+
 @pytest.mark.parametrize(
     "column,value", [("cant_piel_cara", 2.5), ("cant_piel_cara", True), ("db_piel", "oops"), ("posicion", "left")]
 )

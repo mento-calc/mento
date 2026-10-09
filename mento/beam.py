@@ -1466,6 +1466,9 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         # Store maximum DCRs for easy access
         self._max_dcr_top = max_dcr_top
         self._max_dcr_bot = max_dcr_bot
+        # Mantener también los atributos históricos en la envolvente.
+        self._DCRb_top = max_dcr_top
+        self._DCRb_bot = max_dcr_bot
 
         # Mark shear as checked
         self._flexure_checked = True

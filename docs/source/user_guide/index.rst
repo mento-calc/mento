@@ -21,6 +21,7 @@ User Guide
    design_results
    language
    beam_summary
+   slab_summary
    shear_wall_summary
 
 In this user guide, you will find detailed descriptions and

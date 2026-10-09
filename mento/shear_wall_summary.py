@@ -1,23 +1,24 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List, Optional, Tuple
 from collections import OrderedDict
+from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 from pandas import DataFrame
 
+from mento import MPa, cm, ft, inch, kip, kN, kNm, m, mm
 from mento.bar_sizes import bar_designation
+from mento.beam_summary import _declared, _is_unlabelled
 from mento.codes.registry import design_code
 from mento.design_results import spacing_separator
-from mento.material import Concrete, SteelBar
 from mento.forces import Forces
-from mento.shear_wall import ShearWall
-from mento import mm, cm, kN, m, kNm, MPa, inch, ft, kip
 from mento.i18n import translate_dataframe
+from mento.material import Concrete, SteelBar
 from mento.node import Node
 from mento.precompute import shown
 from mento.reports.summaries import wall_summary_doc
+from mento.shear_wall import ShearWall
 
 
 def _wall_passes(wall: ShearWall) -> bool:
@@ -55,6 +56,8 @@ class ShearWallSummary:
         self.data: DataFrame = DataFrame()
         self.nodes: List[Node] = []
         self.wall_keys: List[Tuple[str, str]] = []
+        #: Positions in :attr:`data` of the rows of each node, in node order.
+        self._node_rows: List[List[int]] = []
         self.check_and_process_input()
         self.convert_to_walls()
 
@@ -112,66 +115,66 @@ class ShearWallSummary:
     # ------------------------------------------------------------------
 
     def convert_to_walls(self) -> None:
+        """Build one node per wall from the rows of :attr:`data`.
+
+        The rows that share ``Level`` and ``Label`` are one wall under several
+        load combinations, checked and designed for their envelope. A row with
+        no label is a wall of its own. The rows of a wall must agree on ``t``,
+        ``lw``, ``hw`` and ``cc``; the mesh may be given on one row only, but
+        rows that give a direction of it must give the same one. Anything else
+        raises a ``ValueError`` naming the wall.
+        """
         self.nodes = []
         self.wall_keys = []
-        groups: OrderedDict[Tuple[str, str], Dict[str, Any]] = OrderedDict()
-
-        for _, row in self.data.iterrows():
-            level = str(row["Level"])
-            label = str(row["Label"])
-            key = (level, label)
-
-            forces = Forces(
-                label=row["Comb."],
-                N_x=row["Nx"],
-                V_z=row["Vz"],
-                M_y=row["My"],
-            )
-
-            if key not in groups:
-                groups[key] = {
-                    "level": level,
-                    "label": label,
-                    "t": row["t"],
-                    "lw": row["lw"],
-                    "hw": row["hw"],
-                    "cc": row["cc"],
-                    "dbh": row["dbh"],
-                    "sh": row["sh"],
-                    "dbv": row["dbv"],
-                    "sv": row["sv"],
-                    "forces": [forces],
-                }
+        self._node_rows = []
+        rows = [row for _, row in self.data.reset_index(drop=True).iterrows()]
+        by_key: Dict[Tuple[str, str], List[int]] = {}
+        for position, row in enumerate(rows):
+            key = (str(row["Level"]), str(row["Label"]))
+            if _is_unlabelled(row["Label"]):
+                self._node_rows.append([position])
+                self.wall_keys.append(key)
+            elif key in by_key:
+                by_key[key].append(position)
             else:
-                self._validate_geometry_consistency(groups[key], row, key)
-                groups[key]["forces"].append(forces)
+                by_key[key] = [position]
+                self._node_rows.append(by_key[key])
+                self.wall_keys.append(key)
 
-        for key, g in groups.items():
-            wall = ShearWall(
-                level=g["level"],
-                label=g["label"],
-                concrete=self.concrete,
-                steel_bar=self.steel_bar,
-                thickness=g["t"],
-                length=g["lw"],
-                height=g["hw"],
-                c_c=g["cc"],
-            )
+        for key, positions in zip(self.wall_keys, self._node_rows):
+            self.nodes.append(self._wall_node(key, [rows[position] for position in positions]))
 
-            if g["dbh"].magnitude != 0 and g["sh"].magnitude != 0:
-                wall.set_horizontal_rebar(d_b=g["dbh"], s=g["sh"])
-            if g["dbv"].magnitude != 0 and g["sv"].magnitude != 0:
-                wall.set_vertical_rebar(d_b=g["dbv"], s=g["sv"])
+    def _wall_node(self, key: Tuple[str, str], rows: List["pd.Series[Any]"]) -> Node:
+        """The node of one wall, from the rows that describe it."""
+        first = rows[0]
+        for row in rows[1:]:
+            self._validate_geometry_consistency(first, row, key)
 
-            node = Node(section=wall, forces=g["forces"])
-            self.nodes.append(node)
-            self.wall_keys.append(key)
+        wall = ShearWall(
+            level=key[0],
+            label=key[1],
+            concrete=self.concrete,
+            steel_bar=self.steel_bar,
+            thickness=first["t"],
+            length=first["lw"],
+            height=first["hw"],
+            c_c=first["cc"],
+        )
 
-    def _validate_geometry_consistency(
-        self, first: Dict[str, Any], row: "pd.Series[Any]", key: Tuple[str, str]
-    ) -> None:
-        for col, field in [("t", "t"), ("lw", "lw"), ("hw", "hw"), ("cc", "cc")]:
-            val_first = first[field]
+        name = f"{key[0]} - {key[1]}"
+        horizontal = _declared(rows, ("dbh", "sh"), name, "horizontal mesh", "Wall")
+        if horizontal is not None and horizontal[1].magnitude != 0:
+            wall.set_horizontal_rebar(d_b=horizontal[0], s=horizontal[1])
+        vertical = _declared(rows, ("dbv", "sv"), name, "vertical mesh", "Wall")
+        if vertical is not None and vertical[1].magnitude != 0:
+            wall.set_vertical_rebar(d_b=vertical[0], s=vertical[1])
+
+        forces = [Forces(label=row["Comb."], N_x=row["Nx"], V_z=row["Vz"], M_y=row["My"]) for row in rows]
+        return Node(section=wall, forces=forces)
+
+    def _validate_geometry_consistency(self, first: Any, row: "pd.Series[Any]", key: Tuple[str, str]) -> None:
+        for col in ("t", "lw", "hw", "cc"):
+            val_first = first[col]
             val_row = row[col]
             if abs(val_first.magnitude - val_row.magnitude) > 1e-6:
                 raise ValueError(
@@ -293,19 +296,14 @@ class ShearWallSummary:
     def design(self) -> DataFrame:
         design_df: DataFrame = self.data.reset_index(drop=True).copy()
 
-        for i, node in enumerate(self.nodes):
+        for node, positions in zip(self.nodes, self._node_rows):
             wall: ShearWall = node.section  # type: ignore
             node.design_shear()
-
-            key = self.wall_keys[i]
-            mask = design_df.apply(
-                lambda r: str(r["Level"]) == key[0] and str(r["Label"]) == key[1],
-                axis=1,
-            )
-            design_df.loc[mask, "dbh"] = wall._d_b_h  # type: ignore
-            design_df.loc[mask, "sh"] = wall._s_h  # type: ignore
-            design_df.loc[mask, "dbv"] = wall._d_b_v  # type: ignore
-            design_df.loc[mask, "sv"] = wall._s_v  # type: ignore
+            # Every row of the wall gets the mesh designed for all of them.
+            design_df.loc[positions, "dbh"] = wall._d_b_h  # type: ignore
+            design_df.loc[positions, "sh"] = wall._s_h  # type: ignore
+            design_df.loc[positions, "dbv"] = wall._d_b_v  # type: ignore
+            design_df.loc[positions, "sv"] = wall._s_v  # type: ignore
 
         self.design_data = design_df
         print("✅ Shear wall design completed for all walls in Summary.")
@@ -342,8 +340,13 @@ class ShearWallSummary:
             raise AttributeError("No design data found. Run .design() before exporting.")
 
         df_numeric = self.design_data.copy()
+        units_by_column = dict(zip(self.wall_list.columns, self.units_row))
         for col in df_numeric.columns:
-            df_numeric[col] = df_numeric[col].apply(lambda x: x.magnitude if hasattr(x, "magnitude") else x)
+            unit_name = units_by_column[col]
+            unit = self.get_unit_variable(unit_name) if unit_name else None
+            df_numeric[col] = df_numeric[col].apply(
+                lambda x, u=unit: x.to(u).magnitude if hasattr(x, "magnitude") and u else x
+            )
 
         df_export = pd.concat(
             [

@@ -109,7 +109,12 @@ def test_summary_design_and_excel_preserve_count_convention(tmp_path, convention
     path = tmp_path / "legs.xlsx"
     summary.export_design(str(path))
     saved = pd.read_excel(path)
-    assert list(saved.columns) == [col for col in frame.columns if col not in ("ns", "n_legs", "legs")] + ["legs"]
+    # The legacy columns, both physical faces in full, and one count of legs.
+    faces = [col for col in saved.columns if col.endswith(("_bot", "_top"))]
+    assert len(faces) == 16
+    assert [col for col in saved.columns if col not in faces] == [
+        col for col in frame.columns if col not in ("ns", "n_legs", "legs")
+    ] + ["legs"]
     rebuilt = BeamSummary(b.concrete, b.steel_bar, saved)
     assert rebuilt.nodes[0].section.reinforcement.transverse.n_legs == count
     summary.import_design(str(path))
