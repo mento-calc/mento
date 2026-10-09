@@ -15,10 +15,10 @@ from mento.design_warnings import DesignWarning, collect, combination_label, unr
 from mento.forces import Forces
 from mento.material import Concrete, SteelBar
 from mento.plots.walls import plot_wall_elevation
-from mento.precompute import unit_label
 from mento.reports import walls as wall_reports
 from mento.settings import BeamSettings
-from mento.units import Quantity, cm, dimensionless, kN, mm
+from mento.units import MPa, Quantity, cm, dimensionless, kN, m, mm
+
 from mento.wall_results import (
     WallMesh,
     WallShearCheck,
@@ -49,7 +49,9 @@ class ShearWall(RectangularBeam):
     Reinforced concrete structural wall — shear check and design.
 
     The design code is whatever the concrete declares; only codes whose
-    registry entry supplies the wall hooks can check one.
+    registry entry supplies the wall hooks can check one: ACI 318-19 and
+    CIRSOC 201-25 (Chapter 11), and EN 1992-1-1 (§6.2 with the detailing of
+    §9.6).
 
     Geometry:
         thickness — wall thickness  (t)         [maps to parent's ``width``]
@@ -61,7 +63,8 @@ class ShearWall(RectangularBeam):
     segment or wall pier considered -- not the storey height of a
     multi-storey wall. It enters only through hw/lw, which sets αc of
     Eq. (11.5.4.3) and ρl,min of Eq. (11.6.2); a storey height in its place
-    makes a slender wall look squat and overstates ØVn.
+    makes a slender wall look squat and overstates ØVn. EN 1992-1-1 does not
+    read it: its in-plane shear depends on lw and t alone.
 
     Reinforcement:
         Horizontal distributed bars resist in-plane shear (ρt).
@@ -173,6 +176,39 @@ class ShearWall(RectangularBeam):
         self._phi_V_n_max_wall: Quantity = 0 * kN
         self._DCRv_wall: float = 0.0
 
+        # EN 1992-1-1 result quantities (apply_en_wall_shear_state); per unit
+        # length of wall, both faces together, where they are areas.
+        self._V_Ed_wall: Quantity = 0 * kN
+        self._N_Ed_wall: Quantity = 0 * kN
+        self._A_c_wall: Quantity = 0 * cm**2
+        self._d_wall: Quantity = 0 * cm
+        self._z_wall: Quantity = 0 * cm
+        self._f_cd_wall: Quantity = 0 * MPa
+        self._f_ywd_wall: Quantity = 0 * MPa
+        self._k_wall: float = 0.0
+        self._rho_l_shear_wall: float = 0.0
+        self._sigma_cp_wall: Quantity = 0 * MPa
+        self._alpha_cw_wall: float = 0.0
+        self._nu_1_wall: float = 0.0
+        self._V_Rd_c_wall: Quantity = 0 * kN
+        self._theta_wall: float = 0.0
+        self._cot_theta_wall: float = 0.0
+        self._V_Rd_max_wall: Quantity = 0 * kN
+        self._V_Rd_s_wall: Quantity = 0 * kN
+        self._V_Rd_wall: Quantity = 0 * kN
+        self._V_Rd_max_45_wall: Quantity = 0 * kN
+        self._max_shear_ok_wall: bool = False
+        self._rho_w_min_wall: float = 0.0
+        self._A_sh_wall: Quantity = 0 * cm**2 / m
+        self._A_sv_wall: Quantity = 0 * cm**2 / m
+        self._A_sh_str_wall: Quantity = 0 * cm**2 / m
+        self._A_sh_w_wall: Quantity = 0 * cm**2 / m
+        self._A_sh_min_wall: Quantity = 0 * cm**2 / m
+        self._A_sh_req_wall: Quantity = 0 * cm**2 / m
+        self._A_sv_min_wall: Quantity = 0 * cm**2 / m
+        self._A_sv_max_wall: Quantity = 0 * cm**2 / m
+        self._lw_t_wall: float = 0.0
+
         # Minimum ratios and spacing limits
         self._rho_t_min: Quantity = 0.0025 * dimensionless
         self._rho_l_min: Quantity = 0.0025 * dimensionless
@@ -278,6 +314,9 @@ class ShearWall(RectangularBeam):
                 "shear_capacity": self._shear_capacity_wall.copy(),
                 "min_max": self._data_min_max_wall.copy(),
                 "checks_pass": self._all_wall_shear_checks_passed,
+                # The public result of this combination, which the one-line
+                # summary reads in whichever code's symbols.
+                "check": self._wall_shear_checks[-1],
             }
 
             current_dcr = result["DCR"].iloc[0]
@@ -329,28 +368,8 @@ class ShearWall(RectangularBeam):
     # ------------------------------------------------------------------
 
     def _get_units_row_shear_wall(self) -> pd.DataFrame:
-        v_unit = unit_label("force", self.concrete.is_imperial)
-        return pd.DataFrame(
-            [
-                {
-                    "Label": "",
-                    "Comb.": "",
-                    "ρt,min": "",
-                    "ρt,req": "",
-                    "ρt": "",
-                    "ρl,min": "",
-                    "ρl": "",
-                    "Vu": v_unit,
-                    "ØVc": v_unit,
-                    "ØVs": v_unit,
-                    "ØVn": v_unit,
-                    "ØVn,max": v_unit,
-                    "Vu≤ØVn,max": "",
-                    "Vu≤ØVn": "",
-                    "DCR": "",
-                }
-            ]
-        )
+        """The units row of :meth:`check_shear`, in the columns of the wall's code."""
+        return wall_reports.wall_units_row(self)
 
     # ------------------------------------------------------------------
     # Top-level check / Node integration
@@ -415,7 +434,9 @@ class ShearWall(RectangularBeam):
     # ``f_yt`` from RectangularBeam, whose shear check fills them; the wall has a
     # check of its own (§11.5.4) and they used to stay at the zeros the beam starts
     # with. They name the same quantities on a wall, so they read the wall's. The
-    # setter is what the inherited initialisation writes its zero through.
+    # setter is what the inherited initialisation writes its zero through. They
+    # are ACI 318-19 / CIRSOC 201-25 quantities and stay at zero on an EN wall,
+    # whose resistances are in its shear_checks (V_capacity is V_Rd).
 
     @property  # type: ignore[override]
     def V_c(self) -> Quantity:

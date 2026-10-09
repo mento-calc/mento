@@ -138,12 +138,10 @@ class SectionGeometry:
     which still reserves the diameter it starts from -- so ``c_c +
     stirrup_d_b`` is where the check puts the faces of the bars.
     ``stirrup_bend_inner_diameter`` is the inside diameter the drawing bends
-    the stirrups with, supplied by the registered code: ACI/CIRSOC Table
-    25.3.2 (4 or 6 diameters), EN §8.3(2) Table 8.1N (4 or 7). It does not
-    verify anchorage, hooks or concrete failure at bends (EN Eq. 8.1).
-    ``bend_supported=False`` marks a non-normative 4*d_st calculation
-    placeholder, also exported by ``to_dict()``.
-    ``s_w`` is the spacing of the legs across the width the
+    the stirrups with, supplied by the code's mandrel-size hook when
+    ``bend_supported`` is True; otherwise it is a non-normative 4*d_st
+    calculation placeholder, also flagged in ``to_dict()``. This does
+    not verify anchorage, hooks or concrete failure at bends. ``s_w`` is the spacing of the legs across the width the
     shear check reads.
 
     ``leg_x`` holds the centrelines of the legs of the cage, left to right,

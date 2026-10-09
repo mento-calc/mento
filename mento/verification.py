@@ -110,6 +110,7 @@ WARNING_CATEGORY: dict[str, str] = {
     "shear_exceeds_section_limit": "resistance",
     "mesh_ratio_below_min_h": "resistance",
     "mesh_ratio_below_min_v": "resistance",
+    "mesh_ratio_above_max_v": "resistance",
     "mesh_spacing_exceeds_max_h": "failed",
     "mesh_spacing_exceeds_max_v": "failed",
     "stirrup_spacing_exceeds_compression_support": "failed",
@@ -118,6 +119,7 @@ WARNING_CATEGORY: dict[str, str] = {
     "axial_load_beyond_beam": "resistance",
     "stirrup_spacing_exceeds_max": "failed",
     "mesh_ratio_below_min": "resistance",
+    "mesh_ratio_above_max": "resistance",
     "mesh_spacing_exceeds_max": "failed",
 }
 

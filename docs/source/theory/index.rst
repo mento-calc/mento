@@ -32,6 +32,7 @@ sheet are listed as regression tests.
    one_way_slab
    footing
    shear_wall_aci_318_19
+   shear_wall_en_1992_2004
 
 What is implemented
 -------------------
@@ -61,8 +62,8 @@ What is implemented
        geotechnical calculation
    * - Shear wall
      - In-plane shear
-     - Not implemented
-     - :doc:`shear_wall_aci_318_19`
+     - In-plane shear
+     - :doc:`ACI <shear_wall_aci_318_19>`, :doc:`EN <shear_wall_en_1992_2004>`
    * - Punching slab
      - Two-way shear
      - Two-way shear

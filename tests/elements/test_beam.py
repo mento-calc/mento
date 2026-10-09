@@ -1793,8 +1793,7 @@ def test_design_flexure_CIRSOC_201_25_narrow_web_fits_the_bars_its_stirrup_leave
     elige 1eØ6/12 para 50 kN, y con el Ø6 el ancho libre es 5.8 cm: 2Ø16
     entran (58 - 32 = 26 mm ≥ 25 mm). El diseño completo rehace la flexion
     con el estribo con el que termina y deja 2Ø16 + 2Ø12 = 6.28 cm² abajo
-    sobre 2Ø12 arriba: DCR 0.803; el detalle de jaula se advierte por separado.
-    Antes quedaba con la seccion
+    sobre 2Ø12 arriba: DCR 0.803; el arriostramiento de compresión queda pendiente. Antes quedaba con la seccion
     declarada corta por un estribo que no lleva.
     """
     beam = RectangularBeam(
@@ -1903,7 +1902,7 @@ def test_design_flexure_ACI_318_19_compression_bottom_exceeds_provided_bottom() 
     assert check_results.iloc[1]["Position"] == "Top"
     assert check_results.iloc[1]["ØMn"] == pytest.approx(80.06, rel=1e-3)
     assert check_results.iloc[1]["DCR"] <= 1.0
-    # Tension-controlled strength; rounded cage fit is checked separately.
+    # Strength is tension-controlled; compression detailing remains pending.
     assert [w.code for w in node.warnings] == ["compression_detailing_pending", "cage_detailing_infeasible"]
 
 

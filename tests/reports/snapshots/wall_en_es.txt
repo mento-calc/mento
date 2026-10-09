@@ -1,0 +1,125 @@
+### check_shear
+  Label Comb. Ash,min Ash,req    Ash Asv,min    Asv    NEd    VEd   VRd,c   VRd,s     VRd  VRd,max VEd≤VRd,max VEd≤VRd    DCR
+0               cm²/m   cm²/m  cm²/m   cm²/m  cm²/m     kN     kN      kN      kN      kN       kN                           
+1    M1     E     2.0     2.0   2.09     4.0   4.25  200.0  400.0  146.88  491.73  491.73  1340.69        True    True  0.813
+
+### shear_results_detailed
+===== RESULTADOS DETALLADOS DE TABIQUE =====
+Materiales                              Variable     Valor  Unidad
+-------------------------------------  ----------  -------  --------
+Identificación de la sección                            M1
+Resistencia del hormigón                  fck           25  MPa
+Tensión de fluencia del acero             fywk         500  MPa
+Coeficiente de seguridad del hormigón      γc          1.5
+Coeficiente de seguridad del acero         γs         1.15
+Resistencia de cálculo del hormigón       fcd        16.67  MPa
+Resistencia de cálculo del acero          fywd      434.78  MPa 
+
+Geometría                Variable     Valor  Unidad
+----------------------  ----------  -------  --------
+Espesor del tabique         t            20  cm
+Longitud del tabique        lw          300  cm
+Altura del tabique          hw          300  cm
+Área bruta de hormigón      Ac         6000  cm²
+Altura útil                 d           240  cm
+Brazo de palanca            z           216  cm 
+
+Solicitaciones                 Variable     Valor  Unidad
+----------------------------  ----------  -------  --------
+Axil, positivo en compresión     NEd          200  kN
+Corte                            VEd          400  kN 
+
+Verificación                                       Unidad     Valor  Mín.       Máx.  ¿Ok?
+------------------------------------------------  --------  -------  ------  -------  ------
+Relación longitud / espesor                                      15  4                ✅
+Armadura horizontal                                cm²/m       2.09  2                ✅
+Armadura vertical                                  cm²/m       4.25  4            80  ✅
+Separación de barras horizontales (en cada cara)     mm         270              400  ✅
+Separación de barras verticales (en cada cara)       mm         370              400  ✅
+Capacidad máxima de corte                            kN         400          1340.69  ✅
+Capacidad total de corte                             kN         400           491.73  ✅ 
+
+Resistencia al corte                                                    Variable     Valor  Unidad
+---------------------------------------------------------------------  ----------  -------  --------
+Valor de k                                                                 k         1.289
+Cuantía de armadura longitudinal                                           ρl            0
+Tensión axial                                                             σcp         0.33  MPa
+Resistencia al corte del hormigón                                        VRd,c      146.88  kN
+Coeficiente del cordón comprimido                                         αcw            1
+Factor de reducción de la resistencia del hormigón fisurado por corte      ν1         0.54
+Ángulo de la biela de hormigón                                             Θ          21.8  deg
+Armadura de corte por resistencia                                       Ash,str        1.7  cm²/m
+Armadura mínima de corte                                                 Ash,w         1.6  cm²/m
+Armadura horizontal mínima                                              Ash,min          2  cm²/m
+Resistencia al corte del acero                                           VRd,s      491.73  kN
+Resistencia máxima al corte                                             VRd,max    1340.69  kN
+Resistencia total al corte                                                VRd       491.73  kN
+Factor de Utilización                                                     DCR        0.813 
+
+
+
+### shear_results_detailed_doc: Shear Wall M1 shear check EN 1992-2004.docx
+Verificación a corte de tabique M1
+Generado con mento <version>. Código de diseño: EN 1992-2004
+Datos de la sección
+Materiales | Variable | Valor | Unidad
+Identificación de la sección |  | M1 | 
+Resistencia del hormigón | fck | 25 | MPa
+Tensión de fluencia del acero | fywk | 500 | MPa
+Coeficiente de seguridad del hormigón | γc | 1.5 | 
+Coeficiente de seguridad del acero | γs | 1.15 | 
+Resistencia de cálculo del hormigón | fcd | 16.67 | MPa
+Resistencia de cálculo del acero | fywd | 434.78 | MPa
+Geometría | Variable | Valor | Unidad
+Espesor del tabique | t | 20.0 | cm
+Longitud del tabique | lw | 300.0 | cm
+Altura del tabique | hw | 300.0 | cm
+Área bruta de hormigón | Ac | 6000.0 | cm²
+Altura útil | d | 240.0 | cm
+Brazo de palanca | z | 216.0 | cm
+Solicitaciones | Variable | Valor | Unidad
+Axil, positivo en compresión | NEd | 200.0 | kN
+Corte | VEd | 400.0 | kN
+Verificaciones de límites
+Verificación | Unidad | Valor | Mín. | Máx. | ¿Ok?
+Relación longitud / espesor |  | 15.0 | 4 |  | ✅
+Armadura horizontal | cm²/m | 2.09 | 2.0 |  | ✅
+Armadura vertical | cm²/m | 4.25 | 4.0 | 80.0 | ✅
+Separación de barras horizontales (en cada cara) | mm | 270.0 |  | 400.0 | ✅
+Separación de barras verticales (en cada cara) | mm | 370.0 |  | 400.0 | ✅
+Capacidad máxima de corte | kN | 400.0 |  | 1340.7 | ✅
+Capacidad total de corte | kN | 400.0 |  | 491.7 | ✅
+Verificaciones de resistencia
+Resistencia al corte | Variable | Valor | Unidad
+Valor de k | k | 1.289 | 
+Cuantía de armadura longitudinal | ρl | 0.0 | 
+Tensión axial | σcp | 0.33 | MPa
+Resistencia al corte del hormigón | VRd,c | 146.9 | kN
+Coeficiente del cordón comprimido | αcw | 1.0 | 
+Factor de reducción de la resistencia del hormigón fisurado por corte | ν1 | 0.54 | 
+Ángulo de la biela de hormigón | Θ | 21.8 | deg
+Armadura de corte por resistencia | Ash,str | 1.7 | cm²/m
+Armadura mínima de corte | Ash,w | 1.6 | cm²/m
+Armadura horizontal mínima | Ash,min | 2.0 | cm²/m
+Resistencia al corte del acero | VRd,s | 491.7 | kN
+Resistencia máxima al corte | VRd,max | 1340.7 | kN
+Resistencia total al corte | VRd | 491.7 | kN
+Factor de Utilización | DCR | 0.81 | 
+
+### results
+Shear Wall M1, $l_w$=300.00 cm, $t$=20.00 cm, $h_w$=300.00 cm, $c_c$=2.50 cm, Concrete C25/30, Rebar B500S.
+Horizontal rebar: Ø6/27 cm E.F., $\rho_h$=0.00105, Minimum vertical rebar: Ø10/37 cm E.F., $\rho_v$=0.00212, $V_{Ed}$=400.0 kN, $V_{Rd}$=491.73 kN → $\color{#439b00}{\text{DCR}=0.81}$ 
+
+### mesh
+2×Ø6 mm/27 cm
+2×Ø10 mm/37 cm
+
+### warnings
+
+
+### plot
+300 cm
+20 cm
+Horizontal rebar: Ø6/27 cm E.F.
+Minimum vertical rebar: Ø10/37 cm E.F.
+Shear Wall M1 — plan view

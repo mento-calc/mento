@@ -16,7 +16,9 @@ Define the concrete and steel materials to be used across all walls:
     conc = Concrete_ACI_318_19(name="H25", f_c=25 * MPa)
     steel = SteelBar(name="ADN 420", f_y=420 * MPa)
 
-Supported design codes: **ACI 318-19** and **CIRSOC 201-25**.
+Supported design codes: **ACI 318-19**, **CIRSOC 201-25** and **EN 1992-1-1**
+(``Concrete_EN_1992_2004``). The input is the same for all three; the tables name
+their columns the way the code does.
 
 Loading Input Data from Excel
 ------------------------------
@@ -121,12 +123,16 @@ all walls. The worst-case load combination is reported for each wall:
     wall_summary.check()
 
 The result is a DataFrame with columns: Level, Label, t, lw, hw, horizontal rebar,
-vertical rebar, reinforcement ratios, worst-case Vu, capacity, DCR, and a
-pass/fail status (✅ / ❌). The status spans **every** combination of the wall,
-not only the governing one: it is ✅ when each combination is carried
+vertical rebar, reinforcement ratios, worst-case shear, capacity, DCR, and a
+pass/fail status (✅ / ❌). Under ACI 318-19 and CIRSOC 201-25 the ratios, shear and
+capacity are ``ρt``, ``ρl``, ``Vu,max`` and ``ØVn``; under EN 1992-1-1 they are
+``ρh``, ``ρv``, ``VEd,max`` and ``VRd``. The status spans **every** combination of
+the wall, not only the governing one: it is ✅ when each combination is carried
 (DCR ≤ 1) and the mesh misses none of the limits ``wall.warnings`` reports —
 the ratios of §11.6.2, the spacing of §11.7 and the section limit of
-§11.5.4.2. ``ρl,min`` in particular changes with the shear of each combination.
+§11.5.4.2 (ACI 318-19 / CIRSOC 201-25), or the areas of §9.6.2 and §9.6.3, their
+spacing and V_Rd,max of Eq. (6.9) (EN 1992-1-1). ``ρl,min`` of ACI in particular
+changes with the shear of each combination.
 
 .. note::
 

@@ -20,7 +20,10 @@ Reference calculation (metric):
     s_v,max = min(4000/3, 3×250, 450) = 450 mm
 """
 
+import dataclasses
 import math
+from contextlib import contextmanager
+from typing import Iterator
 
 import pytest
 
@@ -593,28 +596,50 @@ class TestImperialWall:
 # ---------------------------------------------------------------------------
 
 
-class TestShearWallReporting:
-    # --- unsupported design code ----------------------------------------
-    def _en_wall(self) -> ShearWall:
-        concrete = Concrete_EN_1992_2004(name="C25", f_c=25 * MPa)
-        steel = SteelBar(name="ADN420", f_y=420 * MPa)
-        return ShearWall(
+@contextmanager
+def _wall_under_a_code_without_wall_hooks() -> Iterator[ShearWall]:
+    """A wall whose code is registered but supplies no wall check or design.
+
+    Every shipped code checks walls now, so the code is invented for the test:
+    EN 1992-1-1 under another title, its wall hooks taken out.
+    """
+    from mento.codes.registry import _REGISTRY, design_code, register
+
+    concrete = Concrete_EN_1992_2004(name="C25", f_c=25 * MPa)
+    invented = dataclasses.replace(
+        design_code(concrete),
+        title="NBR 6118-2023",
+        check_shear_wall=None,
+        apply_wall_shear_state=None,
+        design_shear_wall=None,
+    )
+    register(invented)
+    try:
+        concrete.design_code = invented.title
+        yield ShearWall(
             label="WE",
             concrete=concrete,
-            steel_bar=steel,
+            steel_bar=SteelBar(name="B500S", f_y=500 * MPa),
             thickness=20 * cm,
             length=4.0 * m,
             height=3.5 * m,
             c_c=20 * mm,
         )
+    finally:
+        _REGISTRY.pop(invented.title, None)
 
+
+class TestShearWallReporting:
+    # --- unsupported design code ----------------------------------------
     def test_check_shear_unsupported_code_raises(self) -> None:
-        with pytest.raises(NotImplementedError):
-            self._en_wall().check_shear([Forces(V_z=100 * kN)])
+        with _wall_under_a_code_without_wall_hooks() as wall:
+            with pytest.raises(NotImplementedError, match="check shear wall is not implemented.*NBR 6118-2023"):
+                wall.check_shear([Forces(V_z=100 * kN)])
 
     def test_design_shear_unsupported_code_raises(self) -> None:
-        with pytest.raises(NotImplementedError):
-            self._en_wall().design_shear([Forces(V_z=100 * kN)])
+        with _wall_under_a_code_without_wall_hooks() as wall:
+            with pytest.raises(NotImplementedError, match="design shear wall is not implemented.*NBR 6118-2023"):
+                wall.design_shear([Forces(V_z=100 * kN)])
 
     # --- check()/design() wrappers --------------------------------------
     def test_check_wrapper(self, wall_metric: ShearWall) -> None:
