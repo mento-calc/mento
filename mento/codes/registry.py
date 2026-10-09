@@ -97,6 +97,10 @@ class DesignCode:
     #: size -- it applies to the stirrups supporting compression reinforcement,
     #: not to every stirrup. That graded clause is ``min_stirrup_for_compression_bar``.
     min_stirrup_diameter: Callable[..., Any] | None = None
+    #: Inside diameter of transverse-bar bends, (concrete, bar diameter).
+    #: ACI/CIRSOC Table 25.3.2 and EN Table 8.1N. This is a mandrel-size
+    #: rule, not a check of anchorage, hooks or concrete failure at the bend.
+    stirrup_bend_inner_diameter: Callable[..., Any] | None = None
     #: The smallest stirrup this code lets laterally support a compression bar
     #: of a given diameter, ``(concrete, d_b_long) -> Quantity``: ACI 318-19
     #: §9.7.6.4.2, a No. 10 up to a No. 32 bar and a No. 13 above (No. 3 and
@@ -127,6 +131,17 @@ class DesignCode:
     min_shear_reinforcement_coefficient: Callable[..., Any] | None = None
     #: Stress divisor in alpha_c under net axial tension, Eq. (11.5.4.4).
     wall_axial_tension_divisor: Callable[..., Any] | None = None
+    #: The clause each direction of a wall mesh takes its largest spacing
+    #: from, as the spacing warning quotes it: ``{"h": ..., "v": ...}``.
+    #: ACI 318-19 / CIRSOC 201-25 §11.7.3.1 and §11.7.2.1, with the lw/5 and
+    #: lw/3 that enter where shear reinforcement is required; EN 1992-1-1
+    #: §9.6.3(2) and §9.6.2(3). Text, not a calculation: the limits
+    #: themselves come with the check.
+    wall_mesh_spacing_clauses: Dict[str, str] = field(default_factory=dict)
+    #: What this code calls the columns of a multi-wall summary, as
+    #: ``summary_columns`` does for beams. Keys: rho_h, rho_v (the ratios of
+    #: the mesh), shear_demand, shear_capacity.
+    wall_summary_columns: Dict[str, str] = field(default_factory=dict)
     #: Largest centre-to-centre spacing this code allows between the flexural
     #: bars of a slab -- ACI 318-19 §7.7.2.3 / CIRSOC 201-25 art. 7.7.2.3, which
     #: differ in their absolute term, 450 mm (18 in.) against 300 mm, and so
@@ -181,6 +196,19 @@ class DesignCode:
     #: and the alternatives it offers are held to. ``None`` where the code
     #: states no such limit, read as every layout admissible.
     flexure_admissible: Callable[..., bool] | None = None
+
+    #: Depth above which §9.7.2.3 requires longitudinal skin reinforcement.
+    #: None means unsupported, not an exemption. ACI: 900 mm / 36 in.;
+    #: CIRSOC: 900 mm regardless of display units.
+    skin_reinforcement_threshold: Callable[..., Any] | None = None
+    #: §24.3.2 using clear cover to a SIDE face, not to flexural bars.
+    #: (section, side_cover) -> Quantity. EN uses skin_requirement instead.
+    max_skin_bar_spacing: Callable[..., Any] | None = None
+    #: A code-specific requirement when the ACI spacing-only rule does not apply.
+    skin_requirement: Callable[..., Any] | None = None
+    #: Code-specific supplementary skin/surface warnings, including cases
+    #: where requirement could not be evaluated. (section, requirement | None).
+    skin_warnings: Callable[..., Any] | None = None
 
     def requires(self, hook: str) -> Callable[..., Any]:
         """The hook, or a clear error naming the code that lacks it."""

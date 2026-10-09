@@ -152,7 +152,7 @@ def moment_fraction_by_flexure(b_1: float, b_2: float) -> float:
     """γ_f, the moment fraction carried in flexure, ACI 318-19 Eq. (8.4.2.2.2) / CIRSOC 201-25 ec. (8.4.2.2.2).
 
     ``γ_f = 1 / (1 + (2/3)*sqrt(b_1/b_2))``, the same in both codes. The clause
-    is §8.4.2.2.2 — the §8.4.2.3.4 this docstring used to cite is not it.
+    is §8.4.2.2.2.
 
     Two neighbouring clauses, also identical in both codes, are not covered
     here: Table 8.4.2.2.3 gives the effective slab width b_slab that γ_f*M_sc has

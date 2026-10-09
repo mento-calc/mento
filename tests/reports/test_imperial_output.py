@@ -233,14 +233,14 @@ def test_imperial_bars_are_written_by_their_astm_size(designed_beam: Node) -> No
     assert beam._format_longitudinal_rebar_string(3, 0.75 * inch) == "3#6"  # type: ignore[attr-defined]
     assert beam._format_longitudinal_rebar_string(2, 0.75 * inch, 1, 0.625 * inch) == "2#6+1#5"  # type: ignore[attr-defined]
     assert [str(layer) for layer in beam.flexure_design.bottom.layers] == ["2#6", "1#6"]  # type: ignore[attr-defined]
-    assert str(beam.shear_design) == "1s#3@8 in"  # type: ignore[attr-defined]
+    assert str(beam.shear_design) == "2 legs #3 @ 8 in · 8.625 in between legs (max 21.75 in)"  # type: ignore[attr-defined]
 
 
-def test_the_stirrup_mark_follows_the_report_language(designed_beam: Node) -> None:
+def test_the_stirrup_notation_follows_the_report_language(designed_beam: Node) -> None:
     beam = designed_beam.section
     set_language("es")
     try:
-        assert str(beam.shear_design) == "1e#3@8 in"  # type: ignore[attr-defined]
+        assert beam.shear_design.notation() == "2 ramas #3 c/8 in · 8.625 in entre ramas (máx. 21.75 in)"  # type: ignore[attr-defined]
     finally:
         set_language("en")
 

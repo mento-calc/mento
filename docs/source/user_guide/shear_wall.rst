@@ -2,7 +2,10 @@ Shear Wall
 ==========
 
 The `ShearWall` class models a reinforced-concrete structural wall for **in-plane
-shear analysis and design** per ACI 318-19 Chapter 11.
+shear analysis and design** per ACI 318-19 Chapter 11, CIRSOC 201-25 Chapter 11
+and EN 1992-1-1 §6.2 with the wall detailing of §9.6. The design code is the one
+the ``Concrete`` declares; the sections below describe ACI 318-19, and
+:ref:`shear-wall-en` lists what changes under the Eurocode.
 
 - Concrete shear capacity follows ACI 318-19 Eq. (11.5.4.3) with the aspect-ratio
   factor ``α_c`` defined under it, instead of a longitudinal-reinforcement term,
@@ -48,9 +51,9 @@ Key Concepts
     sets ``α_c`` and ``ρl,min``, and a storey height in its place makes a slender
     wall look squat and overstates ``ØVn``.
 
-- **Material Properties**: requires a ``Concrete`` object (currently
-  ``Concrete_ACI_318_19`` or ``Concrete_CIRSOC_201_25``) and a ``SteelBar``
-  object.
+- **Material Properties**: requires a ``Concrete`` object
+  (``Concrete_ACI_318_19``, ``Concrete_CIRSOC_201_25`` or
+  ``Concrete_EN_1992_2004``) and a ``SteelBar`` object.
 
 - **Reinforcement**: distributed bars defined by **bar diameter + spacing**
   in each direction.
@@ -192,6 +195,57 @@ is always sized to the §11.6.2 *minimum* — it is reported and plotted as
     configuration is needed — the design code is read from the ``Concrete``
     object.
 
+.. _shear-wall-en:
+
+EN 1992-1-1
+***********
+
+With ``Concrete_EN_1992_2004`` the same calls check and design the wall per
+EN 1992-1-1. The resistances are those of an EN beam — ``VRd,c`` of Eq. (6.2.a/b),
+the truss of the horizontal bars, Eq. (6.8), and the strut, Eq. (6.9) — written on
+the wall: ``d = 0.8·lw`` and ``z = 0.9·d``, no end bars (so ``VRd,c`` is the floor of
+Eq. (6.2.b)), and the limits of §9.6 instead of a beam's. The theory page
+:doc:`/theory/shear_wall_en_1992_2004` gives every equation and decision.
+
+.. code-block:: python
+
+    from mento import ShearWall, Concrete_EN_1992_2004, SteelBar, Forces, Node
+    from mento import MPa, cm, mm, m, kN
+
+    wall = ShearWall(
+        label="W1",
+        concrete=Concrete_EN_1992_2004(name="C25/30", f_c=25 * MPa),
+        steel_bar=SteelBar(name="B500S", f_y=500 * MPa),
+        thickness=20 * cm,
+        length=4.0 * m,
+        height=3.0 * m,      # not read by EN: the shear depends on lw and t
+        c_c=25 * mm,
+    )
+    node = Node(section=wall, forces=[Forces(label="ULS", V_z=1200 * kN)])
+    node.design()
+    wall.mesh                 # horizontal: 2×Ø8 mm/25 cm / vertical: 2×Ø10 mm/37 cm
+    wall.shear_design.DCR     # 0.953
+
+What changes:
+
+- **Columns.** ``check_shear`` reports the mesh as areas per unit length of wall,
+  both faces together, in cm²/m — ``Ash,min``, ``Ash,req``, ``Ash``, ``Asv,min``,
+  ``Asv`` — and the resistances as ``VRd,c``, ``VRd,s``, ``VRd`` and ``VRd,max``
+  against ``VEd`` and ``NEd``.
+- **Limits.** ``Asv`` between 0.002 and 0.04 of the gross area (§9.6.2(1)), ``Ash``
+  at least a quarter of ``Asv`` and 0.001 of the gross area (§9.6.3(1)), vertical
+  bars at most ``min(3t, 400 mm)`` apart (§9.6.2(3)) and horizontal ones 400 mm
+  (§9.6.3(2)). Past ``VRd,c`` the horizontal bars also carry ``ρw,min`` of
+  Eq. (9.5N).
+- **Design order.** The horizontal minimum reads the vertical mesh, so the design
+  places the vertical mesh first — at its minimum — and the horizontal one after
+  it, the reverse of ACI.
+- **Bars.** The CIRSOC catalogue: Ø6 mm and up for the horizontal mesh, Ø10 mm and
+  up for the vertical one.
+- **Public results.** ``wall.shear_checks`` keep their names: ``V_u`` is ``VEd``,
+  ``V_capacity`` is ``VRd`` and ``V_max`` is ``VRd,max`` at 45°, the most the wall
+  can carry. ``rho_l_max`` carries the 0.04 of §9.6.2(1); it is ``None`` under ACI.
+
 5. Inspecting Intermediate Quantities
 *************************************
 
@@ -234,4 +288,6 @@ All reinforcement ratios (``ρt``, ``ρl``) account for the mesh on **both
 faces** — ``ρ = 2 · Ab / (t · s)``.
 
 A worked example with full output is available in the
-:doc:`Shear Wall ACI 318-19 example </examples/shear_wall_check_ACI_318-19>`.
+:doc:`Shear Wall ACI 318-19 example </examples/shear_wall_check_ACI_318-19>`, and
+for EN 1992-1-1 in the :doc:`check </examples/shear_wall_check_EN_1992-1-1>` and
+:doc:`design </examples/shear_wall_design_EN_1992-1-1>` examples.

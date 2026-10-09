@@ -1,7 +1,9 @@
 """Structured warnings: the detailing limits a section does not meet.
 
-The detailed reports mark these with a ❌ in their limit tables and a line of
-text. A program reading a design needs them as data, so every check and design
+The detailed reports mark their supported limits with a ❌ in their limit
+tables and a line of text. Skin-steel requirements and distribution reviews
+are currently exposed through this API and section plots, not Word reports.
+A program reading a design needs warnings as data, so every check and design
 also records them here::
 
     node.design()
@@ -97,18 +99,28 @@ Codes
     EN 1992-1-1 V_Rd,max of Eq. (6.9) at θ = 45°. Both are read the same with
     or without stirrups, so the warning means the section has to grow; a
     section that is only short of stirrups gets ``stirrups_required`` or
-    ``Av_below_min`` instead. A wall reports it against ØVn,max of §11.5.4.2.
+    ``Av_below_min`` instead. A wall reports it against ØVn,max of §11.5.4.2,
+    or against V_Rd,max of Eq. (6.9) at θ = 45° under EN 1992-1-1.
 ``mesh_ratio_below_min``
     A wall mesh gives less than its direction asks for: the horizontal one
     below the ρt the shear needs (never below its minimum), the vertical one
-    below ρl,min of ACI 318-19 / CIRSOC 201-25 §11.6.2. ``values`` carries
-    ``direction``, ``"h"`` or ``"v"``.
+    below ρl,min of ACI 318-19 / CIRSOC 201-25 §11.6.2, or below the
+    0.002 A_c of EN 1992-1-1 §9.6.2(1). ``values`` carries ``direction``,
+    ``"h"`` or ``"v"``.
+``mesh_ratio_above_max``
+    The vertical mesh of a wall gives more than its code allows: under
+    EN 1992-1-1 §9.6.2(1), 0.04 A_c outside lap locations. ACI 318-19 and
+    CIRSOC 201-25 state no such limit for a wall in Chapter 11.
+    ``values`` carries ``direction``, always ``"v"``.
 ``mesh_spacing_exceeds_max``
-    The bars of a wall mesh are further apart than ACI 318-19 / CIRSOC
-    201-25 §11.7.2.1 (vertical) and §11.7.3.1 (horizontal) allow: the lesser
-    of 3h and 450 mm (18 in.), and lw/3 and lw/5 where shear reinforcement is
-    required for in-plane strength, read as Vu > φVc for the combination.
-    ``values`` carries ``direction``, ``"h"`` or ``"v"``.
+    The bars of a wall mesh are further apart than the code allows. Under
+    ACI 318-19 / CIRSOC 201-25 §11.7.2.1 (vertical) and §11.7.3.1
+    (horizontal): the lesser of 3h and 450 mm (18 in.), and lw/3 and lw/5
+    where shear reinforcement is required for in-plane strength, read as
+    Vu > φVc for the combination. Under EN 1992-1-1: the lesser of 3t and
+    400 mm for the vertical bars (§9.6.2(3)), 400 mm for the horizontal ones
+    (§9.6.3(2)). ``values`` carries ``direction``, ``"h"`` or ``"v"``, and
+    ``clause``, the clause the limit comes from, as text.
 ``stirrup_spacing_exceeds_compression_support``
     The section relies on compression steel and its stirrups are further
     apart than ACI 318-19 / CIRSOC 201-25 §9.7.6.4.3 allow the stirrups that
@@ -130,19 +142,10 @@ Codes
     §9.7.6.4.3 gives that stirrup, ``s_max``. No combination label, as
     above. A one-way slab is not held to it.
 
-    §9.7.6.4.1 sends the lateral support to §9.7.6.4.2 through §9.7.6.4.4,
-    and none of the three codes above reads the last: that every corner and
-    alternate compression bar sit in a stirrup corner of at most 135°, with
-    no bar farther than 150 mm clear (CIRSOC 201-25: 15 d_b of the stirrup or
-    150 mm) along the stirrup from one that does. mento does not know which
-    bars the legs enclose, so a wide compression face passes it unchecked.
-``force_component_not_checked``
-    A combination gives a component no check of a beam, slab, footing or wall
-    reads: ``V_y``, ``M_z`` or the torsion ``M_x``. The check runs on
-    ``N_x``, ``V_z`` and ``M_y`` and passes over the rest, so a DCR below 1
-    says nothing about them. One warning per component, quoting the largest
-    value given and every combination that gives it; ``values`` carries
-    ``component``, its name, and ``value``.
+    §9.7.6.4.4 is checked separately by ``compression_detailing`` on the
+    modelled first row: corner and alternate-bar support, and two-sided
+    clear distances. Second-row support and differing CIRSOC
+    limit outcomes remain explicitly pending, rather than silently passing.
 """
 
 from __future__ import annotations
@@ -212,6 +215,35 @@ class _Raw:
 #: The English wording of each code; the text is also the key of the Spanish
 #: catalog in :mod:`mento.i18n`. ``{face}`` is filled with the translated face.
 _MESSAGES: Dict[str, str] = {
+    "transverse_legs_added_for_compression_support": "Detailing proposes {placed_legs} legs instead of {input_legs}: {pieces}. Enter the proposed legs to confirm; A_v still uses {input_legs}.",
+    "open_leg_anchorage_outside_model": "Open-leg hooks and anchorage are outside this sectional model; verify them separately.",
+    "crosstie_alternation_required": "135°/90° crossties: alternate the 90° ends along the member; seismic detailing not verified.",
+    "skin_detailing_pending": "Skin layout is not verified: the detailing geometry does not contain the specified skin bars.",
+    "skin_reinforcement_failed": "The supplied skin reinforcement does not comply: {reason}",
+    "cage_detailing_pending": "The base cage cannot yet be verified: {reason}",
+    "compression_detailing_en_pending": "EN compression-bar support (§9.2.1.2(3), 15φ) is not verified by Mento.",
+    "compression_detailing_failed": "Required compression-bar support fails (§9.7.6.4.4): {reason}.",
+    "compression_detailing_pending": "Required compression-bar support is not fully verified (§9.7.6.4.4): {reason}.",
+    "skin_reinforcement_required": (
+        "Longitudinal skin reinforcement is required on both side faces (§9.7.2.3), "
+        "at spacing no greater than {s_max}. See detailing_geometry for the supplementary proposal; "
+        "it is excluded from resistance."
+    ),
+    "skin_reinforcement_pending": "Skin reinforcement is pending: verify flexure to identify the tension face.",
+    "skin_tension_case_pending": "Skin reinforcement is pending: the checked combinations identify no tension face. A zero-moment or capacity check does not establish an exemption.",
+    "skin_detailing_invalid": "Skin detailing cannot be evaluated: {reason}",
+    "skin_reinforcement_unsupported": "Skin reinforcement is not supported for this design case; this is not an exemption.",
+    "skin_detailing_infeasible": "The supplementary skin proposal cannot be fitted in the cage: {reason}",
+    "cage_detailing_infeasible": "The base cage cannot be detailed: {reason}",
+    "skin_distribution_review": (
+        "Review skin-steel distribution, worst of {cases} service cases: {rows} rows per side in that zone, "
+        "largest vertical interval {gap}, including zone boundaries. This is informative, not an additional code "
+        "spacing limit; the diameter-route proposal does not verify crack width directly."
+    ),
+    "skin_en_required": "EN §7.3.3(3): longitudinal skin steel is required; minimum {area} per side, adjusted maximum diameter {diameter}. Excluded from resistance.",
+    "skin_en_service_pending": "EN skin detailing is pending: supply cracked-service steel stress and neutral-axis depth; ultimate forces cannot replace them.",
+    "skin_en_axial_unsupported": "EN skin detailing with axial force is not supported; the pure-bending skin proposal cannot be used.",
+    "skin_en_surface_pending": "EN surface reinforcement outside the links requires separate review: Annex J covers bars >32 mm, equivalent bundles >32 mm (bundles are not modelled; check separately), or cover >70 mm. Section 8.8(8) specifies 0.01*A_ct,ext perpendicular and 0.02*A_ct,ext parallel to large bars. Longitudinal skin bars do not replace this mesh.",
     "As_below_min": (
         "Steel on the {face}: A_s = {A_s} is below the minimum it has to meet, A_s,min,eff = {A_s_min_eff}."
     ),
@@ -247,12 +279,9 @@ _MESSAGES: Dict[str, str] = {
     "shear_exceeds_section_limit": "Shear V = {V} exceeds the most the section can carry, {V_max}: enlarge the section.",
     "mesh_ratio_below_min_h": "Horizontal wall mesh: ρt = {rho} is below the required ρt = {rho_min}.",
     "mesh_ratio_below_min_v": "Vertical wall mesh: ρl = {rho} is below the minimum ρl,min = {rho_min}.",
-    "mesh_spacing_exceeds_max_h": (
-        "Horizontal wall mesh spacing: {s} exceeds the maximum {s_max} (§11.7.3.1; lw/5 where Vu > φVc)."
-    ),
-    "mesh_spacing_exceeds_max_v": (
-        "Vertical wall mesh spacing: {s} exceeds the maximum {s_max} (§11.7.2.1; lw/3 where Vu > φVc)."
-    ),
+    "mesh_ratio_above_max_v": "Vertical wall mesh: ρl = {rho} exceeds the maximum ρl,max = {rho_max}.",
+    "mesh_spacing_exceeds_max_h": "Horizontal wall mesh spacing: {s} exceeds the maximum {s_max} ({clause}).",
+    "mesh_spacing_exceeds_max_v": "Vertical wall mesh spacing: {s} exceeds the maximum {s_max} ({clause}).",
     "stirrup_spacing_exceeds_compression_support": (
         "Stirrup spacing along the member: {s} exceeds the {s_max} that lateral support of the "
         "{d_b_comp} compression bars allows (16 d_b, 48 d_b of the stirrup, least dimension of the beam)."
@@ -714,10 +743,13 @@ def wall_warnings(wall: "RectangularBeam", mesh: "WallMesh", checks: Tuple["Wall
     """The mesh limits a wall misses, over every combination checked.
 
     Mirrors the limit rows of the wall report: each ratio against what its
-    direction asks for, each spacing against its maximum, and the shear
-    against the most the section can carry. A mesh with a zero spacing has no
-    bars, so its spacing is not a limit it misses; its ratio is.
+    direction asks for, the vertical one against its maximum where the code
+    states one, each spacing against its maximum, and the shear against the
+    most the section can carry. A mesh with a zero spacing has no bars, so its
+    spacing is not a limit it misses; its ratio is. The spacing warning quotes
+    the clause its limit comes from, which is the code's.
     """
+    clauses = design_code(wall.concrete).wall_mesh_spacing_clauses
     found: List[_Raw] = []
     for position, check in enumerate(checks, 1):
         label = combination_label(check.label, position)
@@ -728,13 +760,17 @@ def wall_warnings(wall: "RectangularBeam", mesh: "WallMesh", checks: Tuple["Wall
             if provided.rho < required and not math.isclose(provided.rho, required, rel_tol=1e-9):
                 values = {"direction": direction, "rho": round(provided.rho, 5), "rho_min": round(required, 5)}
                 found.append(_Raw("mesh_ratio_below_min", values, None, label, required - provided.rho))
+        rho_max = check.rho_l_max
+        if rho_max is not None and mesh.vertical.rho > rho_max and not math.isclose(mesh.vertical.rho, rho_max):
+            values = {"direction": "v", "rho": round(mesh.vertical.rho, 5), "rho_max": round(rho_max, 5)}
+            found.append(_Raw("mesh_ratio_above_max", values, None, None, mesh.vertical.rho - rho_max))
         for direction, provided, s_max in (
             ("h", mesh.horizontal, check.s_h_max),
             ("v", mesh.vertical, check.s_v_max),
         ):
             s_max = s_max.to(provided.s.units)
             if provided.has_bars and provided.s > s_max and not math.isclose(provided.s.magnitude, s_max.magnitude):
-                values = {"direction": direction, "s": provided.s, "s_max": s_max}
+                values = {"direction": direction, "s": provided.s, "s_max": s_max, "clause": clauses.get(direction, "")}
                 found.append(
                     _Raw("mesh_spacing_exceeds_max", values, None, None, float((provided.s - s_max).magnitude))
                 )
@@ -782,7 +818,7 @@ def unread_force_warnings(force: "Forces", label: str) -> List[_Raw]:
 
 
 def collect(raws: List[_Raw]) -> Tuple[DesignWarning, ...]:
-    """Collapse the raw findings into one worded warning per limit and face.
+    """Collapse the raw findings into one worded warning per limit and face, except the global skin-distribution review.
 
     The same limit missed under several combinations is one warning, with the
     values of the combination that misses it by most and the labels of all of
@@ -791,20 +827,32 @@ def collect(raws: List[_Raw]) -> Tuple[DesignWarning, ...]:
     groups: Dict[Tuple[str, Optional[str], Optional[str], Optional[str]], List[_Raw]] = {}
     for raw in raws:
         # A force component is a limit of its own, as a direction is.
-        key = (raw.code, raw.face, raw.values.get("direction"), raw.values.get("component"))
+        key = (
+            raw.code,
+            None if raw.code == "skin_distribution_review" else raw.face,
+            raw.values.get("direction"),
+            raw.values.get("component"),
+        )
         groups.setdefault(key, []).append(raw)
 
     warnings: List[DesignWarning] = []
     for (code, face, direction, _component), group in groups.items():
         worst = max(group, key=lambda raw: raw.severity)
+        if code == "skin_distribution_review":
+            face = None  # Aviso global: no atribuir ambas caras a una sola.
         labels = tuple(dict.fromkeys(raw.combination for raw in group if raw.combination is not None))
         # The direction picks the template and stays in the values, where a
         # program reads it; it is a word, not a number to print.
         values = dict(worst.values)
+        if code == "skin_distribution_review":
+            values["cases"] = len(group)
         template = _MESSAGES[f"{code}_{direction}" if direction else code]
-        # A text value (the clause a limit comes from) is quoted as it is.
+        if code == "skin_distribution_review" and values["cases"] == 1:
+            template = template.replace("service cases", "service case")
+        # A text value (the clause a limit comes from) is quoted as it is, in
+        # the language of the day where it carries words.
         fields = _fields({n: v for n, v in values.items() if n != "direction" and not isinstance(v, str)})
-        fields.update({n: v for n, v in values.items() if n != "direction" and isinstance(v, str)})
+        fields.update({n: translate(v) for n, v in values.items() if n != "direction" and isinstance(v, str)})
         if face is not None:
             fields["face"] = translate(_FACES[face])
         warnings.append(
@@ -817,3 +865,144 @@ def collect(raws: List[_Raw]) -> Tuple[DesignWarning, ...]:
             )
         )
     return tuple(warnings)
+
+
+def skin_warnings(beam: "RectangularBeam") -> List[_Raw]:
+    """Flag the supplementary requirement even when a strength DCR is below 1."""
+    from mento.cage_detailing import CageDetailingError, build_cage_detailing
+    from mento.skin_reinforcement import skin_requirement
+
+    requirement = None
+    result: List[_Raw] = []
+    base_feasible = True
+    try:
+        build_cage_detailing(beam, include_skin=False)
+    except CageDetailingError as error:
+        base_feasible = False
+        code = (
+            "cage_detailing_pending"
+            if error.reason in ("unsupported_bend", "compression_support_search")
+            else "cage_detailing_infeasible"
+        )
+        result.append(_Raw(code, {"reason": str(error)}))
+    try:
+        requirement = skin_requirement(beam)
+    except CageDetailingError as error:
+        result.append(_Raw("skin_detailing_invalid", {"reason": str(error)}))
+    if requirement is not None and requirement.status == "not_applicable":
+        return result
+    hook = design_code(beam.concrete).skin_warnings
+    if hook is not None:
+        result.extend(hook(beam, requirement))
+    if requirement is None:
+        return result
+    if requirement.failures:
+        result.append(
+            _Raw(
+                "skin_reinforcement_failed", {"reason": " ".join(translate(reason) for reason in requirement.failures)}
+            )
+        )
+    if (requirement.status == "required" or requirement.manual) and base_feasible and not requirement.failures:
+        try:
+            geometry = beam.detailing_geometry
+            if len(geometry.skin_bars) != 2 * requirement.n_per_side:
+                result.append(_Raw("skin_detailing_pending", {}))
+        except CageDetailingError as error:
+            code = "skin_detailing_infeasible" if error.reason == "skin" else "cage_detailing_infeasible"
+            result.append(_Raw(code, {"reason": str(error)}))
+    for review in requirement.distribution_reviews:
+        result.append(
+            _Raw(
+                "skin_distribution_review",
+                {"rows": review.rows_per_side, "gap": review.maximum_interval},
+                face=review.tension_face,
+                combination=review.combination,
+                severity=float(review.maximum_interval.to(mm).magnitude),
+            )
+        )
+    if requirement.pending_reason == "no_tension_case":
+        result.append(_Raw("skin_tension_case_pending", {}))
+    if hook is None and requirement.status == "required":
+        if requirement.s_max is not None:
+            result.append(_Raw("skin_reinforcement_required", {"s_max": requirement.s_max}))
+        else:
+            result.append(_Raw("skin_reinforcement_unsupported", {}))
+    elif hook is None and requirement.status == "unsupported":
+        result.append(_Raw("skin_reinforcement_unsupported", {}))
+    if requirement.status == "pending" and requirement.pending_reason not in ("no_tension_case", "service"):
+        result.append(_Raw("skin_reinforcement_pending", {}))
+    return result
+
+
+def compression_detailing_warnings(beam: "RectangularBeam") -> List[_Raw]:
+    """Required compression bars: modelled §9.7.6.4.4 failures or pending checks."""
+    from mento.compression_detailing import EN_COMPRESSION_PENDING_REASON
+
+    result = beam.compression_detailing
+    if result.status not in ("failed", "pending"):
+        return []
+    if result.reason == EN_COMPRESSION_PENDING_REASON:
+        return [_Raw("compression_detailing_en_pending", {})]
+    if result.reason == "flexure_not_checked":
+        return []  # Existing plot caption says verification is pending.
+    if not result.faces:
+        return [
+            _Raw(
+                "compression_detailing_pending" if result.status == "pending" else "compression_detailing_failed",
+                {"reason": translate(_COMPRESSION_REASONS.get(result.reason, result.reason)).rstrip(".")},
+            )
+        ]
+    return [
+        _Raw(
+            "compression_detailing_" + item.status,
+            {
+                "reason": "; ".join(translate(_COMPRESSION_REASONS[reason]) for reason in item.reasons),
+                "distance": item.maximum_clear_distance,
+            },
+            face=item.face,
+        )
+        for item in result.faces
+        if item.status in ("failed", "pending")
+    ]
+
+
+_COMPRESSION_REASONS = {
+    "corner_bar_unbraced": "A corner bar is not braced by a stirrup corner",
+    "alternate_bars_unbraced": "Two successive compression bars lack corner support",
+    "bar_outside_closed_stirrup": "A required compression bar lies outside the closed stirrup",
+    "clear_distance_exceeded": "The clear distance on a side exceeds the permitted limit",
+    "cirsoc_limit_interpretation": "The 15 d_be and 150 mm limits give different outcomes; interpretation pending",
+    "second_row_support_not_modelled": "Second-row compression support requires a separate detail",
+    "crosstie_anchorage_not_verified": "Crosstie anchorage is not verified",
+    "crosstie_hook_rule_not_modelled": "The crosstie hook size is outside the supported model",
+    "first_row_missing": "The required first compression row is missing",
+    "closed_stirrups_missing": "Required compression steel has no closed stirrups",
+    "unsupported_bend": "The stirrup bend is outside the supported model",
+}
+
+
+def transverse_proposal_warnings(beam: "RectangularBeam") -> List[_Raw]:
+    """La propuesta de jaula no modifica la entrada ni aprueba ramas no confirmadas."""
+    from mento.cage_detailing import CageDetailingError, build_cage_detailing
+
+    if beam._stirrups_optional or not beam._stirrup_n:
+        return []
+    try:
+        geometry = build_cage_detailing(beam, include_skin=False)
+    except CageDetailingError:
+        return []
+    result = []
+    entered = int(2 * beam._stirrup_n)
+    placed = len(geometry.leg_x)
+    if placed != entered:
+        result.append(
+            _Raw(
+                "transverse_legs_added_for_compression_support",
+                {"input_legs": entered, "placed_legs": placed, "pieces": geometry.arrangement()},
+            )
+        )
+    if any(t.extension is not None and t.alternate_hooks for t in geometry.crossties):
+        result.append(_Raw("crosstie_alternation_required", {}))
+    if any(t.extension is None for t in geometry.crossties):
+        result.append(_Raw("open_leg_anchorage_outside_model", {}))
+    return result

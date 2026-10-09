@@ -13,23 +13,23 @@ from ._version import __version__
 from .units import (
     GPa,
     MPa,
-    kPa,
+    cm,
+    deg,
+    ft,
+    inch,
+    kg,
     kgf,
+    kip,
     kN,
     kNm,
-    kg,
-    kip,
+    kPa,
     ksi,
     lb,
     m,
     mm,
-    cm,
     psi,
     sec,
     ureg,
-    deg,
-    ft,
-    inch,
 )
 
 # Re-export Quantity for user convenience
@@ -96,39 +96,49 @@ __all__ = [
     "SummaryInputError",
     "SummaryInputWarning",
     "split_single_table",
+    "SectionGeometry",
+    "CageDetailingError",
+    "CompressionDetailing",
+    "CompressionFaceDetail",
+    "SkinReinforcementRequirement",
+    "SkinServiceCase",
+    "SkinDistributionReview",
     "bar_designation",
     "bar_diameter",
 ]
 
 if TYPE_CHECKING:
+    from mento.bar_sizes import bar_designation, bar_diameter
     from mento.beam import RectangularBeam
+    from mento.beam_summary import BeamSummary
+    from mento.cage_detailing import CageDetailingError
+    from mento.compression_detailing import CompressionDetailing, CompressionFaceDetail
     from mento.codes import ACI_318_19_beam, EN_1992_2004_beam
+    from mento.column import Column
+    from mento.design_results import DesignNotRunError, RebarOption, StirrupOption
+    from mento.design_warnings import DesignWarning
     from mento.forces import Forces
+    from mento.i18n import available_languages, get_language, set_language
     from mento.material import (
         Concrete_ACI_318_19,
         Concrete_CIRSOC_201_25,
         Concrete_EN_1992_2004,
         SteelBar,
     )
-    from mento.slab import Footing, OneWaySlab
-    from mento.settings import BeamSettings
     from mento.node import Node
     from mento.results import DocumentBuilder, Formatter, TablePrinter
-    from mento.beam_summary import BeamSummary
     from mento.slab_summary import OneWaySlabSummary
-    from mento.column import Column
     from mento.punching import Capital, Opening, PunchingNode, PunchingSlab
-    from mento.shear_wall import ShearWall
-    from mento.shear_wall_summary import ShearWallSummary
-    from mento.i18n import available_languages, get_language, set_language
     from mento.reports.table_style import TableStyle, get_table_style, set_table_style
-    from mento.design_warnings import DesignWarning
-    from mento.design_results import RebarOption, StirrupOption
+    from mento.section_geometry import SectionGeometry
+    from mento.settings import BeamSettings
+    from mento.shear_wall import NotABeamError, ShearWall
+    from mento.shear_wall_summary import ShearWallSummary
+    from mento.skin_reinforcement import SkinDistributionReview, SkinReinforcementRequirement
+    from mento.skin_service import SkinServiceCase
+    from mento.slab import Footing, OneWaySlab
     from mento.wall_results import MeshDirection, WallMesh, WallShearCheck, WallShearDesign
-    from mento.design_results import DesignNotRunError
-    from mento.shear_wall import NotABeamError
     from mento.summary_tables import SummaryInputError, SummaryInputWarning, split_single_table
-    from mento.bar_sizes import bar_designation, bar_diameter
 
 
 def __getattr__(name: str) -> object:
@@ -178,6 +188,13 @@ def __getattr__(name: str) -> object:
         "SummaryInputError": "summary_tables",
         "SummaryInputWarning": "summary_tables",
         "split_single_table": "summary_tables",
+        "SectionGeometry": "section_geometry",
+        "CageDetailingError": "cage_detailing",
+        "CompressionDetailing": "compression_detailing",
+        "CompressionFaceDetail": "compression_detailing",
+        "SkinReinforcementRequirement": "skin_reinforcement",
+        "SkinServiceCase": "skin_service",
+        "SkinDistributionReview": "skin_reinforcement",
     }
 
     if name in module_mapping:

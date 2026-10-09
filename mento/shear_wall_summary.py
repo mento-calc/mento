@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence
 import pandas as pd
 from pandas import DataFrame
 
+from mento.codes.registry import design_code
 from mento.bar_sizes import bar_designation
 from mento.design_results import spacing_separator
 from mento.node import Node
@@ -111,6 +112,11 @@ class ShearWallSummary(_TwoTableSummary):
     _ALWAYS_LEVEL = True
 
     @property
+    def wall_list(self) -> DataFrame:
+        """The single table this summary was built from (deprecated, removed in 2.0)."""
+        return self._legacy("wall_list")
+
+    @property
     def wall_keys(self) -> List[Any]:
         """The ``(Level, Label)`` of each wall, in the order of :attr:`nodes`: :attr:`labels`."""
         return self.labels
@@ -175,6 +181,13 @@ class ShearWallSummary(_TwoTableSummary):
     def _check_table(self, records: Sequence[SectionVerdict]) -> DataFrame:
         imperial = self.concrete.is_imperial
         long_unit = "ft" if imperial else "m"
+        # What the code calls the ratios, the demand and the capacity: ρt / Vu / ØVn
+        # under ACI 318-19 and CIRSOC 201-25, ρh / VEd / VRd under EN 1992-1-1. The
+        # demand is the governing combination's, not the largest shear.
+        names = design_code(self.concrete).wall_summary_columns
+        rho_h, rho_v, capacity_name = names["rho_h"], names["rho_v"], names["shear_capacity"]
+        demand_name = names["shear_demand"].replace(",max", "")
+        axial_name = "NEd" if demand_name == "VEd" else "Nu"
         rows = []
         for record, node in zip(records, self._nodes):
             wall: ShearWall = node.section  # type: ignore[assignment]
@@ -196,12 +209,12 @@ class ShearWallSummary(_TwoTableSummary):
                     "hw": round(wall.height.to(long_unit).magnitude, 2),
                     "Horiz. (each face)": _mesh_label(mesh.horizontal.d_b, mesh.horizontal.s, imperial),
                     "Vert. (each face)": _mesh_label(mesh.vertical.d_b, mesh.vertical.s, imperial),
-                    "ρt": round(float(mesh.horizontal.rho), 5),
-                    "ρl": round(float(mesh.vertical.rho), 5),
+                    rho_h: round(float(mesh.horizontal.rho), 5),
+                    rho_v: round(float(mesh.vertical.rho), 5),
                     "Comb.": (", ".join(shear.combinations) or "-") if shear is not None else "-",
-                    "Vu": _rounded(shear.demand if shear is not None else None, imperial),
-                    "Nu": _rounded(shear.axial if shear is not None else None, imperial),
-                    "ØVn": _rounded(capacity, imperial),
+                    demand_name: _rounded(shear.demand if shear is not None else None, imperial),
+                    axial_name: _rounded(shear.axial if shear is not None else None, imperial),
+                    capacity_name: _rounded(capacity, imperial),
                     "DCR": math.nan if shear is None else round(shear.DCR, 3),
                     "Warnings": warning_tags(record.warnings),
                     "Status": self._verdict_text(record),
@@ -217,12 +230,12 @@ class ShearWallSummary(_TwoTableSummary):
             "hw": long_unit,
             "Horiz. (each face)": mesh_unit,
             "Vert. (each face)": mesh_unit,
-            "ρt": "",
-            "ρl": "",
+            rho_h: "",
+            rho_v: "",
             "Comb.": "",
-            "Vu": force,
-            "Nu": force,
-            "ØVn": force,
+            demand_name: force,
+            axial_name: force,
+            capacity_name: force,
             "DCR": "",
             "Warnings": "",
             "Status": "",

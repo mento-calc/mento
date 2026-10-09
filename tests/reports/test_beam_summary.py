@@ -163,7 +163,8 @@ def test_a_support_and_a_midspan_are_two_sections(h25: Any, sample_steel: SteelB
 
     assert (support["Comb.,top"], support["Mu,top"], support["DCRb,top"]) == ("apoyo", -60.0, 0.804)
     assert (support["Comb.,v"], support["Vu"], support["DCRv"]) == ("apoyo", 80.0, 0.535)
-    assert support[VERDICT_COLUMN] == PASS_MARK
+    # Strength passes; the cage detailing of main (#174) does not fit these bars, and fails the section.
+    assert (support["Warnings"], support[VERDICT_COLUMN]) == ("cage_detailing_infeasible", FAIL_MARK)
     assert (midspan["Comb.,bot"], midspan["Mu,bot"], midspan["DCRb,bot"]) == ("tramo", 170.0, 1.263)
     assert midspan[VERDICT_COLUMN] == FAIL_MARK
     codes = [(w.code, w.face) for w in summary.warnings[("", "V9t")]]
@@ -188,7 +189,11 @@ def test_continuous_bars_are_one_section_declared_once(h25: Any, sample_steel: S
     assert (row["Comb.,top"], row["Mu,top"], row["DCRb,top"]) == ("apoyo", -60.0, 0.804)
     assert (row["Comb.,bot"], row["Mu,bot"], row["DCRb,bot"]) == ("tramo", 170.0, 0.934)
     assert (row["Comb.,v"], row["Vu"], row["DCRv"]) == ("apoyo", 80.0, 0.548)
-    assert (row["Warnings"], row[VERDICT_COLUMN]) == ("-", PASS_MARK)
+    # Strength passes; the cage detailing of main (#174) does not fit these bars, and fails the section.
+    assert (row["Warnings"], row[VERDICT_COLUMN]) == (
+        "compression_detailing_pending, cage_detailing_infeasible",
+        FAIL_MARK,
+    )
 
     beam = RectangularBeam(label="V9", concrete=h25, steel_bar=sample_steel, width=20 * cm, height=40 * cm, c_c=25 * mm)
     beam.set_transverse_rebar(1, 10 * mm, 17 * cm)
@@ -274,7 +279,9 @@ def test_a_one_sign_beam_reads_back_with_its_compression_bars(h25: Any, sample_s
     assert (midspan["n1_bot"], midspan["db1_bot"], midspan["legs"], midspan["dbs"], midspan["sl"]) == (2, 32, 2, 10, 17)
     before = summary.check()
     assert list(before["DCRb,top"][1:]) == [0.928, 0.0] and list(before["DCRb,bot"][1:]) == [0.0, 0.934]
-    assert list(before[VERDICT_COLUMN][1:]) == [PASS_MARK, PASS_MARK]
+    # The midspan's cage does not fit the bars the design chose (main's cage detailing, #174).
+    assert list(before[VERDICT_COLUMN][1:]) == [PASS_MARK, FAIL_MARK]
+    assert before["Warnings"].iloc[2] == "compression_detailing_pending, cage_detailing_infeasible"
 
     path = tmp_path / "beams.xlsx"
     summary.to_excel(path)
@@ -477,7 +484,9 @@ def test_design_is_node_design(sample_steel: SteelBar) -> None:
         assert (row["n1_bot"], row["db1_bot"], row["n2_bot"], row["db2_bot"]) == (2, 25, 1, 20)
         assert (row["legs"], row["dbs"], row["sl"]) == (2, 10, 11)
         check = summary.check().iloc[1]
-        assert (check["DCRb,bot"], check[VERDICT_COLUMN]) == (0.787, PASS_MARK)
+        # The strength closes; main's cage detailing (#174) does not fit 2Ø25 + 1Ø20 in the 20 cm web.
+        assert (check["DCRb,bot"], check[VERDICT_COLUMN]) == (0.787, FAIL_MARK)
+        assert "cage_detailing_infeasible" in check["Warnings"]
 
     en = Concrete_EN_1992_2004(name="C25/30", f_c=25 * MPa)
     b500 = SteelBar(name="B500S", f_y=500 * MPa)
@@ -589,7 +598,7 @@ def test_a_sagging_only_beam_has_a_bare_top(sample_concrete: Any, sample_steel: 
     summary = BeamSummary(sample_concrete, sample_steel, table, forces(rows))
     summary.design()
     check = summary.check()
-    assert list(check.iloc[1][["As,top", "As,bot", "Av"]]) == ["-", "2Ø16", "1sØ10/22"]
+    assert list(check.iloc[1][["As,top", "As,bot", "Av"]]) == ["-", "2Ø16", "2 legs Ø10/22"]
     assert list(check.iloc[2][["As,top", "As,bot"]]) == ["2Ø16", "2Ø12"]
 
 
@@ -1035,9 +1044,12 @@ def test_legs_count_the_legs_of_closed_stirrups(sample_concrete: Any, sample_ste
     )
     assert summary.nodes[0].section._stirrup_n == 2
     assert summary.sections_table.iloc[1]["legs"] == 4
+    odd = BeamSummary(sample_concrete, sample_steel, beams([{"Label": "V1"}], legs=3, dbs=8, sl=15), forces([]))
+    assert odd.nodes[0].section.reinforcement.transverse.n_legs == 3
+    assert odd.sections_table.iloc[1]["legs"] == 3
     with pytest.raises(SummaryInputError) as raised:
-        BeamSummary(sample_concrete, sample_steel, beams([{"Label": "V1"}], legs=3, dbs=8, sl=15), forces([]))
-    assert raised.value.code == "odd_legs" and "'V1' is 3" in str(raised.value)
+        BeamSummary(sample_concrete, sample_steel, beams([{"Label": "V1"}], legs=1, dbs=8, sl=15), forces([]))
+    assert raised.value.code == "one_leg" and "'V1' is 1" in str(raised.value)
     with pytest.raises(SummaryInputError, match="'ns' -> legs: the number of stirrup legs") as raised:
         BeamSummary(sample_concrete, sample_steel, beams([{"Label": "V1", "ns": 1}], units=GEOMETRY_UNITS), forces([]))
     assert raised.value.code == "unknown_columns"
@@ -1488,20 +1500,29 @@ def test_the_report_words_every_warning(
     try:
         doc = _built_document(summary, monkeypatch)
         heading = translate("Warnings")
+        support_messages = [w.message for w in summary.warnings[("", "V9a")]]
         expected_messages = [w.message for w in summary.warnings[("", "V9t")]]
         no_forces = translate("no forces")
         face = translate("Bottom")
     finally:
         set_language("en")
     table = _rows(_table_after(doc, heading))
-    assert [row[1:3] for row in table[1:]] == [[face, "tramo"], ["-", "-"], ["-", "-"]]
-    assert [row[0] for row in table[1:]] == ["V9t", "V9t", "V10"]
-    assert [row[3] for row in table[1:]] == [*expected_messages, no_forces]
+    # The support's cage does not fit its bars (main's cage detailing, #174): a warning of the section.
+    assert [row[1:3] for row in table[1:]] == [["-", "-"], [face, "tramo"], ["-", "-"], ["-", "-"]]
+    assert [row[0] for row in table[1:]] == ["V9a", "V9t", "V9t", "V10"]
+    assert [row[3] for row in table[1:]] == [*support_messages, *expected_messages, no_forces]
 
 
 def test_a_report_without_warnings_says_so(h25: Any, sample_steel: SteelBar, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Case B passes with no warning: the Warnings heading is followed by a sentence, not an empty table."""
-    doc = _built_document(BeamSummary(h25, sample_steel, *one_continuous_section()), monkeypatch)
+    """A section with no warning: the Warnings heading is followed by a sentence, not an empty table."""
+    summary = BeamSummary(
+        h25,
+        sample_steel,
+        beams([{"Label": "V1", "n1_bot": 3, "db1_bot": 16, "n1_top": 2, "db1_top": 10}], b=25, legs=2, dbs=8, sl=20),
+        forces([{"Label": "V1", "Comb.": "C1", "Vz": 50, "My": 60}]),
+    )
+    assert summary.check().iloc[1]["Warnings"] == "-"
+    doc = _built_document(summary, monkeypatch)
     texts = [p.text for p in doc.paragraphs]
     assert texts[texts.index("Warnings") + 1] == "No section misses a detailing limit."
 

@@ -2,6 +2,7 @@
 
 import re
 import string
+import warnings
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Set, Tuple
 
@@ -30,6 +31,7 @@ from mento.summary_tables import (
     SummaryInputError,
     SummaryInputWarning,
     label_of,
+    split_single_table,
     unit_of,
 )
 from tests.reports.summary_data import (
@@ -110,45 +112,66 @@ CLASSES["wall"] = (ShearWallSummary, OLD_WALLS, "wall_list")
 
 
 # ============================================================================
-# The single table of 1.4.0 is rejected, with the way out
+# The single table of 1.5.0 is deprecated: read as split_single_table, until 2.0
 # ============================================================================
 
 
-@pytest.mark.parametrize("kind", list(CLASSES))
-def test_a_1_4_0_table_is_rejected_with_the_recipe(kind: str, tmp_path: Path) -> None:
+@pytest.mark.parametrize("kind", ["beam", "wall"])
+def test_a_single_table_is_read_with_a_deprecation_warning(kind: str, tmp_path: Path) -> None:
+    """A beam or wall summary still reads the single table of 1.5.0, as split_single_table converts it."""
     cls, old, keyword = CLASSES[kind]
-    attempts: List[Callable[[], Any]] = [
-        lambda: cls(CONCRETE, STEEL, old),
-        lambda: cls(CONCRETE, STEEL, **{keyword: old}),
-    ]
-    path = tmp_path / "old.xlsx"
-    old.to_excel(path, index=False)
-    attempts.append(lambda: cls.from_excel(CONCRETE, STEEL, path))
-    for attempt in attempts:
-        with pytest.raises(SummaryInputError) as raised:
-            attempt()
-        error = raised.value
-        assert error.code == "single_table"
-        assert cls.__name__ in str(error)
-        if kind == "slab":
-            assert "split_single_table" not in str(error)
-            assert "one row per slab" in str(error)
-        else:
-            assert f'split_single_table(table, "{kind}")' in str(error)
-            assert "'Comb.'" in str(error)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", SummaryInputWarning)
+        expected = cls(CONCRETE, STEEL, *split_single_table(old, kind)).check()
+        path = tmp_path / "old.xlsx"
+        old.to_excel(path, index=False)
+        attempts: List[Callable[[], Any]] = [
+            lambda: cls(CONCRETE, STEEL, old),
+            lambda: cls(CONCRETE, STEEL, **{keyword: old}),
+            lambda: cls.from_excel(CONCRETE, STEEL, path),
+        ]
+        for attempt in attempts:
+            with pytest.warns(DeprecationWarning, match="removed in mento 2.0"):
+                summary = attempt()
+            pd.testing.assert_frame_equal(summary.check(), expected)
+        summary = attempts[0]()
+        with pytest.warns(DeprecationWarning, match=f"{keyword} is deprecated"):
+            assert getattr(summary, keyword) is old
+        with pytest.raises(AttributeError, match=f"no {keyword}"):
+            getattr(cls(CONCRETE, STEEL, *split_single_table(old, kind)), keyword)
     with pytest.raises(TypeError, match="unexpected keyword argument 'tables'"):
         cls(CONCRETE, STEEL, tables=old)
     with pytest.raises(TypeError, match="needs the sections table"):
         cls(CONCRETE, STEEL)
 
 
-def test_import_design_of_a_1_4_0_file_is_rejected(tmp_path: Path) -> None:
+def test_a_slab_single_table_is_rejected_with_the_way_out(tmp_path: Path) -> None:
+    """OneWaySlabSummary never read a single table, so it has nothing to deprecate."""
+    cls, old, keyword = CLASSES["slab"]
+    path = tmp_path / "old.xlsx"
+    old.to_excel(path, index=False)
+    attempts: List[Callable[[], Any]] = [
+        lambda: cls(CONCRETE, STEEL, old),
+        lambda: cls(CONCRETE, STEEL, **{keyword: old}),
+        lambda: cls.from_excel(CONCRETE, STEEL, path),
+    ]
+    for attempt in attempts:
+        with pytest.raises(SummaryInputError) as raised:
+            attempt()
+        assert raised.value.code == "single_table"
+        assert "split_single_table" not in str(raised.value)
+        assert "one row per slab" in str(raised.value)
+
+
+def test_import_design_of_a_single_table_file_is_deprecated(tmp_path: Path) -> None:
     summary = BeamSummary(CONCRETE, STEEL, *support_and_midspan())
     path = tmp_path / "old.xlsx"
     OLD_BEAMS.to_excel(path, index=False)
-    with pytest.raises(SummaryInputError) as raised:
-        summary.import_design(path)
-    assert raised.value.code == "single_table"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", SummaryInputWarning)
+        with pytest.warns(DeprecationWarning, match="single-table file is deprecated"):
+            summary.import_design(path)
+    assert len(summary.nodes) == len(OLD_BEAMS) - 1
 
 
 def test_missing_or_swapped_forces_are_named() -> None:
@@ -197,7 +220,7 @@ def _write(tmp_path: Path, sheets: Dict[str, pd.DataFrame]) -> Path:
 
 #: An input, the error code it raises and a text the message has to quote.
 ERRORS: List[Tuple[str, Callable[[Path], Any], str]] = [
-    ("single_table", lambda _: BeamSummary(CONCRETE, STEEL, OLD_BEAMS), "split_single_table"),
+    ("single_table", lambda _: OneWaySlabSummary(CONCRETE, STEEL, OLD_SLABS), "one row per slab"),
     ("missing_forces", lambda _: BeamSummary(CONCRETE, STEEL, _SECTIONS), "forces table is missing"),
     ("swapped_tables", lambda _: BeamSummary(CONCRETE, STEEL, _FORCES, _SECTIONS), "pass sections first"),
     (
@@ -218,7 +241,7 @@ ERRORS: List[Tuple[str, Callable[[Path], Any], str]] = [
         lambda _: _beam(rows=forces([{"Label": "V1", "Comb.": "C"}, {"Label": "V1", "Comb.": " C"}])),
         "combination 'C' of 'V1'",
     ),
-    ("odd_legs", lambda _: _beam(beams([{"Label": "V1", "legs": 1, "dbs": 8, "sl": 20}])), "legs of 'V1' is 1"),
+    ("one_leg", lambda _: _beam(beams([{"Label": "V1", "legs": 1, "dbs": 8, "sl": 20}])), "legs of 'V1' is 1"),
     ("wrong_unit", lambda _: _beam(_SECTIONS.assign(h=["kN", 50])), "Column h of the sections table is a length"),
     (
         "missing_label",
@@ -450,7 +473,8 @@ def test_documented_examples() -> None:
     """The tables the user guides write in code build their summaries, and give the numbers the guides quote."""
     beam = _guide_tables("beam_summary.rst")["beam_summary"]
     support, midspan = beam.check().iloc[1], beam.check().iloc[2]
-    assert (support["DCRb,top"], support["Ok?"]) == (0.804, "✅")
+    assert (support["DCRb,top"], support["Ok?"]) == (0.804, "❌")
+    assert support["Warnings"] == "cage_detailing_infeasible"
     assert (midspan["DCRb,bot"], midspan["Ok?"]) == (1.263, "❌")
     assert midspan["Warnings"] == "not_tension_controlled (bottom), stirrup_spacing_exceeds_compression_support"
 

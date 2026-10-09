@@ -10,12 +10,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, Mapping, Optional, Tuple
 
-from mento.bar_sizes import bar_designation
+from pandas import DataFrame
+
 from mento.beam import RectangularBeam
-from mento.design_results import spacing_separator
-from mento.i18n import stirrup_mark
 from mento.material import Concrete_ACI_318_19
-from mento.precompute import shown
 from mento.reports.summaries import BEAM_REPORT
 from mento.summary_base import Key, _FlexuralSummary, section_dimension, translated
 from mento.summary_tables import (
@@ -61,28 +59,27 @@ BEAM_SPEC = TableSpec(
         length("sl", "cm", "in"),
         *_face_columns("top"),
         *_face_columns("bot"),
+        length("db_piel", "mm", "in"),
+        count("cant_piel_cara"),
+        text("posicion"),
         text("Notes"),
     ),
     forces=forces_columns(),
 )
 
+#: The manual skin of a section, all three or none (see RectangularBeam.set_skin_rebar).
+SKIN_COLUMNS = ("db_piel", "cant_piel_cara", "posicion")
+
 
 def _stirrups_label(beam: RectangularBeam) -> str:
-    """The stirrups of a beam as the summary writes them: ``1eØ8/15`` (mm/cm), ``1s#3@6`` (in).
+    """The stirrups of a beam as the summary writes them: the compact notation, legs first.
 
-    A whole number of centimetres in SI, as the table has always shown them; in
-    inches up to four significant figures, since truncating 5.5 in to 5 would
-    write a spacing nobody placed.
+    ``2 legs Ø6/20`` (``2 ramas Ø6/20`` in Spanish), in the language of
+    :func:`mento.set_language`; ``-`` for a beam without stirrups.
     """
     if beam._stirrup_n == 0:
         return "-"
-    imperial = beam.concrete.is_imperial
-    spacing = shown(beam._stirrup_s_l, "length", imperial)
-    if imperial:
-        bar, spacing_text = bar_designation(beam._stirrup_d_b), f"{spacing:.4g}"
-    else:
-        bar, spacing_text = f"Ø{int(beam._stirrup_d_b.to('mm').magnitude)}", f"{int(spacing)}"
-    return f"{int(beam._stirrup_n)}{stirrup_mark()}{bar}{spacing_separator(imperial)}{spacing_text}"
+    return beam.reinforcement.transverse.notation(compact=True, imperial=beam.concrete.is_imperial)
 
 
 def _given(value: Optional[Quantity]) -> bool:
@@ -101,8 +98,9 @@ class BeamSummary(_FlexuralSummary):
 
     ``Level, Label, b, h, cc, legs, dbs, sl, n1_top, db1_top ... n4_top, db4_top, n1_bot ... n4_bot, db4_bot, Notes``
 
-    ``legs`` is the number of stirrup legs, two per closed stirrup (an odd
-    number is an error: mento models closed stirrups, not single ties),
+    ``legs`` is the number of stirrup legs: two per closed stirrup, and an
+    odd count from 3 adds crossties or open legs to the perimeter stirrup
+    (one leg is an error),
     ``dbs`` their diameter and ``sl`` their spacing. The bars of a face are four groups:
     ``n1/db1`` and ``n2/db2`` make the layer nearest the face, ``n3/db3`` and
     ``n4/db4`` a second layer inside it, as
@@ -130,6 +128,17 @@ class BeamSummary(_FlexuralSummary):
     _REPORT = BEAM_REPORT
 
     _SECTION_TYPE = RectangularBeam
+    _OPTIONAL_SECTION_COLUMNS = ("Level", "Notes", *SKIN_COLUMNS)
+
+    def _optional_column_used(self, name: str) -> bool:
+        return name in SKIN_COLUMNS and any(
+            getattr(node.section, "skin_rebar", None) is not None for node in self._nodes
+        )
+
+    @property
+    def beam_list(self) -> DataFrame:
+        """The single table this summary was built from (deprecated, removed in 2.0)."""
+        return self._legacy("beam_list")
 
     def _not_representable(self, key: Key, section: Any) -> Optional[str]:
         reason = super()._not_representable(key, section)
@@ -153,12 +162,22 @@ class BeamSummary(_FlexuralSummary):
 
     def _validate_section_row(self, key: Key, row: Mapping[str, Any]) -> None:
         legs, has_dbs, has_sl = row.get("legs", 0), _given(row.get("dbs")), _given(row.get("sl"))
-        if legs % 2:
-            raise SummaryInputError("odd_legs", label=repr(key_text(key)), value=legs)
+        if legs == 1:
+            raise SummaryInputError("one_leg", label=repr(key_text(key)))
         if legs > 0 and not (has_dbs and has_sl):
             raise _incomplete(key, "legs", " and ".join(n for n, ok in (("dbs", has_dbs), ("sl", has_sl)) if not ok))
         if legs == 0 and (has_dbs or has_sl):
             raise _incomplete(key, " and ".join(n for n, ok in (("dbs", has_dbs), ("sl", has_sl)) if ok), "legs")
+        position = str(row.get("posicion", "") or "").strip().lower()
+        if position or row.get("cant_piel_cara", 0) or _given(row.get("db_piel")):
+            # Manual skin: the three columns together; blank and zero keep the automatic skin.
+            if position not in ("top", "bottom", "total"):
+                raise ValueError(
+                    f"Beam {key_text(key)!r}: posicion is {row.get('posicion')!r}; manual skin needs "
+                    "posicion top, bottom or total, with db_piel and cant_piel_cara."
+                )
+            if not _given(row.get("db_piel")):
+                raise _incomplete(key, "posicion", "db_piel")
         for face in FACES:
             placed = {}
             for group in GROUPS:
@@ -184,7 +203,7 @@ class BeamSummary(_FlexuralSummary):
             c_c=row["cc"],
         )
         if row.get("legs", 0) > 0:
-            beam.set_transverse_rebar(n_stirrups=int(row["legs"]) // 2, d_b=row["dbs"], s_l=row["sl"])
+            beam.set_transverse_rebar(legs=int(row["legs"]), d_b=row["dbs"], s_l=row["sl"])
         zero = 0 * unit_of("in" if self.concrete.is_imperial else "mm")
         for face, setter in (("top", beam.set_longitudinal_rebar_top), ("bot", beam.set_longitudinal_rebar_bot)):
             values: list[Any] = []
@@ -192,13 +211,20 @@ class BeamSummary(_FlexuralSummary):
                 n = int(row.get(f"n{group}_{face}", 0))
                 values += [n, row[f"db{group}_{face}"] if n > 0 else zero]
             setter(*values)
+        position = str(row.get("posicion", "") or "").strip().lower()
+        if position:
+            try:
+                beam.set_skin_rebar(row["db_piel"], int(row.get("cant_piel_cara", 0)), position)  # type: ignore[arg-type]
+            except ValueError as error:
+                raise ValueError(f"Beam {key_text(key)!r}: invalid manual skin: {error}") from error
         return beam
 
     def _section_row(self, section: RectangularBeam) -> Dict[str, Any]:
         zero = 0 * unit_of("in" if self.concrete.is_imperial else "mm")
         row: Dict[str, Any] = {"b": section.width, "h": section.height, "cc": section.c_c}
         if section._stirrup_n > 0:
-            row.update({"legs": 2 * int(section._stirrup_n), "dbs": section._stirrup_d_b, "sl": section._stirrup_s_l})
+            legs = section.reinforcement.transverse.n_legs
+            row.update({"legs": int(legs), "dbs": section._stirrup_d_b, "sl": section._stirrup_s_l})
         else:
             row.update({"legs": 0, "dbs": zero, "sl": zero})
         for face in FACES:
@@ -206,6 +232,11 @@ class BeamSummary(_FlexuralSummary):
                 bars = int(round(n))
                 row[f"n{group}_{face}"] = bars
                 row[f"db{group}_{face}"] = d_b if bars > 0 else zero
+        skin = section.skin_rebar
+        if skin is not None:
+            row.update({"db_piel": skin.db_piel, "cant_piel_cara": skin.cant_piel_cara, "posicion": skin.posicion})
+        else:
+            row.update({"db_piel": zero, "cant_piel_cara": 0, "posicion": ""})
         return row
 
     def _rebar_labels(self, section: RectangularBeam) -> Tuple[str, str, str]:

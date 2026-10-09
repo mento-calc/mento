@@ -118,8 +118,8 @@ Resistencia total al corte           VRd       167.86  kN
 Verificación de corte máximo                       ✅
 Factor de Utilización                DCR        0.894  ✅ 
 
-Verificación                              Estado
-------------------------------  ---------------------------
+Verificación                              Estado               Notas de detallado
+------------------------------  ---------------------------  --------------------
 Resistencia                     Cumple (chequeos modelados)
 Detallado (chequeos modelados)  Cumple (chequeos modelados) 
 
@@ -201,8 +201,8 @@ Separación de estribos en la dirección transversal | cm | 0.0 |  | 0.0 | ✅
 Armadura mínima de corte | cm²/m | 0.0 | 0.0 |  | ✅
 Verificaciones de resistencia
 Resistencia de la armadura de corte | Variable | Valor | Unidad
-Diámetro del estribo | db | 0.0 | mm
-Separación de estribos en la dirección longitudinal | sl | 0.0 | cm
+Diámetro del estribo | db | 0 | mm
+Separación de estribos en la dirección longitudinal | sl | 0 | cm
 Separación de estribos en la dirección transversal | sw | 0.0 | cm
 Altura útil | d | 44.4 | cm
 Armadura mínima de corte | Asw,min | 0.0 | cm²/m
@@ -220,9 +220,9 @@ Resistencia total al corte | VRd | 167.9 | kN
 Verificación de corte máximo |  | ✅ | 
 Factor de Utilización | DCR | 0.89 | ✅
 Resistencia y detallado
-Verificación | Estado
-Resistencia | Cumple (chequeos modelados)
-Detallado (chequeos modelados) | Cumple (chequeos modelados)
+Verificación | Estado | Notas de detallado
+Resistencia | Cumple (chequeos modelados) | 
+Detallado (chequeos modelados) | Cumple (chequeos modelados) | 
 
 ### results
 Slab Z1, $b$=100.00 cm, $h$=50.00 cm, $c_{c}$=5.00 cm,                         Concrete C25/30, Rebar B500S.

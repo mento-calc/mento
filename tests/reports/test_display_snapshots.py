@@ -226,12 +226,8 @@ CASES: Dict[str, Callable[[str, Path], str]] = {
     "slab_summary": _slab_summary,
     "wall_summary": _wall_summary,
 }
-# EN 1992-2004 has no shear-wall check.
 PARAMS: List[Any] = [
-    pytest.param(element, code, id=f"{element}-{code}")
-    for element in CASES
-    for code in ("aci", "cirsoc", "en")
-    if not (element.startswith("wall") and code == "en")
+    pytest.param(element, code, id=f"{element}-{code}") for element in CASES for code in ("aci", "cirsoc", "en")
 ]
 
 

@@ -17,15 +17,20 @@ Scope
   stirrups and spacing limits.
 
 **Not implemented**: torsion (§6.3), punching in the beam module (see
-``PunchingSlab``), serviceability limit states — crack width (§7.3) and deflection
+``PunchingSlab``), direct crack-width calculation (§7.3.4) and deflection
 (§7.4) — anchorage and lap lengths (§8), fatigue (§6.8), and prestressing. The
 :math:`A_p` term appears in the shear reinforcement ratio but is fixed at zero.
+The limited skin-steel proposal described below uses selected §7.3 provisions;
+it does not implement a complete serviceability verification.
 
 Nationally Determined Parameters
 --------------------------------
 
 EN 1992-1-1 leaves several values to the National Annex. mento uses the **recommended
-values from the Eurocode text**, not those of any particular national annex:
+values from the Eurocode text** for the parameters identified below.
+The default :math:`\alpha_{cc}=0.85` is a separate Mento choice; the EN
+recommended value is 1.0 (§3.1.6(1), Note). This is not a complete national
+annex implementation:
 
 .. list-table::
    :header-rows: 1
@@ -132,8 +137,11 @@ a depth :math:`\lambda x` measured from the extreme compression fibre.
 Ductility limit
 ^^^^^^^^^^^^^^^
 
-Both limits EN 1992-1-1 imposes are written on the **neutral axis ratio**
-:math:`x_u/d`: the redistribution limit of §5.5(4) and the 0.45 cap.
+Both limits used by mento are written on the **neutral axis ratio**
+:math:`x_u/d`: the redistribution limit of §5.5(4), Eqs. (5.10a)/(5.10b),
+and an additional fixed cap of 0.45 chosen by mento. The latter is not
+prescribed by §5.5(4). The 0.45/0.35 limits in §5.6.3(2) belong to the
+rotation check of yielding hinges, which this helper does not implement.
 
 .. math::
 
@@ -216,7 +224,9 @@ Minimum and maximum reinforcement
    \qquad
    \rho_{max} = 0.04
 
-with :math:`f_{ctm} = 0.30\, f_{ck}^{2/3}` (Table 3.1). Unlike ACI, :math:`\rho_{min}`
+with :math:`f_{ctm} = 0.30\, f_{ck}^{2/3}` up to C50/60, and
+:math:`f_{ctm} = 2.12\ln(1+f_{cm}/10)` above C50/60, with strengths in MPa
+(Table 3.1). Unlike ACI, :math:`\rho_{min}`
 is not conditioned on the moment being non-zero, so a shear-only combination already
 receives minimum flexural steel.
 
@@ -371,13 +381,29 @@ Minimum reinforcement and spacing
 
 with :math:`\alpha` the stirrup inclination, fixed at 90° (vertical stirrups).
 
-Spacing limits, §9.2.2(6) and (8):
+Spacing limits, §9.2.2(6) and (8), Expressions (9.6N) and (9.8N):
 
 .. math::
 
    s_{max,l} = \min\left(0.75\,d\,(1 + \cot\alpha),\ 400\ \text{mm}\right)
    \qquad
    s_{max,w} = \min\left(0.75\,d,\ 600\ \text{mm}\right)
+
+Expression (9.8N) carries the 600 mm cap. Expression (9.6N) has none: the 400 mm on
+:math:`s_{max,l}` is mento's own, not the code's, and is kept as it is. EN 1992-1-1 has no
+threshold that halves these limits, so a ``ShearCheck`` of this code reports
+``V_s_req``, ``V_s_threshold`` and ``spacing_halved`` as ``None``; on a section with no
+stirrups the check sets no limit, and ``s_max_l_table`` and ``s_max_w`` are ``None`` too.
+
+The limit across the width is on the legs, spread as under ACI 318-19: ``n`` closed
+stirrups put :math:`2n` legs evenly between the centres of the outermost pair,
+
+.. math::
+
+   s_w = \frac{b - 2c_c - d_{b,st}}{2n - 1}
+
+in calculation geometry with one perimeter and open interior legs. EN compression
+support remains pending; detailing is a separate proposal.
 
 .. note::
 
@@ -505,6 +531,35 @@ reproduce; the regression rows, whose only reference is a Calcpad sheet, are tes
    * - Never raises on an unfittable section
      - ``test_design_flexure_EN_1992_2004_infeasible_does_not_crash``
      - Public contract
+
+Supplementary web reinforcement
+--------------------------------
+
+``skin_reinforcement`` implements a limited, rectangular pure-bending
+proposal under EN 1992-1-1:2004 §7.3.3(3), for h >= 1000 mm. Minimum area
+uses §7.3.2(2), Eq. (7.1), with k=0.5 and sigma_s=f_yk. Taking k_c=0.4,
+A_ct=b*h/2 and splitting additional area equally between side faces are
+Mento's rectangular-bending interpretation, not a general axial-force rule.
+
+The Table 7.2N diameter route uses half the independently supplied main
+service stress. Table 7.3N is an alternative and is not imposed cumulatively.
+The geometric substitution in Eq. (7.7N) is not specified expressly for
+skin bars. Mento uses the smaller of its bending-depth and web-as-tie
+interpretations; see the beams guide for both substitutions and limitations.
+Table 7.2N Note 1 assumptions and the need for evenly distributed skin
+under §7.3.3(3) still require engineering review.
+The chosen crack-width row must be justified for the project and applicable
+National Annex. ``diameter_max`` is the cap evaluated for the selected skin
+diameter: its web-as-tie cover substitution depends on that diameter, so it
+is not an independently solved maximum permitted bar size.
+
+This does not calculate crack width using §7.3.4, does not verify cracking
+of the main reinforcement, and does not implement restraint/early-age
+cracking, prestressing, strut-and-tie design, torsion or seismic detailing.
+Axial cases explicitly report unsupported. Informative Annex J surface
+mesh outside the links remains a separate project/National Annex review.
+Equation/table regression tests for this feature must not be mistaken for
+independent published beam validation or a direct calculated w_k check.
 
 Compression-bar support
 -----------------------

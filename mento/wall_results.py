@@ -107,15 +107,23 @@ class WallShearCheck:
 
     ``mesh`` is the reinforcement the combination was checked with -- the
     wall's own at the time, kept here so the result stays whole once the wall
-    changes. ``V_capacity`` is the design shear strength ``ØVn`` the ``DCR``
-    was formed from, already capped by ``ØVn,max`` (``V_max``), the most the
-    section can carry however it is reinforced. ``rho_t_req`` is the
-    horizontal ratio the combination needs, never below ``rho_t_min``;
-    ``rho_l_min`` the vertical minimum of ACI 318-19 / CIRSOC 201-25
-    §11.6.2(a) -- Eq. (11.6.2) with the ``rho_t`` provided, capped by
-    ``rho_t_req``, so it depends on the mesh as much as on the combination.
-    ``rho_t`` and ``rho_l`` are the ratios that mesh provides, and
-    ``s_h_max`` / ``s_v_max`` the spacing limits of §11.7.
+    changes. ``V_u`` and ``N_u`` are the demand of the combination, ``V_Ed``
+    and ``N_Ed`` under EN 1992-1-1. ``V_capacity`` is the design shear
+    strength the ``DCR`` was formed from -- ``ØVn``, or ``V_Rd`` -- and
+    ``V_max`` the most the section can carry however it is reinforced:
+    ``ØVn,max`` of ACI 318-19 / CIRSOC 201-25 §11.5.4.2, or ``V_Rd,max`` of
+    EN 1992-1-1 Eq. (6.9) at 45°.
+
+    ``rho_t_req`` is the horizontal ratio the combination needs, never below
+    ``rho_t_min``. ``rho_l_min`` is the vertical minimum: under ACI 318-19 /
+    CIRSOC 201-25 §11.6.2(a), Eq. (11.6.2) with the ``rho_t`` provided,
+    capped by ``rho_t_req``; under EN 1992-1-1 §9.6.2(1), 0.002, where it is
+    the horizontal minimum of §9.6.3(1) that reads the vertical mesh instead.
+    Either way it depends on the mesh as much as on the combination.
+    ``rho_l_max`` is the vertical maximum where the code states one (EN
+    1992-1-1 §9.6.2(1), 0.04) and ``None`` where it does not. ``rho_t`` and
+    ``rho_l`` are the ratios that mesh provides, and ``s_h_max`` /
+    ``s_v_max`` the spacing limits of the code.
     """
 
     label: str
@@ -132,6 +140,7 @@ class WallShearCheck:
     s_h_max: Quantity
     s_v_max: Quantity
     DCR: float
+    rho_l_max: Optional[float] = None
 
 
 @dataclass(frozen=True)
@@ -141,10 +150,10 @@ class WallShearDesign:
     ``mesh`` is the one the combinations were checked with, read off the
     checks themselves rather than off the wall, so the ``DCR`` next to it is
     its own. ``rho_t_req``, ``rho_l_min`` and ``DCR`` are the envelope over
-    every combination checked; ``V_capacity`` is the ``ØVn`` of the
+    every combination checked; ``V_capacity`` is the ``ØVn`` (``V_Rd``) of the
     combination that governs, so the DCR is the ratio it was. The spacing
-    limits depend on the geometry alone and are the same for every
-    combination.
+    limits are those of the governing combination. ``rho_l_max`` is the
+    vertical maximum where the code states one, ``None`` where it does not.
     """
 
     mesh: WallMesh
@@ -155,6 +164,7 @@ class WallShearDesign:
     s_v_max: Quantity
     DCR: float
     V_capacity: Quantity
+    rho_l_max: Optional[float] = None
 
     def __str__(self) -> str:
         return str(self.mesh)
@@ -177,23 +187,16 @@ def capture_wall_shear_check(wall: ShearWall, label: str, state: Any) -> WallShe
     """The result of the combination just checked, read off its state.
 
     The mesh is read off the wall here, at the check, and kept on the result:
-    it is the one the state was computed with.
+    it is the one the state was computed with. The rest comes from the
+    state's ``public_values``, which every code's wall state answers in the
+    names of this result.
     """
     return WallShearCheck(
         label=label,
         mesh=build_mesh(wall),
-        V_u=state.V_u,
-        N_u=state.N_u,
-        V_capacity=min(state.phi_V_n_wall, state.phi_V_n_max_wall),
-        V_max=state.phi_V_n_max_wall,
         rho_t=_ratio(wall._rho_t),
-        rho_t_req=_ratio(state.rho_t_req),
-        rho_t_min=_ratio(state.rho_t_min),
         rho_l=_ratio(wall._rho_l),
-        rho_l_min=_ratio(state.rho_l_min),
-        s_h_max=state.s_h_max,
-        s_v_max=state.s_v_max,
-        DCR=float(state.DCR),
+        **state.public_values(),
     )
 
 
@@ -230,4 +233,5 @@ def build_wall_shear_design(wall: ShearWall) -> WallShearDesign:
         s_v_max=governing.s_v_max,
         DCR=governing.DCR,
         V_capacity=governing.V_capacity,
+        rho_l_max=governing.rho_l_max,
     )

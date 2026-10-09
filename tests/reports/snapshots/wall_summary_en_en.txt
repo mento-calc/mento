@@ -1,0 +1,101 @@
+### forces
+     Level Label  Comb.    Nx   Vz    My
+0                          kN   kN   kNm
+1  Level 1    M1  ELU 1     0  264  -172
+2  Level 1    M1  ELU 2  -301  152  -234
+3  Level 2    M2  ELU 1  55.5  163  -278
+
+### design
+     Level Label   t lw hw  cc dbh  sh dbv  sv
+0                 cm  m  m  mm  mm  cm  mm  cm
+1  Level 1    M1  20  3  3  25   6  27  10  37
+2  Level 2    M2  20  2  3  25   6  27  10  37
+
+### check
+     Level Label     t   lw   hw Horiz. (each face) Vert. (each face)       ρh       ρv  Comb.    VEd   NEd    VRd    DCR Warnings Status
+0                   cm    m    m                                                                   kN    kN     kN                       
+1  Level 1    M1  20.0  3.0  3.0              Ø6/27            Ø10/37  0.00105  0.00212  ELU 1  264.0   0.0  491.7  0.537        -      ✅
+2  Level 2    M2  20.0  2.0  3.0              Ø6/27            Ø10/37  0.00105  0.00212  ELU 1  163.0  55.5  327.8  0.497        -      ✅
+
+### shear_results
+  Label  Comb. Ash,min Ash,req    Ash Asv,min    Asv    NEd    VEd   VRd,c   VRd,s     VRd  VRd,max VEd≤VRd,max VEd≤VRd    DCR
+0                cm²/m   cm²/m  cm²/m   cm²/m  cm²/m     kN     kN      kN      kN      kN       kN                           
+1    M1  ELU 1     2.0     2.0   2.09     4.0   4.25    0.0  264.0  122.88  491.73  491.73  1340.69        True    True  0.537
+2    M1  ELU 2     2.0     2.0   2.09     4.0   4.25 -301.0  152.0   86.76  491.73  491.73  1340.69        True    True  0.309
+3    M2  ELU 1     2.0     2.0   2.09     4.0   4.25   55.5  163.0   94.85  327.82  327.82   893.79        True    True  0.497
+
+### results_detailed_doc: Shear_Wall_Summary_EN 1992-2004.docx
+Shear Wall Summary Analysis
+Made with mento <version>. Design code: EN 1992-2004
+This report presents the detailed results for the first wall of the summary, followed by summary tables for all walls.
+Wall Level 1 - M1 shear check
+Section Data
+Materials | Variable | Value | Unit
+Section Label |  | M1 | 
+Concrete strength | fck | 25 | MPa
+Steel reinforcement yield strength | fywk | 500 | MPa
+Safety factor for concrete | γc | 1.5 | 
+Safety factor for steel | γs | 1.15 | 
+Design concrete strength | fcd | 16.67 | MPa
+Design steel strength | fywd | 434.78 | MPa
+Geometry | Variable | Value | Unit
+Wall thickness | t | 20.0 | cm
+Wall length | lw | 300.0 | cm
+Wall height | hw | 300.0 | cm
+Gross concrete area | Ac | 6000.0 | cm²
+Effective height | d | 240.0 | cm
+Lever arm | z | 216.0 | cm
+Design forces | Variable | Value | Unit
+Axial, positive for compression | NEd | 0.0 | kN
+Shear | VEd | 264.0 | kN
+Limit checks
+Check | Unit | Value | Min. | Max. | Ok?
+Length to thickness ratio |  | 15.0 | 4 |  | ✅
+Horizontal reinforcement | cm²/m | 2.09 | 2.0 |  | ✅
+Vertical reinforcement | cm²/m | 4.25 | 4.0 | 80.0 | ✅
+Horizontal bar spacing (E.F.) | mm | 270.0 |  | 400.0 | ✅
+Vertical bar spacing (E.F.) | mm | 370.0 |  | 400.0 | ✅
+Maximum shear capacity | kN | 264.0 |  | 1340.7 | ✅
+Total shear capacity | kN | 264.0 |  | 491.7 | ✅
+Strength Checks
+Shear strength | Variable | Value | Unit
+k value | k | 1.289 | 
+Longitudinal reinforcement ratio | ρl | 0.0 | 
+Axial stress | σcp | 0.0 | MPa
+Concrete shear strength | VRd,c | 122.9 | kN
+Compression chord coefficient | αcw | 1.0 | 
+Strength reduction factor for concrete cracked in shear | ν1 | 0.54 | 
+Concrete strut angle | Θ | 21.8 | deg
+Shear reinforcement for strength | Ash,str | 1.12 | cm²/m
+Minimum shear reinforcement | Ash,w | 1.6 | cm²/m
+Minimum horizontal reinforcement | Ash,min | 2.0 | cm²/m
+Steel shear strength | VRd,s | 491.7 | kN
+Maximum shear strength | VRd,max | 1340.7 | kN
+Total shear strength | VRd | 491.7 | kN
+Demand Capacity Ratio | DCR | 0.54 | 
+Summary - All Walls
+Wall Sections
+Level | Label | t | lw | hw | cc | Horiz. (each face) | Vert. (each face)
+ |  | cm | m | m | mm |  | 
+Level 1 | M1 | 20 | 3 | 3 | 25 | Ø6/27 | Ø10/37
+Level 2 | M2 | 20 | 2 | 3 | 25 | Ø6/27 | Ø10/37
+Forces
+Level | Label | Comb. | Nx | Vz | My
+ |  |  | kN | kN | kNm
+Level 1 | M1 | ELU 1 | 0 | 264 | -172
+Level 1 | M1 | ELU 2 | -301 | 152 | -234
+Level 2 | M2 | ELU 1 | 55.5 | 163 | -278
+Nx > 0 is compression; Vz is the in-plane shear, taken in magnitude. My is not used: the summary checks the in-plane shear only.
+Shear Results
+Label | Comb. | Ash,min | Ash,req | Ash | Asv,min | Asv | NEd | VEd | VRd,c | VRd,s | VRd | VRd,max | VEd≤VRd,max | VEd≤VRd | DCR
+ |  | cm²/m | cm²/m | cm²/m | cm²/m | cm²/m | kN | kN | kN | kN | kN | kN |  |  | 
+M1 | ELU 1 | 2.0 | 2.0 | 2.09 | 4.0 | 4.25 | 0.0 | 264.0 | 122.9 | 491.7 | 491.7 | 1340.7 | True | True | 0.54
+M1 | ELU 2 | 2.0 | 2.0 | 2.09 | 4.0 | 4.25 | -301.0 | 152.0 | 86.8 | 491.7 | 491.7 | 1340.7 | True | True | 0.31
+M2 | ELU 1 | 2.0 | 2.0 | 2.09 | 4.0 | 4.25 | 55.5 | 163.0 | 94.8 | 327.8 | 327.8 | 893.8 | True | True | 0.5
+Design Check Summary
+Level | Label | t | lw | hw | Horiz. (each face) | Vert. (each face) | ρh | ρv | Comb. | VEd | NEd | VRd | DCR | Warnings | Status
+ |  | cm | m | m |  |  |  |  |  | kN | kN | kN |  |  | 
+Level 1 | M1 | 20.0 | 3.0 | 3.0 | Ø6/27 | Ø10/37 | 0.00105 | 0.00212 | ELU 1 | 264.0 | 0.0 | 491.7 | 0.54 | - | ✅
+Level 2 | M2 | 20.0 | 2.0 | 3.0 | Ø6/27 | Ø10/37 | 0.00105 | 0.00212 | ELU 1 | 163.0 | 55.5 | 327.8 | 0.5 | - | ✅
+Warnings
+No section misses a detailing limit.

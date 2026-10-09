@@ -49,7 +49,9 @@ The available languages are ``"en"`` and ``"es"``:
     mento.available_languages()   # ('en', 'es')
     mento.get_language()          # 'es'
 
-Passing anything else raises ``ValueError`` and leaves the current language in place.
+Passing anything else raises ``ValueError`` and leaves the current language in place. So
+does an explicit ``language`` argument of ``notation()``, ``arrangement()`` and the
+functions behind them: ``notation("es-AR")`` raises rather than falling back to English.
 
 What is translated
 ------------------
@@ -70,6 +72,21 @@ and to the summaries, :doc:`beam_summary`, :doc:`slab_summary` and :doc:`shear_w
   (:class:`~mento.summary_tables.SummaryInputError`,
   :class:`~mento.summary_tables.SummaryInputWarning`), whose ``str()`` stays in English
 
+It also applies to:
+
+- the text of the section drawing, ``beam.plot()``;
+- the warning messages, ``DesignWarning.message``, worded when ``warnings`` is read;
+- the stirrup notation and the description of the cage, asked for through ``notation()``
+  and ``arrangement()`` of ``reinforcement.transverse``, ``shear_design`` or an option.
+
+.. code-block:: python
+
+    mento.set_language("es")
+    beam.shear_design.notation()      # '2 ramas Ø6 mm c/28 cm · 14.4 cm entre ramas (máx. 40 cm)'
+    beam.shear_design.arrangement()   # 'estribo perimetral'
+    beam.shear_design.notation("en")  # '2 legs Ø6 mm @ 28 cm · 14.4 cm between legs (max 40 cm)'
+    str(beam.shear_design)            # always English, whatever the language
+
 Table headers, row labels and document headings are translated. These are deliberately
 left as they are:
 
@@ -77,15 +94,19 @@ left as they are:
   code and stay identical in every language. This is why a summary table translates
   ``Beam`` and ``Position`` but leaves ``As,bot`` and ``DCRv`` alone.
 - **Units and numbers** — ``cm``, ``MPa``, ``kNm``.
-- **Bar notation** — ``Ø16``, ``#6``, ``@``. Only the stirrup mark is the language's:
-  ``1sØ10/22`` (*stirrup*) in English, ``1eØ10/22`` (*estribo*) in Spanish.
+- **Bar notation** — ``Ø16`` and ``#6`` stay unchanged. ``notation()`` translates
+  the transverse label: ``2 legs Ø10 @ 22`` / ``2 ramas Ø10 c/22``.
 - **The design code designation** — ``CIRSOC 201-25`` keeps its official name.
 - **Generated file names** — a project keeps one naming scheme regardless of the language
   its reports are written in.
 - **The tables a summary reads and writes** — the sheets ``Sections`` and ``Forces`` and
   their headers, so a file reads back in any language — and the warning codes of the
   ``Warnings`` column of ``check()`` (``As_below_min (bottom)``), which a program reads.
-- **The API itself** — arguments, attributes and error messages remain English.
+- **The API itself** — arguments, attributes, ``str()`` of the reinforcement, design and
+  check results (``mento.design_results``) and error messages remain English;
+  ``notation()``, ``arrangement()`` and the warning messages follow the language. A
+  ``DesignWarning`` is the one result whose ``str()`` follows it too: its ``str()`` is its
+  ``message``.
 
 A label with no translation is written in English rather than raising, so a report always
 renders.

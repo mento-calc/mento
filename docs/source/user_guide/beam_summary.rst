@@ -5,6 +5,11 @@ The ``BeamSummary`` class checks, designs and reports a list of beam sections at
 once. It reads two tables: one that says what each **section** is, and one that says
 what **forces** each section carries, one row per load combination.
 
+Skin-steel proposals are currently available through the individual beam's
+``skin_reinforcement``, ``warnings`` and ``plot()`` interfaces. The summary
+tables and Word annex do not yet include the skin layout or its SLS review.
+A strength result in those reports does not certify skin detailing or crack width.
+
 Creating Concrete and Steel Materials
 --------------------------------------
 
@@ -78,8 +83,9 @@ The rules:
   effective depth, as a :class:`~mento.beam.RectangularBeam` built by hand does.
 - The reinforcement columns may be left out (they are zero on every row), to design from
   the geometry alone. An empty reinforcement or force cell is zero; an empty geometry
-  cell, text in a numeric column, a negative bar, a bar count without its diameter or an
-  odd number of legs are errors that name the section and the column.
+  cell, text in a numeric column, a negative bar, a bar count without its diameter or a
+  single leg are errors that name the section and the column. An odd number of legs
+  from 3 adds crossties or open legs to the perimeter stirrup.
 - A row with every cell empty is skipped.
 
 Errors are :class:`~mento.summary_tables.SummaryInputError` (a ``ValueError``) and
@@ -108,15 +114,18 @@ each with 2Ø8 on its other face (the columns of the second layer, all zero, are
    "V9a", "apoyo", 0, 80, -60
    "V9t", "tramo", 0, 10, 170
 
-``check()`` gives V9a 0.804 on top and ✅; V9t 1.263 at the bottom and ❌, with the
+``check()`` gives V9a 0.804 on top; V9t 1.263 at the bottom and ❌, with the
 warnings ``not_tension_controlled (bottom)`` and
 ``stirrup_spacing_exceeds_compression_support`` (``test_a_support_and_a_midspan_are_two_sections``).
+V9a carries its moment, but reads ❌ too: the cage detailing finds no layout of the 3Ø16
+within the Ø10 stirrup corners, ``cage_detailing_infeasible``.
 
 If the bars run through, it is one section under both combinations: one row of sections
 with ``n1_top = 3, db1_top = 16, n1_bot = 2, db1_bot = 32`` and the two rows of forces
 under the label ``V9``. ``check()`` then gives 0.804 on top (apoyo), 0.934 at the bottom
-(tramo) and 0.548 in shear (apoyo), with no warning, as a :class:`~mento.node.Node` built
-by hand (``test_continuous_bars_are_one_section_declared_once``).
+(tramo) and 0.548 in shear (apoyo), as a :class:`~mento.node.Node` built by hand
+(``test_continuous_bars_are_one_section_declared_once``); its cage, as V9a's, does not
+fit the 3Ø16.
 
 The same tables in code:
 
@@ -185,13 +194,14 @@ materials) raises instead of coming back as another section.
 
     BeamSummary.from_nodes(conc, steel, [node_1, node_2]).to_excel("Beams.xlsx")
 
-From mento 1.4.0
-~~~~~~~~~~~~~~~~
+From the single table (deprecated)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The single table of mento 1.4.0 — one row per combination, the section repeated on each —
-is no longer read; passing it raises ``SummaryInputError`` with code ``single_table``.
-:func:`~mento.summary_tables.split_single_table` converts it, each row becoming a section
-of its own with its forces, which is what 1.4.0 computed:
+The single table of mento 1.5.0 and before — one row per combination, the section
+repeated on each — is still read, with a ``DeprecationWarning``; mento 2.0 will read the
+two tables only. :func:`~mento.summary_tables.split_single_table` is what reads it, and
+converts it once and for all: each row becomes a section of its own with its forces,
+which is what 1.5.0 computed:
 
 .. code-block:: python
 
@@ -222,9 +232,11 @@ one row per section:
   that combination. (``MEd``, ``VEd``, ``NEd`` under EN 1992-1-1.)
 - ``Warnings``: mento's warning codes (:doc:`design_results`) with the face they are read
   on, e.g. ``As_below_min (bottom)``; ``-`` for none. They are the same in every language.
-- ``Ok?``: ✅ when every DCR is at most 1 **and** the section misses no limit — a section
-  with warnings is ❌. A section with no forces reads "no forces", and one with no bars
-  "no reinforcement: run design()".
+- ``Ok?``: ✅ when every DCR is at most 1 **and** the section misses no limit — a warning
+  of the strength or of a detailing limit the section misses makes it ❌ (the categories of
+  :func:`mento.verification.warning_category`). A check left pending, or a note, is listed
+  under ``Warnings`` but does not fail the section. A section with no forces reads
+  "no forces", and one with no bars "no reinforcement: run design()".
 
 The same, as data that does not depend on the language, is in ``beam_summary.results``:
 one :class:`~mento.summary_base.SectionVerdict` per section, with the
@@ -293,6 +305,18 @@ reads them back into the summary, replacing its sections and forces:
 
 What these print follows :func:`mento.set_language`.
 
+Exported designs contain complete ``*_bot`` and ``*_top`` reinforcement
+blocks so that compression steel survives export/import even with only one
+moment sign. All rows of the same beam must agree on each explicit face,
+including zero values. A zero face on one row cannot inherit bars from a
+different row.
+
+The legacy columns describe the face selected by that row's moment. If they
+contain reinforcement alongside an explicit block, both declarations must
+agree physically, including their units. A conflicting edit raises a
+``ValueError`` naming the beam and columns; it is not silently ignored.
+Leave the entire legacy block empty to supply only the explicit faces.
+
 Exporting Results to Excel
 ----------------------------
 
@@ -339,10 +363,10 @@ Los indicadores heredados conservan su contrato para compatibilidad.
 
 La tabla Sections usa ``legs``; no admite ``n_legs`` ni ``ns``.
 ``split_single_table()`` convierte el ``ns`` del formato antiguo, que cuenta
-estribos cerrados, en ramas. El modelo actual
-solo admite pares de ramas de estribos cerrados; no define una traba suelta
-ni su anclaje. Una disposición arbitraria de siete ramas requiere ampliar
-el modelo, no redondear silenciosamente la cantidad ingresada.
+estribos cerrados, en ramas, y conserva ``legs`` o ``n_legs`` si la tabla
+los trae. Una cantidad impar de ramas desde 3 es un estribo cerrado
+perimetral más trabas o patas abiertas (ver la jaula mixta en la guía de
+vigas); una sola rama es un error.
 
 El Word muestra ambas caras físicas y cc en las tablas Beam Sections / Slab Sections en mm (métrico) o pulgadas
 (imperial). Las zapatas EN con axil no nulo se rechazan como caso todavía

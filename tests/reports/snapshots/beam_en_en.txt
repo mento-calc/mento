@@ -91,22 +91,25 @@ Design forces                     Variable     Value  Unit
 Axial, positive for compression     NEd            0  kN
 Shear                              VEd,2         150  kN 
 
-Shear reinforcement strength     Variable     Value  Unit
-------------------------------  ----------  -------  ------
-Number of stirrups                  ns            1
-Stirrup diameter                    db            8  mm
-Stirrup spacing                     s            29  cm
-Effective height                    d         45.75  cm
-Minimum shear reinforcing        Asw,min        1.6  cm²/m
-Required shear reinforcing       Asw,req       3.35  cm²/m
-Defined shear reinforcing          Asw         3.47  cm²/m
-Shear rebar strength              VRd,s      155.15  kN 
+Shear reinforcement strength                                             Variable     Value  Unit
+----------------------------------------------------------------------  ----------  -------  ------
+Number of legs                                                              nl            2
+Stirrup diameter                                                            db            8  mm
+Stirrup spacing                                                             s            29  cm
+Leg spacing across width                                                    sw         14.2  cm
+Effective height                                                            d         45.75  cm
+Minimum shear reinforcing                                                Asw,min        1.6  cm²/m
+Required shear reinforcing                                               Asw,req       3.35  cm²/m
+Defined shear reinforcing                                                  Asw         3.47  cm²/m
+Shear rebar strength                                                      VRd,s      155.15  kN
+Expression (9.6N) along: 0.75·d·(1 + cot α), capped at 400 mm by mento
+Expression (9.8N) across: 0.75·d, at most 600 mm 
 
-Check                          Unit     Value  Min.      Max.  Ok?
-----------------------------  ------  -------  ------  ------  -----
-Stirrup spacing along length    cm         29           34.31  ✅
-Stirrup spacing along width     cm       14.2           34.31  ✅
-Minimum shear reinforcement   cm²/m      3.47  1.6             ✅ 
+Check                                  Unit     Value  Min.      Max.  Ok?
+------------------------------------  ------  -------  ------  ------  -----
+Stirrup spacing along length            cm         29           34.31  ✅
+Leg spacing across width (§9.2.2(8))    cm       14.2           34.31  ✅
+Minimum shear reinforcement           cm²/m      3.47  1.6             ✅ 
 
 Shear strength                     Variable     Value  Unit
 --------------------------------  ----------  -------  ------
@@ -120,8 +123,8 @@ Total shear strength                 VRd       155.15  kN
 Max shear check                                    ✅
 Demand Capacity Ratio                DCR        0.967  ✅ 
 
-Verification                         Status
----------------------------  ----------------------
+Verification                         Status            Detailing notes
+---------------------------  ----------------------  -----------------
 Resistance                   Pass (modelled checks)
 Detailing (modelled checks)         Pending 
 
@@ -199,18 +202,21 @@ Shear | VEd,2 | 150.0 | kN
 Limit checks
 Check | Unit | Value | Min. | Max. | Ok?
 Stirrup spacing along length | cm | 29.0 |  | 34.31 | ✅
-Stirrup spacing along width | cm | 14.2 |  | 34.31 | ✅
+Leg spacing across width (§9.2.2(8)) | cm | 14.2 |  | 34.31 | ✅
 Minimum shear reinforcement | cm²/m | 3.47 | 1.6 |  | ✅
 Strength Checks
 Shear reinforcement strength | Variable | Value | Unit
-Number of stirrups | ns | 1.0 | 
-Stirrup diameter | db | 8.0 | mm
-Stirrup spacing | s | 29.0 | cm
+Number of legs | nl | 2 | 
+Stirrup diameter | db | 8 | mm
+Stirrup spacing | s | 29 | cm
+Leg spacing across width | sw | 14.2 | cm
 Effective height | d | 45.75 | cm
 Minimum shear reinforcing | Asw,min | 1.6 | cm²/m
 Required shear reinforcing | Asw,req | 3.35 | cm²/m
 Defined shear reinforcing | Asw | 3.47 | cm²/m
 Shear rebar strength | VRd,s | 155.2 | kN
+Expression (9.6N) along: 0.75·d·(1 + cot α), capped at 400 mm by mento |  |  | 
+Expression (9.8N) across: 0.75·d, at most 600 mm |  |  | 
 Shear strength | Variable | Value | Unit
 Longitudinal reinforcement ratio | ρl | 0.0091 | 
 k value | k | 1.66 | 
@@ -222,16 +228,16 @@ Total shear strength | VRd | 155.2 | kN
 Max shear check |  | ✅ | 
 Demand Capacity Ratio | DCR | 0.97 | ✅
 Resistance and detailing
-Verification | Status
-Resistance | Pass (modelled checks)
-Detailing (modelled checks) | Pending
+Verification | Status | Detailing notes
+Resistance | Pass (modelled checks) | 
+Detailing (modelled checks) | Pending | 
 
 ### results
 Beam V101, $b$=20.00 cm, $h$=50.00 cm, $c_{c}$=2.50 cm,                         Concrete C25/30, Rebar B500S.
 Top longitudinal rebar: 2Ø16+1Ø12, $A_{s,top}$ = 5.15 cm², $M_{Ed}$ = -80.0 kNm, $M_{Rd}$ = 94.06 kNm → $\color{#439b00}{\text{DCR}=0.85}$ 
 
 Bottom longitudinal rebar: 2Ø20+1Ø16, $A_{s,bot}$ = 8.29 cm², $M_{Ed}$ = 120.0 kNm, $M_{Rd}$ = 143.72 kNm → $\color{#439b00}{\text{DCR}=0.83}$ 
-Shear reinforcing 1sØ8/29 cm, $A_{sw}$=3.47 cm²/m, $V_{Ed,2}$=150.0 kN, $V_{Rd}$=155.15 kN → $\color{#efc200}{\text{DCR}=0.97}$ 
+Shear reinforcing 2 legs Ø8 mm @ 29 cm · 14.2 cm between legs (max 34.31 cm), $A_{sw}$=3.47 cm²/m, $V_{Ed,2}$=150.0 kN, $V_{Rd}$=155.15 kN → $\color{#efc200}{\text{DCR}=0.97}$ 
 
 ### flexure_design
 2Ø16 mm
@@ -240,17 +246,20 @@ Shear reinforcing 1sØ8/29 cm, $A_{sw}$=3.47 cm²/m, $V_{Ed,2}$=150.0 kN, $V_{Rd
 1Ø16 mm
 
 ### shear_design
-1sØ8 mm/29 cm
+2 legs Ø8 mm @ 29 cm · 14.2 cm between legs (max 34.31 cm)
 
 ### reinforcement.transverse
-1sØ8 mm/29 cm
+2 legs Ø8 mm @ 29 cm · 14.2 cm between legs
 
 ### warnings
-
+compression_detailing_en_pending: EN compression-bar support (§9.2.1.2(3), 15φ) is not verified by Mento.
 
 ### plot
 20 cm
 50 cm
 2Ø20+1Ø16
 2Ø16+1Ø12
-1sØ8/29
+2 legs Ø8 mm @ 29 cm
+14.2 cm between legs (max 34.31 cm)
+single perimeter stirrup
+Required compression-bar support: pending

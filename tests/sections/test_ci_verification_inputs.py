@@ -59,6 +59,7 @@ def test_compression_support_controls_detailing_without_changing_resistance(stat
         shear_checks=[SimpleNamespace(DCR=0.5)],
         warnings=[],
         compression_detailing=SimpleNamespace(status=status),
+        _stirrups_optional=True,
     )
     assert verification_status(beam) == {"resistance": "passed", "detailing": expected}
 

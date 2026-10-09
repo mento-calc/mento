@@ -54,6 +54,7 @@ from mento.summary_tables import (
     read_table,
     read_workbook,
     single_table_error,
+    split_single_table,
     unit_of,
     write_table,
     write_workbook,
@@ -205,8 +206,18 @@ def governing(
 
 
 def verdict_passes(demands: Iterable[Optional[GoverningDemand]], warnings: Sequence[DesignWarning]) -> bool:
-    """Every DCR within 1, every face within its maximum steel, and no warning."""
-    return all(d.complies for d in demands if d is not None) and not warnings
+    """Every DCR within 1, every face within its maximum steel, and no warning that fails the section.
+
+    A warning fails it when :func:`mento.verification.warning_category` files it
+    under the strength (``resistance``) or a modelled detailing limit it misses
+    (``failed``). A ``pending`` check or an ``informative`` note is listed in
+    the Warnings column but does not fail the section: the detail is not
+    verified, which is not the same as not complying.
+    """
+    from mento.verification import warning_category
+
+    failing = [w for w in warnings if warning_category(w.code) in ("resistance", "failed")]
+    return all(d.complies for d in demands if d is not None) and not failing
 
 
 # ---------------------------------------------------------------------------
@@ -257,6 +268,8 @@ class _TwoTableSummary:
     _SECTION_TYPE: type
     #: Whether ``Level`` is shown even when every section leaves it empty.
     _ALWAYS_LEVEL = False
+    #: Sections columns written back only when the table gave them or a section uses them.
+    _OPTIONAL_SECTION_COLUMNS: Tuple[str, ...] = ("Level", "Notes")
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
@@ -277,13 +290,48 @@ class _TwoTableSummary:
         unexpected = sorted(set(legacy) - {"beam_list", "slab_list", "wall_list"})
         if unexpected:
             raise TypeError(f"{type(self).__name__}() got an unexpected keyword argument {unexpected[0]!r}")
+        self._legacy_table: Optional[DataFrame] = None
         if legacy:
-            table = next(iter(legacy.values()))
-            found = [str(c) for c in getattr(table, "columns", ()) if str(c) in FORCE_NAMES]
-            raise single_table_error(self._SPEC, found or list(legacy))
+            sections, forces = self._from_single_table(next(iter(legacy.values())), list(legacy))
+        elif sections is not None and forces is None and looks_like_single_table(sections, self._SPEC):
+            sections, forces = self._from_single_table(sections, [])
         if sections is None:
             raise TypeError(f"{type(self).__name__}() needs the sections table and the forces table.")
         self._load(sections, forces)
+
+    def _from_single_table(self, table: Any, names: List[str]) -> Tuple[DataFrame, DataFrame]:
+        """The two tables of the single table of mento 1.5.0, which is deprecated.
+
+        A beam or wall summary still reads it, as :func:`split_single_table`
+        converts it -- each beam row a section of its own, as 1.5.0 computed --
+        with a ``DeprecationWarning``; mento 2.0 will read the two tables only.
+        A slab summary never read one, so it keeps the error.
+        """
+        spec = self._SPEC
+        if spec.kind not in ("beam", "wall"):
+            found = [str(c) for c in getattr(table, "columns", ()) if str(c) in FORCE_NAMES]
+            raise single_table_error(spec, found or names)
+        _warnings.warn(
+            f"{spec.element} reading a single table is deprecated and will be removed in mento 2.0: pass the "
+            f'sections and forces tables, e.g. `sections, forces = mento.split_single_table(table, "{spec.kind}")`.',
+            DeprecationWarning,
+            stacklevel=4,
+        )
+        self._legacy_table = table
+        return split_single_table(table, spec.kind)  # type: ignore[arg-type]
+
+    def _legacy(self, name: str) -> DataFrame:
+        if self._legacy_table is None:
+            raise AttributeError(
+                f"{type(self).__name__} was built from the sections and forces tables, so it has no {name}; "
+                "read sections_table and forces_table."
+            )
+        _warnings.warn(
+            f"{name} is deprecated and will be removed in mento 2.0: read sections_table and forces_table.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        return self._legacy_table
 
     # -- reading ------------------------------------------------------------
 
@@ -370,7 +418,7 @@ class _TwoTableSummary:
             force_notes,
             units,
             written={
-                "sections": {c for c in ("Level", "Notes") if c in section_table.given},
+                "sections": {c for c in self._OPTIONAL_SECTION_COLUMNS if c in section_table.given},
                 "forces": {c for c in ("Level", "Notes") if c in force_table.given},
             },
         )
@@ -677,8 +725,19 @@ class _TwoTableSummary:
         return [
             column
             for column in self._SPEC.sections
-            if (column.name != "Level" or self._show_level()) and (column.name != "Notes" or show_notes)
+            if (column.name != "Level" or self._show_level())
+            and (column.name != "Notes" or show_notes)
+            and (
+                column.name in ("Level", "Notes")
+                or column.name not in self._OPTIONAL_SECTION_COLUMNS
+                or column.name in written
+                or self._optional_column_used(column.name)
+            )
         ]
+
+    def _optional_column_used(self, name: str) -> bool:
+        """Whether a section uses an optional column the table did not give (a summary with one overrides it)."""
+        return False
 
     def _force_columns(self) -> List[Any]:
         written = self._written["forces"]

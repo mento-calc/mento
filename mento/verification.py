@@ -21,11 +21,8 @@ def resolve_legs(legs: int | None, n_legs: int | None) -> int | None:
     if legs is not None and n_legs is not None and legs != n_legs:
         raise ValueError("legs and n_legs must agree when both are provided.")
     value = legs if legs is not None else n_legs
-    if value is not None and (value < 0 or value % 2):
-        raise ValueError(
-            f"{'legs' if legs is not None else 'n_legs'} must be non-negative and even: "
-            "odd legs and individual crosstie anchorage are not modelled yet."
-        )
+    if value is not None and (value < 0 or value == 1):
+        raise ValueError("legs/n_legs: At least two legs are needed for the perimeter stirrup.")
     return value
 
 
@@ -74,6 +71,27 @@ def validate_supported_forces(beam: RectangularBeam, forces: Sequence[Forces]) -
 
 
 WARNING_CATEGORY: dict[str, str] = {
+    "transverse_legs_added_for_compression_support": "pending",
+    "open_leg_anchorage_outside_model": "informative",
+    "crosstie_alternation_required": "informative",
+    "compression_detailing_en_pending": "pending",
+    "cage_detailing_pending": "pending",
+    "compression_detailing_failed": "failed",
+    "compression_detailing_pending": "pending",
+    "skin_reinforcement_required": "informative",
+    "skin_reinforcement_failed": "failed",
+    "skin_reinforcement_pending": "pending",
+    "skin_tension_case_pending": "pending",
+    "skin_detailing_invalid": "pending",
+    "skin_detailing_pending": "pending",
+    "skin_reinforcement_unsupported": "pending",
+    "skin_detailing_infeasible": "failed",
+    "cage_detailing_infeasible": "failed",
+    "skin_distribution_review": "informative",
+    "skin_en_required": "informative",
+    "skin_en_service_pending": "pending",
+    "skin_en_axial_unsupported": "pending",
+    "skin_en_surface_pending": "pending",
     "As_below_min": "resistance",
     "As_above_max": "resistance",
     "not_tension_controlled": "resistance",
@@ -92,6 +110,7 @@ WARNING_CATEGORY: dict[str, str] = {
     "shear_exceeds_section_limit": "resistance",
     "mesh_ratio_below_min_h": "resistance",
     "mesh_ratio_below_min_v": "resistance",
+    "mesh_ratio_above_max_v": "resistance",
     "mesh_spacing_exceeds_max_h": "failed",
     "mesh_spacing_exceeds_max_v": "failed",
     "stirrup_spacing_exceeds_compression_support": "failed",
@@ -100,6 +119,7 @@ WARNING_CATEGORY: dict[str, str] = {
     "axial_load_beyond_beam": "resistance",
     "stirrup_spacing_exceeds_max": "failed",
     "mesh_ratio_below_min": "resistance",
+    "mesh_ratio_above_max": "resistance",
     "mesh_spacing_exceeds_max": "failed",
 }
 
@@ -132,8 +152,19 @@ def verification_status(beam: RectangularBeam) -> dict[str, str]:
     else:
         compression_failed = False
         compression_pending = bool(getattr(beam, "_compression_faces", set()))
-    detail_failed = bool(failed) or compression_failed
-    detail_pending = bool(pending) or compression_pending or not flexure or not shear
+    cage_failed = False
+    cage_pending = False
+    if not beam._stirrups_optional and beam._stirrup_n:
+        from mento.cage_detailing import CageDetailingError, build_cage_detailing
+
+        try:
+            geometry = build_cage_detailing(beam, include_skin=False)
+            cage_pending = not geometry.bend_supported
+        except CageDetailingError as error:
+            cage_pending = error.reason in ("unsupported_bend", "compression_support_search")
+            cage_failed = not cage_pending
+    detail_failed = bool(failed) or compression_failed or cage_failed
+    detail_pending = bool(pending) or compression_pending or cage_pending or not flexure or not shear
     detailing = "failed" if detail_failed else "pending" if detail_pending else "passed"
     return {"resistance": resistance, "detailing": detailing}
 

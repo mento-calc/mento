@@ -135,19 +135,23 @@ Shear | Vu | 25.0 | kN
 Limit checks
 Check | Unit | Value | Min. | Max. | Ok?
 Stirrup spacing along length | cm | 0.0 |  | 6.25 | ✅
-Stirrup spacing along width | cm | 0.0 |  | 12.5 | ✅
+Stirrup spacing along width (Table 9.7.6.2.2) | cm | 0.0 |  | 12.5 | ✅
 Minimum shear reinforcement | cm²/m | 0.0 | 0.0 |  | ✅
 Minimum rebar diameter | mm | 0.0 | 0 |  | ✅
 Strength Checks
 Shear reinforcement strength | Variable | Value | Unit
-Stirrup diameter | db | 0.0 | mm
-Stirrup spacing along length | sl | 0.0 | cm
+Stirrup diameter | db | 0 | mm
+Stirrup spacing along length | sl | 0 | cm
 Stirrup spacing along width | sw | 0.0 | cm
 Effective height | d | 12.5 | cm
 Minimum shear reinforcing | Av,min | 0.0 | cm²/m
 Required shear reinforcing | Av,req | 0.0 | cm²/m
 Defined shear reinforcing | Av | 0.0 | cm²/m
 Shear rebar strength | ØVs | 0.0 | kN
+Nominal shear the stirrups must carry (Vu/φ − Vc) | Vs,req | 0.0 | kN
+Threshold of Table 9.7.6.2.2 (0.33√f'c·bw·d) | Vs,lim | 206.2 | kN
+Vs,req ≤ Vs,lim → Table 9.7.6.2.2: d/2 along, d across |  |  | 
+Absolute cap of Table 9.7.6.2.2 in this row | s,cap | 60.0 | cm
 Shear strength | Variable | Value | Unit
 Effective shear area | Acv | 1250.0 | cm²
 Longitudinal reinforcement ratio | ρw | 0.00251 | 

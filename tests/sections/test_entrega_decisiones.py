@@ -42,7 +42,7 @@ def test_legs_preferred_with_compatible_alias():
 
 
 @pytest.mark.parametrize(
-    "options", [{"legs": 7}, {"legs": True}, {"legs": 4, "n_legs": 6}, {"legs": 4, "n_stirrups": 1}]
+    "options", [{"legs": 1}, {"legs": True}, {"legs": 4, "n_legs": 6}, {"legs": 4, "n_stirrups": 1}]
 )
 def test_unsupported_or_conflicting_legs_do_not_change_beam(options):
     beam = make_beam()
@@ -63,7 +63,7 @@ def test_legs_table_normalizes_without_changing_caller():
 @pytest.mark.parametrize(
     "frame",
     [
-        pd.DataFrame({"legs": ["", 7]}),
+        pd.DataFrame({"legs": ["", 1]}),
         pd.DataFrame({"legs": ["", 4], "n_legs": ["", 6]}),
         pd.DataFrame({"legs": ["mm", 4]}),
     ],
@@ -132,6 +132,46 @@ def test_en_footing_axial_rejection_is_explained_in_spanish():
             beam.check_flexure([Forces(N_x=1 * kN)])
     finally:
         set_language(language)
+
+
+def test_preferred_legs_survives_summary_design_and_excel(tmp_path):
+    from mento import BeamSummary
+    from tests.reports.summary_data import beams, forces
+
+    beam = make_beam()
+    summary = BeamSummary(
+        beam.concrete,
+        beam.steel_bar,
+        beams([{"Label": "V1", "n1_bot": 4, "db1_bot": 16}], b=40, h=60, legs=4, dbs=8, sl=20),
+        forces([{"Label": "V1", "Comb.": "U", "Vz": 10, "My": 20}]),
+    )
+    assert summary.nodes[0].section.reinforcement.transverse.n_legs == 4
+    summary.design()
+    actual = summary.nodes[0].section.reinforcement.transverse.n_legs
+    assert summary.sections_table.iloc[1]["legs"] == actual
+    path = tmp_path / "legs.xlsx"
+    summary.to_excel(path)
+    imported = BeamSummary.from_excel(beam.concrete, beam.steel_bar, path)
+    assert imported.nodes[0].section.reinforcement.transverse.n_legs == actual
+
+
+def test_word_sections_always_contain_both_faces_and_metric_cover():
+    from mento import BeamSummary
+    from tests.reports.summary_data import beams, forces
+
+    beam = make_beam()
+    summary = BeamSummary(
+        beam.concrete,
+        beam.steel_bar,
+        beams([{"Label": "V1", "n1_bot": 4, "db1_bot": 16}], b=40, h=60, legs=4, dbs=8, sl=20),
+        forces([{"Label": "V1", "Comb.": "U", "Vz": 10, "My": 20}]),
+    )
+    summary.nodes[0].section.set_longitudinal_rebar_top(n1=3, d_b1=12 * mm)
+    data = summary._sections_overview()
+    assert data.iloc[0]["cc"] == "mm"
+    assert data.iloc[1]["cc"] == 25
+    assert "3" in data.iloc[1]["As,top"]
+    assert "4" in data.iloc[1]["As,bot"]
 
 
 @pytest.mark.parametrize("operation", ["check_flexure", "check_shear", "flexure_check_results", "shear_check_results"])

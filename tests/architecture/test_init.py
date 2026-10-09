@@ -6,23 +6,23 @@ def test_unit_imports() -> None:
     from mento import (
         GPa,
         MPa,
-        kPa,
+        cm,
+        deg,
+        ft,
+        inch,
+        kg,
         kgf,
+        kip,
         kN,
         kNm,
-        kg,
-        kip,
+        kPa,
         ksi,
         lb,
         m,
         mm,
-        cm,
         psi,
         sec,
         ureg,
-        deg,
-        ft,
-        inch,
     )
 
     # Verify they are not None
@@ -264,6 +264,13 @@ def test_all_exports_in_all() -> None:
         "SummaryInputError",
         "SummaryInputWarning",
         "split_single_table",
+        "SectionGeometry",
+        "CageDetailingError",
+        "CompressionDetailing",
+        "CompressionFaceDetail",
+        "SkinReinforcementRequirement",
+        "SkinServiceCase",
+        "SkinDistributionReview",
         "bar_designation",
         "bar_diameter",
     ]
@@ -308,8 +315,9 @@ def test_multiple_lazy_imports() -> None:
 
 def test_unit_types() -> None:
     """Test that imported units have the correct types."""
-    from mento import m, kN, MPa
     from pint import Quantity
+
+    from mento import MPa, kN, m
 
     # Create quantities and verify they work
     length = 5 * m
@@ -380,7 +388,6 @@ def test_all_result_classes_loadable() -> None:
 def test_the_result_errors_are_importable_from_the_package() -> None:
     """A program catches them without knowing which module raises them."""
     import mento
-
     from mento.design_results import DesignNotRunError
     from mento.shear_wall import NotABeamError
 

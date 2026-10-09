@@ -40,7 +40,7 @@ Design a 20 × 50 cm beam for two load combinations:
 
 .. code-block:: text
 
-    bottom: 2Ø20 mm + 1Ø16 mm / top: no reinforcement / stirrups: 1sØ10 mm/22 cm
+    bottom: 2Ø20 mm + 1Ø16 mm / top: no reinforcement / stirrups: 2 legs Ø10 mm @ 22 cm · 14 cm between legs
 
 From there:
 
@@ -82,7 +82,7 @@ What mento covers
    * - :doc:`Shear wall <../user_guide/shear_wall>`, in-plane shear
      - ✅
      - ✅
-     - in progress
+     - ✅
    * - Slab punching shear
      - in progress
      - in progress

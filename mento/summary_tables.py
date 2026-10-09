@@ -96,9 +96,9 @@ TEMPLATES: Dict[str, str] = {
         "takes each combination once. Give each row its own name (an envelope's Max and Min, each station of a "
         "member), or make them two sections."
     ),
-    "odd_legs": (
-        "legs of {label} is {value}: the stirrups are closed, two legs each (legs = 2 x stirrups), so the number "
-        "of legs is even."
+    "one_leg": (
+        "legs of {label} is 1: the perimeter stirrup is closed and has two legs. Give 0 for no stirrups, or 2 or "
+        "more (an odd count from 3 adds crossties or open legs to the closed stirrups)."
     ),
     "duplicate_section": (
         "The sections table gives {label} more than once (rows {rows}). If they are different sections (e.g. a "
@@ -557,6 +557,18 @@ def read_workbook(
         if sheet not in sheets:
             if len(sheets) == 1 and looks_like_single_table(next(iter(sheets.values())), spec):
                 only = next(iter(sheets.values()))
+                if spec.kind in ("beam", "wall"):
+                    # The file of mento 1.5.0, deprecated: read as split_single_table converts it.
+                    import warnings as _warnings
+
+                    _warnings.warn(
+                        f"{spec.element} reading a single-table file is deprecated and will be removed in mento "
+                        f"2.0: write it again with to_excel(), which keeps the sheets {sections_sheet!r} and "
+                        f"{forces_sheet!r}.",
+                        DeprecationWarning,
+                        stacklevel=3,
+                    )
+                    return split_single_table(only, cast(Literal["beam", "wall"], spec.kind))
                 found = [str(c) for c in only.columns if str(c) in FORCE_NAMES]
                 raise single_table_error(spec, found)
             raise SummaryInputError(
@@ -634,7 +646,8 @@ def split_single_table(table: DataFrame, element: Literal["beam", "wall"]) -> Tu
 
     if element not in ("beam", "wall"):
         raise ValueError(f"element is 'beam' or 'wall', not {element!r}.")
-    expected = _V140_BEAM if element == "beam" else _V140_WALL
+    # A beam table may count its stirrups by legs (legs, or n_legs) instead of ns.
+    expected = _V140_BEAM + ("legs", "n_legs") if element == "beam" else _V140_WALL
     given = [str(column) for column in table.columns]
     unknown = [column for column in given if column not in expected]
     if unknown:
@@ -682,12 +695,14 @@ def split_single_table(table: DataFrame, element: Literal["beam", "wall"]) -> Tu
         taken.add(label)
         seen.add(label)
         section: Dict[str, Any] = {"Label": label, "b": row.get("b"), "h": row.get("h"), "cc": row.get("cc")}
-        ns, dbs, sl = _num(row, "ns"), _num(row, "dbs"), _num(row, "sl")
-        if ns == 0 and (dbs or sl):
+        dbs, sl = _num(row, "dbs"), _num(row, "sl")
+        # ns counted closed stirrups; the sections table counts their legs.
+        counts = [_num(row, name) for name in ("legs", "n_legs") if not _is_blank(row.get(name))]
+        legs = int(counts[0]) if counts else 2 * int(_num(row, "ns"))
+        if legs == 0 and (dbs or sl):
             dead.append(f"{label}: dbs/sl")
             dbs = sl = 0
-        # ns counted closed stirrups; the sections table counts their legs.
-        section.update({"legs": 2 * int(ns), "dbs": dbs, "sl": sl})
+        section.update({"legs": legs, "dbs": dbs, "sl": sl})
         groups = []
         for i in range(1, 5):
             n_i, d_i = _num(row, f"n{i}"), _num(row, f"db{i}")

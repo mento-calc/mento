@@ -17,7 +17,9 @@ Define the concrete and steel materials to be used across all walls:
     conc = Concrete_ACI_318_19(name="H25", f_c=25 * MPa)
     steel = SteelBar(name="ADN 420", f_y=420 * MPa)
 
-Supported design codes: **ACI 318-19** and **CIRSOC 201-25**.
+Supported design codes: **ACI 318-19**, **CIRSOC 201-25** and **EN 1992-1-1**
+(``Concrete_EN_1992_2004``). The input is the same for all three; the tables name
+their columns the way the code does.
 
 Sections and Forces
 -------------------
@@ -102,8 +104,9 @@ mesh keeps them through a design and an export: a mesh in mm/mm reads back in mm
 ``ShearWallSummary.from_excel(conc, steel, path)`` reads the sheets ``Sections`` and
 ``Forces``; ``to_excel(path)`` writes them; ``from_nodes(conc, steel, nodes)`` writes the
 tables of walls built by hand, taking each wall's ``level``. A table in the single-table
-format of mento 1.4.0 raises ``SummaryInputError``; convert it with
-``mento.split_single_table(table, "wall")``, which keeps one section per (Level, Label)
+format of mento 1.5.0 is still read, with a ``DeprecationWarning`` (mento 2.0 will read the
+two tables only); convert it with ``mento.split_single_table(table, "wall")``, which keeps
+one section per (Level, Label)
 with the geometry and mesh of its first row and every row as a combination.
 
 An imperial wall (a concrete defined in psi) takes lengths in ``in`` and ``ft``, forces in
@@ -124,6 +127,8 @@ Checking Walls
 - ``Comb.``, ``Vu``, ``Nu``, ``ØVn``, ``DCR``: the combination with the largest DCR —
   which, with a tension in another combination, need not be the largest shear — its
   shear, axial load and capacity. Every combination tied at that DCR is named.
+  Under EN 1992-1-1 the ratios, shear, axial load and capacity are ``ρh``, ``ρv``,
+  ``VEd``, ``NEd`` and ``VRd``.
 - ``Warnings``: mento's warning codes with the direction they are read in, e.g.
   ``mesh_ratio_below_min (v)``.
 - ``Status``: ✅ when every combination is carried (DCR ≤ 1) **and** the mesh misses none of

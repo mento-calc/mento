@@ -718,7 +718,8 @@ class Rebar:
         / CIRSOC 201-25 §9.7.2.3, identical in both, also ask for skin
         reinforcement on each side face of a beam deeper than 900 mm, within
         h/2 of the tension face and at the spacing of §24.3.2; that is not
-        generated here.
+        generated here: beam.detailing_geometry supplies a separate proposal
+        through beam.skin_reinforcement, without crediting its steel in strength.
 
         Args:
             A_s_req: Required longitudinal rebar area.

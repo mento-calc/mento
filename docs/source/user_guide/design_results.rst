@@ -103,7 +103,7 @@ Shear
 
     shear = beam.shear_design
 
-    shear.n_stirrups        # 1, number of stirrups
+    shear.n_stirrups        # 1, two-leg equivalent (not a piece count)
     shear.n_legs            # 2, legs crossing the shear plane
     shear.d_b               # 10 mm
     shear.s_l.to("cm")      # 27 cm, longitudinal spacing
@@ -112,7 +112,44 @@ Shear
     shear.DCR               # 0.462
     shear.V_capacity        # 173 kN, ØVn here; VRd under EN 1992
 
-    str(shear)              # '1sØ10 mm/27 cm' ('1eØ10 mm/27 cm' after set_language("es"))
+    shear.s_w.to("cm")      # 14 cm, how far apart the legs are across the width
+    shear.s_max_w           # 55.74 cm, the most Table 9.7.6.2.2 allows it
+    shear.s_max_l           # 27.87 cm, the limit s_l is held to
+    shear.s_max_l_table     # 27.87 cm, Table 9.7.6.2.2 alone
+    shear.s_max_l_support   # None: §9.7.6.4.3 caps it only on stirrups that brace compression bars
+
+    str(shear)              # '2 legs Ø10 mm @ 27 cm · 14 cm between legs (max 55.74 cm)'
+    shear.notation("es")    # '2 ramas Ø10 mm c/27 cm · 14 cm entre ramas (máx. 55.74 cm)'
+    shear.arrangement()     # 'single perimeter stirrup'
+
+Input accepts ``beam.set_transverse_rebar(n_legs=4, d_b=8*mm, s_l=20*cm)``.
+The legacy ``n_stirrups=2`` has the same meaning. In ``BeamSummary`` the
+preferred column is ``legs`` (alias ``n_legs``, legacy ``ns``). Integer leg counts
+from 2 are supported, including odd counts; contradictory inputs raise an error.
+
+The notation leads with the legs, which is what the shear check counts: ``n_stirrups``
+is a two-leg equivalent: ``n_legs = 2·n_stirrups``, not the count of closed pieces. Then come the
+bar, the spacing along the member and the spacing of the legs across the width, with the
+maximum it is checked against. ``str()`` is always English; ``notation(language)`` gives it
+in another language (the one of :func:`mento.set_language` by default), and
+``notation(compact=True)`` the short form of a table cell, ``2 legs Ø10/27``.
+``arrangement()`` says how the legs are tied into a cage: ``perimeter stirrup + 4 inner
+stirrups`` for ten legs -- one stirrup around the whole section and inner stirrups on the
+2nd and 3rd legs, the 4th and 5th... The configuration, ``beam.reinforcement.transverse``,
+reads the same without the maximum: it has not been checked.
+
+An explicit ``language`` must be one of :func:`mento.available_languages`; anything else
+raises ``ValueError``, as :func:`mento.set_language` does. The compact form prints bare
+numbers, the bar in mm and the spacing in cm; ``notation(compact=True, imperial=True)``
+prints ASTM bar sizes and spacings in inches (``2 legs #3@6``). Left unsaid, it follows
+the unit of ``s_l``. The "Av" cell of ``BeamSummary.check()`` follows the concrete
+unit system, like the "As" cells beside it: mm/cm in SI, ASTM/in in US customary.
+
+The limits are envelopes, the tightest of every combination checked. ``s_max_l`` is the
+along-length limit the stirrups are held to: Table 9.7.6.2.2 (``s_max_l_table``) or, on a
+section that relies on compression bars, the cap of §9.7.6.4.3 (``s_max_l_support``) when
+that is less. Under EN 1992-1-1 they are Expressions (9.6N) and (9.8N), and ``None`` on a
+section with no stirrups.
 
 Several load combinations
 -------------------------
@@ -159,11 +196,103 @@ The per-combination results are available too, one per combination of the last c
 
     for check in beam.shear_checks:
         check.label, check.DCR, check.V_capacity
+        check.V_s_req, check.V_s_threshold, check.spacing_halved   # the row of Table 9.7.6.2.2
+        check.s_max_l_table, check.s_max_w
 
     for check in beam.flexure_checks:
         check.label, check.bottom.DCR, check.bottom.M_capacity
 
     beam.shear_design.V_capacity            # the governing combination's
+
+``check.label`` is the name of the combination; the stirrup text is
+``beam.shear_design.notation()``. ``V_s_threshold`` is the ``0.33·√f'c·bw·d``
+(``4·√f'c·bw·d`` in psi) past which Table 9.7.6.2.2 halves its limits, and
+``spacing_halved`` says whether that combination passed it; EN 1992-1-1 has no such row,
+and gives ``None``. Enveloped with :func:`mento.design_results.envelope_shear`, the three
+agree with the limits the envelope reports: ``V_s_req`` is the largest of any combination,
+``V_s_threshold`` the one it was compared with, and ``spacing_halved`` is True when any
+combination took the halved row -- the row the tightest limits come from.
+
+Section geometry
+----------------
+
+``beam.section_geometry`` says where the bars and the stirrup legs are, as the checks
+assume them, so that a drawing -- ``beam.plot()``, or any other -- shows the checked section
+without deriving anything:
+
+.. code-block:: python
+
+    geometry = beam.section_geometry
+
+    geometry.leg_x                  # (3 cm, 17 cm): centrelines of the legs, left to right
+    geometry.s_w                    # 14 cm
+    geometry.stirrups               # ClosedStirrup: legs, x_left, x_right, y_bottom, y_top, perimeter
+    geometry.crossties              # () -- see below
+    geometry.bars_on("bottom", 1)   # BarPosition: x, y, d_b, face, layer, group
+    geometry.arrangement()          # 'single perimeter stirrup'
+    geometry.to_dict("cm")          # the same as plain floats
+
+It is configuration, like ``reinforcement``: readable at any time. The origin is the
+bottom-left corner of the section, ``x`` across the width and ``y`` up, and every length is
+a quantity in the display unit of the section (cm, or in). The positions are the model:
+
+- **Legs**: ``2·n_stirrups`` legs spread evenly between the centres of the outermost pair,
+  ``x_i = c_c + d_st/2 + i·s_w``, with ``s_w = (b - 2·c_c - d_st)/(n_legs - 1)`` -- the
+  spacing the shear check holds to Table 9.7.6.2.2.
+- **Cage**: one perimeter stirrup on the outermost legs and 135°/90° crossties on
+  interior legs when required for compression support; plain interior legs
+  remain uncredited as compression supports. ``ClosedStirrup.legs`` and ``Crosstie.leg`` use zero-based leg indices.
+  Calculation geometry has a perimeter and open interior legs; detailing geometry
+  proposes hooked crossties according to the real compression faces.
+  The design only ever produces even counts.
+- **Bars**: each layer spread between the inner faces of the outer legs, one clear
+  spacing apart -- the clear spacing the checks read -- with the ``n1`` bars of a layer at
+  its ends and the ``n2`` bars between them; the layers at the offsets the effective depth
+  is computed with. The stirrup diameter is the one the section reserves, also with no
+  stirrups placed.
+
+The legs are not tied to the bars -- the checks do not do that either -- so an inner leg
+may sit where there is no bar. That is the calculation model.
+
+For a supported cross-section use ``beam.detailing_geometry``. It keeps the shear legs
+and the resistant bars' counts, diameters, groups and vertical coordinates, while placing
+the nearest-face bars at stirrup corners. Extra bars are spread between those supports.
+Where a face has too few bars, ``mounting_bars`` supplies the missing corner supports,
+including an otherwise empty upper face. Their diameter is controlled by
+``settings.mounting_bar_diameter`` (10 mm or No. 3 by default).
+
+.. code-block:: python
+
+    from mento import CageDetailingError
+
+    detail = beam.detailing_geometry
+    detail.bars                    # resistant bars, including both layers
+    detail.mounting_bars           # supplementary steel, excluded from resistance
+    detail.to_dict("cm")           # separate bars and mounting_bars collections
+
+This does not mutate the beam, its reinforcement or its check results. ``bars_on()``
+continues to return only resistant steel. A layout must satisfy the configured clear
+spacing and vibrator allowance, the code's available centre-distance cap, and clearance
+from the stirrup branches and bends. If the layout cannot be produced, the property raises
+``CageDetailingError``. ``plot()`` then identifies its fallback as calculation geometry
+and issues a warning. The cross-section check does not supply development lengths,
+hooks, seismic detailing, or strength credit for mounting bars.
+The bend diameter is supplied by the code's mandrel-size rule; it does not
+verify concrete failure at a bend. ``to_dict()`` without a unit uses the
+section's display unit, including inches for a US customary section.
+
+The tension-bar spacing limit is applied only to faces put in tension by the
+verified load combinations. If flexure has not been checked, the drawing checks
+physical fit and labels tension-bar spacing as pending; it does not infer tension
+on both faces. ``Node.check_flexure()`` / ``Node.check()`` already report excessive
+spacing on the tension face of each combination, and the detailing layout also
+checks the moved resistant bars. Mounting bars cannot satisfy that limit in place
+of resistant steel. For a single resistant bar, the face width is checked against
+the available limit.
+
+A slab strip (``OneWaySlab``, ``Footing``) publishes the section, its cover and ``s_w``, with
+no bars and no legs: it is detailed by spacings, its bars per strip need not be whole, and
+bars placed by the beam's rule would contradict its ``Ø10/14`` label.
 
 Design alternatives
 -------------------
@@ -189,7 +318,8 @@ whole.
         str(option), option.A_s, option.functional   # '2Ø16 mm + 1Ø12 mm', ...
 
     beam.flexure_design.top.options                  # the same for the top face
-    beam.shear_design.options                        # StirrupOption: n_stirrups, d_b, s_l, s_w, A_v
+    beam.shear_design.options                        # StirrupOption: n_stirrups, d_b, s_l, s_w, A_v,
+                                                     # functional, section_DCR, s_max_l, s_max_w
 
 A longitudinal option (``RebarOption``) carries its ``layers`` — the same ``RebarLayer``
 objects the applied reinforcement is read as — its area and the ``functional`` the search
@@ -198,7 +328,8 @@ ranked it by.
 The stirrup alternatives are one layout per other bar diameter the code offers, lighter and
 heavier alike, in order of diameter: each is the widest spacing with the fewest legs that
 covers the demand read at the depth that bar gives the section. Where the spacing limit
-governs they share one spacing (``1sØ10/13``, ``1sØ12/13``, ``1sØ16/13``); where the demand
+governs they share one spacing (a 20×40 under 100 kN and 30 kN·m: ``2 legs Ø10/17``,
+``2 legs Ø12/17``, ``2 legs Ø16/17``); where the demand
 governs, a lighter bar sits closer and a heavier one further apart. Every alternative is
 built on the finished section and checked there -- shear and flexure, since a heavier
 stirrup lowers the effective depth -- and only the ones the section passes with are kept, so
@@ -206,6 +337,8 @@ the list answers "what if I use the bar I have". Each option carries its ``secti
 worst ratio of the section built with it -- flexure included, so not always the shear's -- and
 its ``functional``, what it adds in steel: the excess
 of ``A_v`` over what the section asks for with that bar, plus one per extra closed stirrup.
+It also carries the ``s_max_l`` and ``s_max_w`` the search held it to, read at the depth
+its own bar gives the section.
 
 How many are kept is a setting, three by default:
 
@@ -266,6 +399,67 @@ Sections still keep their results in private attributes such as ``_A_s_bot`` and
 details: their names, units and meaning can change between releases. The properties
 described here are the supported way to read a result from code.
 
-One difference worth noting: ``_stirrup_n`` counts stirrups, while the area ``A_v`` is
-computed from the legs that cross the shear plane. The public object exposes both, as
-``n_stirrups`` and ``n_legs``, so there is nothing to infer.
+``_stirrup_n`` and public ``n_stirrups`` are two-leg equivalents, which may be
+semi-integer (3.5 for seven legs). ``n_legs`` is the calculation leg count. Neither
+equivalent is a count of closed pieces: read ``detailing_geometry.stirrups``.
+
+Skin-steel requirements and geometry
+----------------------------------------
+
+``beam.skin_reinforcement`` is a ``SkinReinforcementRequirement``. Its status
+is ``required``, ``pending`` a flexure verification, a tension case or EN service inputs, ``not_required`` under
+the supported clause, ``unsupported`` by the code implementation, or
+``not_applicable`` to the element. Unsupported never means exempt.
+It supplies the diameter preference, clear side cover, spacing limit, uniform
+proposed spacing, tension faces and number per lateral face. The proposal is
+validated for physical fit only when ``detailing_geometry`` is read.
+
+The geometry and its ``to_dict()`` include a separate ``skin_bars`` tuple/list.
+These bars use ``face="left"`` or ``"right"``, ``layer=0`` and ``group=0``.
+They are excluded from ``bars_on()``, ``reinforcement``, ``flexure_design`` and
+``shear_design``. Reading or drawing them does not mutate any strength result.
+Current Word reports and summary tables do not include these skin requirements
+or distribution warnings. Consult this API, ``beam.warnings`` and the section
+plot alongside the strength report; its pass mark is not a skin-steel verdict.
+
+EN additionally supplies ``area_min_per_side``, ``area_per_side``,
+``diameter_max`` and explicit ``rows``. Its diameter method has no independent
+spacing limit (``s_max=None``). ``pending_reason`` distinguishes missing service
+inputs from an unsupported axial case. The total proposed area may include
+extra bars outside a tension zone; each zone is independently sized to its
+minimum.
+
+``FlexureCheck.has_axial_force`` records a nonzero axial demand so the EN
+pure-bending skin rule cannot be applied to a combined axial case. It does
+not claim that the flexural check includes axial interaction.
+
+Bend provenance
+---------------
+
+``SectionGeometry.bend_supported`` is exported by ``to_dict()``. A False value
+marks the 4*d_st calculation placeholder used when no supported mandrel is
+available. That diameter is not a code requirement or a feasible bend detail.
+
+
+Required compression-bar support
+--------------------------------
+
+``beam.compression_detailing`` checks the required compression faces identified
+by the flexure calculation, not mounting steel or every bar incidentally in
+compression. It exposes the status, supported first-row bar indices, maximum
+clear distance on both sides, limits and reasons. ACI 318-19 §9.7.6.4.4 uses
+150 mm (6 in in the in-lb edition). CIRSOC 201-25 §9.7.6.4.4 prints 15 times
+the stirrup diameter or 150 mm: differing outcomes remain pending until that
+interpretation is resolved. Second-row support remains pending. Plain open legs do not
+brace compression bars. Generated crossties model the mandrel and tangent
+tails of Table 25.3.2; both ends engage peripheral bars. Both 135°/90° orders
+are checked for fit and collisions. The §25.3.5 alternation of 90° ends along
+the member is an explicit execution requirement, not a longitudinal check.
+Hook angles supplied alone give no compression-support credit. Missing/unavailable cages cannot pass.
+
+Warnings and the plot identify failed or pending compression support. The
+check does not change resistant steel, capacities, the shear verdict, or the
+separate mandatory detailing assessment for §9.7.6.4.3. Longitudinal extent and seismic
+detailing require separate verification. Extra transverse pieces are a proposal: the
+warning names input and proposed legs, detailing stays pending until confirmed,
+and resistant areas remain based on the input.

@@ -1,0 +1,60 @@
+import pandas as pd
+import pytest
+from mento import Concrete_ACI_318_19, SteelBar, MPa, set_language
+from mento.beam_summary import BeamSummary
+from mento.results import DocumentBuilder
+from mento.summary_tables import split_single_table
+from mento.units import mm
+
+
+@pytest.mark.parametrize("invalid_mounting", [False, True])
+def test_word_rechecks_real_forces_after_capacity_check(monkeypatch, invalid_mounting):
+    data = pd.DataFrame(
+        {
+            "Label": ["", "V1", "V2"],
+            "Comb.": ["", "C1", "C2"],
+            "b": ["cm", 30, 30],
+            "h": ["cm", 50, 50],
+            "cc": ["mm", 25, 25],
+            "Nx": ["kN", 0, 0],
+            "Vz": ["kN", 10, 10],
+            "My": ["kNm", 10, 400],
+            "ns": ["", 1, 1],
+            "dbs": ["mm", 10, 10],
+            "sl": ["cm", 15, 15],
+            "n1": ["", 2, 2],
+            "db1": ["mm", 12, 12],
+            "n2": ["", 0, 0],
+            "db2": ["mm", 0, 0],
+            "n3": ["", 2, 2],
+            "db3": ["mm", 12, 12],
+            "n4": ["", 0, 0],
+            "db4": ["mm", 0, 0],
+        }
+    )
+    summary = BeamSummary(
+        Concrete_ACI_318_19(name="C25", f_c=25 * MPa),
+        SteelBar(name="420", f_y=420 * MPa),
+        *split_single_table(data, "beam"),
+    )
+    if invalid_mounting:
+        for node in summary.nodes:
+            node.section.settings.minimum_longitudinal_diameter = 12 * mm
+    summary.check()
+    assert summary.nodes[1].section.verification_status["resistance"] == "failed"
+    # The capacity check zeroes the forces of a copy: the sections keep the
+    # results of their real forces, which the Word report reads.
+    summary.check(capacity_check=True)
+    assert summary.nodes[1].section.verification_status["resistance"] == "failed"
+    docs = []
+    monkeypatch.setattr(DocumentBuilder, "save", lambda self, *_: docs.append(self.doc))
+    try:
+        set_language("es")
+        summary.results_detailed_doc(index=1)
+        tables = [[[c.text for c in row.cells] for row in t.rows] for t in docs[0].tables]
+        table = next(t for t in tables if any(c in ("Resistance", "Resistencia") for c in t[0]))
+        row = next(row for row in table if row[0] == "V2")
+        assert row[1] == "No cumple"
+        assert row[2] == "No cumple"
+    finally:
+        set_language("en")

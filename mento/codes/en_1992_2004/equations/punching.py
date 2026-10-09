@@ -38,7 +38,7 @@ def control_perimeter_offset(d: float) -> float:
 
 
 def mean_effective_depth(d_y: float, d_z: float) -> float:
-    """d_eff, the mean of the two orthogonal effective depths, EN 1992-1-1 eq. (6.32).
+    """d_eff, the mean of the two orthogonal effective depths, EN 1992-1-1 §6.4.2(1), Eq. (6.32).
 
     Args:
         d_y: effective depth of the reinforcement in y [mm].
@@ -98,7 +98,7 @@ def concrete_shear_stress(
     sigma_cp: float = 0.0,
     gamma_c: float = 1.5,
 ) -> float:
-    """v_Rd,c, the punching resistance without reinforcement, EN 1992-1-1 eq. (6.47).
+    """v_Rd,c, the punching resistance without reinforcement, EN 1992-1-1 §6.4.4(1), Eq. (6.47).
 
     Not less than ``v_min + k_1·σ_cp``; see :func:`min_shear_stress`.
 
@@ -146,7 +146,7 @@ def eccentricity_factor(
 
 
 def design_shear_stress(V_Ed: float, beta: float, u: float, d: float) -> float:
-    """v_Ed, the design shear stress on a perimeter, EN 1992-1-1 eq. (6.38).
+    """v_Ed, the design shear stress on a perimeter, EN 1992-1-1 §6.4.3(3), Eq. (6.38).
 
     Args:
         V_Ed: design shear transferred to the slab [N] — the ``V_z`` of the

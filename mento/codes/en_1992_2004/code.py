@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from mento.codes.check_state import apply_en_flexure_state, apply_en_shear_state
+from mento.codes.en_1992_2004.skin import requirement as _skin_requirement
+from mento.codes.en_1992_2004.skin import warnings as _skin_warnings
+from mento.codes.check_state import apply_en_flexure_state, apply_en_shear_state, apply_en_wall_shear_state
 from mento.codes.EN_1992_2004_beam import (
     _check_flexure_EN_1992_2004,
     _check_shear_EN_1992_2004,
@@ -13,9 +15,10 @@ from mento.codes.EN_1992_2004_beam import (
     _flexure_admissible_EN_1992_2004,
 )
 from mento.codes.EN_1992_2004_punching import check_punching_EN_1992_2004
+from mento.codes.EN_1992_2004_wall import _check_shear_EN_1992_2004_wall, _design_shear_EN_1992_2004_wall
 from mento.codes.registry import DesignCode, register
 from mento.material import Concrete_EN_1992_2004
-from mento.units import cm, kN, kNm, mm, MPa
+from mento.units import MPa, cm, kN, kNm, mm
 
 if TYPE_CHECKING:
     from mento.beam import RectangularBeam
@@ -196,9 +199,19 @@ def _min_thickness_on_soil(concrete: Any) -> Any:
     return 250 * mm
 
 
+def _stirrup_bend_inner_diameter(concrete: Any, diameter: Any) -> Any:
+    """EN 1992-1-1:2004 §8.3(2), Table 8.1N recommended mandrels (NDP).
+
+    Four diameters through 16 mm, seven above. Concrete failure inside the
+    bend (Eq. 8.1), anchorage and the hook arrangement are not checked here.
+    """
+    return (4 if diameter.to("mm").magnitude <= 16 + 1e-8 else 7) * diameter
+
+
 EN_1992_2004 = register(
     DesignCode(
         title="EN 1992-2004",
+        stirrup_bend_inner_diameter=_stirrup_bend_inner_diameter,
         year=2004,
         materials=(Concrete_EN_1992_2004,),
         check_shear=_check_shear_EN_1992_2004,
@@ -210,7 +223,12 @@ EN_1992_2004 = register(
         transverse_rebar=_transverse_rebar,
         longitudinal_rebar=_longitudinal_rebar,
         initialize_attributes=_initialize_attributes,
-        # EN shear walls are not implemented; requires() names the code.
+        # In-plane wall shear, §6.2 with the detailing of §9.6.
+        check_shear_wall=_check_shear_EN_1992_2004_wall,
+        apply_wall_shear_state=apply_en_wall_shear_state,
+        design_shear_wall=_design_shear_EN_1992_2004_wall,
+        wall_mesh_spacing_clauses={"h": "§9.6.3(2)", "v": "§9.6.2(3)"},
+        wall_summary_columns={"rho_h": "ρh", "rho_v": "ρv", "shear_demand": "VEd,max", "shear_capacity": "VRd"},
         check_punching=check_punching_EN_1992_2004,
         flexure_symbols=_FLEXURE_SYMBOLS,
         units_row_shear=_UNITS_ROW_SHEAR,
@@ -224,5 +242,7 @@ EN_1992_2004 = register(
         min_thickness_on_soil=_min_thickness_on_soil,
         # A_s,max caps either face, §9.2.1.1(3): what a layout is held to.
         flexure_admissible=_flexure_admissible_EN_1992_2004,
+        skin_requirement=_skin_requirement,
+        skin_warnings=_skin_warnings,
     )
 )

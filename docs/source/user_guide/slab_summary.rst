@@ -37,6 +37,10 @@ The forces table of the beam summary: ``Level`` (optional), ``Label``, ``Comb.``
 forces per metre of slab are the same numbers. ``Nx > 0`` is compression and
 ``My > 0`` puts the bottom face in tension.
 
+Each layer must give both a diameter and a spacing, or leave both at zero.
+An incomplete layer raises ``ValueError``; a second layer given on its own is
+read even when the first layer is empty.
+
 .. code-block:: python
 
     import pandas as pd

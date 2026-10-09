@@ -135,19 +135,23 @@ Corte | Vu | 25.0 | kN
 Verificaciones de límites
 Verificación | Unidad | Valor | Mín. | Máx. | ¿Ok?
 Separación de estribos en la dirección longitudinal | cm | 0.0 |  | 6.25 | ✅
-Separación de estribos en la dirección transversal | cm | 0.0 |  | 12.5 | ✅
+Separación de estribos en la dirección transversal (Tabla 9.7.6.2.2) | cm | 0.0 |  | 12.5 | ✅
 Armadura mínima de corte | cm²/m | 0.0 | 0.0 |  | ✅
 Diámetro mínimo de barra | mm | 0.0 | 0 |  | ✅
 Verificaciones de resistencia
 Resistencia de la armadura de corte | Variable | Valor | Unidad
-Diámetro del estribo | db | 0.0 | mm
-Separación de estribos en la dirección longitudinal | sl | 0.0 | cm
+Diámetro del estribo | db | 0 | mm
+Separación de estribos en la dirección longitudinal | sl | 0 | cm
 Separación de estribos en la dirección transversal | sw | 0.0 | cm
 Altura útil | d | 12.5 | cm
 Armadura mínima de corte | Av,min | 0.0 | cm²/m
 Armadura de corte requerida | Av,req | 0.0 | cm²/m
 Armadura de corte adoptada | Av | 0.0 | cm²/m
 Resistencia de la armadura de corte | ØVs | 0.0 | kN
+Corte nominal que deben resistir los estribos (Vu/φ − Vc) | Vs,req | 0.0 | kN
+Umbral de la Tabla 9.7.6.2.2 (0.33√f'c·bw·d) | Vs,lim | 206.2 | kN
+Vs,req ≤ Vs,lim → Tabla 9.7.6.2.2: d/2 a lo largo, d en el ancho |  |  | 
+Tope absoluto de la Tabla 9.7.6.2.2 en esta fila | s,cap | 60.0 | cm
 Resistencia al corte | Variable | Valor | Unidad
 Área efectiva de corte | Acv | 1250.0 | cm²
 Cuantía de armadura longitudinal | ρw | 0.00251 | 

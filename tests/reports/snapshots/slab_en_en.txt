@@ -120,8 +120,8 @@ Total shear strength                 VRd        86.79  kN
 Max shear check                                    ✅
 Demand Capacity Ratio                DCR        0.691  ✅ 
 
-Verification                         Status
----------------------------  ----------------------
+Verification                         Status            Detailing notes
+---------------------------  ----------------------  -----------------
 Resistance                   Pass (modelled checks)
 Detailing (modelled checks)  Pass (modelled checks) 
 
@@ -203,8 +203,8 @@ Stirrup spacing along width | cm | 0.0 |  | 0.0 | ✅
 Minimum shear reinforcement | cm²/m | 0.0 | 0.0 |  | ✅
 Strength Checks
 Shear reinforcement strength | Variable | Value | Unit
-Stirrup diameter | db | 0.0 | mm
-Stirrup spacing along length | sl | 0.0 | cm
+Stirrup diameter | db | 0 | mm
+Stirrup spacing along length | sl | 0 | cm
 Stirrup spacing along width | sw | 0.0 | cm
 Effective height | d | 17.0 | cm
 Minimum shear reinforcing | Asw,min | 0.0 | cm²/m
@@ -222,9 +222,9 @@ Total shear strength | VRd | 86.8 | kN
 Max shear check |  | ✅ | 
 Demand Capacity Ratio | DCR | 0.69 | ✅
 Resistance and detailing
-Verification | Status
-Resistance | Pass (modelled checks)
-Detailing (modelled checks) | Pass (modelled checks)
+Verification | Status | Detailing notes
+Resistance | Pass (modelled checks) | 
+Detailing (modelled checks) | Pass (modelled checks) | 
 
 ### results
 Slab L1, $b$=100.00 cm, $h$=20.00 cm, $c_{c}$=2.50 cm,                         Concrete C25/30, Rebar B500S.

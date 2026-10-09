@@ -1,9 +1,11 @@
 from __future__ import annotations
-from dataclasses import dataclass, field
-from typing import Dict, TYPE_CHECKING, Any
+
 import math
 import warnings
-from mento.units import kg, m, MPa, ksi, GPa, psi, Pa, lb, ft, kPa
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Dict
+
+from mento.units import GPa, MPa, Pa, ft, kg, kPa, ksi, lb, m, psi
 
 # Conditional import for type checking only
 if TYPE_CHECKING:
@@ -336,7 +338,13 @@ class Concrete_EN_1992_2004(Concrete):
         self._f_ck_MPa: float = self._f_ck.to(MPa).magnitude
         self._f_cm: Quantity = self._f_ck + 8 * MPa
         self._E_cm = 22000 * (self._f_cm.to("MPa").magnitude / 10) ** 0.3 * MPa
-        self._f_ctm = 0.3 * (self._f_ck.to("MPa").magnitude) ** (2 / 3) * MPa
+        # EN 1992-1-1:2004 §3.1.2(3), Table 3.1: the power law only
+        # applies through C50/60; higher strengths use the logarithmic branch.
+        self._f_ctm = (
+            0.3 * self._f_ck_MPa ** (2 / 3)
+            if self._f_ck_MPa <= 50
+            else 2.12 * math.log(1 + self._f_cm.to(MPa).magnitude / 10)
+        ) * MPa
         self._epsilon_cu1 = (
             2.8 + 27 * ((98 - self._f_cm.to("MPa").magnitude) / 100) ** 4 if self._f_ck >= 50 * MPa else 3.5
         ) * 1e-3

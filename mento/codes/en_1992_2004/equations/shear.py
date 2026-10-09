@@ -82,7 +82,7 @@ def shear_resistance_without_reinforcement(
     b_w: float,
     d: float,
 ) -> float:
-    """Shear resistance of a member without shear reinforcement — EN 1992-1-1 Eq. (6.2.a).
+    """Shear resistance of a member without shear reinforcement — EN 1992-1-1 §6.2.2(1), Eq. (6.2.a).
 
     ``C_Rd,c`` is taken as the recommended 0.18/gamma_c of §6.2.2(1).
 
@@ -112,7 +112,7 @@ def min_shear_resistance_without_reinforcement(
     b_w: float,
     d: float,
 ) -> float:
-    """Floor on V_Rd,c — EN 1992-1-1 Eq. (6.2.b) with v_min from Eq. (6.3N).
+    """Floor on V_Rd,c — EN 1992-1-1 §6.2.2(1), Eq. (6.2.b) with v_min from Eq. (6.3N).
 
     Eq. (6.2.a) scales with rho_l**(1/3) and so collapses towards zero in a
     lightly reinforced member; Eq. (6.2.b) is the floor that stops it, using
@@ -133,7 +133,10 @@ def min_shear_resistance_without_reinforcement(
 
 
 def strut_strength_reduction_factor(f_ck: float) -> float:
-    """Strength reduction factor for concrete cracked in shear, nu_1 — EN 1992-1-1 Eq. (6.6N).
+    """Strength reduction factor for concrete cracked in shear, nu_1 — EN 1992-1-1 §6.2.3(3), Note 1.
+
+    Note 1 adopts nu from §6.2.2(6), Eq. (6.6N). The alternative values
+    in §6.2.3(3), Note 2, Eqs. (6.10.aN)/(6.10.bN), are not used here.
 
     Args:
         f_ck: Characteristic concrete cylinder strength (MPa).
@@ -179,7 +182,7 @@ def max_shear_resistance(alpha_cw: float, b_w: float, z: float, nu_1: float, f_c
 
 
 def strut_angle(V_Ed: float, V_Rd_max_45: float) -> float:
-    """Strut inclination that just carries V_Ed — EN 1992-1-1 Eq. (6.9), inverted.
+    """Strut inclination that just carries V_Ed — EN 1992-1-1 §6.2.3(3), Eq. (6.9), inverted.
 
     At theta = 45 deg the denominator of Eq. (6.9) is 2, so
     V_Rd,max(theta) = V_Rd,max(45 deg) * sin(2*theta) and the demand fixes the
@@ -199,7 +202,7 @@ def strut_angle(V_Ed: float, V_Rd_max_45: float) -> float:
 
 
 def required_shear_reinforcement(V_Ed: float, z: float, f_ywd: float, cot_theta: float) -> float:
-    """Shear reinforcement required for V_Ed — EN 1992-1-1 Eq. (6.8), solved for A_sw/s.
+    """Shear reinforcement required for V_Ed — EN 1992-1-1 §6.2.3(3), Eq. (6.8), solved for A_sw/s.
 
     Args:
         V_Ed: Design shear force (N).
@@ -223,8 +226,9 @@ def max_stirrup_spacing(d: float, alpha: float) -> tuple[float, float]:
             stirrups are pi/2, for which the longitudinal limit is 0.75*d.
 
     Returns:
-        ``(s_max_l, s_max_w)`` in mm, each capped by the clause — 400 mm along
-        the member, 600 mm across it.
+        ``(s_max_l, s_max_w)`` in mm, each capped: 400 mm along the member
+        (mento's own cap; Expression (9.6N) has none), 600 mm across it
+        (Expression (9.8N)).
     """
     s_max_l = min(0.75 * d * (1 + 1 / math.tan(alpha)), 400.0)
     s_max_w = min(0.75 * d, 600.0)
@@ -232,7 +236,7 @@ def max_stirrup_spacing(d: float, alpha: float) -> tuple[float, float]:
 
 
 def shear_reinforcement_resistance(A_sw_s: float, z: float, f_ywd: float, cot_theta: float) -> float:
-    """Shear carried by vertical stirrups V_Rd,s — EN 1992-1-1 Eq. (6.8).
+    """Shear carried by vertical stirrups V_Rd,s — EN 1992-1-1 §6.2.3(3), Eq. (6.8).
 
     Args:
         A_sw_s: Shear reinforcement area per unit length A_sw/s (mm²/mm).

@@ -18,7 +18,7 @@ from mento.beam import RectangularBeam
 from mento.forces import Forces
 from mento.material import Concrete_ACI_318_19, Concrete_EN_1992_2004, SteelBar
 from mento.node import Node
-from mento.units import cm, kN, kNm, mm, MPa
+from mento.units import MPa, cm, kN, kNm, mm
 
 EQUATIONS_ROOT = Path(__file__).resolve().parents[2] / "mento" / "codes"
 
@@ -47,6 +47,8 @@ def test_equation_modules_exist():
         "from mento.codes.en_1992_2004.equations import flexure",
         "import mento.rebar",
         "import mento.codes",
+        "from mento import SectionGeometry",
+        "import mento.section_geometry",
     ],
     ids=lambda s: s.split()[-1],
 )
@@ -95,8 +97,13 @@ ELEMENT_MODULES = [
 
 PRESENTATION_LIBRARIES = {"matplotlib", "docx", "IPython"}
 
+#: Modules of the calculation layer that are neither an element nor a design
+#: code, and that a drawing reads rather than the other way round: the public
+#: geometry of a section is data, which ``mento.plots`` draws.
+CALCULATION_LAYER_MODULES = [MENTO_ROOT / "section_geometry.py"]
 
-@pytest.mark.parametrize("path", ELEMENT_MODULES, ids=lambda p: p.name)
+
+@pytest.mark.parametrize("path", ELEMENT_MODULES + CALCULATION_LAYER_MODULES, ids=lambda p: p.name)
 def test_elements_do_not_import_presentation_libraries(path: Path) -> None:
     """Phase 3: an element is geometry and orchestration, not a renderer.
 
@@ -133,6 +140,17 @@ def test_elements_do_not_import_presentation_libraries(path: Path) -> None:
         f"{path.name} imports presentation libraries {offenders}. "
         "Move the rendering into mento.plots or mento.reports and delegate to it."
     )
+
+
+@pytest.mark.parametrize("path", CALCULATION_LAYER_MODULES, ids=lambda p: p.name)
+def test_calculation_modules_do_not_import_the_presentation_layer(path: Path) -> None:
+    """The geometry is what a drawing reads: it must not reach back into the drawing or the reports."""
+    imported = [
+        node.module
+        for node in ast.walk(_parse(path))
+        if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith(("mento.plots", "mento.reports"))
+    ]
+    assert not imported, f"{path.name} imports the presentation layer: {imported}"
 
 
 def test_the_warnings_take_no_quantity_from_the_report_layer() -> None:
@@ -234,6 +252,8 @@ def test_every_public_equation_cites_its_clause(path: Path) -> None:
 #: The modules that must not know which design codes exist. Elements, plus the
 #: two layers that used to branch on the code string alongside them.
 CODE_AGNOSTIC_MODULES = ELEMENT_MODULES + [
+    MENTO_ROOT / "section_geometry.py",
+    MENTO_ROOT / "design_warnings.py",
     MENTO_ROOT / "rebar.py",
     MENTO_ROOT / "reports" / "views.py",
     MENTO_ROOT / "reports" / "summaries.py",
@@ -342,12 +362,12 @@ def test_registering_the_same_code_twice_is_refused() -> None:
 
 
 def test_a_code_without_a_hook_names_itself() -> None:
-    """EN has no shear wall check; the error should say which code and which hook."""
+    """EN has no punching design yet; the error should say which code and which hook."""
     from mento.codes.registry import design_code
 
     en = design_code(Concrete_EN_1992_2004(name="C25", f_c=25 * MPa))
-    with pytest.raises(NotImplementedError, match="check shear wall is not implemented.*EN 1992-2004"):
-        en.requires("check_shear_wall")
+    with pytest.raises(NotImplementedError, match="design punching is not implemented.*EN 1992-2004"):
+        en.requires("design_punching")
 
 
 def test_a_code_registered_without_report_tables_says_so() -> None:
