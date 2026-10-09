@@ -535,7 +535,7 @@ def _plot_stirrups_in_section(ax: "Axes", geometry: SectionGeometry) -> None:
 
 
 def _plot_bars(ax: "Axes", geometry: SectionGeometry) -> None:
-    """Every longitudinal bar, resistant and mounting alike in dark gray; skin bars in green."""
+    """Every longitudinal bar -- resistant, mounting and skin -- in dark gray."""
     for bar in (*geometry.bars, *geometry.mounting_bars, *geometry.skin_bars):
         mounting = bar in geometry.mounting_bars
         skin = bar in geometry.skin_bars
@@ -543,7 +543,7 @@ def _plot_bars(ax: "Axes", geometry: SectionGeometry) -> None:
             Circle(
                 (_cm(bar.x), _cm(bar.y)),
                 _cm(bar.d_b) / 2.0,
-                color="#228877" if skin else CUSTOM_COLORS["dark_gray"],
+                color=CUSTOM_COLORS["dark_gray"],
                 gid="skin_bar" if skin else "mounting_bar" if mounting else "resistant_bar",
             )
         )
@@ -931,8 +931,8 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
     A beam is drawn from its :attr:`~mento.beam.RectangularBeam.detailing_geometry`:
     every stirrup of the cage at the legs the shear check assumes, crossties
     with their 90° and 135° hooks around the bars they hold, and the
-    longitudinal bars -- resistant and mounting alike in dark gray, skin bars
-    in green. On the right, the label of each layer, the skin per side and
+    longitudinal bars -- resistant, mounting and skin alike -- in dark gray.
+    On the right, the label of each layer, the skin per side and
     the stirrups (``2 legs Ø10 mm @ 22 cm``); under the section, the steel
     ratio in kg/m³ (lb/yd³ in US customary units, :func:`steel_ratio`). A
     face of the cage with no bars gets mounting bars at its corners. The

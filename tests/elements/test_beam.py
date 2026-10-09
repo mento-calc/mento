@@ -3075,8 +3075,8 @@ def test_plot_draws_every_stirrup_at_the_legs_the_check_assumes() -> None:
     assert len([c for c in circles if c.get_gid() == "resistant_bar"]) == 12
     assert len([c for c in circles if c.get_gid() == "mounting_bar"]) == 10
     assert len([c for c in circles if c.get_gid() == "skin_bar"]) == 10
-    # Mounting bars are drawn as the resistant ones are: filled, dark gray.
-    assert {c.get_facecolor() for c in circles if c.get_gid() != "skin_bar"} == {to_rgba(CUSTOM_COLORS["dark_gray"])}
+    # Mounting and skin bars are drawn as the resistant ones are: filled, dark gray.
+    assert {c.get_facecolor() for c in circles} == {to_rgba(CUSTOM_COLORS["dark_gray"])}
     all_bars = geometry.bars + geometry.mounting_bars + geometry.skin_bars
     assert [c.get_center()[1] for c in circles] == pytest.approx([b.y.to("cm").magnitude for b in all_bars])
     # A bar an open leg wraps is drawn beside the leg, on the side its hooks bend to: within a bar and a leg.

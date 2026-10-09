@@ -90,10 +90,12 @@ from the release history and are summaries rather than complete lists.
   the minimum area of EN §7.3.3(3), under every code, and under EN within the Table 7.2N
   cap. The status is `required` where the code requires skin and the new `proposed` below
   that. EN no longer leaves skin pending without service data: it assumes
-  σ_s = 0.6 f_yk and x = 0.4 h and says so (`skin_en_service_assumed`); a `SkinServiceCase`
-  still overrides them. `skin_bar_diameter` defaults to 8 mm and is the smallest diameter
-  used. A CIRSOC 30x120 under +700 / -500 kN·m takes three Ø10 per side over the whole
-  height.
+  σ_s = 0.6 f_yk and x = 0.4 h for each face in tension that has no `SkinServiceCase`, and
+  says so (`skin_en_service_assumed`, which replaces `skin_en_service_pending`). Every
+  service case of a face is checked, each with its own zone and stress, not only the
+  first. `skin_bar_diameter` defaults to 8 mm and is the smallest diameter used. The skin
+  bars are drawn in dark gray, like the other bars. A CIRSOC 30x120 under +700 / -500 kN·m
+  takes three Ø10 per side over the whole height.
 
 - **The beam section drawing shows the section, not its notes.** On the right, each layer,
   the skin per side and the stirrups as the section carries them (`2 legs Ø10 mm @ 22 cm`);
