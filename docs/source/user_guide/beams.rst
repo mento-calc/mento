@@ -223,8 +223,10 @@ insufficient to support all corners, additional mounting bars are drawn in orang
 labelled separately. Their diameter is ``settings.mounting_bar_diameter`` (10 mm or
 No. 3 by default). These bars are not credited in the calculated resistance.
 
-The supported layout preserves the calculated bar counts, diameters and vertical
-coordinates. The entered shear legs are a minimum; required compression
+The supported layout preserves the calculated bar counts and diameters. The bars at the
+corners of a closed stirrup are drawn seated in its bend, a few millimetres deeper in than
+the effective depth assumes, and the layer behind them follows; the other bars keep their
+calculated depth. The entered shear legs are a minimum; required compression
 support can add crossties with modelled hooks to the detailing geometry. The plot shows
 the actual count and spacing without crediting that extra steel in resistance. It checks clear spacing, the existing code's
 centre-distance cap, and intersections with the branches and rounded bends. If no

@@ -173,8 +173,8 @@ def test_an_alternative_short_of_the_moment_on_the_finished_beam_is_dropped() ->
     19.4) = 78.2 kNm, 80/78.2 = 1.023. With the default design_options = 3
     it never reaches the list; asking for four, PR #164 offered it as
     options[3], and it is dropped now for the next row that passes, 2Ø16 +
-    1Ø16. (With the stirrup bends laid out, 2Ø16 + 1Ø12 ranks ahead of 2Ø12 +
-    2Ø12.)
+    1Ø16. (With the corner bars seated in the stirrup bends, 2Ø16 + 1Ø12
+    ranks ahead of 2Ø12 + 2Ø12.)
     """
     beam = _designed([Forces(label="ELU", M_y=80 * kNm)], BeamSettings(design_options=4))
     options = beam.flexure_design.bottom.options
@@ -198,7 +198,8 @@ def test_a_compression_face_alternative_that_fails_the_other_face_is_dropped() -
     puts the centroid at d' = (3*43 + 2*84)/5 = 59.4 mm, the compression
     steel reaches less stress at the ductility limit and the couple gives
     less: M_Rd 395.4 kNm, bottom DCR 1.012. An alternative of the top face
-    that fails the bottom is not an alternative.
+    that fails the bottom is not an alternative. (The 20 cm web this test
+    used before the bends were laid out is now designed another way.)
     """
     beam = RectangularBeam(
         label="V",
@@ -384,7 +385,7 @@ def test_the_alternatives_are_the_other_bars_each_at_its_own_spacing() -> None:
     238 kN > 184 kN), so s_max,l = d/4 = 13.97 cm -> 13 cm for every bar.
     All three carry the section: the worst ratio is the flexure's, on 2Ø20.
     (Under the 150 kNm of ``HIGH_SHEAR`` the 2Ø20 + 1Ø16 leave no room for
-    the bends of a Ø12 or Ø16 stirrup, so only the Ø10 is offered.)
+    the 64 mm bends of a Ø16 stirrup, so it is not offered.)
     """
     options = _designed([Forces(label="1.2D+1.6L", V_z=250 * kN, M_y=120 * kNm)]).shear_design.options
     diameters = [option.d_b.to("mm").magnitude for option in options]

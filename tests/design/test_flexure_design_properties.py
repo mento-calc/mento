@@ -167,11 +167,8 @@ def test_a_full_design_passes_its_own_check_with_the_stirrups_it_ends_with() -> 
     149.92 kN·m: DCR 1.0005, and nothing warned, since the search never saw
     a shortfall (A_s,req = 9.823 cm² at that depth against 9.817 placed).
     ``design()`` now designs the flexure again with the stirrup it ended
-    with: 2Ø20 with 2Ø16 behind at DCR 0.994, the same bars every time it
-    runs, in a cage that closes (2Ø25 + 1Ø20 in one layer, which it chose
-    before the bends were laid out, leaves 22.5 mm between the bars once the
-    Ø10 bends hold each Ø25 7.5 mm off its leg). Fails before that with DCR
-    1.0005 and no warning.
+    with: 2Ø25 + 1Ø20 at DCR 0.787, the same bars every time it runs. Fails
+    before that with DCR 1.0005 and no warning.
     """
     beam = RectangularBeam(
         label="V",
@@ -189,7 +186,7 @@ def test_a_full_design_passes_its_own_check_with_the_stirrups_it_ends_with() -> 
     assert beam._stirrup_d_b.to("mm").magnitude == pytest.approx(10.0)
     assert beam.flexure_checks[0].bottom.DCR <= 1.0
     assert beam.shear_checks[0].DCR <= 1.0
-    assert node.warnings == ()
+    assert node.warnings == ()  # with its corner bars seated, the cage closes
     assert beam.flexure_design.bottom.A_s >= beam.flexure_design.bottom.A_s_req
 
     node.design()
@@ -251,28 +248,25 @@ def test_a_design_with_no_layout_says_what_it_is_short_of() -> None:
     short of what the moment asks. The Picard loop used to end on 3Ø12 +
     3Ø10 in two layers under 2Ø25, DCR 1.166; the search for the closest
     layout within the limits (issue #169) finds 2Ø20 in one layer, 6.28 cm²,
-    deeper than the two layers and tension-controlled with 2Ø10 above (a
-    third Ø10 leaves 20 mm between them once the bends hold each corner bar
-    15 mm off its leg, short of the vibrator): DCR 1.010. The bottom holds
-    more than the design asked of it at its depth, so the shortfall the
-    design records is the most that face can take and stay
-    tension-controlled, A_s,req = 5.59 cm²; the section says it is short:
-    38.2 kN·m against 37.83. The same forces give the same bars on a second
-    run.
+    deeper than the two layers and tension-controlled with 2Ø10 + 1Ø10
+    above: DCR 1.010. The design says what the bottom is short of, A_s,req =
+    6.98 cm², and that the section is: 38.2 kN·m against 37.84. The same
+    forces give the same bars on a second run.
     """
     beam, node = _short_beam()
     node.design()
 
     assert str(beam.reinforcement.bottom) == "2Ø20 mm"
-    assert str(beam.reinforcement.top) == "2Ø10 mm"
+    assert str(beam.reinforcement.top) == "2Ø10 mm + 1Ø10 mm"
     assert beam._stirrup_d_b.to("mm").magnitude == pytest.approx(10.0)
-    assert beam.flexure_design.bottom.DCR == pytest.approx(1.0099, abs=0.0005)
+    assert beam.flexure_design.bottom.DCR == pytest.approx(1.0095, abs=0.0005)
     assert beam.flexure_checks[0].bottom.admissible
     short = {w.face: w for w in node.warnings if w.code == "As_below_required"}
-    assert short["bottom"].values["A_s_req"].to("cm**2").magnitude == pytest.approx(5.59, abs=0.01)
+    assert short["bottom"].values["A_s_req"].to("cm**2").magnitude == pytest.approx(6.98, abs=0.01)
+    assert short["bottom"].values["A_s_req"] > short["bottom"].values["A_s"]
     small = {w.code: w for w in node.warnings}["section_too_small_for_moment"]
     assert small.values["M"].to("kN*m").magnitude == pytest.approx(38.2)
-    assert small.values["M_capacity"].to("kN*m").magnitude == pytest.approx(37.83, abs=0.005)
+    assert small.values["M_capacity"].to("kN*m").magnitude == pytest.approx(37.84, abs=0.005)
 
     node.design()
     assert str(beam.reinforcement.bottom) == "2Ø20 mm"
@@ -312,45 +306,46 @@ def test_a_design_that_does_not_close_keeps_the_closest_layout_within_the_limits
 
 
 def test_a_round_whose_bars_leave_no_room_for_the_vibrator_is_no_solution() -> None:
-    """ACI 318-19 15x25, f'c 20, c_c 25 mm, Mu = -22 kN·m: the bars that carry it block the vibrator.
+    """ACI 318-19 13x25, f'c 20, c_c 25 mm, Mu = -21.27 kN·m: the bars that carry it block the vibrator.
 
-    Beside the Ø10 stirrup the design starts with, 150 - 2*25 - 2*10 = 80 mm
-    is left between the legs, and the 40 mm bends hold each corner bar
-    (40 - d_b)/2 off its leg. 2Ø12 + 2Ø10 on top would carry the moment, DCR
-    0.916, but leave 80 - 2*14 - 24 = 28 mm between the Ø12: §25.2.1 is met,
-    the 30 mm of the vibrator is not. Concrete the vibrator cannot reach is
-    not consolidated, so that is no layout (issue #169): 2Ø10 per layer is
-    the most that leaves 30 mm (80 - 2*15 - 20), and 2Ø10 + 2Ø10 = 3.14 cm²
-    against 3.57 required, DCR 1.112. The design says what the top is short
-    of and that the section is too small. (The 12 cm web this test used
-    before the bends were laid out fits no pair of bars beside a Ø10.)
+    Beside the Ø10 stirrup the design starts with, 130 - 2*25 - 2*10 = 60 mm
+    is left between the legs, and each corner bar seats in their 40 mm bends,
+    (20 - d_b/2)(1 - 1/√2) past its radius. 2Ø12 + 2Ø10 on top would carry
+    the moment, DCR 0.899, but leave 60 - 2*4.10 - 24 = 27.8 mm between the
+    Ø12: §25.2.1 is met, the 30 mm of the vibrator is not. Concrete the
+    vibrator cannot reach is not consolidated, so that is no layout (issue
+    #169): 2Ø10 per layer is the most that leaves 30 mm (60 - 2*4.39 - 20 =
+    31.2), and 2Ø10 + 2Ø10 = 3.14 cm² against 3.49 required, DCR 1.101. The
+    design says what the top is short of and that the section is too small.
+    (The 12 cm web this test used before the bends were laid out fits no
+    pair of bars beside a Ø10.)
     """
     beam = RectangularBeam(
         label="V",
         concrete=Concrete_ACI_318_19(name="H20", f_c=20 * MPa),
         steel_bar=SteelBar(name="ADN 420", f_y=420 * MPa),
-        width=15 * cm,
+        width=13 * cm,
         height=25 * cm,
         c_c=25 * mm,
     )
-    node = Node(section=beam, forces=[Forces(label="U", M_y=-22 * kNm)])
+    node = Node(section=beam, forces=[Forces(label="U", M_y=-21.27 * kNm)])
     node.design()
 
     assert str(beam.reinforcement.top) == "2Ø10 mm + 2Ø10 mm"
     assert beam._stirrup_d_b.to("mm").magnitude == pytest.approx(10.0)
-    assert beam.flexure_design.top.DCR == pytest.approx(1.112, abs=0.0005)
+    assert beam.flexure_design.top.DCR == pytest.approx(1.101, abs=0.0005)
     assert [(w.code, w.face) for w in node.warnings] == [
         ("As_below_required", "top"),
         ("section_too_small_for_moment", None),
     ]
     short = next(w for w in node.warnings if w.code == "As_below_required")
-    assert short.values["A_s_req"].to("cm**2").magnitude == pytest.approx(3.57, abs=0.005)
+    assert short.values["A_s_req"].to("cm**2").magnitude == pytest.approx(3.49, abs=0.005)
 
     # The same bars a check is given by hand say what the design would not
     # leave -- and the cage, held to the same gap, cannot be detailed.
     beam.set_longitudinal_rebar_top(n1=2, d_b1=12 * mm, n3=2, d_b3=10 * mm)
     node.check()
-    assert beam.flexure_checks[0].top.DCR == pytest.approx(0.916, abs=0.0005)
+    assert beam.flexure_checks[0].top.DCR == pytest.approx(0.899, abs=0.0005)
     assert [(w.code, w.face) for w in node.warnings] == [
         ("clear_spacing_below_vibrator", "top"),
         ("compression_detailing_pending", None),
@@ -380,7 +375,7 @@ def test_the_design_rounds_stop_on_a_repeated_state(monkeypatch: pytest.MonkeyPa
 
     assert passes == [10.0, 10.0]
     assert str(beam.reinforcement.bottom) == "2Ø20 mm"
-    assert beam.flexure_design.bottom.DCR == pytest.approx(1.0099, abs=0.0005)
+    assert beam.flexure_design.bottom.DCR == pytest.approx(1.0095, abs=0.0005)
     assert "bottom" in [w.face for w in node.warnings if w.code == "As_below_required"]
 
 
@@ -392,9 +387,7 @@ def test_a_design_that_does_not_close_finds_the_layout_within_the_limits_that_co
     few layouts: it ended on 2Ø10 + 5Ø10 in two layers on each face, 11.0
     cm², DCR 1.466. 2Ø20 + 4Ø16 in one layer, 14.33 cm², is deeper and,
     with the same bars opposite, still tension-controlled: DCR 1.079 (issue
-    #169). (7Ø16, which it chose before the bends were laid out, leaves 27.3
-    mm between the bars once the bends hold the corner Ø16 12 mm off the
-    legs: short of the vibrator on top.)
+    #169).
     Bars past the limit that would carry the moment -- 6Ø25, DCR 0.75 --
     are no solution, since §9.3.3.1 does not allow them.
     """
@@ -436,35 +429,38 @@ def test_the_search_for_the_closest_layout_can_find_one_that_closes() -> None:
     Main ended on 2Ø25 + 5Ø25 below and 2Ø25 + 4Ø25 above, DCR 0.726 but
     not tension-controlled. A 40 cm web fits more layouts than the search
     tries, so it spreads its 16 over them, the lightest and the heaviest
-    always among them, and 2Ø25 + 4Ø20 on each face closes:
-    tension-controlled, DCR 0.923, no flexure warning (issue #169); the cage
-    around the compression bars closes too, with crossties whose hooks
-    alternate along the member. (7Ø20, which it chose before the bends were
-    laid out, no longer leaves the vibrator its 30 mm.)
+    always among them, and 7Ø20 on each face closes: tension-controlled,
+    DCR 0.929, no flexure warning (issue #169); what is left is the
+    detailing of the cage around the compression bars.
     """
     beam = _aci_beam(40, 25, 25)
     forces = [Forces(label="+", M_y=130 * kNm, V_z=50 * kN), Forces(label="-", M_y=-130 * kNm, V_z=50 * kN)]
     node = Node(section=beam, forces=forces)
     node.design()
 
-    assert str(beam.reinforcement.bottom) == "2Ø25 mm + 4Ø20 mm"
-    assert str(beam.reinforcement.top) == "2Ø25 mm + 4Ø20 mm"
-    assert beam.flexure_design.DCR == pytest.approx(0.923, abs=0.0005)
+    assert str(beam.reinforcement.bottom) == "2Ø20 mm + 5Ø20 mm"
+    assert str(beam.reinforcement.top) == "2Ø20 mm + 5Ø20 mm"
+    assert beam.flexure_design.DCR == pytest.approx(0.929, abs=0.0005)
     assert all(check.complies for check in beam.flexure_checks)
-    assert [(w.code, w.face) for w in node.warnings] == [("crosstie_alternation_required", None)]
+    assert [(w.code, w.face) for w in node.warnings] == [
+        ("compression_detailing_pending", None),
+        ("cage_detailing_infeasible", None),
+    ]
 
 
 def test_the_search_leaves_a_face_with_no_bars_bare() -> None:
-    """ACI 318-19 14.5x25, c_c 25 mm, Mu = +130 kN·m: no compression bars fit on top, and the search keeps it so.
+    """ACI 318-19 12.5x25, c_c 25 mm, Mu = +130 kN·m: no compression bars fit on top, and the search keeps it so.
 
-    145 - 2*(25 + 10) = 75 mm between the legs, and the Ø10 bends hold each
-    corner bar (40 - d_b)/2 off its leg: two Ø10 are 75 - 30 - 20 = 25 mm
-    apart, enough below and short of the vibrator's 30 mm on top, where no
-    pair fits. The bottom is searched against a top with nothing on it, and
-    every trial puts the top back bare; the closest within the limits is
-    2Ø10 + 2Ø10, DCR 6.40. The section is far too small, and says so.
+    125 - 2*(25 + 10) = 55 mm between the legs, and the corner bars seat in
+    the 40 mm bends: two Ø10, 4.39 mm past their radius, leave 55 - 8.79 -
+    20 = 26.2 mm, enough below and short of the vibrator's 30 mm on top,
+    where no pair fits. The bottom is searched against a top with nothing on
+    it, and every trial puts the top back bare; the closest within the limits
+    is 2Ø10 + 2Ø10, DCR 6.53. The section is far too small, and says so.
+    (The 12 cm web this test used before the bends were laid out fits no
+    pair of bars on either face.)
     """
-    beam = _aci_beam(14.5, 25, 25)
+    beam = _aci_beam(12.5, 25, 25)
     node = Node(section=beam, forces=[Forces(label="+", M_y=130 * kNm, V_z=50 * kN)])
     node.design()
 

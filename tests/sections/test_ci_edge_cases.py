@@ -94,7 +94,7 @@ def test_water_fill_respects_a_centre_spacing_cap():
     g = beam().section_geometry
     bar = replace(g.bars[0], d_b=10 * mm)
     row = tuple(replace(bar, x=x * mm) for x in (10, 30, 70))
-    resistant, mounting = cage._supported_layer(row, [(0, 1, 10), (80, -1, 10)], bar, 10, 30, 10, 10)
+    resistant, mounting, _ = cage._supported_layer(row, [(0, 1, 10), (80, -1, 10)], bar, 10, 30, 10, 10)
     assert not mounting
     assert [b.x.to(mm).magnitude for b in resistant] == pytest.approx([10, 40, 70])
 

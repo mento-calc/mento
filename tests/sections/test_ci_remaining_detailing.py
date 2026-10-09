@@ -25,7 +25,7 @@ def test_fewer_closed_corners_preserves_resistant_bars_and_separates_mounting():
     corners = [
         (float(x.to(mm).magnitude), 1 if i < 4 else -1, 25.0 if i in (0, 4) else 0.0) for i, x in enumerate(g.leg_x)
     ]
-    resistant, added = cage._supported_layer(row, corners, mounting, 30, math.inf, 10, 25, True)
+    resistant, added, _ = cage._supported_layer(row, corners, mounting, 30, math.inf, 10, 25, True)
     assert len(resistant) == 3 and len(added) == 2
     assert [(bar.d_b, bar.y, bar.group) for bar in resistant] == [(bar.d_b, bar.y, bar.group) for bar in row]
     assert all(bar.d_b == 10 * mm and bar.group == 0 for bar in added)

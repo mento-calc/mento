@@ -87,30 +87,30 @@ def test_the_wide_cirsoc_legs_and_cage(wide_cirsoc_beam: RectangularBeam) -> Non
 def test_the_wide_cirsoc_bars(wide_cirsoc_beam: RectangularBeam) -> None:
     geometry = wide_cirsoc_beam.section_geometry
     bottom = geometry.bars_on("bottom")
-    # The Ø12 stirrup bends on a 48 mm mandrel, so the Ø32 corner bars sit
-    # (48 - 32)/2 = 8 mm off the inner face of the legs: 3 + 1.2 + 0.8 + 1.6.
+    # The Ø12 stirrup bends on a 48 mm mandrel; a Ø32 seated in it sits
+    # 24 - 8/√2 = 18.34 mm off the inner face of the leg: 3 + 1.2 + 1.834.
     assert _cm([b.x for b in bottom]) == [
-        6.6,
-        19.0364,
-        31.4727,
-        43.9091,
-        56.3455,
-        68.7818,
-        81.2182,
-        93.6545,
-        106.0909,
-        118.5273,
-        130.9636,
-        143.4,
+        6.0343,
+        18.5735,
+        31.1127,
+        43.652,
+        56.1912,
+        68.7304,
+        81.2696,
+        93.8088,
+        106.348,
+        118.8873,
+        131.4265,
+        143.9657,
     ]
     assert {round(b.y.to("cm").magnitude, 6) for b in bottom} == {5.8}
     assert [b.group for b in bottom] == [1] + [2] * 10 + [1]
     assert geometry.bars_on("top") == ()
-    # The last bar's face clear of the bend: 150 - 3 - 1.2 - 0.8.
-    assert bottom[-1].x.to("cm").magnitude + 1.6 == pytest.approx(145.0)
+    # The last bar's face, seated in the bend: 150 - 3 - 1.2 - (1.834 - 1.6).
+    assert bottom[-1].x.to("cm").magnitude + 1.6 == pytest.approx(145.5657, abs=1e-4)
     # The honest picture PR 2 fixes: the legs are not tied to the bars.
     nearest = [min(abs(x - b.x).to("cm").magnitude for b in bottom) for x in geometry.leg_x]
-    assert [round(v, 3) for v in nearest] == [3.0, 0.43, 3.861, 5.145, 1.715, 1.715, 5.145, 3.861, 0.43, 3.0]
+    assert [round(v, 3) for v in nearest] == [2.434, 0.893, 4.221, 4.991, 1.664, 1.664, 4.991, 4.221, 0.893, 2.434]
 
 
 def test_aci_variant_of_the_wide_cirsoc_beam() -> None:
@@ -202,7 +202,7 @@ def test_the_invariants_hold_on_mixed_layers(bottom: dict, top: dict, stirrups: 
 def test_a_beam_never_given_stirrups_still_reserves_the_starter_diameter() -> None:
     """The effective depth and the clear space keep the 8 mm starter: so does the geometry.
 
-    Its bend too: a 32 mm mandrel puts the Ø16 corner bars (32 - 16)/2 = 8 mm off the leg.
+    Its bend too: a Ø16 seated on a 32 mm mandrel sits 16 - 8/√2 = 10.34 mm off the leg, 2.34 mm past its radius.
     """
     beam = _beam(30, 50)
     beam.set_longitudinal_rebar_bot(n1=3, d_b1=16 * mm)
@@ -211,8 +211,9 @@ def test_a_beam_never_given_stirrups_still_reserves_the_starter_diameter() -> No
     assert geometry.stirrup_d_b.to("mm").magnitude == pytest.approx(8)
     assert geometry.leg_x == () and geometry.stirrups == ()
     bottom = geometry.bars_on("bottom")
-    assert (bottom[0].x - bottom[0].d_b / 2).to("mm").magnitude == pytest.approx(25 + 8 + 8)
-    assert (bottom[-1].x + bottom[-1].d_b / 2).to("mm").magnitude == pytest.approx(300 - 25 - 8 - 8)
+    seat = 16 - 8 / 2**0.5 - 8
+    assert (bottom[0].x - bottom[0].d_b / 2).to("mm").magnitude == pytest.approx(25 + 8 + seat)
+    assert (bottom[-1].x + bottom[-1].d_b / 2).to("mm").magnitude == pytest.approx(300 - 25 - 8 - seat)
     assert geometry.arrangement("en") == "no stirrups"
     _check_invariants(beam)
 
@@ -246,15 +247,15 @@ def test_group_order(n_a: int, n_b: int, order: list[int]) -> None:
 
 
 def test_mixed_diameters_follow_the_models_single_clear_gap() -> None:
-    """ACI 30x50, c_c 25 mm, Ø10 stirrup, bottom 2Ø20 + 3Ø16: gap (230 - 2·10 - 40 - 48)/4 = 30.5 mm.
+    """ACI 30x50, c_c 25 mm, Ø10 stirrup, bottom 2Ø20 + 3Ø16: gap (230 - 2·2.93 - 40 - 48)/4 = 34.04 mm.
 
-    The Ø10 bends on a 40 mm mandrel, so each Ø20 corner bar sits (40 - 20)/2 = 10 mm off the leg.
+    A Ø20 seated in the 40 mm bend of the Ø10 sits 20 - 10/√2 = 12.93 mm off the leg, 2.93 mm past its radius.
     """
     beam = _beam(30, 50)
     beam.set_transverse_rebar(1, 10 * mm, 15 * cm)
     beam.set_longitudinal_rebar_bot(n1=2, d_b1=20 * mm, n2=3, d_b2=16 * mm)
     bottom = beam.section_geometry.bars_on("bottom", layer=1)
-    assert [round(b.x.to("mm").magnitude, 6) for b in bottom] == [55.0, 103.5, 150.0, 196.5, 245.0]
+    assert [round(b.x.to("mm").magnitude, 6) for b in bottom] == [47.928932, 99.964466, 150.0, 200.035534, 252.071068]
     assert [b.group for b in bottom] == [1, 2, 2, 2, 1]
 
 
@@ -353,8 +354,8 @@ def test_an_imperial_section_is_in_inches() -> None:
     assert str(geometry.width.units) == str((1 * inch).units)
     assert geometry.leg_x[0].magnitude == pytest.approx(1.5 + 0.1875)
     assert geometry.leg_x[-1].magnitude == pytest.approx(12 - 1.5 - 0.1875)
-    # A #3 bends on a 1.5 in mandrel: the #6 corner bar sits (1.5 - 0.75)/2 off the leg.
-    assert geometry.bars[0].x.magnitude == pytest.approx(1.5 + 0.375 + 0.375 + 0.375)
+    # A #3 bends on a 1.5 in mandrel: a #6 seated in it sits 0.75 - 0.375/√2 off the leg.
+    assert geometry.bars[0].x.magnitude == pytest.approx(1.5 + 0.375 + 0.75 - 0.375 / 2**0.5)
     _check_invariants(beam)
 
 
@@ -374,7 +375,7 @@ def test_to_dict_gives_plain_floats(wide_cirsoc_beam: RectangularBeam) -> None:
     }
     assert [tie["leg"] for tie in data["crossties"]] == list(range(1, 9))
     assert data["bars"][0] == {
-        "x": pytest.approx(6.6),
+        "x": pytest.approx(6.0343, abs=1e-4),
         "y": pytest.approx(5.8),
         "d_b": pytest.approx(3.2),
         "face": "bottom",

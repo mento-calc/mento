@@ -9,7 +9,7 @@ from mento.codes.aci_318_19.equations import shear as aci_shear_eq
 from mento.codes.en_1992_2004.equations import shear as en_shear_eq
 from mento.codes.registry import design_code
 from mento.precompute import CANONICAL, DISPLAY, section_floats
-from mento.section_geometry import corner_setback, stirrup_bend_inner_diameter
+from mento.section_geometry import end_setback, stirrup_bend_inner_diameter
 from mento.units import mm, cm, inch
 from mento.bar_sizes import ASTM_BAR_DIAMETERS, bar_designation, bar_diameter
 
@@ -793,7 +793,7 @@ class Rebar:
         max_bars = self.beam.settings.max_bars_per_layer
         layers_spacing_mm = self.beam.settings.layers_spacing.to("mm").magnitude
         # The end bars sit clear of the stirrup's bends, as the check and the
-        # cage put them (section_geometry.corner_setback): a layer is laid out
+        # cage put them (section_geometry.end_setback): a layer is laid out
         # in the width left between them. Layer 1 always ends in its n1 = 2
         # bars, layer 2 in its n3 = 2. None on a slab strip, which has no cage.
         bend = stirrup_bend_inner_diameter(self.beam)[0] if self.mode != "slab" else None
@@ -802,7 +802,7 @@ class Rebar:
         def layer_width_mm(d_end_mm: float, offset_mm: float) -> float:
             if bend_mm is None:
                 return eff_width_mm
-            return eff_width_mm - 2 * corner_setback(bend_mm, d_end_mm, offset_mm + d_end_mm / 2)
+            return eff_width_mm - 2 * end_setback(bend_mm, d_end_mm, offset_mm)
 
         # n1 is fixed at 2, and A_s_req > 0 is guaranteed by the early exit above,
         # so both area limits are loop-invariant and are computed once.

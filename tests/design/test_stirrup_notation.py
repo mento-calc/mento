@@ -456,8 +456,7 @@ def test_the_design_results_page_example() -> None:
     assert [f"{x:.4g~P}" for x in geometry.leg_x] == ["3 cm", "17 cm"]
     assert geometry.arrangement() == "single perimeter stirrup"
 
-    # Where the spacing limit governs, the alternatives share one spacing. A
-    # Ø16 is not among them: its 64 mm bends leave 16 mm between 2Ø12 + 1Ø10.
+    # Where the spacing limit governs, the alternatives share one spacing.
     shallow = RectangularBeam(
         label="x",
         concrete=Concrete_ACI_318_19(name="H25", f_c=25 * MPa),
@@ -470,6 +469,7 @@ def test_the_design_results_page_example() -> None:
     assert [option.notation(compact=True) for option in shallow.shear_design.options] == [
         "2 legs Ø10/17",
         "2 legs Ø12/17",
+        "2 legs Ø16/17",
     ]
 
 

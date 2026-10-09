@@ -126,10 +126,10 @@ def test_beam_longitudinal_rebar_ACI_318_19_metric(
     assert best_design["d_b3"] is None
     assert best_design["total_as"].magnitude == pytest.approx(5.15, rel=1e-3)
     assert best_design["total_bars"] == 3
-    # 200 - 2·(30 + 8) = 124 mm between the legs; the Ø8 bends on a 32 mm
-    # mandrel, so each Ø16 corner bar sits (32 - 16)/2 = 8 mm off the leg:
-    # (124 - 2·8 - 2·16 - 12)/2 = 32 mm.
-    assert best_design["clear_spacing"].magnitude == pytest.approx(32, rel=1e-3)
+    # 200 - 2·(30 + 8) = 124 mm between the legs; each Ø16 corner bar seats in
+    # the 32 mm bend of the Ø8, 16 - 8/√2 = 10.34 mm off the leg (2.34 past its
+    # radius): (124 - 2·2.34 - 2·16 - 12)/2 = 37.66 mm.
+    assert best_design["clear_spacing"].magnitude == pytest.approx(37.657, rel=1e-3)
 
 
 def test_longitudinal_rebar_ACI_max_area(beam_example_metric: RectangularBeam) -> None:
@@ -197,10 +197,10 @@ def test_beam_longitudinal_rebar_CIRSOC_201_25(
     assert best_design["d_b3"] is None
     assert best_design["total_as"].magnitude == pytest.approx(5.15, rel=1e-3)
     assert best_design["total_bars"] == 3
-    # 200 - 2·(30 + 8) = 124 mm between the legs; the Ø8 bends on a 32 mm
-    # mandrel, so each Ø16 corner bar sits (32 - 16)/2 = 8 mm off the leg:
-    # (124 - 2·8 - 2·16 - 12)/2 = 32 mm.
-    assert best_design["clear_spacing"].magnitude == pytest.approx(32, rel=1e-3)
+    # 200 - 2·(30 + 8) = 124 mm between the legs; each Ø16 corner bar seats in
+    # the 32 mm bend of the Ø8, 16 - 8/√2 = 10.34 mm off the leg (2.34 past its
+    # radius): (124 - 2·2.34 - 2·16 - 12)/2 = 37.66 mm.
+    assert best_design["clear_spacing"].magnitude == pytest.approx(37.657, rel=1e-3)
 
 
 def test_longitudinal_rebar_factory_max_area(
@@ -504,10 +504,11 @@ def test_beam_layer2_spacing_check() -> None:
 def test_layer_spacing_equal_to_the_limit_is_accepted() -> None:
     """A clear spacing that meets its limit exactly is not lost to rounding.
 
-    12.6 cm - 2*(25 mm + 6 mm) comes out of pint a hair short of 64 mm. Less
-    the (24 - 10)/2 = 7 mm the Ø6 bends hold each Ø10 corner bar off the leg,
-    two Ø10 sit 29.999999999999993 mm apart against the 30 mm vibrator limit,
-    and without the tolerance no layout is left for a face asking for 3.1 cm².
+    14.2 cm - 2*(25 mm + 6 mm) comes out of pint a hair short of 80 mm, so two
+    Ø25 -- thicker than the 24 mm bend of the Ø6, so they rest on both
+    straight branches -- sat 29.999999999999986 mm apart against the 30 mm
+    vibrator limit, and without the tolerance no layout is left for a face
+    asking for 9.8 cm².
     """
     concrete = Concrete_ACI_318_19(name="H25", f_c=25 * MPa)
     steelBar = SteelBar(name="ADN 420", f_y=420 * MPa)
@@ -515,35 +516,35 @@ def test_layer_spacing_equal_to_the_limit_is_accepted() -> None:
         label="101",
         concrete=concrete,
         steel_bar=steelBar,
-        width=12.6 * cm,
+        width=14.2 * cm,
         height=30 * cm,
         c_c=25 * mm,
         settings=BeamSettings(stirrup_diameter_ini=6 * mm),
     )
 
     beam_rebar = Rebar(beam)
-    beam_rebar.longitudinal_rebar_ACI_318_19(A_s_req=3.10 * cm**2, A_s_max=3.20 * cm**2)
+    beam_rebar.longitudinal_rebar_ACI_318_19(A_s_req=9.80 * cm**2, A_s_max=9.85 * cm**2)
     best = beam_rebar.longitudinal_rebar_design
 
-    assert best["d_b1"] == 10 * mm
-    assert best["total_as"].to("cm**2").magnitude == pytest.approx(3.142, abs=1e-3)
+    assert best["d_b1"] == 25 * mm
+    assert best["total_as"].to("cm**2").magnitude == pytest.approx(9.817, abs=1e-3)
     assert best["clear_spacing"].to("mm").magnitude == pytest.approx(30.0)
 
 
 def test_vibrator_size_only_spaces_the_top_bars() -> None:
     """The vibrator goes in from the top: below, the clear spacing is 25 mm.
 
-    17 cm web, Ø8 stirrups: 104 mm between the stirrups, less the (32 - 12)/2
-    = 10 mm the bends hold each Ø12 corner bar off the leg, so 2Ø12 + 1Ø10 sit
-    (104 - 20 - 24 - 10)/2 = 25 mm apart -- enough on the bottom, not under a
-    30 mm vibrator. The bottom reaches 5.06 cm² with three bars a layer; the top, and
+    16 cm web, Ø8 stirrups: 94 mm between the stirrups, and each Ø12 corner bar
+    seats in the 32 mm bend 2.93 mm past its radius, so 2Ø12 + 1Ø12 sit (94 -
+    5.86 - 36)/2 = 26.07 mm apart -- enough on the bottom, not under a 30 mm
+    vibrator. The bottom reaches 5.06 cm² with three bars a layer; the top, and
     a caller that names no face, stay at two.
     """
     beam = RectangularBeam(
-        label="V17",
+        label="V16",
         concrete=Concrete_ACI_318_19(name="H25", f_c=25 * MPa),
         steel_bar=SteelBar(name="ADN 420", f_y=420 * MPa),
-        width=17 * cm,
+        width=16 * cm,
         height=30 * cm,
         c_c=25 * mm,
         settings=BeamSettings(stirrup_diameter_ini=8 * mm),
@@ -556,8 +557,8 @@ def test_vibrator_size_only_spaces_the_top_bars() -> None:
 
     bottom = best("bot")
     assert (bottom["n_1"], bottom["n_2"]) == (2, 1)
-    assert bottom["total_as"].to("cm**2").magnitude == pytest.approx(5.40, rel=1e-3)
-    assert bottom["clear_spacing"].to("mm").magnitude == pytest.approx(25.0)
+    assert bottom["total_as"].to("cm**2").magnitude == pytest.approx(5.655, rel=1e-3)
+    assert bottom["clear_spacing"].to("mm").magnitude == pytest.approx(26.07, abs=0.01)
 
     for face in ("top", None):
         row = best(face)

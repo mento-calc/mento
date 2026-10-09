@@ -26,10 +26,11 @@ Each position is the check's own model, and a test ties each one to it:
   legs, one clear distance apart -- the clear spacing the check reads
   (``_layer_clear_spacing``) -- with the first bar's face at ``c_c + d_st``
   and the last at ``b - c_c - d_st``, each moved off that face by
-  :func:`corner_setback` where the stirrup's bend would hold it: at the
-  depth of the layer nearest the face, ``(D_bend - d_b)/2`` for a bar
-  thinner than the mandrel. The rebar search and ``detailing_geometry``
-  place the corner bars by the same rule. A layer of one bar at mid-width. The
+  :func:`end_setback`: the end bars of the layer nearest the face sit where
+  a bar seated in the stirrup's bend sits (:func:`seated_corner`), those of
+  a layer behind it clear of the bend at their depth. The rebar search and
+  ``detailing_geometry`` place the corner bars by the same rule. The depth
+  is not moved: see :func:`seated_corner`. A layer of one bar at mid-width. The
   groups of a layer (``n1``/``n2``, ``n3``/``n4``) alternate symmetrically:
   the ``n1`` bars at the ends, the ``n2`` bars in between. Layer 1 sits at
   ``c_c + d_st + d/2`` from its face, layer 2 at
@@ -380,10 +381,10 @@ def corner_setback(bend_inner: float, d_bar: float, depth: float) -> float:
     until it clears it. The result is that extra distance, zero for a bar
     thicker than the bend or sitting above it.
 
-    For a bar of the layer nearest the face (``depth = d_bar/2``) it is
-    ``(bend_inner - d_bar)/2``: the bar's centre sits at the end of the bend,
-    tangent to the straight branch -- where ``beam.detailing_geometry`` puts
-    the corner bars, since it keeps the depth the checks computed with.
+    For a bar of the layer nearest the face (``depth = d_bar/2``) it would be
+    ``(bend_inner - d_bar)/2``, the end of the bend. That layer is laid out
+    seated in the bend instead (:func:`seated_corner`, :func:`end_setback`);
+    this rule is the one of a layer behind it, which keeps its depth.
     """
     radius, r = bend_inner / 2, d_bar / 2
     if radius <= r or depth >= radius:
@@ -392,10 +393,46 @@ def corner_setback(bend_inner: float, d_bar: float, depth: float) -> float:
     return max(radius - math.sqrt(reach) - r, 0.0)
 
 
+def seated_corner(bend_inner: float, d_bar: float) -> float:
+    """Distance from each inner face of a closed stirrup to a corner bar seated in its bend.
+
+    The bar rests on the arc of the bend, on its 45° bisector: its centre
+    ``bend_inner/2 - (bend_inner/2 - d_bar/2)/√2`` from both the side and the
+    horizontal branch. A bar at least as thick as the bend rests on both
+    straight branches, ``d_bar/2`` from each. A Ø16 in a Ø10 stirrup bent on
+    40 mm: 20 - 12/√2 = 11.5 mm.
+
+    This is where ``beam.detailing_geometry`` puts the bars at the corners of
+    its closed stirrups, and the width the rebar search and the checks lay a
+    layer out in. The effective depth is not moved: the checks keep the bar
+    at ``d_bar/2`` from the branch, so the corner bars of the calculation sit
+    ``seated_corner - d_bar/2`` closer to the face than built -- 3.5 mm in
+    that example, on the unsafe side and small. That is the convention of a
+    calculation by hand, and it leaves the flexure engine alone.
+    """
+    radius, r = bend_inner / 2, d_bar / 2
+    if radius <= r:
+        return r
+    return radius - (radius - r) / math.sqrt(2)
+
+
+def end_setback(bend_inner: float, d_bar: float, offset: float = 0.0) -> float:
+    """How much further from the inner face of the leg an end bar of a layer sits, in the unit given.
+
+    ``offset`` is how far behind the inner face of the horizontal branch the
+    layer starts: zero for the layer nearest the face, whose end bars are
+    seated in the bend (:func:`seated_corner`); a layer behind it keeps its
+    depth and clears the bend there (:func:`corner_setback`).
+    """
+    if offset <= 0:
+        return seated_corner(bend_inner, d_bar) - d_bar / 2
+    return corner_setback(bend_inner, d_bar, offset + d_bar / 2)
+
+
 def layer_end_setbacks(
     bend_inner: Optional[float], n_a: int, d_a: float, n_b: int, d_b: float, offset: float = 0.0
 ) -> Tuple[float, float]:
-    """:func:`corner_setback` of the left and right end bars of one layer.
+    """:func:`end_setback` of the left and right end bars of one layer.
 
     ``offset`` is how far behind the inner face of the horizontal branch the
     layer starts: zero for the layer nearest the face, ``max(d_b1, d_b2) +
@@ -408,7 +445,7 @@ def layer_end_setbacks(
     # A beam's counts are whole, though a caller may write them as floats (2.0).
     order = _group_order(int(n_a), int(n_b))
     ends = [d_a if group == 1 else d_b for group in (order[0], order[-1])]
-    left, right = (corner_setback(bend_inner, d, offset + d / 2) for d in ends)
+    left, right = (end_setback(bend_inner, d, offset) for d in ends)
     return left, right
 
 

@@ -1050,10 +1050,13 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
 
         The end bars sit clear of the stirrup's bends, not in the square
         corner of the inner faces: a bar thinner than the bend's inside
-        diameter is pushed inward by :func:`~mento.section_geometry.corner_setback`,
-        ``(D_bend - d_b)/2`` per side on the layer nearest the face. The
-        rebar search, the calculation geometry and ``detailing_geometry`` use
-        the same rule, so a layout that fits here is one the cage can hold.
+        diameter is pushed inward by :func:`~mento.section_geometry.end_setback`
+        -- on the layer nearest the face, as far as a bar seated in the bend
+        (:func:`~mento.section_geometry.seated_corner`), 3.5 mm for a Ø16 in a
+        Ø10 stirrup. The rebar search, the calculation geometry and
+        ``detailing_geometry`` use the same rule, so a layout that fits here
+        is one the cage can hold. The effective depth keeps the bar at
+        ``d_b/2`` from the branch.
 
         Parameters:
             n_a (int): Number of bars in the first group of the layer.
@@ -1935,8 +1938,11 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
     def detailing_geometry(self) -> SectionGeometry:
         """A supported cage, with supplementary mounting steel listed separately.
 
-        The calculated bar areas and vertical coordinates are preserved. Bars
-        are placed at the cage corners, and mounting bars fill missing supports.
+        The calculated bar areas are preserved. Bars are placed at the cage
+        corners, seated in the bends of the closed stirrups -- those and the
+        layer behind them a few millimetres deeper in than the calculation
+        places them (``section_geometry.seated_corner``) -- and mounting bars
+        fill missing supports.
         Raises ``CageDetailingError`` if the layout cannot satisfy spacing.
         """
         from mento.cage_detailing import build_cage_detailing

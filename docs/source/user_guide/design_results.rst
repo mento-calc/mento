@@ -249,19 +249,23 @@ a quantity in the display unit of the section (cm, or in). The positions are the
   spacing apart -- the clear spacing the checks read -- with the ``n1`` bars of a layer at
   its ends and the ``n2`` bars between them; the layers at the offsets the effective depth
   is computed with. The stirrup diameter is the one the section reserves, also with no
-  stirrups placed. The end bars clear the stirrup's bends: a bar thinner than the
-  mandrel sits ``(D_bend - d_b)/2`` further from the leg, where the bend meets the
-  straight branch, which is where ``detailing_geometry`` puts its corner bars. The rebar
-  search and the clear spacing the checks report use the same rule
-  (``mento.section_geometry.corner_setback``), so a layout they accept is one the cage
-  can hold.
+  stirrups placed. The end bars sit as far from the leg as a bar seated in the stirrup's
+  bend, on its 45° bisector (``mento.section_geometry.seated_corner``): a Ø16 in the
+  40 mm bend of a Ø10 sits 11.5 mm from the inner face, not 8. The rebar search and the
+  clear spacing the checks report use the same distance, which is where
+  ``detailing_geometry`` puts its corner bars, so a layout they accept is one the cage
+  can hold. The effective depth is not moved: the checks keep the bar ``d_b/2`` from the
+  branch, a few millimetres (3.5 in that example) closer to the face than it is built,
+  on the unsafe side and well under 1 % of ``d`` in usual beams.
 
 The legs are not tied to the bars -- the checks do not do that either -- so an inner leg
 may sit where there is no bar. That is the calculation model.
 
 For a supported cross-section use ``beam.detailing_geometry``. It keeps the shear legs
-and the resistant bars' counts, diameters, groups and vertical coordinates, while placing
-the nearest-face bars at stirrup corners. Extra bars are spread between those supports.
+and the resistant bars' counts, diameters and groups, while placing the nearest-face bars
+at stirrup corners, seated in the bends: those bars, and the layer behind them, sit the
+few millimetres deeper in that the seat asks for; the other bars keep the depth of the
+calculation. Extra bars are spread between those supports.
 Where a face has too few bars, ``mounting_bars`` supplies the missing corner supports,
 including an otherwise empty upper face. Their diameter is controlled by
 ``settings.mounting_bar_diameter`` (10 mm or No. 3 by default).
@@ -334,7 +338,7 @@ The stirrup alternatives are one layout per other bar diameter the code offers, 
 heavier alike, in order of diameter: each is the widest spacing with the fewest legs that
 covers the demand read at the depth that bar gives the section. Where the spacing limit
 governs they share one spacing (a 20×40 under 100 kN and 30 kN·m: ``2 legs Ø10/17``,
-``2 legs Ø12/17``; the bends of a Ø16 leave its 2Ø12 + 1Ø10 no room); where the demand
+``2 legs Ø12/17``, ``2 legs Ø16/17``); where the demand
 governs, a lighter bar sits closer and a heavier one further apart. Every alternative is
 built on the finished section and checked there -- shear and flexure, since a heavier
 stirrup lowers the effective depth -- and only the ones the section passes with are kept, so

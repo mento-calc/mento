@@ -34,9 +34,9 @@ Momento máximo inferior    Mu,bot         60  kNm
 Verificación                         Unidad     Valor  Mín.      Máx.  ¿Ok?
 ----------------------------------  --------  -------  ------  ------  ----------
 As mín/máx de la armadura superior    cm²        1.01  3.1      39.61  ❌
-Separación mínima superior             mm         106  30              ✅
+Separación mínima superior             mm      117.31  30              ✅
 As mín/máx de la armadura inferior    cm²       26.11  3.05     15.51  ❌ 9.3.3.1
-Separación mínima inferior             mm        -3.5  25              ❌ 
+Separación mínima inferior             mm       -1.85  25              ❌ 
 
 Verificación de la armadura superior             Variable     Valor  Unidad
 ----------------------------------------------  ----------  -------  --------
@@ -154,9 +154,9 @@ Momento máximo inferior | Mu,bot | 60.0 | kNm
 Verificaciones de límites
 Verificación | Unidad | Valor | Mín. | Máx. | ¿Ok?
 As mín/máx de la armadura superior | cm² | 1.01 | 3.1 | 39.61 | ❌
-Separación mínima superior | mm | 106.0 | 30.0 |  | ✅
+Separación mínima superior | mm | 117.31 | 30.0 |  | ✅
 As mín/máx de la armadura inferior | cm² | 26.11 | 3.05 | 15.51 | ❌ 9.3.3.1
-Separación mínima inferior | mm | -3.5 | 25.0 |  | ❌
+Separación mínima inferior | mm | -1.85 | 25.0 |  | ❌
 Capacidad a flexión superior
 Verificación de la armadura superior | Variable | Valor | Unidad
 Barras de la primera capa | n1+n2 | 2Ø8 | 

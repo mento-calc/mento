@@ -17,7 +17,7 @@ from mento import (
     set_language,
 )
 from mento.cage_detailing import CageDetailingError
-from mento.section_geometry import SectionGeometry
+from mento.section_geometry import SectionGeometry, seated_corner
 from mento.units import MPa, cm, ft, inch, kip, kN, kNm, ksi, mm, psi
 
 
@@ -48,22 +48,44 @@ def test_unsupported_bend_diameter_preserves_calculation_geometry_and_plot():
     plt.close(figure)
 
 
+def _sink(geometry: SectionGeometry, bar: object) -> float:
+    """How far a bar seated in a stirrup bend sits below the depth of its row, in mm."""
+    d_b = _mm(bar.d_b)  # type: ignore[attr-defined]
+    return seated_corner(_mm(geometry.stirrup_bend_inner_diameter), d_b) - d_b / 2
+
+
+def _same_depth_or_seated(detail: SectionGeometry, before: SectionGeometry) -> None:
+    """Layer 1 keeps its depth but for the corner bars, seated in their bends; layer 2 sinks with them."""
+    for face, inward in (("bottom", 1), ("top", -1)):
+        first = list(zip(detail.bars_on(face, 1), before.bars_on(face, 1)))
+        sinks = [inward * _mm(new.y - old.y) for new, old in first]
+        assert all(s == pytest.approx(0) or s == pytest.approx(_sink(detail, new)) for s, (new, _) in zip(sinks, first))
+        for new, old in zip(detail.bars_on(face, 2), before.bars_on(face, 2)):
+            assert inward * _mm(new.y - old.y) == pytest.approx(max(sinks, default=0.0))
+    assert [(bar.d_b, bar.group) for bar in detail.bars] == [(bar.d_b, bar.group) for bar in before.bars]
+
+
 def _assert_supported(geometry: SectionGeometry) -> None:
     all_bars = geometry.bars + geometry.mounting_bars
     for stirrup in geometry.stirrups:
         for face, branch in (("bottom", stirrup.y_bottom), ("top", stirrup.y_top)):
             for leg, side in ((stirrup.x_left, 1), (stirrup.x_right, -1)):
                 candidates = [bar for bar in all_bars if bar.face == face and bar.layer == 1]
+                # Seated in the bend: the same distance from the leg and the branch.
                 assert any(
                     _mm(bar.x - leg)
                     == pytest.approx(
                         side
-                        * max(
-                            (_mm(geometry.stirrup_bend_inner_diameter) + _mm(geometry.stirrup_d_b)) / 2,
-                            (_mm(bar.d_b) + _mm(geometry.stirrup_d_b)) / 2,
+                        * (
+                            _mm(geometry.stirrup_d_b) / 2
+                            + seated_corner(_mm(geometry.stirrup_bend_inner_diameter), _mm(bar.d_b))
                         )
                     )
-                    and abs(_mm(bar.y - branch)) == pytest.approx((_mm(geometry.stirrup_d_b) + _mm(bar.d_b)) / 2)
+                    and abs(_mm(bar.y - branch))
+                    == pytest.approx(
+                        _mm(geometry.stirrup_d_b) / 2
+                        + seated_corner(_mm(geometry.stirrup_bend_inner_diameter), _mm(bar.d_b))
+                    )
                     for bar in candidates
                 )
     for index, bar in enumerate(all_bars):
@@ -84,7 +106,7 @@ def test_existing_bars_support_every_corner(width: int, bottom: int, top: int, s
     assert detail.mounting_bars == ()
     assert detail.leg_x == before.leg_x
     assert detail.stirrups == before.stirrups
-    assert [(bar.d_b, bar.y, bar.group) for bar in detail.bars] == [(bar.d_b, bar.y, bar.group) for bar in before.bars]
+    _same_depth_or_seated(detail, before)
     assert beam.section_geometry == before
 
 
@@ -121,7 +143,14 @@ def test_mounting_steel_fills_both_faces_and_retains_a_single_resistant_bar() ->
     assert len(detail.mounting_bars) == 8
 
 
-def test_two_layers_keep_their_vertical_centroid_and_bar_groups() -> None:
+def test_two_layers_keep_their_bar_groups_and_sink_with_the_seated_corners() -> None:
+    """The corner bars sit in their bends, a little deeper than the checks place them.
+
+    Ø8 bends on 32 mm: a Ø25 seats 16 - 3.5/√2 = 13.53 mm from each face,
+    1.03 mm below its row; a Ø16, 16 - 8/√2 = 10.34 mm, 2.34 mm below. The
+    second layer hangs from them and sinks as much, so the clear distance
+    between the layers stays the one the checks read.
+    """
     beam = _beam(30)
     beam.set_longitudinal_rebar_bot(n1=2, d_b1=25 * mm, n2=2, d_b2=20 * mm, n3=3, d_b3=20 * mm)
     beam.set_longitudinal_rebar_top(n1=2, d_b1=16 * mm, n3=2, d_b3=12 * mm)
@@ -129,11 +158,10 @@ def test_two_layers_keep_their_vertical_centroid_and_bar_groups() -> None:
     original = beam.section_geometry
     detail = beam.detailing_geometry
     _assert_supported(detail)
-    for face in ("bottom", "top"):
-        assert detail.bars_on(face, 2) == original.bars_on(face, 2)
-        assert [(bar.d_b, bar.y, bar.group) for bar in detail.bars_on(face)] == [
-            (bar.d_b, bar.y, bar.group) for bar in original.bars_on(face)
-        ]
+    _same_depth_or_seated(detail, original)
+    bottom, top = detail.bars_on("bottom", 2), detail.bars_on("top", 2)
+    assert _mm(bottom[0].y - original.bars_on("bottom", 2)[0].y) == pytest.approx(16 - 3.5 / 2**0.5 - 12.5)
+    assert _mm(original.bars_on("top", 2)[0].y - top[0].y) == pytest.approx(16 - 8 / 2**0.5 - 8)
 
 
 @pytest.mark.filterwarnings("ignore::UserWarning")
@@ -302,11 +330,12 @@ def test_single_tension_bar_is_checked_against_face_width_despite_mounting_suppo
 
 @pytest.mark.parametrize("face", ["bottom", "top"])
 def test_vibrator_clearance_is_required_on_the_upper_face_only(face: str) -> None:
+    """19 cm, Ø10 stirrup, 2Ø20 + 1Ø16: the Ø20 seat 2.93 mm off the legs, (120 - 5.86 - 56)/2 = 29.1 mm apart."""
     beam = RectangularBeam(
         label="V101",
         concrete=Concrete_ACI_318_19(name="C25", f_c=25 * MPa),
         steel_bar=SteelBar(name="S420", f_y=420 * MPa),
-        width=20 * cm,
+        width=19 * cm,
         height=50 * cm,
         c_c=25 * mm,
     )
