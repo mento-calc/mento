@@ -3152,6 +3152,25 @@ def test_plot_draws_a_crosstie_from_the_geometry() -> None:
     plt.close()
 
 
+def test_a_crosstie_with_no_bar_at_its_leg_moves_no_bar() -> None:
+    """A tie whose leg holds no bar (corner bars only) leaves every bar where the geometry put it."""
+    from dataclasses import replace
+
+    from mento.plots.sections import _align_bars_to_ties
+    from mento.section_geometry import Crosstie
+
+    beam = _plot_beam(n_stirrups=1, d_b_stirrup=8 * mm, s_l=20 * cm)
+    geometry = beam.section_geometry
+    perimeter = geometry.stirrups[0]
+    middle = (perimeter.x_left + perimeter.x_right) / 2
+    with_tie = replace(
+        geometry,
+        bars=tuple(bar for bar in geometry.bars if abs(bar.x - middle) > 5 * cm),
+        crossties=(Crosstie(leg=1, x=middle, y_bottom=perimeter.y_bottom, y_top=perimeter.y_top),),
+    )
+    assert _align_bars_to_ties(with_tie) == with_tie
+
+
 def test_plot_layer_text_follows_the_bars() -> None:
     """With d_b2 > d_b1 the label sits at the middle of the band the bars occupy."""
     beam = _plot_beam(n1=2, d_b1=12 * mm, n2=1, d_b2=25 * mm)
