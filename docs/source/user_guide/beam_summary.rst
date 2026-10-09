@@ -73,6 +73,55 @@ updating both consistently when both are present.
 Bottom reinforcement is checked against positive bending moments; top reinforcement
 against negative bending moments.
 
+Preserving both reinforcement faces in Excel
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``design()`` keeps the original ``n1``-``db4`` columns for the face selected by
+each row's moment sign, and adds complete ``*_bot`` and ``*_top`` blocks
+(``n1_bot, db1_bot, ... n4_bot, db4_bot`` and the corresponding ``_top`` columns).
+These blocks preserve both faces even when all moments have one sign and the
+opposite face needs compression steel. The number and order of load rows stay
+unchanged.
+
+On import, each explicit face block takes precedence over the original columns,
+independently of the moment sign. Edit the explicit blocks to change reinforcement
+in a designed file. Supply every column of a block, including zeros for unused
+groups; an all-zero block clears that face. Conflicting declarations within a
+beam are rejected. Diameters carry their own column units, including on re-export.
+Files without explicit blocks keep the original sign-based interpretation.
+
+One beam, several combinations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Rows that share a **Label** are one beam under several load combinations. They become a
+single node carrying every combination, so ``check()`` and ``design()`` work on the
+envelope, exactly as a :class:`~mento.node.Node` built by hand does:
+
+.. code-block:: python
+
+    data = {
+        "Label": ["", "V101", "V101"],
+        "Comb.": ["", "1.2D+1.6L", "1.4D"],
+        "b": ["cm", 20, 20],
+        "h": ["cm", 50, 50],
+        "cc": ["mm", 25, 25],
+        "Nx": ["kN", 0, 10],
+        "Vz": ["kN", 60, -110],
+        "My": ["kNm", 45, -70],
+        # ns, dbs, sl, n1-n4, db1-db4 as above
+    }
+
+The rows of a beam must agree on ``b``, ``h`` and ``cc``. The bars on a row are those of
+the face its moment puts in tension (bottom for ``My >= 0``, top otherwise) and the
+stirrups are the beam's; a row may leave them at zero, but rows that give them must give
+the same ones, or a ``ValueError`` names the beam. A row with no label is a beam of its own.
+
+``check()`` reports one row per beam with the envelope: the largest moment, shear and
+axial force with their sign, and the largest DCR of each face and of shear.
+``flexure_results()`` and ``shear_results()`` keep one row per combination, and their
+``index`` counts beams, not rows. ``design()`` writes the same stirrups on every row of a
+beam and, on each row, the bars of the face that row puts in tension.
+
 For a quick test you can build the DataFrame manually:
 
 .. code-block:: python
@@ -175,8 +224,8 @@ For step-by-step detail of a specific beam you can also access the node directly
 Designing Reinforcement
 ------------------------
 
-``design()`` runs automatic flexure and shear design for every beam and returns a
-DataFrame with the filled rebar columns (``n1``–``n4``, ``db1``–``db4``, ``ns``, ``dbs``, ``sl``):
+``design()`` runs automatic flexure and shear design for every beam, for the envelope of
+its combinations, and returns a DataFrame with the filled rebar columns (``n1``–``n4``, ``db1``–``db4``, ``ns``, ``dbs``, ``sl``):
 
 .. code-block:: python
 
@@ -197,6 +246,18 @@ To reload an edited file and rebuild the summary with the new reinforcement:
 
     beam_summary.import_design("BeamDesign.xlsx")
 
+Exported designs contain complete ``*_bot`` and ``*_top`` reinforcement
+blocks so that compression steel survives export/import even with only one
+moment sign. All rows of the same beam must agree on each explicit face,
+including zero values. A zero face on one row cannot inherit bars from a
+different row.
+
+The legacy columns describe the face selected by that row's moment. If they
+contain reinforcement alongside an explicit block, both declarations must
+agree physically, including their units. A conflicting edit raises a
+``ValueError`` naming the beam and columns; it is not silently ignored.
+Leave the entire legacy block empty to supply only the explicit faces.
+
 Exporting Results to Excel
 ----------------------------
 
@@ -213,7 +274,13 @@ Detailed Word Report
 ``results_detailed_doc()`` generates a Word document (``.docx``) that contains:
 
 - Full flexure and shear detail for one selected beam.
-- Summary tables (beam data, flexure results, shear results, DCR check) for all beams.
+- Summary tables (current complete sections, flexure results, shear results, DCR check) for all beams.
+
+Beam Data contains one row per current section, both reinforcement faces and
+its transverse reinforcement, including manual edits after design. It does
+not repeat one-face input rows or stale input steel. Dimensions are shown in
+the section's display units, with a units row. Combination forces remain in
+the separate results tables.
 
 The document is saved to the current working directory with the name
 ``Beam_Summary_{design_code}.docx`` (e.g. ``Beam_Summary_ACI 318-19.docx``).
@@ -247,3 +314,18 @@ el modelo, no redondear silenciosamente la cantidad ingresada.
 El Word muestra ambas caras físicas y cc en la tabla Beam Data en mm (métrico) o pulgadas
 (imperial). Las zapatas EN con axil no nulo se rechazan como caso todavía
 no soportado por Mento; no es una prohibición del Eurocódigo.
+
+Editing exported physical faces
+-------------------------------
+
+Complete ``*_top`` and ``*_bot`` blocks may be supplied without the legacy
+active-face columns. Equivalent diameters in different units are accepted.
+When both formats are present they must agree on the face selected by ``My``.
+After changing the moment sign, clear the legacy block if it describes the
+formerly active face; do not silently reinterpret it as the other face.
+The compatible summary's strength verdict is separate from ``node.warnings``;
+review those warnings as well before accepting detailing.
+
+El Excel exportado usa una sola columna editable ``legs``. Los aliases
+``n_legs`` y ``ns`` se siguen aceptando al importar archivos anteriores,
+pero no se duplican en el archivo nuevo para evitar cantidades contradictorias.

@@ -5,28 +5,29 @@ This test suite provides 100% coverage of the BeamSummary class,
 testing all methods, edge cases, and error conditions.
 """
 
-import pytest
-import pandas as pd
 import copy
+import math
 import warnings
+from pathlib import Path
 from typing import Any, Optional
 
+import pandas as pd
+import pytest
 from docx.oxml.ns import qn
 from docx.shared import Cm, Emu
-from pathlib import Path
 
-from mento import MPa, mm, cm, kN, kNm, m, inch
+from mento import Forces, MPa, RectangularBeam, cm, inch, kN, kNm, m, mm
 from mento.beam_summary import BeamSummary
+from mento.material import Concrete_ACI_318_19, Concrete_EN_1992_2004, SteelBar
+from mento.node import Node
 from mento.reports.summaries import (
     BEAM_DATA_COLUMNS,
-    FLEXURE_SUMMARY_WIDTHS,
     CHECK_SUMMARY_WIDTHS,
+    FLEXURE_SUMMARY_WIDTHS,
     SHEAR_SUMMARY_WIDTHS,
     SUMMARY_FONT_SIZE,
 )
-from mento.material import Concrete_ACI_318_19, SteelBar, Concrete_EN_1992_2004
-from mento.node import Node
-from mento.results import DocumentBuilder, FAIL_MARK, PASS_MARK, VERDICT_COLUMN
+from mento.results import FAIL_MARK, PASS_MARK, VERDICT_COLUMN, DocumentBuilder
 
 # Suppress the specific ACI warning for all tests
 pytestmark = pytest.mark.filterwarnings("ignore::UserWarning")
@@ -1420,6 +1421,33 @@ def test_beam_data_lists_the_section_and_its_bars_only(
     assert _table_width_cm(table) <= _usable_width_cm(doc) + 0.05
 
 
+def test_word_section_data_contains_both_actual_faces_after_design_and_manual_edit(
+    sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    summary = BeamSummary(
+        sample_concrete,
+        sample_steel,
+        _beam_rows(
+            [
+                {"Label": "V1", "Comb.": "A", "My": 220, "Vz": 10},
+                {"Label": "V1", "Comb.": "B", "My": 200, "Vz": 8},
+            ]
+        ),
+    )
+    original = summary.beam_list.copy(deep=True)
+    summary.design()
+    summary.nodes[0].section.set_longitudinal_rebar_top(n1=3, d_b1=20 * mm)
+    doc = _built_document(summary, monkeypatch)
+    table = doc.tables[-4]
+    assert len(table.rows) == 3  # header, units, ONE current section
+    header = [cell.text for cell in table.rows[0].cells]
+    actual = {name: cell.text for name, cell in zip(header, table.rows[2].cells)}
+    assert "3Ø20" in actual["As,top"]
+    assert actual["As,bot"] != "-"
+    assert actual["Label"] == "V1"
+    pd.testing.assert_frame_equal(summary.beam_list, original)
+
+
 def test_forces_are_reported_to_one_decimal_and_dcrs_to_two(
     beam_summary: BeamSummary, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1616,3 +1644,340 @@ def test_a_beam_that_is_not_tension_controlled_fails_the_summary(
     beam = summary.nodes[0].section
     assert max(beam._DCRb_bot, beam._DCRb_top, beam._DCRv) < 1.0
     assert results[VERDICT_COLUMN][1] == FAIL_MARK
+
+
+# ============================================================================
+# ROWS THAT SHARE A LABEL: ONE BEAM UNDER SEVERAL COMBINATIONS
+# ============================================================================
+
+
+def _beam_rows(rows: list[dict[str, Any]]) -> pd.DataFrame:
+    """A beam list from rows given as dicts: the unit row first, then the rows, zeros where unset."""
+    units = {
+        "Label": "",
+        "Comb.": "",
+        "b": "cm",
+        "h": "cm",
+        "cc": "mm",
+        "Nx": "kN",
+        "Vz": "kN",
+        "My": "kNm",
+        "ns": "",
+        "dbs": "mm",
+        "sl": "cm",
+        "n1": "",
+        "db1": "mm",
+        "n2": "",
+        "db2": "mm",
+        "n3": "",
+        "db3": "mm",
+        "n4": "",
+        "db4": "mm",
+    }
+    defaults = {column: 0 for column in units}
+    return pd.DataFrame([units] + [{**defaults, "b": 20, "h": 50, "cc": 25, **row} for row in rows])
+
+
+@pytest.fixture
+def two_combination_beam() -> pd.DataFrame:
+    """V1 under a sagging and a hogging combination, then V2 on its own row.
+
+    The hogging one is listed last and governs the top face, the sagging one
+    governs the bottom: an envelope that read only the first or the last
+    combination would miss one of them.
+    """
+    return _beam_rows(
+        [
+            {"Label": "V1", "Comb.": "1.2D+1.6L", "Vz": 60, "My": 45},
+            {"Label": "V1", "Comb.": "1.4D", "Vz": -110, "My": -70, "Nx": 10},
+            {"Label": "V2", "Comb.": "1.4D", "Vz": 40, "My": 30},
+        ]
+    )
+
+
+def test_rows_that_share_a_label_are_one_node_with_every_combination(
+    sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar, two_combination_beam: pd.DataFrame
+) -> None:
+    summary = BeamSummary(sample_concrete, sample_steel, two_combination_beam)
+
+    assert [node.section.label for node in summary.nodes] == ["V1", "V2"]
+    assert [force.label for force in summary.nodes[0].get_forces_list()] == ["1.2D+1.6L", "1.4D"]
+    assert len(summary.nodes[1].get_forces_list()) == 1
+
+
+def test_a_beam_is_designed_for_its_envelope_as_a_hand_built_node_is(
+    sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar, two_combination_beam: pd.DataFrame
+) -> None:
+    """The summary designs a beam exactly as a Node with the same combinations does."""
+    summary = BeamSummary(sample_concrete, sample_steel, two_combination_beam)
+    designed = summary.design()
+
+    beam = RectangularBeam(
+        label="V1", concrete=sample_concrete, steel_bar=sample_steel, width=20 * cm, height=50 * cm, c_c=25 * mm
+    )
+    node = Node(
+        section=beam,
+        forces=[
+            Forces(label="1.2D+1.6L", V_z=60 * kN, M_y=45 * kNm),
+            Forces(label="1.4D", V_z=-110 * kN, M_y=-70 * kNm, N_x=10 * kN),
+        ],
+    )
+    node.design()
+
+    def area(row: pd.Series) -> Any:
+        return sum(row[f"n{i}"] * row[f"db{i}"] ** 2 * math.pi / 4 for i in range(1, 5))
+
+    sagging, hogging = designed.iloc[0], designed.iloc[1]
+    assert area(sagging).to("cm**2").magnitude == pytest.approx(beam.flexure_design.bottom.A_s.to("cm**2").magnitude)
+    assert area(hogging).to("cm**2").magnitude == pytest.approx(beam.flexure_design.top.A_s.to("cm**2").magnitude)
+    # One set of stirrups for the beam, on both of its rows.
+    for row in (sagging, hogging):
+        assert row["ns"] == beam.shear_design.n_stirrups
+        assert row["dbs"] == beam.shear_design.d_b
+        assert row["sl"] == beam.shear_design.s_l
+
+
+def test_a_designed_beam_reads_back_as_the_same_section(
+    sample_concrete: Concrete_ACI_318_19,
+    sample_steel: SteelBar,
+    two_combination_beam: pd.DataFrame,
+    tmp_path: Path,
+) -> None:
+    summary = BeamSummary(sample_concrete, sample_steel, two_combination_beam)
+    summary.design()
+    path = tmp_path / "design.xlsx"
+    summary.export_design(str(path))
+    summary.import_design(str(path))
+
+    assert len(summary.nodes) == 2
+    v1 = summary.nodes[0].section
+    assert v1._A_s_bot > 0 * cm**2 and v1._A_s_top > 0 * cm**2
+    assert list(summary.check()[VERDICT_COLUMN][1:]) == [PASS_MARK, PASS_MARK]
+
+
+def test_the_check_summary_gives_the_envelope_of_a_beam(
+    sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar, two_combination_beam: pd.DataFrame
+) -> None:
+    summary = BeamSummary(sample_concrete, sample_steel, two_combination_beam)
+    summary.design()
+    result = summary.check()
+
+    assert list(result["Beam"][1:]) == ["V1", "V2"]
+    v1 = result.iloc[1]
+    beam = summary.nodes[0].section
+    assert v1["Mu"] == -70.0
+    assert v1["Vu"] == pytest.approx(110.0)
+    assert v1["DCRb,top"] == round(max(check.top.DCR for check in beam.flexure_checks), 3)
+    assert v1["DCRb,bot"] == round(max(check.bottom.DCR for check in beam.flexure_checks), 3)
+    assert v1["DCRb,top"] > 0 and v1["DCRb,bot"] > 0
+    # The per-combination tables keep one row per combination.
+    assert len(summary.flexure_results(index=1)) == 1 + 2
+
+
+def test_a_beam_fails_on_any_of_its_combinations(sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar) -> None:
+    """The verdict reads the worst combination, not the last one."""
+    rows = _beam_rows(
+        [
+            {"Label": "V1", "Comb.": "heavy", "Vz": 20, "My": 300, "n1": 2, "db1": 12},
+            {"Label": "V1", "Comb.": "light", "Vz": 20, "My": 5},
+        ]
+    )
+    result = BeamSummary(sample_concrete, sample_steel, rows).check()
+
+    assert len(result) == 2
+    assert result[VERDICT_COLUMN][1] == FAIL_MARK
+
+
+def test_bars_given_on_one_row_hold_for_the_whole_face(
+    sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar
+) -> None:
+    rows = _beam_rows(
+        [
+            {"Label": "V1", "Comb.": "A", "My": 40, "ns": 1, "dbs": 8, "sl": 20, "n1": 3, "db1": 16},
+            {"Label": "V1", "Comb.": "B", "My": 30},
+            {"Label": "V1", "Comb.": "C", "My": -20, "n1": 2, "db1": 12},
+        ]
+    )
+    beam = BeamSummary(sample_concrete, sample_steel, rows).nodes[0].section
+
+    assert beam._n1_b == 3 and beam._d_b1_b == 16 * mm
+    assert beam._n1_t == 2 and beam._d_b1_t == 12 * mm
+    assert beam._stirrup_n == 1
+
+
+@pytest.mark.parametrize(
+    ("second_row", "message"),
+    [
+        ({"h": 60}, "'h'"),
+        ({"n1": 3, "db1": 12}, "bottom bars"),
+        ({"ns": 1, "dbs": 10, "sl": 20}, "stirrups"),
+    ],
+)
+def test_rows_of_a_beam_that_disagree_raise(
+    sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar, second_row: dict[str, Any], message: str
+) -> None:
+    rows = _beam_rows(
+        [
+            {"Label": "V1", "Comb.": "A", "My": 40, "ns": 1, "dbs": 8, "sl": 20, "n1": 2, "db1": 12},
+            {"Label": "V1", "Comb.": "B", "My": 30, **second_row},
+        ]
+    )
+    with pytest.raises(ValueError, match=f"Beam 'V1'.*{message}"):
+        BeamSummary(sample_concrete, sample_steel, rows)
+
+
+def test_rows_with_no_label_stay_beams_of_their_own(
+    sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar
+) -> None:
+    rows = _beam_rows(
+        [
+            {"Label": "", "Comb.": "A", "My": 40, "h": 50},
+            {"Label": "", "Comb.": "B", "My": 30, "h": 60},
+        ]
+    )
+    assert len(BeamSummary(sample_concrete, sample_steel, rows).nodes) == 2
+
+
+@pytest.mark.parametrize("moment", [220, -220, 150])
+def test_excel_preserves_both_faces_with_one_moment_sign(
+    sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar, tmp_path: Path, moment: int
+) -> None:
+    summary = BeamSummary(
+        sample_concrete, sample_steel, _beam_rows([{"Label": "V1", "Comb.": "U", "My": moment, "Vz": 10}])
+    )
+    summary.design()
+    placed = summary.nodes[0].section.reinforcement
+    checked = summary.check()
+    if abs(moment) == 220:
+        assert checked[VERDICT_COLUMN][1] == PASS_MARK
+        assert placed.top.A_s > 0 * cm**2 and placed.bottom.A_s > 0 * cm**2
+    path = tmp_path / "both_faces.xlsx"
+    summary.export_design(str(path))
+    summary.import_design(str(path))
+    assert summary.nodes[0].section.reinforcement == placed
+    pd.testing.assert_frame_equal(summary.check(), checked)
+
+
+@pytest.mark.parametrize("unit", [None, ""])
+def test_incomplete_explicit_face_is_rejected(
+    sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar, unit: Optional[str]
+) -> None:
+    rows = _beam_rows([{"Label": "V1", "Comb.": "U", "My": 40}])
+    if unit is None:
+        rows["n1_top"] = ["", 2]
+        message = "top reinforcement needs all columns"
+    else:
+        for column in ("n1", "db1", "n2", "db2", "n3", "db3", "n4", "db4"):
+            rows[f"{column}_top"] = ["", 0]
+        message = "same kind of unit"
+    with pytest.raises(ValueError, match=message):
+        BeamSummary(sample_concrete, sample_steel, rows)
+
+
+@pytest.mark.parametrize("moment", [220, -220])
+def test_matching_explicit_faces_keep_units_on_reexport(
+    sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar, tmp_path: Path, moment: float
+) -> None:
+    rows = _beam_rows([{"Label": "V1", "Comb.": "U", "My": moment, "Vz": 10}])
+    summary = BeamSummary(sample_concrete, sample_steel, rows)
+    summary.design()
+    path = tmp_path / "edited.xlsx"
+    summary.export_design(str(path))
+    frame = pd.read_excel(path)
+    # A physically equivalent diameter in another unit remains compatible.
+    expected_diameter_cm = frame.loc[1, "db1_top"] / 10
+    frame.loc[0, "db1_top"] = "cm"
+    frame.loc[1, "db1_top"] /= 10
+    imported = BeamSummary(sample_concrete, sample_steel, frame)
+    for face in ("top", "bottom"):
+        actual = getattr(imported.nodes[0].section.reinforcement, face)
+        expected = getattr(summary.nodes[0].section.reinforcement, face)
+        assert actual.A_s.to("mm**2").magnitude == pytest.approx(expected.A_s.to("mm**2").magnitude)
+        assert [layer.n for layer in actual.layers] == [layer.n for layer in expected.layers]
+        assert [layer.d_b.to("mm").magnitude for layer in actual.layers] == pytest.approx(
+            [layer.d_b.to("mm").magnitude for layer in expected.layers]
+        )
+    imported.design()
+    imported.export_design(str(path))
+    frame = pd.read_excel(path)
+    assert frame.loc[0, "db1_top"] == "cm"
+    assert frame.loc[1, "db1_top"] == pytest.approx(expected_diameter_cm)
+    with pytest.raises(ValueError, match="different top bars"):
+        conflicting = pd.concat([frame, frame.iloc[[1]]], ignore_index=True)
+        conflicting.loc[2, "n1_top"] = 3
+        BeamSummary(sample_concrete, sample_steel, conflicting)
+
+
+@pytest.mark.parametrize("moment", [40, -40])
+def test_explicit_imperial_diameter_matches_legacy_metric_with_roundoff(sample_concrete, sample_steel, moment):
+    # P-N52 demonstrates that exact pint equality rejects this equivalent pair.
+    assert 9.525 * mm != 0.375 * inch
+    rows = _beam_rows([{"Label": "V1", "Comb.": "U", "My": moment, "n1": 2, "db1": 9.525}])
+    for face in ("bot", "top"):
+        for group in (1, 2, 3, 4):
+            rows[f"n{group}_{face}"] = ["", 0]
+            rows[f"db{group}_{face}"] = ["mm", 0]
+    face = "bot" if moment > 0 else "top"
+    rows[f"n1_{face}"] = ["", 2]
+    rows[f"db1_{face}"] = ["in", 0.375]
+    summary = BeamSummary(sample_concrete, sample_steel, rows)
+    bars = getattr(summary.nodes[0].section.reinforcement, "bottom" if moment > 0 else "top")
+    assert bars.layers[0].n == 2
+    assert bars.layers[0].d_b.to("mm").magnitude == pytest.approx(9.525)
+
+
+def test_complete_explicit_faces_do_not_require_legacy_columns(sample_concrete, sample_steel, tmp_path):
+    source = BeamSummary(
+        sample_concrete, sample_steel, _beam_rows([{"Label": "V1", "Comb.": "U", "My": 220, "Vz": 10}])
+    )
+    source.design()
+    target = tmp_path / "explicit-only.xlsx"
+    source.export_design(str(target))
+    exported = pd.read_excel(target).drop(columns=list(source._FACE_COLUMNS))
+    before = exported.copy(deep=True)
+    imported = BeamSummary(sample_concrete, sample_steel, exported)
+    pd.testing.assert_frame_equal(exported, before)
+    assert imported.nodes[0].section.reinforcement == source.nodes[0].section.reinforcement
+
+
+def test_section_data_keeps_a_second_layer_when_the_first_is_empty(sample_concrete, sample_steel):
+    summary = BeamSummary(sample_concrete, sample_steel, _beam_rows([{"Label": "V1", "Comb.": "U"}]))
+    beam = summary.nodes[0].section
+    beam.set_longitudinal_rebar_bot(n1=0, d_b1=0 * mm, n3=2, d_b3=20 * mm)
+    assert summary.section_data().iloc[1]["As,bot"] == "2Ø20 mm"
+    face = summary._current_faces(beam)["bottom"]
+    assert face["n1"] == 0 and face["n3"] == 2
+
+
+def test_conflicting_legacy_edit_is_rejected_instead_of_silently_ignored(
+    sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar, tmp_path: Path
+) -> None:
+    summary = BeamSummary(
+        sample_concrete, sample_steel, _beam_rows([{"Label": "V1", "Comb.": "U", "My": 220, "Vz": 10}])
+    )
+    summary.design()
+    path = tmp_path / "legacy_edit.xlsx"
+    summary.export_design(str(path))
+    frame = pd.read_excel(path)
+    frame.loc[1, "n1"] = 99
+    with pytest.raises(ValueError, match="V1.*n1.*conflicts.*n1_bot"):
+        BeamSummary(sample_concrete, sample_steel, frame)
+
+
+@pytest.mark.parametrize("face", ["bot", "top"])
+def test_explicit_zero_face_on_another_row_is_not_filled_from_its_neighbour(
+    sample_concrete: Concrete_ACI_318_19, sample_steel: SteelBar, tmp_path: Path, face: str
+) -> None:
+    summary = BeamSummary(
+        sample_concrete, sample_steel, _beam_rows([{"Label": "V1", "Comb.": "U", "My": 220, "Vz": 10}])
+    )
+    summary.design()
+    path = tmp_path / "zero_face.xlsx"
+    summary.export_design(str(path))
+    frame = pd.read_excel(path)
+    frame = pd.concat([frame, frame.iloc[[1]]], ignore_index=True)
+    frame.loc[2, "Comb."] = "U2"
+    for column in ("n1", "db1", "n2", "db2", "n3", "db3", "n4", "db4"):
+        frame.loc[2, f"{column}_{face}"] = 0
+    with pytest.raises(ValueError, match=f"V1.*different {'bottom' if face == 'bot' else 'top'} bars"):
+        BeamSummary(sample_concrete, sample_steel, frame)

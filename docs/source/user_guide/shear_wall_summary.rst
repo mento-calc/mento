@@ -64,7 +64,10 @@ combinations for the same wall. The summary groups them automatically: one wall 
 is created per unique (Level, Label) pair, and all force rows are attached to it.
 
 All rows in a group must have identical geometry (t, lw, hw, cc). A ``ValueError``
-is raised if geometry differs within a group.
+is raised if geometry differs within a group. The mesh may be given on one row of
+the wall only; rows that give a direction of it must give the same one, or a
+``ValueError`` names the wall. A row with no label is a wall of its own.
+``BeamSummary`` and ``OneWaySlabSummary`` group their rows the same way, by label.
 
 For a quick test you can build the DataFrame manually:
 

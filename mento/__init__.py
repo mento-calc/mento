@@ -70,6 +70,7 @@ __all__ = [
     "ACI_318_19_beam",
     "BeamSettings",
     "BeamSummary",
+    "OneWaySlabSummary",
     "Column",
     "PunchingSlab",
     "Opening",
@@ -115,6 +116,7 @@ if TYPE_CHECKING:
     from mento.node import Node
     from mento.results import DocumentBuilder, Formatter, TablePrinter
     from mento.beam_summary import BeamSummary
+    from mento.slab_summary import OneWaySlabSummary
     from mento.column import Column
     from mento.punching import Capital, Opening, PunchingNode, PunchingSlab
     from mento.shear_wall import ShearWall
@@ -153,6 +155,7 @@ def __getattr__(name: str) -> object:
         "EN_1992_2004_beam": "codes.EN_1992_2004_beam",
         "ACI_318_19_beam": "codes.ACI_318_19_beam",
         "BeamSummary": "beam_summary",
+        "OneWaySlabSummary": "slab_summary",
         "Column": "column",
         "PunchingSlab": "punching",
         "Opening": "punching",

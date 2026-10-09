@@ -168,7 +168,7 @@ def test_legacy_export_converts_closed_stirrup_count_to_legs(tmp_path):
     from mento.beam_summary import BeamSummary
 
     data = pd.DataFrame({"Label": ["V1"], "ns": [3]})
-    summary = SimpleNamespace(design_data=data, units_row=["", ""], beam_list=data)
+    summary = SimpleNamespace(design_data=data, units_row=["", ""], beam_list=data, _ELEMENT_COLUMN="Beam")
     path = tmp_path / "legacy.xlsx"
     BeamSummary.export_design(summary, str(path))
     exported = pd.read_excel(path)

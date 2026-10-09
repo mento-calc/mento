@@ -13,10 +13,10 @@
 3  V103  25  60        2Ø8  3Ø16 ++ 2Ø12  2 ramas Ø8/15         1.0         8.3     6.7    24.3   179.4  359.55
 
 ### design
-  Label  Comb.         b         h        cc        Nx         Vz           My  ns      dbs        sl  n1       db1  n2       db2  n3 db3  n4 db4
-0  V101  ELU 1  20.00 cm  50.00 cm  25.00 mm   0.00 kN   20.00 kN    0.00 kN·m   1  6.00 mm  34.00 cm   2  10.00 mm   0         0   0   0   0   0
-1  V102  ELU 2  20.00 cm  50.00 cm  25.00 mm   0.00 kN  -50.00 kN  -35.00 kN·m   1  6.00 mm  34.00 cm   2  12.00 mm   0         0   0   0   0   0
-2  V103  ELU 3  25.00 cm  60.00 cm  25.00 mm  10.00 kN  100.00 kN   60.00 kN·m   1  6.00 mm  28.00 cm   2  12.00 mm   1  10.00 mm   0   0   0   0
+  Label  Comb.         b         h        cc        Nx         Vz           My  ns      dbs        sl  n1       db1  n2       db2  n3      db3  n4      db4 n1_bot   db1_bot n2_bot   db2_bot n3_bot  db3_bot n4_bot  db4_bot n1_top   db1_top n2_top  db2_top n3_top  db3_top n4_top  db4_top
+0  V101  ELU 1  20.00 cm  50.00 cm  25.00 mm   0.00 kN   20.00 kN    0.00 kN·m   1  6.00 mm  34.00 cm   2  10.00 mm   0   0.00 mm   0  0.00 mm   0  0.00 mm      2  10.00 mm      0   0.00 mm      0  0.00 mm      0  0.00 mm      0   0.00 mm      0  0.00 mm      0  0.00 mm      0  0.00 mm
+1  V102  ELU 2  20.00 cm  50.00 cm  25.00 mm   0.00 kN  -50.00 kN  -35.00 kN·m   1  6.00 mm  34.00 cm   2  12.00 mm   0   0.00 mm   0  0.00 mm   0  0.00 mm      2  10.00 mm      0   0.00 mm      0  0.00 mm      0  0.00 mm      2  12.00 mm      0  0.00 mm      0  0.00 mm      0  0.00 mm
+2  V103  ELU 3  25.00 cm  60.00 cm  25.00 mm  10.00 kN  100.00 kN   60.00 kN·m   1  6.00 mm  28.00 cm   2  12.00 mm   1  10.00 mm   0  0.00 mm   0  0.00 mm      2  12.00 mm      1  10.00 mm      0  0.00 mm      0  0.00 mm      0   0.00 mm      0  0.00 mm      0  0.00 mm      0  0.00 mm
 
 ### flexure_results
   Etiqueta  Comb.  Posición As,min As,req top As,req bot    As   MEd    MRd MEd≤MRd    DCR

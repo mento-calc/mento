@@ -238,6 +238,7 @@ def test_all_exports_in_all() -> None:
         "ACI_318_19_beam",
         "BeamSettings",
         "BeamSummary",
+        "OneWaySlabSummary",
         "Column",
         "PunchingSlab",
         "Opening",

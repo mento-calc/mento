@@ -1,19 +1,28 @@
 """Tests for ShearWallSummary class."""
 
 import math
-
-import pytest
-import pandas as pd
 import os
 
-from mento import (
-    Concrete_ACI_318_19,
-    SteelBar,
-    ShearWallSummary,
-    MPa,
-    psi,
-    ksi,
-)
+import pandas as pd
+import pytest
+
+from mento import Concrete_ACI_318_19, MPa, ShearWallSummary, SteelBar, ksi, psi
+from mento.units import cm, mm
+
+
+def test_export_converts_design_to_declared_units(tmp_path, concrete, sample_df):
+    summary = ShearWallSummary(concrete, SteelBar(name="ADN420", f_y=420 * MPa), sample_df)
+    summary.design_data = summary.data.copy()
+    # The design may produce cm while the original table declares mm.
+    summary.design_data["cc"] = 2.5 * cm
+    path = tmp_path / "mixed_units.xlsx"
+    summary.export_design(str(path))
+    exported = pd.read_excel(path)
+    assert exported.iloc[0]["cc"] == "mm"
+    assert exported.iloc[1:]["cc"].astype(float).tolist() == [25.0] * (len(exported) - 1)
+    assert summary.design_data.iloc[0]["cc"] == 25 * mm
+    imported = ShearWallSummary(concrete, summary.steel_bar, exported)
+    assert imported.data.iloc[0]["cc"] == 25 * mm
 
 
 # ------------------------------------------------------------------
@@ -612,3 +621,72 @@ class TestShearWallSummaryImperial:
         assert row["ØVn"] == pytest.approx(523.0, abs=0.1)
         assert row["DCR"] == pytest.approx(0.191, abs=1e-3)
         assert row["Status"] == "✅"
+
+
+# ------------------------------------------------------------------
+# The mesh of a wall given across its rows
+# ------------------------------------------------------------------
+
+
+def _wall_rows(rows):
+    """A wall list from rows given as dicts: the unit row first, a 20 cm × 3 m × 3 m wall by default."""
+    units = {
+        "Level": "",
+        "Label": "",
+        "Comb.": "",
+        "t": "cm",
+        "lw": "m",
+        "hw": "m",
+        "cc": "mm",
+        "Nx": "kN",
+        "Vz": "kN",
+        "My": "kNm",
+        "dbh": "mm",
+        "sh": "cm",
+        "dbv": "mm",
+        "sv": "cm",
+    }
+    defaults = {column: 0 for column in units}
+    base = {"Level": "Level 1", "t": 20, "lw": 3.0, "hw": 3.0, "cc": 25}
+    return pd.DataFrame([units] + [{**defaults, **base, **row} for row in rows])
+
+
+def test_a_mesh_given_on_one_row_holds_for_the_whole_wall(concrete, steel):
+    """It used to be read off the first row only, so a mesh given on a later one was lost."""
+    rows = _wall_rows(
+        [
+            {"Label": "M1", "Comb.": "ELU 1", "Vz": 100},
+            {"Label": "M1", "Comb.": "ELU 2", "Vz": 150, "dbh": 10, "sh": 20, "dbv": 12, "sv": 15},
+        ]
+    )
+    summary = ShearWallSummary(concrete, steel, rows)
+
+    assert len(summary.nodes) == 1
+    wall = summary.nodes[0].section
+    assert wall.mesh.horizontal.d_b.to("mm").magnitude == 10
+    assert wall.mesh.vertical.s.to("cm").magnitude == 15
+
+
+def test_rows_of_a_wall_that_give_different_meshes_raise(concrete, steel):
+    rows = _wall_rows(
+        [
+            {"Label": "M1", "Comb.": "ELU 1", "Vz": 100, "dbh": 10, "sh": 20, "dbv": 12, "sv": 15},
+            {"Label": "M1", "Comb.": "ELU 2", "Vz": 150, "dbh": 10, "sh": 25, "dbv": 12, "sv": 15},
+        ]
+    )
+    with pytest.raises(ValueError, match="Wall 'Level 1 - M1'.*horizontal mesh"):
+        ShearWallSummary(concrete, steel, rows)
+
+
+def test_rows_with_no_wall_label_stay_walls_of_their_own(concrete, steel):
+    rows = _wall_rows(
+        [
+            {"Label": "", "Comb.": "ELU 1", "Vz": 100, "lw": 3.0},
+            {"Label": "", "Comb.": "ELU 2", "Vz": 150, "lw": 2.0},
+        ]
+    )
+    summary = ShearWallSummary(concrete, steel, rows)
+    designed = summary.design()
+
+    assert len(summary.nodes) == 2
+    assert len(designed) == 2

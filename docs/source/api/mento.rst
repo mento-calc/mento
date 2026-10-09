@@ -166,6 +166,14 @@ mento.slab module
    :undoc-members:
    :show-inheritance:
 
+mento.slab\_summary module
+--------------------------
+
+.. automodule:: mento.slab_summary
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 mento.summary module
 --------------------
 

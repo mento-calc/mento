@@ -33,7 +33,7 @@ def test_unchecked_flexure_does_not_emit_a_compression_failure():
 
 def test_legacy_export_preserves_closed_count_as_twice_as_many_legs(tmp_path):
     data = pd.DataFrame({"Label": ["V1"], "ns": [3]})
-    summary = SimpleNamespace(design_data=data, units_row=["", ""], beam_list=data)
+    summary = SimpleNamespace(design_data=data, units_row=["", ""], beam_list=data, _ELEMENT_COLUMN="Beam")
     path = tmp_path / "legacy.xlsx"
     BeamSummary.export_design(summary, str(path))
     exported = pd.read_excel(path)

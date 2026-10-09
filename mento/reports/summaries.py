@@ -11,7 +11,8 @@ rather than after the method.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Optional, cast
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, cast
 
 import pandas as pd
 from docx.shared import Cm
@@ -40,6 +41,49 @@ BEAM_DATA_COLUMNS = ("Label", "b", "h", "cc", "As,bot", "As,top", "Av")
 #: The label needs room for a beam name and the dimensions for two digits; the
 #: eleven rebar columns hold a count or a diameter and no more.
 BEAM_DATA_WIDTHS = [Cm(2), Cm(1), Cm(1), Cm(1), Cm(4), Cm(4), Cm(3)]
+
+#: A slab carries a diameter and a spacing per layer instead of a count and a
+#: diameter per group, and no stirrups (see OneWaySlabSummary).
+SLAB_DATA_COLUMNS = BEAM_DATA_COLUMNS
+SLAB_DATA_WIDTHS = BEAM_DATA_WIDTHS
+
+
+@dataclass(frozen=True)
+class SummaryReport:
+    """What the Word report of a summary calls its elements, and which input columns it lists.
+
+    The strings are the English keys of the i18n catalogue; the report
+    translates them into the language it is written in.
+    """
+
+    title: str
+    intro: str
+    all_heading: str
+    data_heading: str
+    file_prefix: str
+    data_columns: Tuple[str, ...]
+    data_widths: List[Any]
+
+
+BEAM_REPORT = SummaryReport(
+    title="Beam Summary Analysis",
+    intro="This report presents the detailed results for the first beam of the summary, followed by summary tables for all beams.",
+    all_heading="Summary - All Beams",
+    data_heading="Beam Data",
+    file_prefix="Beam_Summary",
+    data_columns=BEAM_DATA_COLUMNS,
+    data_widths=BEAM_DATA_WIDTHS,
+)
+
+SLAB_REPORT = SummaryReport(
+    title="Slab Summary Analysis",
+    intro="This report presents the detailed results for the first slab of the summary, followed by summary tables for all slabs.",
+    all_heading="Summary - All Slabs",
+    data_heading="Slab Data",
+    file_prefix="Slab_Summary",
+    data_columns=SLAB_DATA_COLUMNS,
+    data_widths=SLAB_DATA_WIDTHS,
+)
 
 #: Widths for the two per-combination summaries, one entry per column, set
 #: against the rendered document rather than computed. Both design codes leave
@@ -131,19 +175,18 @@ def beam_summary_doc(self: "BeamSummary", index: int = 1) -> None:
     node.check_shear()
 
     # Create document with smaller font
-    doc_builder = DocumentBuilder(title="Beam Summary Analysis", font_size=8, language=get_language())
-    doc_builder.add_heading("Beam Summary Analysis", level=1)
+    report = self._REPORT
+    doc_builder = DocumentBuilder(title=report.title, font_size=8, language=get_language())
+    doc_builder.add_heading(report.title, level=1)
     doc_builder.add_text(
         "Made with mento {version}. Design code: {design_code}",
         version=MENTO_VERSION,
         design_code=self.concrete.design_code,
     )
-    doc_builder.add_text(
-        "This report presents the detailed results for the first beam of the summary, followed by summary tables for all beams."
-    )
+    doc_builder.add_text(report.intro)
 
     # --- DETAILED FLEXURE RESULTS FOR SELECTED BEAM ---
-    doc_builder.add_heading("Beam {label} flexure check", level=2, label=beam.label)
+    doc_builder.add_heading(beam._report_text["flexure_heading"], level=2, label=beam.label)
 
     # Build dataframes same as flexure_results_detailed_doc
     top_details = _details(beam._limiting_case_flexure_top_details)
@@ -215,7 +258,7 @@ def beam_summary_doc(self: "BeamSummary", index: int = 1) -> None:
     doc_builder.add_table_dcr(df_flex_capacity_bot)
 
     # --- DETAILED SHEAR RESULTS FOR SELECTED BEAM ---
-    doc_builder.add_heading("Beam {label} shear check", level=2, label=beam.label)
+    doc_builder.add_heading(beam._report_text["shear_heading"], level=2, label=beam.label)
 
     result_data = _details(beam._limiting_case_shear_details)
     df_shear_materials = pd.DataFrame(beam._materials_shear)
@@ -237,7 +280,7 @@ def beam_summary_doc(self: "BeamSummary", index: int = 1) -> None:
     doc_builder.add_table_dcr(df_shear_concrete)
 
     # --- SUMMARY TABLES FOR ALL BEAMS ---
-    doc_builder.add_heading("Summary - All Beams", level=2)
+    doc_builder.add_heading(report.all_heading, level=2)
     from mento.verification import status_text
 
     doc_builder.add_heading("Resistance and detailing", level=3)
@@ -266,14 +309,16 @@ def beam_summary_doc(self: "BeamSummary", index: int = 1) -> None:
             }
         )
     doc_builder.add_table_data(pd.DataFrame(verification_rows))
-    doc_builder.add_heading("Beam Data", level=3)
+    doc_builder.add_heading(report.data_heading, level=3)
     # Geometry and reinforcement only: the demands each beam was checked for
     # are reported by the flexure and shear tables below, per combination,
     # which is where they mean something.
+    # Report the section that was actually checked, including both faces,
+    # instead of stale, one-face input cells from before design or edits.
     beam_data_out = self.section_data()
     doc_builder.add_table_data(
         beam_data_out,
-        column_widths=BEAM_DATA_WIDTHS,
+        column_widths=report.data_widths,
         font_size=SUMMARY_FONT_SIZE,
     )
 
@@ -310,8 +355,8 @@ def beam_summary_doc(self: "BeamSummary", index: int = 1) -> None:
     )
 
     # Save
-    doc_builder.save(f"Beam_Summary_{self.concrete.design_code}.docx")
-    print(f"✅ Results exported to Beam_Summary_{self.concrete.design_code}.docx")
+    doc_builder.save(f"{report.file_prefix}_{self.concrete.design_code}.docx")
+    print(f"✅ Results exported to {report.file_prefix}_{self.concrete.design_code}.docx")
 
 
 def wall_summary_doc(self: "ShearWallSummary", index: int = 1) -> None:
