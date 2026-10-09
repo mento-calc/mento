@@ -26,6 +26,22 @@ from the release history and are summaries rather than complete lists.
   the minimum. `clear_spacing_below_min` now quotes the §25.2.1 minimum alone (bar
   diameter and 25 mm / 1 in.). A design still never leaves either; a slab, detailed
   centre to centre, keeps the two in `bar_spacing_below_min`.
+- **Shear walls under EN 1992-1-1.** `ShearWall` with `Concrete_EN_1992_2004` checks and
+  designs in-plane shear: V_Rd,c of Eq. (6.2.a/b), the truss of the horizontal bars,
+  Eq. (6.8), and the strut, Eq. (6.9), as for an EN beam, written on d = 0.8 lw and
+  z = 0.9 d, with no end bars (Eq. (6.2.b) gives V_Rd,c). The mesh is held to the limits
+  of §9.6: the vertical between 0.002 and 0.04 A_c, the horizontal at least a quarter of it
+  and 0.001 A_c, and their spacing; past V_Rd,c the horizontal bars also carry ρw,min of
+  Eq. (9.5N). α_cw keeps only the reduction of §6.2.3(3) for a chord under high
+  compression. The design places the vertical mesh first, at its minimum, since the
+  horizontal minimum reads it, with the CIRSOC catalogue: Ø6 mm and up horizontal, Ø10 mm
+  and up vertical. Report tables in EN notation (A_sh, A_sv in cm²/m, V_Rd,c, V_Rd,s,
+  V_Rd,max), in English and Spanish; `ShearWallSummary` names its columns ρh, ρv,
+  VEd,max and VRd. Theory page `shear_wall_en_1992_2004` and two example notebooks.
+- `WallShearCheck.rho_l_max` and `WallShearDesign.rho_l_max`: the vertical maximum of the
+  wall's code, 0.04 under EN 1992-1-1, `None` under ACI 318-19 / CIRSOC 201-25, which state
+  none in Chapter 11.
+- **`mesh_ratio_above_max` warning**: a vertical mesh past that maximum.
 
 - `n_legs` input for beam transverse reinforcement and BeamSummary. Legacy
   `n_stirrups` and `ns` accept integer two-leg equivalents, not closed-piece counts.
@@ -84,6 +100,11 @@ from the release history and are summaries rather than complete lists.
   was printed as 0, and a section without stirrups shows as V_Rd,max the strut limit of
   Eq. (6.9) at 45° (§6.2.1(6)), the one `shear_exceeds_section_limit` reads, where it
   repeated V_Rd,c. `VEd,1≤VRd,max` compares against that limit.
+- The `mesh_spacing_exceeds_max` warning carries the clause its limit comes from in
+  `values["clause"]`, so an EN wall quotes §9.6.2(3) / §9.6.3(2). The ACI 318-19 and
+  CIRSOC 201-25 messages read as before.
+- The bar search of the wall mesh moved to `mento/codes/wall_mesh_design.py`, shared by the
+  codes; ACI 318-19 and CIRSOC 201-25 walls design the same mesh as before.
 
 - Jaula mixta: un cerrado perimetral y trabas interiores de 135°/90° para sujeción de barras comprimidas (§25.3.5, Tabla 25.3.2). Se comprueban ambos órdenes de ganchos; alternar los extremos de 90° en piezas sucesivas es requisito de ejecución, sin certificación sísmica. Entrada `legs` impar admitida desde tres ramas; dibujo de piezas y conteo real, sin crédito resistente silencioso para ramas agregadas. Ganchos de patas abiertas fuera del modelo seccional.
 

@@ -411,7 +411,8 @@ def wall_summary_doc(self: "ShearWallSummary", index: int = 1) -> None:
 
     doc_builder.add_heading("Shear Results", level=3)
     df_shear_all = self.shear_results()
-    cols_to_drop = [c for c in ["Vu≤ØVn,max", "Vu≤ØVn"] if c in df_shear_all.columns]
+    # The ticks repeat the DCR beside them: Vu≤ØVn, or VEd≤VRd, whichever the code writes.
+    cols_to_drop = [c for c in df_shear_all.columns if "≤" in str(c)]
     df_shear_all = df_shear_all.drop(columns=cols_to_drop)
     doc_builder.add_table_data(
         df_shear_all, column_widths=doc_builder.content_widths(df_shear_all), font_size=SUMMARY_FONT_SIZE

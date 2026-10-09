@@ -97,18 +97,28 @@ Codes
     EN 1992-1-1 V_Rd,max of Eq. (6.9) at θ = 45°. Both are read the same with
     or without stirrups, so the warning means the section has to grow; a
     section that is only short of stirrups gets ``stirrups_required`` or
-    ``Av_below_min`` instead. A wall reports it against ØVn,max of §11.5.4.2.
+    ``Av_below_min`` instead. A wall reports it against ØVn,max of §11.5.4.2,
+    or against V_Rd,max of Eq. (6.9) at θ = 45° under EN 1992-1-1.
 ``mesh_ratio_below_min``
     A wall mesh gives less than its direction asks for: the horizontal one
     below the ρt the shear needs (never below its minimum), the vertical one
-    below ρl,min of ACI 318-19 / CIRSOC 201-25 §11.6.2. ``values`` carries
-    ``direction``, ``"h"`` or ``"v"``.
+    below ρl,min of ACI 318-19 / CIRSOC 201-25 §11.6.2, or below the
+    0.002 A_c of EN 1992-1-1 §9.6.2(1). ``values`` carries ``direction``,
+    ``"h"`` or ``"v"``.
+``mesh_ratio_above_max``
+    The vertical mesh of a wall gives more than its code allows: under
+    EN 1992-1-1 §9.6.2(1), 0.04 A_c outside lap locations. ACI 318-19 and
+    CIRSOC 201-25 state no such limit for a wall in Chapter 11.
+    ``values`` carries ``direction``, always ``"v"``.
 ``mesh_spacing_exceeds_max``
-    The bars of a wall mesh are further apart than ACI 318-19 / CIRSOC
-    201-25 §11.7.2.1 (vertical) and §11.7.3.1 (horizontal) allow: the lesser
-    of 3h and 450 mm (18 in.), and lw/3 and lw/5 where shear reinforcement is
-    required for in-plane strength, read as Vu > φVc for the combination.
-    ``values`` carries ``direction``, ``"h"`` or ``"v"``.
+    The bars of a wall mesh are further apart than the code allows. Under
+    ACI 318-19 / CIRSOC 201-25 §11.7.2.1 (vertical) and §11.7.3.1
+    (horizontal): the lesser of 3h and 450 mm (18 in.), and lw/3 and lw/5
+    where shear reinforcement is required for in-plane strength, read as
+    Vu > φVc for the combination. Under EN 1992-1-1: the lesser of 3t and
+    400 mm for the vertical bars (§9.6.2(3)), 400 mm for the horizontal ones
+    (§9.6.3(2)). ``values`` carries ``direction``, ``"h"`` or ``"v"``, and
+    ``clause``, the clause the limit comes from, as text.
 ``stirrup_spacing_exceeds_compression_support``
     The section relies on compression steel and its stirrups are further
     apart than ACI 318-19 / CIRSOC 201-25 §9.7.6.4.3 allow the stirrups that
@@ -246,12 +256,9 @@ _MESSAGES: Dict[str, str] = {
     "shear_exceeds_section_limit": "Shear V = {V} exceeds the most the section can carry, {V_max}: enlarge the section.",
     "mesh_ratio_below_min_h": "Horizontal wall mesh: ρt = {rho} is below the required ρt = {rho_min}.",
     "mesh_ratio_below_min_v": "Vertical wall mesh: ρl = {rho} is below the minimum ρl,min = {rho_min}.",
-    "mesh_spacing_exceeds_max_h": (
-        "Horizontal wall mesh spacing: {s} exceeds the maximum {s_max} (§11.7.3.1; lw/5 where Vu > φVc)."
-    ),
-    "mesh_spacing_exceeds_max_v": (
-        "Vertical wall mesh spacing: {s} exceeds the maximum {s_max} (§11.7.2.1; lw/3 where Vu > φVc)."
-    ),
+    "mesh_ratio_above_max_v": "Vertical wall mesh: ρl = {rho} exceeds the maximum ρl,max = {rho_max}.",
+    "mesh_spacing_exceeds_max_h": "Horizontal wall mesh spacing: {s} exceeds the maximum {s_max} ({clause}).",
+    "mesh_spacing_exceeds_max_v": "Vertical wall mesh spacing: {s} exceeds the maximum {s_max} ({clause}).",
     "stirrup_spacing_exceeds_compression_support": (
         "Stirrup spacing along the member: {s} exceeds the {s_max} that lateral support of the "
         "{d_b_comp} compression bars allows (16 d_b, 48 d_b of the stirrup, least dimension of the beam)."
@@ -713,10 +720,13 @@ def wall_warnings(wall: "RectangularBeam", mesh: "WallMesh", checks: Tuple["Wall
     """The mesh limits a wall misses, over every combination checked.
 
     Mirrors the limit rows of the wall report: each ratio against what its
-    direction asks for, each spacing against its maximum, and the shear
-    against the most the section can carry. A mesh with a zero spacing has no
-    bars, so its spacing is not a limit it misses; its ratio is.
+    direction asks for, the vertical one against its maximum where the code
+    states one, each spacing against its maximum, and the shear against the
+    most the section can carry. A mesh with a zero spacing has no bars, so its
+    spacing is not a limit it misses; its ratio is. The spacing warning quotes
+    the clause its limit comes from, which is the code's.
     """
+    clauses = design_code(wall.concrete).wall_mesh_spacing_clauses
     found: List[_Raw] = []
     for position, check in enumerate(checks, 1):
         label = combination_label(check.label, position)
@@ -727,13 +737,17 @@ def wall_warnings(wall: "RectangularBeam", mesh: "WallMesh", checks: Tuple["Wall
             if provided.rho < required and not math.isclose(provided.rho, required, rel_tol=1e-9):
                 values = {"direction": direction, "rho": round(provided.rho, 5), "rho_min": round(required, 5)}
                 found.append(_Raw("mesh_ratio_below_min", values, None, label, required - provided.rho))
+        rho_max = check.rho_l_max
+        if rho_max is not None and mesh.vertical.rho > rho_max and not math.isclose(mesh.vertical.rho, rho_max):
+            values = {"direction": "v", "rho": round(mesh.vertical.rho, 5), "rho_max": round(rho_max, 5)}
+            found.append(_Raw("mesh_ratio_above_max", values, None, None, mesh.vertical.rho - rho_max))
         for direction, provided, s_max in (
             ("h", mesh.horizontal, check.s_h_max),
             ("v", mesh.vertical, check.s_v_max),
         ):
             s_max = s_max.to(provided.s.units)
             if provided.has_bars and provided.s > s_max and not math.isclose(provided.s.magnitude, s_max.magnitude):
-                values = {"direction": direction, "s": provided.s, "s_max": s_max}
+                values = {"direction": direction, "s": provided.s, "s_max": s_max, "clause": clauses.get(direction, "")}
                 found.append(
                     _Raw("mesh_spacing_exceeds_max", values, None, None, float((provided.s - s_max).magnitude))
                 )
@@ -801,9 +815,10 @@ def collect(raws: List[_Raw]) -> Tuple[DesignWarning, ...]:
         # program reads it; it is a word, not a number to print.
         values = dict(worst.values)
         template = _MESSAGES[f"{code}_{direction}" if direction else code]
-        # A text value (the clause a limit comes from) is quoted as it is.
+        # A text value (the clause a limit comes from) is quoted as it is, in
+        # the language of the day where it carries words.
         fields = _fields({n: v for n, v in values.items() if n != "direction" and not isinstance(v, str)})
-        fields.update({n: v for n, v in values.items() if n != "direction" and isinstance(v, str)})
+        fields.update({n: translate(v) for n, v in values.items() if n != "direction" and isinstance(v, str)})
         if face is not None:
             fields["face"] = translate(_FACES[face])
         warnings.append(

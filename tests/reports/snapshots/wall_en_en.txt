@@ -1,0 +1,125 @@
+### check_shear
+  Label Comb. Ash,min Ash,req    Ash Asv,min    Asv    NEd    VEd   VRd,c   VRd,s     VRd  VRd,max VEd≤VRd,max VEd≤VRd    DCR
+0               cm²/m   cm²/m  cm²/m   cm²/m  cm²/m     kN     kN      kN      kN      kN       kN                           
+1    M1     E     2.0     2.0   2.09     4.0   4.25  200.0  400.0  146.88  491.73  491.73  1340.69        True    True  0.813
+
+### shear_results_detailed
+===== SHEAR WALL DETAILED RESULTS =====
+Materials                            Variable     Value  Unit
+----------------------------------  ----------  -------  ------
+Section Label                                        M1
+Concrete strength                      fck           25  MPa
+Steel reinforcement yield strength     fywk         500  MPa
+Safety factor for concrete              γc          1.5
+Safety factor for steel                 γs         1.15
+Design concrete strength               fcd        16.67  MPa
+Design steel strength                  fywd      434.78  MPa 
+
+Geometry              Variable     Value  Unit
+-------------------  ----------  -------  ------
+Wall thickness           t            20  cm
+Wall length              lw          300  cm
+Wall height              hw          300  cm
+Gross concrete area      Ac         6000  cm²
+Effective height         d           240  cm
+Lever arm                z           216  cm 
+
+Design forces                     Variable     Value  Unit
+-------------------------------  ----------  -------  ------
+Axial, positive for compression     NEd          200  kN
+Shear                               VEd          400  kN 
+
+Check                           Unit     Value  Min.       Max.  Ok?
+-----------------------------  ------  -------  ------  -------  -----
+Length to thickness ratio                   15  4                ✅
+Horizontal reinforcement       cm²/m      2.09  2                ✅
+Vertical reinforcement         cm²/m      4.25  4            80  ✅
+Horizontal bar spacing (E.F.)    mm        270              400  ✅
+Vertical bar spacing (E.F.)      mm        370              400  ✅
+Maximum shear capacity           kN        400          1340.69  ✅
+Total shear capacity             kN        400           491.73  ✅ 
+
+Shear strength                                            Variable     Value  Unit
+-------------------------------------------------------  ----------  -------  ------
+k value                                                      k         1.289
+Longitudinal reinforcement ratio                             ρl            0
+Axial stress                                                σcp         0.33  MPa
+Concrete shear strength                                    VRd,c      146.88  kN
+Compression chord coefficient                               αcw            1
+Strength reduction factor for concrete cracked in shear      ν1         0.54
+Concrete strut angle                                         Θ          21.8  deg
+Shear reinforcement for strength                          Ash,str        1.7  cm²/m
+Minimum shear reinforcement                                Ash,w         1.6  cm²/m
+Minimum horizontal reinforcement                          Ash,min          2  cm²/m
+Steel shear strength                                       VRd,s      491.73  kN
+Maximum shear strength                                    VRd,max    1340.69  kN
+Total shear strength                                        VRd       491.73  kN
+Demand Capacity Ratio                                       DCR        0.813 
+
+
+
+### shear_results_detailed_doc: Shear Wall M1 shear check EN 1992-2004.docx
+Shear Wall M1 shear check
+Made with mento <version>. Design code: EN 1992-2004
+Section Data
+Materials | Variable | Value | Unit
+Section Label |  | M1 | 
+Concrete strength | fck | 25 | MPa
+Steel reinforcement yield strength | fywk | 500 | MPa
+Safety factor for concrete | γc | 1.5 | 
+Safety factor for steel | γs | 1.15 | 
+Design concrete strength | fcd | 16.67 | MPa
+Design steel strength | fywd | 434.78 | MPa
+Geometry | Variable | Value | Unit
+Wall thickness | t | 20.0 | cm
+Wall length | lw | 300.0 | cm
+Wall height | hw | 300.0 | cm
+Gross concrete area | Ac | 6000.0 | cm²
+Effective height | d | 240.0 | cm
+Lever arm | z | 216.0 | cm
+Design forces | Variable | Value | Unit
+Axial, positive for compression | NEd | 200.0 | kN
+Shear | VEd | 400.0 | kN
+Limit checks
+Check | Unit | Value | Min. | Max. | Ok?
+Length to thickness ratio |  | 15.0 | 4 |  | ✅
+Horizontal reinforcement | cm²/m | 2.09 | 2.0 |  | ✅
+Vertical reinforcement | cm²/m | 4.25 | 4.0 | 80.0 | ✅
+Horizontal bar spacing (E.F.) | mm | 270.0 |  | 400.0 | ✅
+Vertical bar spacing (E.F.) | mm | 370.0 |  | 400.0 | ✅
+Maximum shear capacity | kN | 400.0 |  | 1340.7 | ✅
+Total shear capacity | kN | 400.0 |  | 491.7 | ✅
+Strength Checks
+Shear strength | Variable | Value | Unit
+k value | k | 1.289 | 
+Longitudinal reinforcement ratio | ρl | 0.0 | 
+Axial stress | σcp | 0.33 | MPa
+Concrete shear strength | VRd,c | 146.9 | kN
+Compression chord coefficient | αcw | 1.0 | 
+Strength reduction factor for concrete cracked in shear | ν1 | 0.54 | 
+Concrete strut angle | Θ | 21.8 | deg
+Shear reinforcement for strength | Ash,str | 1.7 | cm²/m
+Minimum shear reinforcement | Ash,w | 1.6 | cm²/m
+Minimum horizontal reinforcement | Ash,min | 2.0 | cm²/m
+Steel shear strength | VRd,s | 491.7 | kN
+Maximum shear strength | VRd,max | 1340.7 | kN
+Total shear strength | VRd | 491.7 | kN
+Demand Capacity Ratio | DCR | 0.81 | 
+
+### results
+Shear Wall M1, $l_w$=300.00 cm, $t$=20.00 cm, $h_w$=300.00 cm, $c_c$=2.50 cm, Concrete C25/30, Rebar B500S.
+Horizontal rebar: Ø6/27 cm E.F., $\rho_h$=0.00105, Minimum vertical rebar: Ø10/37 cm E.F., $\rho_v$=0.00212, $V_{Ed}$=400.0 kN, $V_{Rd}$=491.73 kN → $\color{#439b00}{\text{DCR}=0.81}$ 
+
+### mesh
+2×Ø6 mm/27 cm
+2×Ø10 mm/37 cm
+
+### warnings
+
+
+### plot
+300 cm
+20 cm
+Horizontal rebar: Ø6/27 cm E.F.
+Minimum vertical rebar: Ø10/37 cm E.F.
+Shear Wall M1 — plan view
