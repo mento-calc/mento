@@ -35,7 +35,7 @@ from mento.section_geometry import (
     corner_setback,
     seated_corner,
 )
-from mento.units import Quantity
+from mento.units import Quantity, mm
 
 if TYPE_CHECKING:
     from mento.beam import RectangularBeam
@@ -50,7 +50,7 @@ class CageDetailingError(ValueError):
 
 
 def _mm(value: Quantity) -> float:
-    return float(value.to("mm").magnitude)
+    return float(value.to(mm).magnitude)
 
 
 def _supported_layer(
@@ -223,7 +223,7 @@ def _supported_layer(
 
 def _geometry_unit(length: Quantity) -> Quantity:
     """One millimetre in the geometry's display unit."""
-    return (length * 0 + 1 * length.units) / float((1 * length.units).to("mm").magnitude)
+    return (length * 0 + 1 * length.units) / float((1 * length.units).to(mm).magnitude)
 
 
 def build_cage_detailing(beam: RectangularBeam, *, include_skin: bool = True) -> SectionGeometry:
@@ -472,20 +472,31 @@ def _build_candidate(beam: RectangularBeam, geometry: SectionGeometry, *, includ
         geometry = add_skin_bars(beam, geometry)
     all_bars = bars + mounting_bars + list(geometry.skin_bars)
     skin_ids = {id(bar) for bar in geometry.skin_bars}
+    # Converted once: the loops below read them for every bar and every pair.
+    height = _mm(geometry.height)
+    clear_spacing = _mm(settings.clear_spacing)
+    diameters = [_mm(bar.d_b) for bar in all_bars]
+    # The centre of each stirrup and its half sides, less the bend.
+    extents: list[tuple[Quantity, Quantity, float, float]] = [
+        (
+            (stirrup.x_left + stirrup.x_right) / 2,
+            (stirrup.y_bottom + stirrup.y_top) / 2,
+            _mm(stirrup.x_right - stirrup.x_left) / 2 - bend_radius,
+            _mm(stirrup.y_top - stirrup.y_bottom) / 2 - bend_radius,
+        )
+        for stirrup in geometry.stirrups
+    ]
     for index, bar in enumerate(all_bars):
-        radius = _mm(bar.d_b) / 2
-        if not radius <= _mm(bar.y) <= _mm(geometry.height) - radius:
+        radius = diameters[index] / 2
+        if not radius <= _mm(bar.y) <= height - radius:
             raise CageDetailingError(
                 "The supported bars do not fit within the section height.",
                 reason="skin" if id(bar) in skin_ids else "layout",
             )
-        for stirrup in geometry.stirrups:
-            half_w = _mm(stirrup.x_right - stirrup.x_left) / 2
-            half_h = _mm(stirrup.y_top - stirrup.y_bottom) / 2
-            bend = bend_radius
-            dx = abs(_mm(bar.x - (stirrup.x_left + stirrup.x_right) / 2)) - (half_w - bend)
-            dy = abs(_mm(bar.y - (stirrup.y_bottom + stirrup.y_top) / 2)) - (half_h - bend)
-            distance_to_line = abs(math.hypot(max(dx, 0), max(dy, 0)) + min(max(dx, dy), 0) - bend)
+        for centre_x, centre_y, straight_w, straight_h in extents:
+            dx = abs(_mm(bar.x - centre_x)) - straight_w
+            dy = abs(_mm(bar.y - centre_y)) - straight_h
+            distance_to_line = abs(math.hypot(max(dx, 0), max(dy, 0)) + min(max(dx, dy), 0) - bend_radius)
             if distance_to_line < radius + d_st / 2 - 1e-8:
                 raise CageDetailingError(
                     "A longitudinal bar would intersect a stirrup branch or bend.",
@@ -500,9 +511,9 @@ def _build_candidate(beam: RectangularBeam, geometry: SectionGeometry, *, includ
                     "A longitudinal bar would intersect an open leg.",
                     reason="skin" if id(bar) in skin_ids else "layout",
                 )
-        for other in all_bars[index + 1 :]:
+        for other, other_d in zip(all_bars[index + 1 :], diameters[index + 1 :]):
             distance = math.hypot(_mm(bar.x - other.x), _mm(bar.y - other.y))
-            required = (_mm(bar.d_b) + _mm(other.d_b)) / 2 + _mm(settings.clear_spacing)
+            required = (diameters[index] + other_d) / 2 + clear_spacing
             if distance < required - 1e-8:
                 raise CageDetailingError(
                     "The supported cage leaves insufficient clear spacing between longitudinal bars.",

@@ -76,9 +76,10 @@ def hook_distance(bar: BarPosition, tie: Crosstie, diameter: Quantity) -> float:
     distances = []
     assert tie.extension is not None
     extension = float(tie.extension.to(mm).magnitude)
+    bar_x, bar_y = float(bar.x.to(mm).magnitude), float(bar.y.to(mm).magnitude)
     for ((x, y), radius, sign), hook in zip(hook_curves(tie, diameter), tie.hooks):
-        u = (float(bar.x.to(mm).magnitude) - x) * tie.side
-        v = (float(bar.y.to(mm).magnitude) - y) * sign
+        u = (bar_x - x) * tie.side
+        v = (bar_y - y) * sign
         angle = math.degrees(math.atan2(v, u)) % 360
         theta = math.radians(180 + hook)
         ex, ey = radius * math.cos(theta), radius * math.sin(theta)
@@ -141,6 +142,9 @@ def finalize_crossties(geometry: SectionGeometry) -> SectionGeometry:
 
     diameter = geometry.stirrup_d_b
     half = float(diameter.to(mm).magnitude) / 2
+    cover = float(geometry.c_c.to(mm).magnitude) + half
+    width = float(geometry.width.to(mm).magnitude)
+    height = float(geometry.height.to(mm).magnitude)
     actual = geometry.bars + geometry.mounting_bars
     completed = []
     skin_bars = getattr(geometry, "skin_bars", ())
@@ -172,11 +176,7 @@ def finalize_crossties(geometry: SectionGeometry) -> SectionGeometry:
             # de coordenadas; el muestreo de 5° incluye ese ángulo exactamente.
             for path in hook_points(phase, diameter):
                 for x, y in path:
-                    cover = float(geometry.c_c.to(mm).magnitude) + half
-                    if not (
-                        cover - 1e-6 <= x <= float(geometry.width.to(mm).magnitude) - cover + 1e-6
-                        and cover - 1e-6 <= y <= float(geometry.height.to(mm).magnitude) - cover + 1e-6
-                    ):
+                    if not (cover - 1e-6 <= x <= width - cover + 1e-6 and cover - 1e-6 <= y <= height - cover + 1e-6):
                         raise CageDetailingError("A crosstie hook or tail violates the section cover.")
             for bar in actual + skin_bars:
                 if hook_distance(bar, phase, diameter) < float(bar.d_b.to(mm).magnitude) / 2 + half - 1e-6:
