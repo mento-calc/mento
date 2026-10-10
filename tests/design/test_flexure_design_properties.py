@@ -112,6 +112,11 @@ def _designed(code: str, b_cm: float, h_cm: float, f_c: float, M: float) -> Tupl
     return beam, node
 
 
+# The 12 cm webs under a negative moment fit no pair of bars on top -- two Ø10
+# seated in the bends of the Ø8 starter leave 27.6 mm, short of the vibrator's
+# 30 -- so the design leaves that face bare and says so (``bars_do_not_fit``);
+# the shear routine then warns that the tension steel is zero. Expected here.
+@pytest.mark.filterwarnings("ignore:Longitudinal rebar As cannot be zero:UserWarning")
 @pytest.mark.parametrize("code", ["ACI 318-19", "CIRSOC 201-25", "EN 1992-2004"])
 def test_a_design_passes_its_own_check(code: str) -> None:
     """Either the layout works -- DCR <= 1, within the maximum -- or the design says it found none.
