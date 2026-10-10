@@ -191,3 +191,56 @@ def test_the_check_and_the_cage_agree_on_what_fits() -> None:
         if spacing == cage:
             disagree.append((width, stirrup, n, d_b, sign))
     assert disagree == []
+
+
+def test_the_search_holds_a_second_layer_to_its_own_bends() -> None:
+    """EN 19.5x60, 1eØ25 (175 mm bend), layers 10 mm apart, Ø10 bars only.
+
+    Layer 1: two Ø10 seated in the bend, (87.5 - 5)(1 - 1/√2) = 24.16 mm past
+    their radius: 95 - 2*24.16 - 20 = 26.7 mm apart. Layer 2 sits 20 mm behind
+    the branch, still inside the arc, and clears it 27.51 mm off the leg: 17.7 mm
+    apart, short of the 25 mm the check asks for. (Only a layer spacing below the
+    25 mm of §25.2.2 and a heavy stirrup reach this.) The search does not offer
+    the second layer, and the check and the cage refuse it alike.
+    """
+    from mento import BeamSettings, Concrete_EN_1992_2004
+
+    def beam() -> RectangularBeam:
+        section = RectangularBeam(
+            label="V",
+            concrete=Concrete_EN_1992_2004(name="C25", f_c=25 * MPa),
+            steel_bar=SteelBar(name="B500S", f_y=500 * MPa),
+            width=19.5 * cm,
+            height=60 * cm,
+            c_c=25 * mm,
+            settings=BeamSettings(layers_spacing=10 * mm, max_longitudinal_diameter=10 * mm),
+        )
+        section.set_transverse_rebar(1, 25 * mm, 20 * cm)
+        return section
+
+    rebar = Rebar(beam())
+    rebar.longitudinal_rebar(3.0 * cm**2, None, None, "bot")
+    best = rebar.longitudinal_rebar_design
+    assert (best["n_1"], best["n_3"]) == (2, 0)
+    assert _mm(best["clear_spacing"]) == pytest.approx(26.67, abs=0.01)
+
+    checked = beam()
+    checked.set_longitudinal_rebar_bot(n1=2, d_b1=10 * mm, n3=2, d_b3=10 * mm)
+    assert _mm(checked._available_s_bot) == pytest.approx(17.7, abs=0.05)
+    codes = {w.code for w in checked.warnings}
+    assert {"clear_spacing_below_min", "cage_detailing_infeasible"} <= codes
+
+
+def test_a_code_with_no_mandrel_rule_lays_out_on_the_placeholder(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With no bend hook the section lays its bars out on the 4·d_st placeholder, flagged as not a code rule."""
+    from dataclasses import replace
+
+    import mento.section_geometry as geometry
+    from mento.codes.registry import design_code
+
+    beam, _ = _v9a()
+    code = replace(design_code(beam.concrete), stirrup_bend_inner_diameter=None)
+    monkeypatch.setattr(geometry, "design_code", lambda concrete: code)
+
+    bend, supported = geometry.stirrup_bend_inner_diameter(beam)
+    assert (_mm(bend), supported) == (pytest.approx(40.0), False)
