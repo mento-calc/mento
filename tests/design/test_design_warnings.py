@@ -652,17 +652,15 @@ def test_bars_that_do_not_fit_are_warned_after_a_design() -> None:
 
 
 def test_a_design_short_of_the_moment_is_warned_until_the_bars_reach_it() -> None:
-    """A 12x30 web, beside the 1eØ6 it ends with, under 60 kNm, which asks for 8.14 cm² below.
+    """A 12x30 web, beside the 1eØ6 it ends with, under 60 kNm, which asks for 7.91 cm² below.
 
-    2Ø16 + 2Ø16 = 8.04 cm² is the most that fits, and with what fits above it
-    is not tension-controlled, so the design keeps the closest layout within
-    that limit, 2Ø16 + 2Ø12 = 6.28 cm² (issue #169). Only the face short of
+    58 mm between the legs, and a corner bar seated in the 24 mm bend of the
+    Ø6 sits (12 - d_b/2)(1 - 1/√2) past its radius: two Ø16 leave 58 - 2*1.17
+    - 32 = 23.7 mm, short of 25, so 2Ø12 + 2Ø12 = 4.52 cm² is the most that
+    fits (issue #169). Only the face short of
     its moment, the bottom, is warned -- the top carries no moment of its
     own, DCR 0 -- and for as long as it carries what the design left, with
-    ``section_too_small_for_moment`` for the section. (At 40 kNm this web used to be declared
-    short because Ø16 did not fit beside the 8 mm starter stirrup; a full
-    design now redoes the flexure with the stirrup the shear design chose,
-    and 2Ø16 + 2Ø12 carry it.)
+    ``section_too_small_for_moment`` for the section.
     """
     beam = RectangularBeam(
         label="101",
@@ -677,18 +675,19 @@ def test_a_design_short_of_the_moment_is_warned_until_the_bars_reach_it() -> Non
 
     short = {w.face: w for w in node.warnings if w.code == "As_below_required"}
     assert set(short) == {"bottom"}
-    assert short["bottom"].values["A_s"].to("cm**2").magnitude == pytest.approx(6.28, rel=1e-3)
-    assert short["bottom"].values["A_s_req"].to("cm**2").magnitude == pytest.approx(8.14, rel=1e-2)
+    assert short["bottom"].values["A_s"].to("cm**2").magnitude == pytest.approx(4.52, rel=1e-3)
+    assert short["bottom"].values["A_s_req"].to("cm**2").magnitude == pytest.approx(7.91, rel=1e-2)
     small = _by_code(node.warnings)["section_too_small_for_moment"]
     assert small.face is None
     assert small.values["M"].to("kN*m").magnitude == pytest.approx(60.0)
-    assert small.values["M_capacity"].to("kN*m").magnitude == pytest.approx(60.0 / 1.2044, rel=1e-3)
+    assert small.values["M_capacity"].to("kN*m").magnitude == pytest.approx(60.0 / 1.6930, rel=1e-3)
     mento.set_language("es")
     assert "agrandar la sección" in _by_code(node.warnings)["As_below_required"].message
     small_es = _by_code(node.warnings)["section_too_small_for_moment"].message
     assert "vibrador" in small_es and "agrandar la sección" in small_es
 
-    # Bars set by hand that reach the area clear both.
+    # Bars set by hand that reach the area clear both (2Ø20 a layer do not fit
+    # this web, which the spacing warnings report on their own).
     beam.set_longitudinal_rebar_bot(2, 20 * mm, 0, None, 2, 20 * mm)
     assert not {"As_below_required", "section_too_small_for_moment"} & {w.code for w in node.warnings}
 
@@ -906,13 +905,15 @@ def test_en_minimum_is_not_relieved() -> None:
 def test_clear_spacing_follows_the_stirrup_whatever_the_call_order(bars_first: bool) -> None:
     """20x50, 4Ø12 below, 1eØ16, c_c 25 mm.
 
-    The legs sit between the cover and the bars, so the clear space left for
-    the four bars is (200 - 2*(25 + 16) - 4*12)/3 = 23.3 mm, under the 25 mm of
-    ACI 318-19 §25.2.1 the settings ask for. With the Ø8 the settings assume
-    it is (200 - 2*(25 + 8) - 48)/3 = 28.7 mm and passes. The warning is
+    The legs sit between the cover and the bars, and each corner Ø12 seats in
+    their bend, (D/2 - 6)(1 - 1/√2) past its radius: 7.62 mm in the 64 mm bend
+    of a Ø16, so the clear space left for the four bars is (200 - 2*(25 + 16)
+    - 2*7.62 - 4*12)/3 = 18.3 mm, under the 25 mm of ACI 318-19 §25.2.1 the
+    settings ask for. With the Ø8 the settings assume (32 mm bend, 2.93 mm)
+    it is (200 - 2*(25 + 8) - 2*2.93 - 48)/3 = 26.7 mm and passes. The warning is
     read off the section, so it cannot depend on whether the stirrups were
     set before or after the bars, nor wait for a reporting check to refresh
-    it: in PR #164 the "bars then stirrups" order kept the 28.7 mm and stayed
+    it: in PR #164 the "bars then stirrups" order kept the wider space and stayed
     silent until ``check_flexure`` ran.
     """
     beam = _beam(height=50 * cm)
@@ -925,24 +926,24 @@ def test_clear_spacing_follows_the_stirrup_whatever_the_call_order(bars_first: b
 
     spacing = _by_code(beam.warnings)["clear_spacing_below_min"]
     assert spacing.face == "bottom"
-    assert spacing.values["s"].to("mm").magnitude == pytest.approx(23.33, abs=0.01)
+    assert spacing.values["s"].to("mm").magnitude == pytest.approx(18.26, abs=0.01)
     assert spacing.values["s_min"].to("mm").magnitude == pytest.approx(25.0)
 
     # A lighter stirrup set afterwards widens the space again, and the
     # warning goes with it -- with no check in between.
     beam.set_transverse_rebar(n_stirrups=1, d_b=8 * mm, s_l=20 * cm)
     assert "clear_spacing_below_min" not in _by_code(beam.warnings)
-    assert beam._available_s_bot.to("mm").magnitude == pytest.approx(28.67, abs=0.01)
+    assert beam._available_s_bot.to("mm").magnitude == pytest.approx(26.71, abs=0.01)
 
 
 def test_the_vibrator_gap_on_top_is_reported_apart_from_the_clause() -> None:
     """The same 4Ø12 on top: below §25.2.1 is one warning, below the vibrator only another (issue #169).
 
-    With a Ø16 stirrup the bars are 23.3 mm apart, short of the 25 mm of
+    With a Ø16 stirrup the bars are 18.3 mm apart, short of the 25 mm of
     §25.2.1: ``clear_spacing_below_min``, quoting 25 mm, and not the vibrator
-    as well. With a Ø8 they are 28.7 mm apart: the clause is met, the 30 mm
+    as well. With a Ø8 they are 26.7 mm apart: the clause is met, the 30 mm
     of the vibrator is not, ``clear_spacing_below_vibrator``. On the bottom
-    28.7 mm is no warning at all: the vibrator goes in from the top.
+    26.7 mm is no warning at all: the vibrator goes in from the top.
     """
     beam = _beam(height=50 * cm)
     beam.set_transverse_rebar(n_stirrups=1, d_b=16 * mm, s_l=20 * cm)
@@ -956,7 +957,7 @@ def test_the_vibrator_gap_on_top_is_reported_apart_from_the_clause() -> None:
     assert "clear_spacing_below_min" not in codes
     vibrator = codes["clear_spacing_below_vibrator"]
     assert vibrator.face == "top"
-    assert vibrator.values["s"].to("mm").magnitude == pytest.approx(28.67, abs=0.01)
+    assert vibrator.values["s"].to("mm").magnitude == pytest.approx(26.71, abs=0.01)
     assert vibrator.values["s_min"].to("mm").magnitude == pytest.approx(30.0)
 
     beam.set_longitudinal_rebar_top(n1=2, d_b1=12 * mm)
@@ -1010,13 +1011,15 @@ def test_slab_bars_set_by_hand_clear_the_flag_of_their_face() -> None:
 
 
 def test_a_face_with_one_bar_has_no_clear_spacing_to_miss() -> None:
-    """10x30, 1Ø12 top and bottom, 1eØ10/10. A layer with one bar leaves
-    100 - 2*(25 + 10) - 12 = 18 mm beside it, which is not a distance between
+    """12x30, 1Ø12 top and bottom, 1eØ10/10. A layer with one bar leaves
+    120 - 2*(25 + 10) - 12 = 38 mm beside it, which is not a distance between
     bars: there is no pair to hold to the 25 mm of ACI 318-19 §25.2.1 (30 mm
     on top, the vibrator). PR #164 reported both faces as "clear spacing
-    between the bars below the minimum". Two Ø12 in the same web are 100 -
-    70 - 24 = 6 mm apart and are warned, as before."""
-    beam = _beam(width=10 * cm, height=30 * cm)
+    between the bars below the minimum". Two Ø12 in the same web, each seated
+    in the 40 mm bends 4.1 mm past its radius, are 120 - 70 - 8.2 - 24 =
+    17.8 mm apart and are warned, as before. (A 10 cm web, which this test
+    used before the bends were laid out, no longer fits the pair at all.)"""
+    beam = _beam(width=12 * cm, height=30 * cm)
     beam.set_longitudinal_rebar_bot(n1=1, d_b1=12 * mm)
     beam.set_longitudinal_rebar_top(n1=1, d_b1=12 * mm)
     beam.set_transverse_rebar(n_stirrups=1, d_b=10 * mm, s_l=10 * cm)
@@ -1027,7 +1030,7 @@ def test_a_face_with_one_bar_has_no_clear_spacing_to_miss() -> None:
     beam.set_longitudinal_rebar_bot(n1=2, d_b1=12 * mm)
     spacing = _by_code(beam.warnings)["clear_spacing_below_min"]
     assert spacing.face == "bottom"
-    assert spacing.values["s"].to("mm").magnitude == pytest.approx(6.0, abs=0.01)
+    assert spacing.values["s"].to("mm").magnitude == pytest.approx(17.8, abs=0.01)
 
 
 def test_one_bar_per_layer_is_still_no_pair() -> None:
@@ -1074,7 +1077,7 @@ def test_stirrups_of_a_doubly_reinforced_beam_are_held_to_its_compression_bars()
 
     assert str(beam.reinforcement.top) == "2Ø16 mm + 1Ø16 mm"
     assert (beam.shear_design.d_b, beam.shear_design.s_l) == (10 * mm, 20 * cm)
-    assert "compression_detailing_pending" in [w.code for w in node.warnings]
+    assert node.warnings == ()  # the cage, its corner bars seated, braces them
 
     beam.set_transverse_rebar(n_stirrups=1, d_b=10 * mm, s_l=21 * cm)
     node.check()
@@ -1143,7 +1146,7 @@ def test_a_stirrup_that_makes_the_section_doubly_reinforced_is_spaced_for_it() -
     assert beam._compression_faces == {"top"}
     assert beam.shear_design.d_b == 10 * mm
     assert beam.shear_design.s_l <= 15 * cm
-    assert "compression_detailing_pending" in [w.code for w in node.warnings]
+    assert node.warnings == ()  # the cage, its corner bars seated, braces them
 
 
 def test_cirsoc_grades_the_bracing_stirrup_with_the_compression_bar() -> None:

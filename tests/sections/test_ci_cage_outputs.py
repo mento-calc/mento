@@ -4,6 +4,7 @@ from dataclasses import replace
 from types import SimpleNamespace
 
 import pandas as pd
+import pytest
 
 from mento import cage_detailing as cage
 from mento.beam_summary import BeamSummary
@@ -49,6 +50,10 @@ def test_arrangement_describes_multiple_internal_closed_stirrups():
     assert g.arrangement("en") == "perimeter stirrup + 2 inner stirrups"
 
 
+def _mm_of(value):  # type: ignore[no-untyped-def]
+    return float(value.to(mm).magnitude)
+
+
 def test_second_layer_crossing_an_open_leg_keeps_steel_and_height():
     b = beam()
     b.set_transverse_rebar(legs=3, d_b=10 * mm, s_l=150 * mm)
@@ -57,7 +62,11 @@ def test_second_layer_crossing_an_open_leg_keeps_steel_and_height():
     detail = cage._build_candidate(b, replace(g, bars=g.bars + (extra,)))
     second = detail.bars_on("bottom", 2)
     assert len(second) == 1
-    assert second[0].y == extra.y and second[0].d_b == extra.d_b
+    # The layer behind keeps its steel and sinks with the corner bars seated in their bends.
+    corner = detail.bars_on("bottom", 1)[0]
+    sink = corner.y - g.bars_on("bottom", 1)[0].y
+    assert sink.to(mm).magnitude > 0
+    assert _mm_of(second[0].y) == pytest.approx(_mm_of(extra.y + sink)) and second[0].d_b == extra.d_b
     assert second[0].x != extra.x
     assert second[0].x == detail.bars_on("bottom", 1)[0].x
 

@@ -1133,7 +1133,9 @@ def test_a_beam_still_reports_the_clear_distance_between_its_bars() -> None:
 
     rows = beam._data_min_max_flexure
     assert rows["Check"][3] == "Minimum spacing bottom"
-    assert rows["Value"][3] == pytest.approx(beam._available_s_bot.to("mm").magnitude, rel=1e-9)
+    # The report prints two decimals; the corner bars seated in their bends
+    # make the clear distance irrational.
+    assert rows["Value"][3] == pytest.approx(beam._available_s_bot.to("mm").magnitude, abs=0.005)
     assert rows["Max."][3] == ""
 
 

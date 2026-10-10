@@ -81,6 +81,33 @@ from the release history and are summaries rather than complete lists.
 
 ### Changed
 
+- **The design layout seats the corner bars in the stirrup bends, as the cage does.** A
+  bar thinner than the stirrup's mandrel (ACI/CIRSOC Table 25.3.2, EN Table 8.1N)
+  cannot sit in the square corner of the inner faces: it seats in the bend, on its 45°
+  bisector, `D/2 - (D/2 - d_b/2)/√2` from each face (`section_geometry.seated_corner`)
+  -- 11.5 mm for a Ø16 in the 40 mm bend of a Ø10, not 8. The rebar search, the clear
+  spacing the checks report (`clear_spacing_below_min`, `clear_spacing_below_vibrator`,
+  the §24.3.2 centre spacing), `section_geometry` and `detailing_geometry` now lay the
+  layer nearest each face out at that distance from the legs, so a layout the design or
+  the check accepts is one the cage can hold: a 20x40 with a Ø10 stirrup and 3Ø16 on
+  top, which the check passed at 41 mm while the cage refused it, now reads 37.5 mm on
+  both and is accepted. In a sweep of 3200 single-stirrup sections the check and the
+  cage disagreed on 358 and now agree on all; of 360 designs, those ending on a
+  single-stirrup cage the detailing refuses fell from 102 to 6, all of them for the
+  support of compression bars.
+  **The effective depth is not moved.** The checks keep the corner bar `d_b/2` from the
+  branch, a few millimetres closer to the face than it is built (3.5 mm in the example;
+  up to about 7.6 mm for a Ø12 in a Ø16 stirrup), on the unsafe side and well under 1 %
+  of `d` in usual beams; this leaves the flexure engine as it was. `detailing_geometry`
+  draws the corner bars seated -- and the layer behind them, which hangs from them, the
+  same distance deeper in -- so it no longer keeps every calculated vertical coordinate.
+  What the cage can still refuse on its own is outside the width rule: crossties for
+  compression bars, inner stirrup corners, or mounting bars on an empty face too narrow
+  for the vibrator. Very narrow webs fit fewer bars than before -- a 12 cm web with
+  25 mm cover fits no pair of bars beside a Ø10 stirrup -- and a heavier stirrup
+  alternative is dropped when its bends leave the longitudinal bars no room. Reported
+  clear spacings and the corner positions of the calculation geometry change
+  accordingly.
 - **Skin reinforcement follows mento's criterion, the same under every code.** Every
   beam 60 cm (24 in.) deep or more gets skin on both side faces, spread over the whole
   height between the bottom and top layers -- so the same bars serve span and support of a

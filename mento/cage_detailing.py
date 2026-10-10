@@ -1,8 +1,11 @@
 """A supported cage, without crediting mounting steel in the resistance.
 
 The calculation geometry stays available as ``section_geometry``. Detailing
-keeps its stirrup legs and the resistant bars' counts, sizes and vertical
-coordinates. Only their horizontal positions change. A separate collection
+keeps its stirrup legs and the resistant bars' counts and sizes. Their
+horizontal positions change, and the bars at the corners of a closed stirrup
+seat in its bend (``section_geometry.seated_corner``), a few millimetres
+deeper in than the calculation places them; the layer behind follows them.
+The other bars keep their calculated depth. A separate collection
 records any supplementary mounting bars, including a missing upper face.
 
 A cage that cannot accommodate its bars is rejected, rather than drawn with
@@ -21,11 +24,17 @@ from __future__ import annotations
 import math
 from time import perf_counter
 from dataclasses import replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence
 
 from mento.codes.registry import design_code
 from mento.design_results import DesignNotRunError
-from mento.section_geometry import BarPosition, SectionGeometry, build_section_geometry
+from mento.section_geometry import (
+    BarPosition,
+    SectionGeometry,
+    build_section_geometry,
+    corner_setback,
+    seated_corner,
+)
 from mento.units import Quantity
 
 if TYPE_CHECKING:
@@ -46,14 +55,15 @@ def _mm(value: Quantity) -> float:
 
 def _supported_layer(
     row: tuple[BarPosition, ...],
-    corners: list[tuple[float, int, float]],
+    corners: Sequence[tuple[float, ...]],
     mounting: BarPosition,
     clear: float,
     max_gap: float,
     d_st: float,
     bend_radius: float,
     compression_required: bool = False,
-) -> tuple[list[BarPosition], list[BarPosition]]:
+    inner_y: float | None = None,
+) -> tuple[list[BarPosition], list[BarPosition], float]:
     """Place an ordered row at the cage corners, spreading spare bars between them.
 
     With enough resistant bars, a small dynamic program chooses which ones
@@ -61,15 +71,36 @@ def _supported_layer(
     its minimum clear distances and maximum centre distance. With fewer bars,
     mounting bars fill the remaining corners. A lone resistant bar stays at
     mid-width, between the mounting bars.
+
+    A corner of a closed stirrup (``seated``) holds its bar seated in the
+    bend (:func:`~mento.section_geometry.seated_corner`), a little further
+    in than the depth the checks place the row at; a crosstie holds it
+    against the horizontal branch. The third value returned is how far the
+    deepest seated bar sank, for the layer behind to follow. ``inner_y`` is
+    the inner face of the horizontal branch, in mm: every bar's depth is set
+    from it, so a cage built again from this one puts the bars back in the
+    same place.
     """
     n, count = len(row), len(corners)
     diameters = {id(bar): _mm(bar.d_b) for bar in (*row, mounting)}
     row_x = {id(bar): _mm(bar.x) for bar in row}
 
+    def inset(corner: int, bar: BarPosition) -> float:
+        """From the inner face of the leg to the centre of the bar at ``corner``."""
+        corner_radius = corners[corner][2]
+        seated = len(corners[corner]) > 3 and corners[corner][3]
+        d_b = diameters[id(bar)]
+        bend = 2 * corner_radius - d_st
+        if seated:
+            # Seated in the bend: the rule the rebar search and the checks
+            # lay the row out with (section_geometry.end_setback).
+            return seated_corner(bend, d_b)
+        # A crosstie: tangent to the horizontal branch and clear of the hook.
+        return d_b / 2 + corner_setback(bend, d_b, d_b / 2)
+
     def x_at(corner: int, bar: BarPosition) -> float:
-        leg, side, corner_radius = corners[corner]
-        # Tangent to the horizontal branch and clear of its rounded bend.
-        return leg + side * max(corner_radius, (d_st + diameters[id(bar)]) / 2)
+        leg, side = corners[corner][:2]
+        return leg + side * (d_st / 2 + inset(corner, bar))
 
     def steps(items: list[BarPosition]) -> list[float]:
         return [(diameters[id(a)] + diameters[id(b)]) / 2 + clear for a, b in zip(items, items[1:])]
@@ -136,11 +167,15 @@ def _supported_layer(
     # An ordered chain with a fixed bar at every corner.
     chain: list[tuple[BarPosition, bool]] = []
     fixed: list[tuple[int, float]] = []
+    # How far each corner bar sinks below the depth of the row, into its bend.
+    sinks: dict[int, float] = {}
     for corner in range(count):
         row_index = assigned.get(corner)
         bar = mounting if row_index is None else row[row_index]
         chain.append((bar, row_index is None))
         fixed.append((len(chain) - 1, x_at(corner, bar)))
+        if len(corners[corner]) > 3 and corners[corner][3]:
+            sinks[len(chain) - 1] = inset(corner, bar) - diameters[id(bar)] / 2
         if corner + 1 < count and n >= count:
             assert row_index is not None
             chain.extend((item, False) for item in row[row_index + 1 : assigned[corner + 1]])
@@ -175,10 +210,15 @@ def _supported_layer(
 
     resistant: list[BarPosition] = []
     supplementary: list[BarPosition] = []
+    unit = _geometry_unit(mounting.x)
     for index, (bar, added) in enumerate(chain):
-        positioned = replace(bar, x=positions[index] * _geometry_unit(mounting.x))
+        inward = 1 if bar.face == "bottom" else -1
+        y = bar.y
+        if inner_y is not None:
+            y = (inner_y + inward * (diameters[id(bar)] / 2 + sinks.get(index, 0.0))) * unit
+        positioned = replace(bar, x=positions[index] * unit, y=y)
         (supplementary if added else resistant).append(positioned)
-    return resistant, supplementary
+    return resistant, supplementary, max(sinks.values(), default=0.0)
 
 
 def _geometry_unit(length: Quantity) -> Quantity:
@@ -323,7 +363,7 @@ def _build_candidate(beam: RectangularBeam, geometry: SectionGeometry, *, includ
             raise CageDetailingError("The stirrup is too narrow for its required bends.", reason="bend")
     corners = sorted(
         [
-            (x, side, bend_radius)
+            (x, side, bend_radius, True)
             for stirrup in geometry.stirrups
             for x, side in ((_mm(stirrup.x_left), 1), (_mm(stirrup.x_right), -1))
         ]
@@ -334,6 +374,7 @@ def _build_candidate(beam: RectangularBeam, geometry: SectionGeometry, *, includ
                 if tie.bend_inner_diameter is not None
                 else (1 if _mm(tie.x) <= _mm(geometry.width) / 2 else -1),
                 0.0 if tie.bend_inner_diameter is None else (_mm(tie.bend_inner_diameter) + d_st) / 2,
+                False,
             )
             for tie in geometry.crossties
         ]
@@ -372,7 +413,15 @@ def _build_candidate(beam: RectangularBeam, geometry: SectionGeometry, *, includ
         ) in beam._compression_faces and beam.concrete.design_code in ("ACI 318-19", "CIRSOC 201-25")
         if any(t.alternate_hooks and t.bend_inner_diameter is None for t in geometry.crossties):
             compressed = False  # Tamaño de traba no modelado: conservar propuesta, verificación pendiente.
-        resistant, added = _supported_layer(row, corners, mounting, clear, packing_cap, d_st, bend_radius, compressed)
+        face_y = _mm(geometry.c_c + geometry.stirrup_d_b)
+        inner_y = face_y if face == "bottom" else _mm(geometry.height) - face_y
+        inward = 1 if face == "bottom" else -1
+        # How far the row already sat in its bends: a cage built again from
+        # this one moves the layer behind only by what is left.
+        seated = max((inward * (_mm(bar.y) - inner_y) - _mm(bar.d_b) / 2 for bar in row), default=0.0)
+        resistant, added, sink = _supported_layer(
+            row, corners, mounting, clear, packing_cap, d_st, bend_radius, compressed, inner_y
+        )
         spacing = (
             _mm(geometry.width)
             if len(resistant) == 1
@@ -390,6 +439,11 @@ def _build_candidate(beam: RectangularBeam, geometry: SectionGeometry, *, includ
         if crosses and len(second) <= len(resistant):
             indices = [round(i * (len(resistant) - 1) / max(1, len(second) - 1)) for i in range(len(second))]
             second = tuple(replace(bar, x=resistant[index].x) for bar, index in zip(second, indices))
+        # The layer behind hangs from the corner bars, so it sinks with them
+        # and keeps the clear distance between layers.
+        if abs(sink - max(seated, 0.0)) > 1e-9:
+            shift: Quantity = inward * (sink - max(seated, 0.0)) * _geometry_unit(mounting.x)
+            second = tuple(replace(bar, y=bar.y + shift) for bar in second)
         bars.extend(second)
         mounting_bars.extend(added)
 

@@ -34,9 +34,9 @@ Bottom max moment    Mu,bot        120  kNm
 Check                     Unit     Value  Min.      Max.  Ok?
 -----------------------  ------  -------  ------  ------  -----
 Min/Max As rebar top      cm²       5.15  3.06     22.51  ✅
-Minimum spacing top        mm         45  30              ✅
+Minimum spacing top        mm      42.66  30              ✅
 Min/Max As rebar bottom   cm²       8.29  3.05     19.47  ✅
-Minimum spacing bottom     mm         39  25              ✅ 
+Minimum spacing bottom     mm      37.24  25              ✅ 
 
 Top reinforcement check                    Variable       Value  Unit
 ----------------------------------------  ----------  ---------  ------
@@ -154,9 +154,9 @@ Bottom max moment | Mu,bot | 120.0 | kNm
 Limit checks
 Check | Unit | Value | Min. | Max. | Ok?
 Min/Max As rebar top | cm² | 5.15 | 3.06 | 22.51 | ✅
-Minimum spacing top | mm | 45.0 | 30.0 |  | ✅
+Minimum spacing top | mm | 42.66 | 30.0 |  | ✅
 Min/Max As rebar bottom | cm² | 8.29 | 3.05 | 19.47 | ✅
-Minimum spacing bottom | mm | 39.0 | 25.0 |  | ✅
+Minimum spacing bottom | mm | 37.24 | 25.0 |  | ✅
 Flexural Capacity Top
 Top reinforcement check | Variable | Value | Unit
 First layer bars | n1+n2 | 2Ø16+1Ø12 | 

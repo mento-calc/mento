@@ -25,7 +25,12 @@ Each position is the check's own model, and a test ties each one to it:
 - **Bars**: each layer spread evenly between the inner faces of the outer
   legs, one clear distance apart -- the clear spacing the check reads
   (``_layer_clear_spacing``) -- with the first bar's face at ``c_c + d_st``
-  and the last at ``b - c_c - d_st``; a layer of one bar at mid-width. The
+  and the last at ``b - c_c - d_st``, each moved off that face by
+  :func:`end_setback`: the end bars of the layer nearest the face sit where
+  a bar seated in the stirrup's bend sits (:func:`seated_corner`), those of
+  a layer behind it clear of the bend at their depth. The rebar search and
+  ``detailing_geometry`` place the corner bars by the same rule. The depth
+  is not moved: see :func:`seated_corner`. A layer of one bar at mid-width. The
   groups of a layer (``n1``/``n2``, ``n3``/``n4``) alternate symmetrically:
   the ``n1`` bars at the ends, the ``n2`` bars in between. Layer 1 sits at
   ``c_c + d_st + d/2`` from its face, layer 2 at
@@ -48,6 +53,7 @@ on the way out, in the display unit of the section (cm, or in).
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple
 
@@ -345,12 +351,119 @@ def _group_order(n_a: int, n_b: int) -> List[int]:
     return [2] * n_b
 
 
-def _layer_x(width: float, inner: float, n_a: int, d_a: float, n_b: int, d_b: float) -> List[Tuple[int, float, float]]:
+def stirrup_bend_inner_diameter(beam: RectangularBeam) -> Tuple[Optional[Quantity], bool]:
+    """The inside diameter the stirrup corners are bent to, and whether a code rule supplied it.
+
+    ``(None, False)`` for a slab strip, which has no cage. Otherwise the code's
+    mandrel hook for the stirrup the section reserves; with no hook, or a
+    stirrup beyond its table, the non-normative ``4·d_st`` placeholder and
+    ``False`` -- the value :class:`SectionGeometry` publishes and flags.
+    """
+    if transverse_layout(beam) == GRID:
+        return None, False
+    d_st: Quantity = beam._stirrup_d_b
+    hook = design_code(beam.concrete).stirrup_bend_inner_diameter
+    if hook is None:
+        return 4 * d_st, False
+    try:
+        return hook(beam.concrete, d_st), True
+    except ValueError:
+        return 4 * d_st, False
+
+
+def corner_setback(bend_inner: float, d_bar: float, depth: float) -> float:
+    """How much further from the side branch the stirrup's bend pushes a bar, in the unit given.
+
+    A bar whose centre sits ``depth`` from the inner face of the horizontal
+    branch, and whose edge would touch the inner face of the vertical branch,
+    is clear of a straight corner. A bent corner of inside diameter
+    ``bend_inner`` fills that corner with its arc: the bar must move inward
+    until it clears it. The result is that extra distance, zero for a bar
+    thicker than the bend or sitting above it.
+
+    For a bar of the layer nearest the face (``depth = d_bar/2``) it would be
+    ``(bend_inner - d_bar)/2``, the end of the bend. That layer is laid out
+    seated in the bend instead (:func:`seated_corner`, :func:`end_setback`);
+    this rule is the one of a layer behind it, which keeps its depth.
+    """
+    radius, r = bend_inner / 2, d_bar / 2
+    if radius <= r or depth >= radius:
+        return 0.0
+    reach = max((radius - r) ** 2 - (radius - depth) ** 2, 0.0)
+    return max(radius - math.sqrt(reach) - r, 0.0)
+
+
+def seated_corner(bend_inner: float, d_bar: float) -> float:
+    """Distance from each inner face of a closed stirrup to a corner bar seated in its bend.
+
+    The bar rests on the arc of the bend, on its 45° bisector: its centre
+    ``bend_inner/2 - (bend_inner/2 - d_bar/2)/√2`` from both the side and the
+    horizontal branch. A bar at least as thick as the bend rests on both
+    straight branches, ``d_bar/2`` from each. A Ø16 in a Ø10 stirrup bent on
+    40 mm: 20 - 12/√2 = 11.5 mm.
+
+    This is where ``beam.detailing_geometry`` puts the bars at the corners of
+    its closed stirrups, and the width the rebar search and the checks lay a
+    layer out in. The effective depth is not moved: the checks keep the bar
+    at ``d_bar/2`` from the branch, so the corner bars of the calculation sit
+    ``seated_corner - d_bar/2`` closer to the face than built -- 3.5 mm in
+    that example, on the unsafe side and small. That is the convention of a
+    calculation by hand, and it leaves the flexure engine alone.
+    """
+    radius, r = bend_inner / 2, d_bar / 2
+    if radius <= r:
+        return r
+    return radius - (radius - r) / math.sqrt(2)
+
+
+def end_setback(bend_inner: float, d_bar: float, offset: float = 0.0) -> float:
+    """How much further from the inner face of the leg an end bar of a layer sits, in the unit given.
+
+    ``offset`` is how far behind the inner face of the horizontal branch the
+    layer starts: zero for the layer nearest the face, whose end bars are
+    seated in the bend (:func:`seated_corner`); a layer behind it keeps its
+    depth and clears the bend there (:func:`corner_setback`).
+    """
+    if offset <= 0:
+        return seated_corner(bend_inner, d_bar) - d_bar / 2
+    return corner_setback(bend_inner, d_bar, offset + d_bar / 2)
+
+
+def layer_end_setbacks(
+    bend_inner: Optional[float], n_a: int, d_a: float, n_b: int, d_b: float, offset: float = 0.0
+) -> Tuple[float, float]:
+    """:func:`end_setback` of the left and right end bars of one layer.
+
+    ``offset`` is how far behind the inner face of the horizontal branch the
+    layer starts: zero for the layer nearest the face, ``max(d_b1, d_b2) +
+    layers_spacing`` for the one behind it. The end bars are the ones
+    :func:`_group_order` puts there. A layer of fewer than two bars sits at
+    mid-width and has no corner bar; nor has a section with no bend.
+    """
+    if bend_inner is None or n_a + n_b < 2:
+        return 0.0, 0.0
+    # A beam's counts are whole, though a caller may write them as floats (2.0).
+    order = _group_order(int(n_a), int(n_b))
+    ends = [d_a if group == 1 else d_b for group in (order[0], order[-1])]
+    left, right = (end_setback(bend_inner, d, offset) for d in ends)
+    return left, right
+
+
+def _layer_x(
+    width: float,
+    inner: float,
+    n_a: int,
+    d_a: float,
+    n_b: int,
+    d_b: float,
+    setbacks: Tuple[float, float] = (0.0, 0.0),
+) -> List[Tuple[int, float, float]]:
     """``(group, x, d)`` of every bar of one layer, in the check's clear-spacing model.
 
-    ``inner`` is ``c_c + d_st``, where the first bar's face sits. A group with
-    bars but no diameter keeps its slots in the spread, as the clear spacing
-    counts them, and yields no bar.
+    ``inner`` is ``c_c + d_st``, the inner face of the side branches;
+    ``setbacks`` move the end bars off it, clear of the stirrup's bends
+    (:func:`layer_end_setbacks`). A group with bars but no diameter keeps its
+    slots in the spread, as the clear spacing counts them, and yields no bar.
     """
     total = n_a + n_b
     if total == 0:
@@ -358,9 +471,10 @@ def _layer_x(width: float, inner: float, n_a: int, d_a: float, n_b: int, d_b: fl
     if total == 1:
         group, d = (1, d_a) if n_a == 1 else (2, d_b)
         return [(group, width / 2, d)]
-    gap = (width - 2 * inner - n_a * d_a - n_b * d_b) / (total - 1)
+    left, right = setbacks
+    gap = (width - 2 * inner - left - right - n_a * d_a - n_b * d_b) / (total - 1)
     bars = []
-    x = inner
+    x = inner + left
     for group in _group_order(n_a, n_b):
         d = d_a if group == 1 else d_b
         bars.append((group, x + d / 2, d))
@@ -384,23 +498,19 @@ def build_section_geometry(beam: RectangularBeam) -> SectionGeometry:
     b, h, c_c, d_st = sec.width, sec.height, sec.c_c, sec.stirrup_d_b
     y_bottom, y_top = c_c + d_st / 2, h - c_c - d_st / 2
 
+    # Calculation geometry remains available outside the supported bend table
+    # (the 4·d_st placeholder); the detailing builder rejects those diameters.
+    code_bend, bend_supported = stirrup_bend_inner_diameter(beam)
+    bend = q(4 * d_st) if code_bend is None else code_bend.to(display)
+
     leg_x: List[float] = []
     bars: List[BarPosition] = []
     if layout != GRID:
         if sec.stirrup_n > 0:
             leg_x = [c_c + d_st / 2 + i * sec.stirrup_s_w for i in range(int(2 * sec.stirrup_n))]
-        bars = _beam_bars(beam, b, h, c_c + d_st, canonical, q)
+        bars = _beam_bars(beam, b, h, c_c + d_st, float(bend.to(canonical).magnitude), canonical, q)
 
     closed, ties = _cage(leg_x, y_bottom, y_top)
-    bend_hook = design_code(beam.concrete).stirrup_bend_inner_diameter
-    bend_supported = layout != GRID and bend_hook is not None
-    try:
-        bend = q(4 * d_st) if layout == GRID or bend_hook is None else bend_hook(beam.concrete, q(d_st))
-    except ValueError:
-        # Calculation geometry remains available outside the supported bend table.
-        # The detailing builder independently rejects unsupported diameters.
-        bend = q(4 * d_st)
-        bend_supported = False
     return SectionGeometry(
         width=q(b),
         height=q(h),
@@ -420,7 +530,9 @@ def build_section_geometry(beam: RectangularBeam) -> SectionGeometry:
     )
 
 
-def _beam_bars(beam: RectangularBeam, b: float, h: float, inner: float, canonical: Any, q: Any) -> List[BarPosition]:
+def _beam_bars(
+    beam: RectangularBeam, b: float, h: float, inner: float, bend: float, canonical: Any, q: Any
+) -> List[BarPosition]:
     """Every bar of a beam, bottom then top, layer 1 then layer 2, left to right."""
 
     def diameter(value: Any) -> float:
@@ -435,7 +547,8 @@ def _beam_bars(beam: RectangularBeam, b: float, h: float, inner: float, canonica
         # bar of layer 1 and the spacing between layers.
         offsets = (inner, inner + max(d[0], d[1]) + layers_spacing)
         for layer, (a, c) in ((1, (0, 1)), (2, (2, 3))):
-            for group, x, d_bar in _layer_x(b, inner, n[a], d[a], n[c], d[c]):
+            setbacks = layer_end_setbacks(bend, n[a], d[a], n[c], d[c], offsets[layer - 1] - inner)
+            for group, x, d_bar in _layer_x(b, inner, n[a], d[a], n[c], d[c], setbacks):
                 if d_bar <= 0:
                     continue
                 y = offsets[layer - 1] + d_bar / 2

@@ -172,15 +172,16 @@ def test_an_alternative_short_of_the_moment_on_the_finished_beam_is_dropped() ->
     a = 392.7*420/(0.85*25*200) = 38.8 mm, phi*Mn = 0.9*392.7*420*(546 -
     19.4) = 78.2 kNm, 80/78.2 = 1.023. With the default design_options = 3
     it never reaches the list; asking for four, PR #164 offered it as
-    options[3] (after 2Ø12 + 2Ø12 and 2Ø16 + 1Ø12), and it is dropped now for
-    the next row that passes, 2Ø16 + 1Ø16.
+    options[3], and it is dropped now for the next row that passes, 2Ø16 +
+    1Ø16. (With the corner bars seated in the stirrup bends, 2Ø16 + 1Ø12
+    ranks ahead of 2Ø12 + 2Ø12.)
     """
     beam = _designed([Forces(label="ELU", M_y=80 * kNm)], BeamSettings(design_options=4))
     options = beam.flexure_design.bottom.options
 
     assert str(options[0]) == "2Ø16 mm"
     assert "2Ø10 mm + 1Ø10 mm + 2Ø10 mm" not in [str(o) for o in options]
-    assert [str(o) for o in options] == ["2Ø16 mm", "2Ø12 mm + 2Ø12 mm", "2Ø16 mm + 1Ø12 mm", "2Ø16 mm + 1Ø16 mm"]
+    assert [str(o) for o in options] == ["2Ø16 mm", "2Ø16 mm + 1Ø12 mm", "2Ø12 mm + 2Ø12 mm", "2Ø16 mm + 1Ø16 mm"]
     assert all(o.section_DCR is not None and o.section_DCR <= 1.0 for o in options)
 
     beam.set_longitudinal_rebar_bot(n1=2, d_b1=10 * mm, n2=1, d_b2=10 * mm, n3=2, d_b3=10 * mm)
@@ -189,20 +190,22 @@ def test_an_alternative_short_of_the_moment_on_the_finished_beam_is_dropped() ->
 
 
 def test_a_compression_face_alternative_that_fails_the_other_face_is_dropped() -> None:
-    """EN 20x60 C25 B500S, M_Ed = +400 kNm, V_Ed = 250 kN: doubly reinforced.
+    """EN 22x60 C25 B500S, M_Ed = +400 kNm, V_Ed = 250 kN: doubly reinforced.
 
-    Bottom 2Ø25 + 2Ø25, top 2Ø25 + 1Ø20 (12.96 cm², d' = 46.9 mm), bottom
-    DCR 0.996 at M_Rd 401.5 kNm. The search ranked 2Ø32 for the top by area
-    alone (16.09 cm², more steel), but its centroid sits at d' = 51 mm, the
-    compression steel reaches less stress at the ductility limit and the
-    couple gives less: M_Rd 399.6 kNm, bottom DCR 1.001. An alternative of
-    the top face that fails the bottom is not an alternative.
+    Bottom 2Ø25 + 2Ø25, top 2Ø25 (9.82 cm², d' = 25 + 10 + 12.5 = 47.5 mm),
+    bottom DCR 0.999 at M_Rd 400.4 kNm. The search ranked 2Ø16 + 1Ø16 + 2Ø16
+    for the top by area alone (10.05 cm², more steel), but its second layer
+    puts the centroid at d' = (3*43 + 2*84)/5 = 59.4 mm, the compression
+    steel reaches less stress at the ductility limit and the couple gives
+    less: M_Rd 395.4 kNm, bottom DCR 1.012. An alternative of the top face
+    that fails the bottom is not an alternative. (The 20 cm web this test
+    used before the bends were laid out is now designed another way.)
     """
     beam = RectangularBeam(
         label="V",
         concrete=Concrete_EN_1992_2004(name="C25", f_c=25 * MPa),
         steel_bar=SteelBar(name="B500S", f_y=500 * MPa),
-        width=20 * cm,
+        width=22 * cm,
         height=60 * cm,
         c_c=25 * mm,
     )
@@ -210,36 +213,38 @@ def test_a_compression_face_alternative_that_fails_the_other_face_is_dropped() -
     Node(section=beam, forces=forces).design()
     top = beam.flexure_design.top.options
 
-    assert str(top[0]) == "2Ø25 mm + 1Ø20 mm"
-    assert "2Ø32 mm" not in [str(o) for o in top]
+    assert str(top[0]) == "2Ø25 mm"
+    assert "2Ø16 mm + 1Ø16 mm + 2Ø16 mm" not in [str(o) for o in top]
     assert all(o.section_DCR is not None and o.section_DCR <= 1.0 for o in top)
 
-    beam.set_longitudinal_rebar_top(n1=2, d_b1=32 * mm)
+    beam.set_longitudinal_rebar_top(n1=2, d_b1=16 * mm, n2=1, d_b2=16 * mm, n3=2, d_b3=16 * mm)
     Node(section=beam, forces=forces).check()
-    assert beam.flexure_design.bottom.DCR == pytest.approx(1.001, abs=0.0005)
+    assert beam.flexure_design.bottom.DCR == pytest.approx(1.012, abs=0.0005)
 
 
 def test_a_longitudinal_alternative_past_the_shear_limit_of_its_section_is_dropped() -> None:
-    """ACI 12x25 H25 ADN 420, c_c 25 mm, Mu = 8 kNm, Vu = 78 kN: 2Ø10, 1eØ10/5.
+    """ACI 15x25 H25 ADN 420, c_c 25 mm, Mu = 8 kNm, Vu = 97.5 kN: 2Ø10, 1eØ10/5.
 
     The bars set the depth the shear is read at too: d = min(d_bot, d_top).
     With 2Ø10 in one layer d = 250 - 25 - 10 - 5 = 210 mm and the limit of
-    §22.5.1.2 is phi*(0.17 + 0.66)*sqrt(25)*120*d = 0.75*0.83*600*210 =
-    78.44 kN: shear DCR 0.994. The search also ranked 2Ø10 + 2Ø10 in two
+    §22.5.1.2 is phi*(0.17 + 0.66)*sqrt(25)*150*d = 0.75*0.83*750*210 =
+    98.05 kN: shear DCR 0.994. The search also ranked 2Ø10 + 2Ø10 in two
     layers, whose centroid sits (2*5 + 2*40)/4 = 22.5 mm in: d = 192.5 mm,
-    limit 71.90 kN, DCR 1.085 and ``shear_exceeds_section_limit``, and the
+    limit 89.88 kN, DCR 1.085 and ``shear_exceeds_section_limit``, and the
     50 mm spacing past d/4 = 48.1 mm. It was offered at DCR 0.404, its
-    flexure alone. 2Ø12, d = 209 mm and limit 78.06 kN, still carries it.
+    flexure alone. 2Ø12, d = 209 mm and limit 97.58 kN, still carries it.
+    (The 12 cm web this test used before the bends were laid out fits no
+    pair of bars beside a Ø10.)
     """
     beam = RectangularBeam(
         label="V",
         concrete=Concrete_ACI_318_19(name="H25", f_c=25 * MPa),
         steel_bar=SteelBar(name="ADN 420", f_y=420 * MPa),
-        width=12 * cm,
+        width=15 * cm,
         height=25 * cm,
         c_c=25 * mm,
     )
-    forces = [Forces(label="ELU", M_y=8 * kNm, V_z=78 * kN)]
+    forces = [Forces(label="ELU", M_y=8 * kNm, V_z=97.5 * kN)]
     Node(section=beam, forces=forces).design()
     options = beam.flexure_design.bottom.options
 
@@ -375,12 +380,14 @@ def test_the_first_stirrup_option_is_the_one_applied() -> None:
 def test_the_alternatives_are_the_other_bars_each_at_its_own_spacing() -> None:
     """Where s_max governs, every diameter lands on the same spacing: the options are the bars.
 
-    20x60 H25, Vu 250 kN: d/2 = 27.9 cm is far off, and the threshold of Table
-    9.7.6.2.2 is crossed (Vs,req = (250 - 71.3)/0.75 = 238 kN > 184 kN), so
-    s_max,l = d/4 = 13.97 cm -> 13 cm for every bar. All three carry the
-    section: the worst ratio is the flexure's, 0.93 on 2Ø20 + 1Ø16.
+    20x60 H25, Mu 120 kNm, Vu 250 kN: d/2 = 27.9 cm is far off, and the
+    threshold of Table 9.7.6.2.2 is crossed (Vs,req = (250 - 71.3)/0.75 =
+    238 kN > 184 kN), so s_max,l = d/4 = 13.97 cm -> 13 cm for every bar.
+    All three carry the section: the worst ratio is the flexure's, on 2Ø20.
+    (Under the 150 kNm of ``HIGH_SHEAR`` the 2Ø20 + 1Ø16 leave no room for
+    the 64 mm bends of a Ø16 stirrup, so it is not offered.)
     """
-    options = _designed(HIGH_SHEAR).shear_design.options
+    options = _designed([Forces(label="1.2D+1.6L", V_z=250 * kN, M_y=120 * kNm)]).shear_design.options
     diameters = [option.d_b.to("mm").magnitude for option in options]
 
     assert diameters == [10, 12, 16]
@@ -389,9 +396,9 @@ def test_the_alternatives_are_the_other_bars_each_at_its_own_spacing() -> None:
     assert {option.n_stirrups for option in options} == {1}
     # The functional says what each heavier bar costs in steel, over the demand
     # read at that bar's own depth: 2 mm deeper per size, so a little more.
-    assert [round(option.functional, 2) for option in options] == [0.18, 0.69, 1.98]
+    assert [round(option.functional, 2) for option in options] == [0.18, 0.69, 1.97]
     assert all(option.section_DCR is not None and option.section_DCR <= 1.0 for option in options)
-    assert [round(option.section_DCR, 2) for option in options] == [0.93, 0.93, 0.94]  # type: ignore[arg-type]
+    assert [round(option.section_DCR, 3) for option in options] == [0.964, 0.968, 0.975]  # type: ignore[arg-type]
 
 
 def test_an_alternative_past_the_shear_limit_of_its_own_section_is_dropped() -> None:
