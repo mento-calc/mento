@@ -243,7 +243,25 @@ def build_cage_detailing(beam: RectangularBeam, *, include_skin: bool = True) ->
         raise result
     if not include_skin:
         return result
-    return _complete_skin_detail(beam, result)
+    # La piel depende además de su requisito (propuesto, manual o de servicio):
+    # una sola pasada por estado, en vez de una por lectura.
+    from mento.skin_reinforcement import skin_requirement
+
+    try:
+        skin: object = skin_requirement(beam)
+    except CageDetailingError as error:
+        skin = error
+    skin_key = repr((key, skin))
+    stored: tuple[str, SectionGeometry | CageDetailingError] | None = getattr(beam, "_skin_detail_cache", None)
+    if stored is None or stored[0] != skin_key:
+        try:
+            stored = (skin_key, _complete_skin_detail(beam, result))
+        except CageDetailingError as error:
+            stored = (skin_key, error)
+        setattr(beam, "_skin_detail_cache", stored)
+    if isinstance(stored[1], CageDetailingError):
+        raise stored[1]
+    return stored[1]
 
 
 def _complete_skin_detail(beam: RectangularBeam, geometry: SectionGeometry) -> SectionGeometry:

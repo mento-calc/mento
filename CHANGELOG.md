@@ -397,6 +397,15 @@ from the release history and are summaries rather than complete lists.
   detailing notes of the report and from the catalog. The §25.3.5 alternation stays where a
   program reads it: `alternate_hooks` of each crosstie in `detailing_geometry`.
 
+### Performance
+
+- **The skin pass of `detailing_geometry` runs once per state.** The cage search was
+  already kept per state, but `beam.warnings`, `verification_status`,
+  `skin_verification_status` and `plot()` each placed and checked the found cage again to
+  add the skin bars. On a 150 cm beam with 22 bars a face, a second read of
+  `verification_status` went from 0.85 s to 0.2 s; the first is unchanged. A change in
+  the skin requirement (manual skin, service cases) runs it again.
+
 ### Migration notes — jaula mixta
 
 - `n_stirrups` en resultados es un equivalente de dos ramas: puede ser 3,5 para
