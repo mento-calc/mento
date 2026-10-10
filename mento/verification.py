@@ -72,8 +72,6 @@ def validate_supported_forces(beam: RectangularBeam, forces: Sequence[Forces]) -
 
 WARNING_CATEGORY: dict[str, str] = {
     "transverse_legs_added_for_compression_support": "pending",
-    "open_leg_anchorage_outside_model": "informative",
-    "crosstie_alternation_required": "informative",
     "compression_detailing_en_pending": "pending",
     "cage_detailing_pending": "pending",
     "compression_detailing_failed": "failed",
@@ -89,7 +87,6 @@ WARNING_CATEGORY: dict[str, str] = {
     "cage_detailing_infeasible": "failed",
     "skin_distribution_review": "informative",
     "skin_en_required": "informative",
-    "skin_en_service_assumed": "informative",
     "skin_en_axial_unsupported": "pending",
     "skin_en_surface_pending": "pending",
     "As_below_min": "resistance",

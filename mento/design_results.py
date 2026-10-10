@@ -549,6 +549,26 @@ STIRRUPS = "stirrups"
 GRID = "grid"
 
 
+def _cage_pieces(n_legs: int, language: Optional[str], compact: bool = False) -> str:
+    """The legs of a beam's cage as the pieces that give them: one closed stirrup and the legs beyond it.
+
+    A closed stirrup is two legs, so two legs read ``1 stirrup`` and four
+    ``1 stirrup + 2 legs`` -- the cage of :func:`cage_legs`, one perimeter
+    stirrup and the rest as single legs, which is also how an odd count is
+    written: ``1 stirrup + 1 leg`` for three. ``compact`` is the form for a
+    narrow column, ``1s`` and ``1s+2l`` (``1e`` and ``1e+2r`` in Spanish).
+    The legs the shear check counts are the two of the stirrup plus the rest.
+    """
+    inner = n_legs - 2
+    if compact:
+        return translate("1s", language) if inner == 0 else translate("1s+{n}l", language, n=inner)
+    if inner == 0:
+        return translate("1 stirrup", language)
+    if inner == 1:
+        return translate("1 stirrup + 1 leg", language)
+    return translate("1 stirrup + {n} legs", language, n=inner)
+
+
 def format_transverse_rebar(
     layout: str,
     n_stirrups: float,
@@ -564,13 +584,15 @@ def format_transverse_rebar(
 ) -> str:
     """Label the transverse reinforcement in the notation of its element.
 
-    A beam is a cage of closed stirrups, and what the shear check counts is
-    its legs, so the legs lead, then the bar and the spacing along the
-    length, then the spacing of the legs across the width -- which is what
-    ``s_max_w`` limits, and is printed after it when given:
-    ``10 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)``. With
+    A beam is a cage, and what the shear check counts is its legs, so the
+    pieces that give them lead -- one closed stirrup, which is two legs, and
+    the legs beyond it (:func:`_cage_pieces`) -- then the bar and the spacing
+    along the length, then the spacing of the legs across the width -- which
+    is what ``s_max_w`` limits, and is printed after it when given:
+    ``1 stirrup + 8 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)``
+    for ten legs, ``1 stirrup Ø10 mm @ 22 cm`` and the same tail for two. With
     ``s_w`` None the label stops at the spacing along the length,
-    ``10 legs Ø12 mm @ 14 cm``. ``n_legs`` defaults to two per stirrup. A slab strip has no cage -- the same bar sits
+    ``1 stirrup + 8 legs Ø12 mm @ 14 cm``. ``n_legs`` defaults to two per stirrup. A slab strip has no cage -- the same bar sits
     on a grid -- so what identifies it is the diameter once and a spacing each
     way, longitudinal first: ``Ø10/15cm×20cm``. The diameter is not repeated:
     both directions are the same bar.
@@ -594,9 +616,13 @@ def format_transverse_rebar(
     if not math.isfinite(raw_legs) or raw_legs != int(raw_legs) or raw_legs < 2:
         raise ValueError("The transverse count must represent an integer number of legs >= 2.")
     legs = int(raw_legs)
-    text = translate("{n_legs} legs Ø{d_b} @ {s_l}", language, n_legs=legs, d_b=d_b.removeprefix("Ø"), s_l=s_l).replace(
-        "Ø#", "#"
-    )
+    text = translate(
+        "{pieces} Ø{d_b} @ {s_l}",
+        language,
+        pieces=_cage_pieces(legs, language),
+        d_b=d_b.removeprefix("Ø"),
+        s_l=s_l,
+    ).replace("Ø#", "#")
     if s_w is None:
         return text
     text += separator + translate("{s_w} between legs", language, s_w=s_w)
@@ -633,15 +659,16 @@ def transverse_notation(
 
     ``compact`` is the form for a narrow column: bare numbers, the bar in mm
     and the spacing in cm -- ASTM sizes and inches when ``imperial`` is True -- and neither
-    the spacing across the width nor its maximum: ``10 legs Ø12/14`` on a
-    beam, ``Ø10/8×16`` on a slab strip. The numbers carry no unit, so the
+    the spacing across the width nor its maximum: ``1s+8lØ12/14`` on a beam
+    of ten legs and ``1sØ10/22`` on one of two (``1e+8rØ12/14`` and
+    ``1eØ10/22`` in Spanish), ``Ø10/8×16`` on a slab strip. The numbers carry no unit, so the
     caller says which system they are in: pass the section's
     (``beam.concrete.is_imperial``), or the system of the table they sit in.
     With ``imperial`` left as ``None`` the compact form follows the unit of
     ``s_l``: ASTM sizes and inches when it is in inches or feet, mm and cm otherwise.
 
     ``legs_spacing=False`` leaves out the spacing of the legs across the width
-    of a beam, and its maximum: ``10 legs Ø12 mm @ 14 cm``.
+    of a beam, and its maximum: ``1 stirrup + 8 legs Ø12 mm @ 14 cm``.
 
     ``language`` is the catalog the words come from, the current one with
     ``None``; an explicit code without a catalog raises ``ValueError``, as
@@ -658,17 +685,9 @@ def transverse_notation(
         s_shown = f"{s_l.to(s_unit).magnitude:.4g}"
         if layout == GRID:
             return f"{d_shown if imperial else f'Ø{d_shown}'}{spacing_separator(imperial)}{s_shown}×{s_w.to(s_unit).magnitude:.4g}"
-        return (
-            translate(
-                "{n_legs} legs Ø{d_b}/{s_l}",
-                language,
-                n_legs=int(2 * n_stirrups),
-                d_b=d_shown.removeprefix("Ø"),
-                s_l=s_shown,
-            )
-            .replace("Ø#", "#")
-            .replace("/", "@" if imperial else "/")
-        )
+        pieces = _cage_pieces(int(2 * n_stirrups), language, compact=True)
+        bar = d_shown if d_shown.startswith(("#", "Ø")) else f"Ø{d_shown}"
+        return f"{pieces}{bar}{'@' if imperial else '/'}{s_shown}"
     if layout == GRID:
         # The grid is written as it always was, each spacing in its own unit.
         s_w_shown = f"{s_w:.4g~P}"
@@ -772,8 +791,8 @@ class TransverseReinforcement:
     ) -> str:
         """The stirrups in the notation of the element, in ``language`` (the current one by default).
 
-        What the section carries: the legs, the bar and the spacing along the
-        length, ``2 legs Ø10 mm @ 22 cm``. The spacing of the legs across the
+        What the section carries: the stirrup and the legs beyond it, the bar
+        and the spacing along the length, ``1 stirrup Ø10 mm @ 22 cm``. The spacing of the legs across the
         width is a result of the check, which :meth:`ShearDesign.notation`
         prints with its maximum; it is :attr:`s_w` here.
         See :func:`transverse_notation` for ``separator``, ``compact`` and ``imperial``.

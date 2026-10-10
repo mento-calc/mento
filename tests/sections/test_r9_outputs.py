@@ -24,10 +24,10 @@ def test_added_legs_are_pending_and_visible(language):
         assert verification_table(b)["Status"][1] in ("Pendiente", "Pending")
         # The drawing labels the legs the check counts; the proposal is a warning, not a line of it.
         fig = b.plot()
-        # The steel-ratio line under the section shares the gid; the notation is the one led by the legs.
+        # The steel-ratio line under the section shares the gid; the notation is the one led by a count.
         drawn = [t.get_text() for t in fig.axes[0].texts if t.get_gid() == "stirrup_text"]
         notation = [text for text in drawn if text[:1].isdigit()]
-        assert len(notation) == 1 and notation[0].startswith("3 ")
+        assert len(notation) == 1 and notation[0].startswith(("1 stirrup + 1 leg ", "1 estribo + 1 rama "))
         assert notation[0] == b.reinforcement.transverse.notation()
         assert not any("A_v" in t.get_text() for t in fig.axes[0].texts)
         plt.close(fig)
@@ -46,16 +46,17 @@ def test_added_legs_are_pending_and_visible(language):
         set_language("en")
 
 
-def test_open_leg_notice_is_informative_and_tables_do_not_count_closed_equivalents():
+def test_open_legs_carry_no_notice_and_tables_do_not_count_closed_equivalents():
+    """Hooks and anchorage are outside the sectional model for every cage, so open legs add no warning of their own."""
     b = beam(7)
-    assert any(w.code == "open_leg_anchorage_outside_model" for w in b.warnings)
+    assert any(t.extension is None for t in b.detailing_geometry.crossties), "the cage has open legs"
+    assert not any("open_leg" in w.code for w in b.warnings)
     assert b.verification_status["detailing"] == "passed"
     assert "ns" not in b._shear_reinforcement["Variable"]
-    assert not any(w.code == "open_leg_anchorage_outside_model" for w in beam(2).warnings)
 
 
 def test_public_formatter_preserves_integer_odd_legs():
-    assert format_transverse_rebar("stirrups", 3.5, "Ø10", "15", "12").startswith("7 legs")
+    assert format_transverse_rebar("stirrups", 3.5, "Ø10", "15", "12").startswith("1 stirrup + 5 legs Ø10")
     with pytest.raises(ValueError):
         format_transverse_rebar("stirrups", 3.2, "Ø10", "15", "12")
 

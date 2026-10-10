@@ -14,7 +14,6 @@ from mento import (
     Concrete_EN_1992_2004,
     Forces,
     RectangularBeam,
-    SkinServiceCase,
     SteelBar,
     set_language,
 )
@@ -44,9 +43,9 @@ def plot_quietly(b):
 
 
 def zones(r):
-    """The check zones as (face, lower mm, upper mm, combination), rounded to 1e-6 mm."""
+    """The check zones as (face, lower mm, upper mm), rounded to 1e-6 mm."""
     return [
-        (z.tension_face, round(z.lower.to("mm").magnitude, 6), round(z.upper.to("mm").magnitude, 6), z.combination)
+        (z.tension_face, round(z.lower.to("mm").magnitude, 6), round(z.upper.to("mm").magnitude, 6))
         for z in r.check_zones
     ]
 
@@ -102,7 +101,7 @@ def test_each_tension_half_and_reversal_envelope(moments, faces):
     assert r.n_per_side == 3
     assert r.d_b == 10 * mm
     expected = {"bottom": (48, 720), "top": (480, 1152)}
-    assert zones(r) == [(face, *expected[face], "") for face in faces]
+    assert zones(r) == [(face, *expected[face]) for face in faces]
     assert len(g.skin_bars) == 2 * r.n_per_side
     for side in ("left", "right"):
         ys = sorted(x.y.to("mm").magnitude for x in g.skin_bars if x.face == side)
@@ -286,7 +285,7 @@ def test_aci_ground_cover_can_have_a_feasible_uniform_skin_grid():
 
 
 def test_en_without_service_inputs_uses_mento_assumptions():
-    """No SkinServiceCase: x = 0.4 h and sigma_s = 0.6 f_yk are assumed, and said so in a warning.
+    """The service data is mento's: x = 0.4 h and sigma_s = 0.6 f_yk, with no notice of its own.
 
     Rows: skin_bar_spacing 280 mm, n = ceil(1104 / 280) - 1 = 3 at 324, 600, 876 mm. Zone 48..720 mm
     holds two; Eq. (7.1) gives 0.2 * 2.565 * 300 * 1200 / 2 / 420 / 2 = 109.9 mm², so Ø10.
@@ -300,14 +299,12 @@ def test_en_without_service_inputs_uses_mento_assumptions():
     assert r.pending_reason is None
     assert r.n_per_side == 3 and r.d_b == 10 * mm
     assert [y.to("mm").magnitude for y in r.rows] == pytest.approx([324, 600, 876])
-    assert zones(r) == [("bottom", 48, 720, "")]
+    assert zones(r) == [("bottom", 48, 720)]
     fct = 0.3 * 25 ** (2 / 3)
     assert r.area_min_per_side.to("mm**2").magnitude == pytest.approx(0.4 * 0.5 * fct * 300 * 1200 / 2 / 420 / 2)
     assert r.diameter_max.to("mm").magnitude == pytest.approx(32 * fct / 2.9 * 300 / (8 * 43))
     assert len(b.detailing_geometry.skin_bars) == 6
-    codes = [w.code for w in b.warnings]
-    assert "skin_en_service_assumed" in codes
-    assert "skin_en_service_pending" not in codes
+    assert not any("service" in w.code for w in b.warnings)
 
 
 def test_recheck_and_rebar_change_do_not_keep_old_tension_faces():
@@ -351,17 +348,10 @@ def test_cirsoc_skin_equation_is_si_with_imperial_length_inputs():
     assert b.skin_reinforcement.s_max.to("mm").magnitude == pytest.approx(380 - 2.5 * (38.1 + 8))
 
 
-def service_cases(b, axes=None, stress=400 * MPa):
-    axes = {"bottom": 240 * mm, "top": 240 * mm} if axes is None else axes
-    b.set_skin_service_cases([SkinServiceCase(f"SLS-{face}", face, stress, axis) for face, axis in axes.items()])
-
-
 def en_beam(height=1200 * mm, fy=500 * MPa):
-    b = beam(
+    return beam(
         height=height, concrete=Concrete_EN_1992_2004(name="C25", f_c=25 * MPa), steel=SteelBar(name="B500", f_y=fy)
     )
-    service_cases(b)
-    return b
 
 
 @pytest.mark.parametrize("height,required", [(999, False), (1000, True), (1001, True)])
@@ -418,12 +408,12 @@ def test_en_minimum_and_diameter_route_use_characteristic_strength_and_half_serv
     r = b.skin_reinforcement
     fct = 0.3 * 25 ** (2 / 3)
     assert r.area_min_per_side.to("mm**2").magnitude == pytest.approx(0.4 * 0.5 * fct * 300 * 1200 / 2 / 500 / 2)
-    # Main sigma=400 -> skin sigma=200 -> Table7.2N phi*=25mm.
+    # Main sigma = 0.6 * 500 = 300 -> skin sigma = 150 -> Table 7.2N phi* = 32 mm.
     # Conservative web-as-tie interpretation: 300mm width and actual skin
     # centroid 30+8+4 = 42mm from the side (the Ø8 chosen). Hand-evaluated
-    # Eq. (7.7N), not the bending-depth interpretation (34.55mm).
-    assert r.diameter_max.to("mm").magnitude == pytest.approx(25 * fct / 2.9 * 300 / (8 * 42))
-    assert r.diameter_max.to("mm").magnitude == pytest.approx(19.74264, abs=0.0001)
+    # Eq. (7.7N), not the bending-depth interpretation.
+    assert r.diameter_max.to("mm").magnitude == pytest.approx(32 * fct / 2.9 * 300 / (8 * 42))
+    assert r.diameter_max.to("mm").magnitude == pytest.approx(25.27058, abs=0.0001)
     assert r.d_b == 8 * mm
     assert r.n_per_side == 3
     assert r.area_per_side >= r.area_min_per_side
@@ -447,60 +437,42 @@ def test_en_sign_envelope_preserves_resistant_model(moments):
     assert len({round(bar.y.to("mm").magnitude, 8) for bar in g.skin_bars}) == r.n_per_side
 
 
-def test_en_reversal_disjoint_zones_each_receive_minimum_area():
-    """x = 800 mm both ways: zones 48..400 and 800..1152 mm hold one of the rows 324, 600, 876 each.
+def test_en_reversal_zones_each_receive_minimum_area():
+    """x = 0.4 * 1200 = 480 mm both ways: zones 48..720 and 480..1152 mm hold two of the rows 324, 600, 876 each.
 
-    One bar per zone has to give 92.3 mm²: Ø10 (78.5) does not, Ø12 (113.1) does.
+    Two bars per zone have to give 92.3 mm²: Ø8 (100.5) does.
     """
     b = en_beam()
-    service_cases(b, {"bottom": 800 * mm, "top": 800 * mm})
     b.check_flexure([Forces(M_y=100 * kNm), Forces(M_y=-80 * kNm)])
     r = b.skin_reinforcement
-    assert r.d_b == 12 * mm
-    assert zones(r) == [("bottom", 48, 400, "SLS-bottom"), ("top", 800, 1152, "SLS-top")]
+    assert r.d_b == 8 * mm
+    assert zones(r) == [("bottom", 48, 720), ("top", 480, 1152)]
     ys = [bar.y.to("mm").magnitude for bar in b.detailing_geometry.skin_bars if bar.face == "left"]
     assert ys == pytest.approx([324, 600, 876])
-    abar = math.pi * 12**2 / 4
-    for low, high in [(48, 400), (800, 1152)]:
+    abar = math.pi * 8**2 / 4
+    for low, high in [(48, 720), (480, 1152)]:
+        assert sum(low <= y <= high for y in ys) == 2
         assert sum(low <= y <= high for y in ys) * abar >= r.area_min_per_side.to("mm**2").magnitude
 
 
-@pytest.mark.parametrize(
-    "field,value",
-    [
-        ("skin_service_steel_stress", 400),
-        ("skin_service_steel_stress", 0 * MPa),
-        ("skin_service_steel_stress", 501 * MPa),
-        ("skin_service_steel_stress", float("nan") * MPa),
-        ("skin_service_neutral_axis", 0 * mm),
-        ("skin_service_neutral_axis", 1200 * mm),
-        ("skin_service_neutral_axis", 1190 * mm),
-        ("skin_crack_width", 0.25 * mm),
-    ],
-)
-def test_en_rejects_invalid_or_inconsistent_service_inputs(field, value):
+def test_en_rejects_a_crack_width_outside_table_7_2n():
     b = en_beam()
-    with pytest.raises(ValueError):
-        if field == "skin_service_steel_stress":
-            service_cases(b, stress=value)
-        elif field == "skin_service_neutral_axis":
-            service_cases(b, {"bottom": value, "top": value})
-        else:
-            setattr(b.settings, field, value)
-        b.check_flexure([Forces(M_y=100 * kNm)])
+    b.settings.skin_crack_width = 0.25 * mm
+    b.check_flexure([Forces(M_y=100 * kNm)])
+    with pytest.raises(ValueError, match="skin_crack_width must be 0.2, 0.3 or 0.4 mm"):
         _ = b.skin_reinforcement
 
 
-def test_en_rounds_service_stress_up_and_applies_crack_width_selection():
+@pytest.mark.parametrize("crack_width, phi_star", [(0.3, 25), (0.2, 16)])
+def test_en_rounds_service_stress_up_and_applies_crack_width_selection(crack_width, phi_star):
+    """f_yk = 600: sigma_s = 0.6 * 600 = 360, half 180, read in the 200 MPa row of Table 7.2N, not interpolated."""
     b = en_beam(fy=600 * MPa)
-    service_cases(b, stress=600 * MPa)  # skin300 -> conservative table320.
-    b.settings.skin_crack_width = 0.2 * mm
+    b.settings.skin_crack_width = crack_width * mm
     b.check_flexure([Forces(M_y=100 * kNm)])
-    with pytest.raises(CageDetailingError, match="diameter"):
-        _ = b.detailing_geometry
-    b.settings.skin_bar_diameter = 8 * mm
-    with pytest.raises(CageDetailingError, match="diameter"):
-        _ = b.detailing_geometry
+    r = b.skin_reinforcement
+    fct = 0.3 * 25 ** (2 / 3)
+    assert r.d_b == 8 * mm
+    assert r.diameter_max.to("mm").magnitude == pytest.approx(phi_star * fct / 2.9 * 300 / (8 * 42))
 
 
 def test_en_axial_envelope_is_explicitly_unsupported_and_can_be_rechecked():
@@ -528,58 +500,27 @@ def test_en_annex_j_cover_warning_is_independent_of_one_metre_threshold():
     assert "skin_en_required" not in codes
 
 
-def test_en_service_assumption_is_visible_and_bilingual():
+def test_en_service_assumption_raises_no_notice_and_is_not_written_on_the_drawing():
     b = en_beam()
-    b.set_skin_service_cases([])
     b.check_flexure([Forces(M_y=100 * kNm)])
-    set_language("es")
-    try:
-        codes = [w.code for w in b.warnings]
-        assert "skin_en_service_pending" not in codes
-        warning = next(w for w in b.warnings if w.code == "skin_en_service_assumed")
-        assert "supuestos de servicio" in warning.message
-        assert "SkinServiceCase" in warning.message
-        fig = plot_quietly(b)
-        assert not any("supuestos" in t.get_text() for t in fig.axes[0].texts)
-        # The skin is laid out and drawn with the assumptions: 3 rows per side.
-        assert sum(p.get_gid() == "skin_bar" for p in fig.axes[0].patches) == 6
-        plt.close(fig)
-    finally:
-        set_language("en")
+    assert not any("service" in w.code for w in b.warnings)
+    assert not hasattr(b, "set_skin_service_cases")
+    fig = plot_quietly(b)
+    assert not any("assum" in t.get_text() for t in fig.axes[0].texts)
+    # The skin is laid out and drawn with the assumptions: 3 rows per side.
+    assert sum(p.get_gid() == "skin_bar" for p in fig.axes[0].patches) == 6
+    plt.close(fig)
 
 
-@pytest.mark.parametrize(
-    "moments,axes,zone",
-    [
-        ([100], {"bottom": 240 * mm}, ("bottom", 48, 960, "SLS-bottom")),
-        ([-100], {"top": 320 * mm}, ("top", 320, 1152, "SLS-top")),
-    ],
-)
-def test_en_service_axes_can_differ_by_bending_sign(moments, axes, zone):
-    """The service axis sets the check zone (tension layer -> neutral axis); the rows span the height either way."""
+@pytest.mark.parametrize("moments,zone", [([100], ("bottom", 48, 720)), ([-100], ("top", 480, 1152))])
+def test_en_check_zone_follows_the_bending_sign(moments, zone):
+    """The zone runs from the tension layer to the assumed axis, x = 0.4 * 1200 = 480 mm from the compression face."""
     b = en_beam()
-    service_cases(b, axes)
     b.check_flexure([Forces(M_y=m * kNm) for m in moments])
     r = b.skin_reinforcement
     assert zones(r) == [zone]
     ys = [bar.y.to("mm").magnitude for bar in b.detailing_geometry.skin_bars if bar.face == "left"]
     assert ys == pytest.approx([324, 600, 876])
-
-
-def test_en_sign_without_a_service_case_takes_the_assumed_axis():
-    """Bottom has its case (x = 240 mm, zone 48..960); top has none and takes x = 0.4 * 1200 = 480 (zone 480..1152)."""
-    b = en_beam()
-    service_cases(b, {"bottom": 240 * mm})
-    b.check_flexure([Forces(M_y=100 * kNm), Forces(M_y=-80 * kNm)])
-    r = b.skin_reinforcement
-    assert r.status == "required"
-    assert r.pending_reason is None
-    assert zones(r) == [("bottom", 48, 960, "SLS-bottom"), ("top", 480, 1152, "")]
-    assert len(b.detailing_geometry.skin_bars) == 6
-    # The top face runs on the assumption, so the warning says so.
-    assert "skin_en_service_assumed" in [w.code for w in b.warnings]
-    service_cases(b, {"bottom": 240 * mm, "top": 320 * mm})
-    assert "skin_en_service_assumed" not in [w.code for w in b.warnings]
 
 
 def test_en_readonly_check_retains_axial_scope_without_mutating_section():
@@ -611,7 +552,6 @@ def test_en_annex_j_is_not_hidden_by_invalid_skin_inputs_and_keeps_the_cause():
     b.c_c = 80 * mm
     b.settings.skin_crack_width = 0.25 * mm
     b.check_flexure([Forces(M_y=100 * kNm)])
-    service_cases(b)
     warnings = {w.code: w for w in b.warnings}
     assert "skin_en_surface_pending" in warnings
     assert "skin_detailing_invalid" in warnings
@@ -823,30 +763,19 @@ def test_criterion_rows_span_the_whole_height(materials, width, height):
         assert drawn == pytest.approx(rows)
 
 
-def test_criterion_en_service_case_sets_the_zone_and_the_stress():
+def test_criterion_en_assumed_service_sets_the_zone_and_the_stress():
     """en_beam, 30x120, C25, B500, M = 100 kN·m: Eq. (7.1) 0.2 * 2.565 * 300 * 1200 / 2 / 500 / 2 = 92.3 mm².
 
-    Without a case: x = 0.4 * 1200 = 480, zone 48..720 holds rows 324 and 600, Ø8 (100.5 mm²) suffices;
+    x = 0.4 * 1200 = 480, zone 48..720 holds rows 324 and 600, Ø8 (100.5 mm²) suffices;
     sigma_s = 0.6 * 500 = 300, half 150 -> phi* = 32 mm, cap 32 * fct / 2.9 * 300 / (8 * 42).
-    With x = 800 mm and 450 MPa: zone 48..400 holds only row 324, Ø12 (113.1 mm²) is needed;
-    half of 450 = 225 -> phi* = 16 mm, cap 16 * fct / 2.9 * 300 / (8 * 44) = 12.06 mm.
     """
     fct = 0.3 * 25 ** (2 / 3)
     b = en_beam()
-    b.set_skin_service_cases([])
     b.check_flexure([Forces(M_y=100 * kNm)])
     r = b.skin_reinforcement
-    assert "skin_en_service_assumed" in [w.code for w in b.warnings]
-    assert zones(r) == [("bottom", 48, 720, "")]
+    assert zones(r) == [("bottom", 48, 720)]
     assert r.d_b == 8 * mm
     assert r.diameter_max.to("mm").magnitude == pytest.approx(32 * fct / 2.9 * 300 / (8 * 42))
-
-    b.set_skin_service_cases([SkinServiceCase("SLS", "bottom", 450 * MPa, 800 * mm)])
-    r = b.skin_reinforcement
-    assert "skin_en_service_assumed" not in [w.code for w in b.warnings]
-    assert zones(r) == [("bottom", 48, 400, "SLS")]
-    assert r.d_b == 12 * mm
-    assert r.diameter_max.to("mm").magnitude == pytest.approx(16 * fct / 2.9 * 300 / (8 * 44))
     assert [y.to("mm").magnitude for y in r.rows] == pytest.approx([324, 600, 876])
 
 

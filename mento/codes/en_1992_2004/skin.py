@@ -2,8 +2,8 @@
 
 The layout and the minimum area of Eq. (7.1) are mento's skin criterion
 (:mod:`mento.skin_reinforcement`); this module supplies what is EN's own: the
-1 m threshold and the diameter cap of Table 7.2N / Eq. (7.7N), with the
-service stress of a ``SkinServiceCase`` or, without one, mento's assumption.
+1 m threshold and the diameter cap of Table 7.2N / Eq. (7.7N), read with the
+service steel stress mento assumes, ``ASSUMED_SERVICE_STRESS`` of f_yk.
 Annex J surface mesh is a separate detail outside the links.
 """
 
@@ -18,6 +18,10 @@ from mento.units import MPa, Quantity, mm
 
 if TYPE_CHECKING:
     from mento.beam import RectangularBeam
+
+#: Service stress of the main tension steel over f_yk, as mento assumes it: a quasi-permanent
+#: stress of the order a beam designed at the ultimate limit state carries.
+ASSUMED_SERVICE_STRESS = 0.6
 
 
 def _length(value: object, name: str) -> float:
@@ -53,9 +57,6 @@ def warnings(beam: RectangularBeam, req: SkinReinforcementRequirement | None) ->
         result.append(_Raw("skin_en_axial_unsupported", {}))
     elif req.status == "required":
         result.append(_Raw("skin_en_required", {"area": req.area_min_per_side, "diameter": req.diameter_max}))
-        given = {case.tension_face for case in beam.skin_service_cases}
-        if any(face not in given for face in req.tension_faces):
-            result.append(_Raw("skin_en_service_assumed", {}))
     elif req.status == "unsupported":
         result.append(_Raw("skin_reinforcement_unsupported", {}))
     return result
@@ -69,11 +70,9 @@ def threshold(concrete: object) -> Quantity:
 def diameter_cap(beam: RectangularBeam, faces: tuple[str, ...], diameter: Quantity) -> Quantity:
     """The largest skin diameter, EN 1992-1-1 §7.3.3(2)-(3): Table 7.2N and Eq. (7.7N), in pure bending.
 
-    §7.3.3(3) reads Table 7.2N with half the main service steel stress. The
-    stresses of the ``SkinServiceCase`` objects for that face are used where given,
-    the highest governing;
-    otherwise mento assumes 0.6 f_yk, a quasi-permanent stress of the order a
-    beam designed at the ultimate limit state carries. Eq. (7.7N) is read in
+    §7.3.3(3) reads Table 7.2N with half the main service steel stress, which
+    mento assumes: 0.6 f_yk, a quasi-permanent stress of the order a beam
+    designed at the ultimate limit state carries. Eq. (7.7N) is read in
     two ways -- the bending depth h_cr = h/2 over the main tension layer, and
     the web as a tie across its width over the skin bar itself -- and the
     smaller governs: a Mento interpretation, not an extra expression of EN.
@@ -90,20 +89,12 @@ def diameter_cap(beam: RectangularBeam, faces: tuple[str, ...], diameter: Quanti
     wk = _length(settings.skin_crack_width, "skin_crack_width")
     skin_edge = float((beam.c_c + beam._stirrup_d_b).to(mm).magnitude) + float(diameter.to(mm).magnitude) / 2
     bars = beam.section_geometry.bars
+    try:
+        phi_star = tabulated_skin_diameter(ASSUMED_SERVICE_STRESS * fy, wk)
+    except ValueError as error:
+        raise CageDetailingError(f"Skin service stress: {error}") from error
     caps = []
     for face in faces:
-        stresses = [
-            (case.label, float(case.steel_stress.to(MPa).magnitude))
-            for case in beam.skin_service_cases
-            if case.tension_face == face
-        ] or [("", 0.6 * fy)]
-        for label, stress in stresses:
-            if stress > fy:
-                raise CageDetailingError(f"Skin service case {label!r}: steel stress exceeds f_yk.")
-        try:
-            phi_star = min(tabulated_skin_diameter(stress, wk) for _, stress in stresses)
-        except ValueError as error:
-            raise CageDetailingError(f"Skin service stress: {error}") from error
         outer = [bar for bar in bars if bar.face == face and bar.layer == 1]
         if not outer:
             raise CageDetailingError("EN skin reinforcement needs an outer tension layer.")

@@ -118,8 +118,8 @@ Shear
     shear.s_max_l_table     # 27.87 cm, Table 9.7.6.2.2 alone
     shear.s_max_l_support   # None: §9.7.6.4.3 caps it only on stirrups that brace compression bars
 
-    str(shear)              # '2 legs Ø10 mm @ 27 cm · 14 cm between legs (max 55.74 cm)'
-    shear.notation("es")    # '2 ramas Ø10 mm c/27 cm · 14 cm entre ramas (máx. 55.74 cm)'
+    str(shear)              # '1 stirrup Ø10 mm @ 27 cm · 14 cm between legs (max 55.74 cm)'
+    shear.notation("es")    # '1 estribo Ø10 mm c/27 cm · 14 cm entre ramas (máx. 55.74 cm)'
     shear.arrangement()     # 'single perimeter stirrup'
 
 Input accepts ``beam.set_transverse_rebar(n_legs=4, d_b=8*mm, s_l=20*cm)``.
@@ -127,21 +127,24 @@ The legacy ``n_stirrups=2`` has the same meaning. In ``BeamSummary`` the
 preferred column is ``legs`` (alias ``n_legs``, legacy ``ns``). Integer leg counts
 from 2 are supported, including odd counts; contradictory inputs raise an error.
 
-The notation leads with the legs, which is what the shear check counts: ``n_stirrups``
-is a two-leg equivalent: ``n_legs = 2·n_stirrups``, not the count of closed pieces. Then come the
+The notation leads with the pieces that give the legs the shear check counts: one closed
+stirrup, which is two of them, and the legs beyond it. Two legs read ``1 stirrup``, three
+``1 stirrup + 1 leg`` and four ``1 stirrup + 2 legs Ø8 mm @ 20 cm``. ``n_stirrups`` is a
+two-leg equivalent, ``n_legs = 2·n_stirrups``, not the count of closed pieces. Then come the
 bar, the spacing along the member and the spacing of the legs across the width, with the
 maximum it is checked against. ``str()`` is always English; ``notation(language)`` gives it
 in another language (the one of :func:`mento.set_language` by default), and
-``notation(compact=True)`` the short form of a table cell, ``2 legs Ø10/27``.
-``arrangement()`` says how the legs are tied into a cage: ``perimeter stirrup + 4 inner
-stirrups`` for ten legs -- one stirrup around the whole section and inner stirrups on the
-2nd and 3rd legs, the 4th and 5th... The configuration, ``beam.reinforcement.transverse``,
+``notation(compact=True)`` the short form of a table cell: ``1sØ10/27`` here, ``1s+2lØ8/20``
+for four legs (``1eØ10/27`` and ``1e+2rØ8/20`` in Spanish).
+``arrangement()`` says the same cage in words: ``perimeter stirrup + 8 open legs`` for ten
+legs -- one stirrup around the whole section and the legs between its two as single
+pieces. The configuration, ``beam.reinforcement.transverse``,
 reads the same without the maximum: it has not been checked.
 
 An explicit ``language`` must be one of :func:`mento.available_languages`; anything else
 raises ``ValueError``, as :func:`mento.set_language` does. The compact form prints bare
 numbers, the bar in mm and the spacing in cm; ``notation(compact=True, imperial=True)``
-prints ASTM bar sizes and spacings in inches (``2 legs #3@6``). Left unsaid, it follows
+prints ASTM bar sizes and spacings in inches (``1s#3@6``). Left unsaid, it follows
 the unit of ``s_l``. The "Av" cell of ``BeamSummary.check()`` follows the concrete
 unit system, like the "As" cells beside it: mm/cm in SI, ASTM/in in US customary.
 
@@ -337,8 +340,8 @@ ranked it by.
 The stirrup alternatives are one layout per other bar diameter the code offers, lighter and
 heavier alike, in order of diameter: each is the widest spacing with the fewest legs that
 covers the demand read at the depth that bar gives the section. Where the spacing limit
-governs they share one spacing (a 20×40 under 100 kN and 30 kN·m: ``2 legs Ø10/17``,
-``2 legs Ø12/17``, ``2 legs Ø16/17``); where the demand
+governs they share one spacing (a 20×40 under 100 kN and 30 kN·m: ``1sØ10/17``,
+``1sØ12/17``, ``1sØ16/17``); where the demand
 governs, a lighter bar sits closer and a heavier one further apart. Every alternative is
 built on the finished section and checked there -- shear and flexure, since a heavier
 stirrup lowers the effective depth -- and only the ones the section passes with are kept, so
@@ -416,8 +419,8 @@ Skin-steel requirements and geometry
 ----------------------------------------
 
 ``beam.skin_reinforcement`` is a ``SkinReinforcementRequirement``. Its status
-is ``required``, ``pending`` a flexure verification, a tension case or EN service inputs, ``not_required`` under
-the supported clause, ``unsupported`` by the code implementation, or
+is ``required`` where the code asks for skin, ``proposed`` where mento's criterion adds it,
+``pending`` a flexure verification or a tension case, ``not_required`` below 60 cm, ``unsupported`` by the code implementation, or
 ``not_applicable`` to the element. Unsupported never means exempt.
 It supplies the diameter preference, clear side cover, spacing limit, uniform
 proposed spacing, tension faces and number per lateral face. The proposal is
@@ -463,7 +466,8 @@ interpretation is resolved. Second-row support remains pending. Plain open legs 
 brace compression bars. Generated crossties model the mandrel and tangent
 tails of Table 25.3.2; both ends engage peripheral bars. Both 135°/90° orders
 are checked for fit and collisions. The §25.3.5 alternation of 90° ends along
-the member is an explicit execution requirement, not a longitudinal check.
+the member is an execution requirement, carried by ``alternate_hooks`` of each
+crosstie: it raises no warning and is not a longitudinal check.
 Hook angles supplied alone give no compression-support credit. Missing/unavailable cages cannot pass.
 
 Warnings and the plot identify failed or pending compression support. The

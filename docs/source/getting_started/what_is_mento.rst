@@ -40,7 +40,7 @@ Design a 20 × 50 cm beam for two load combinations:
 
 .. code-block:: text
 
-    bottom: 2Ø20 mm + 1Ø16 mm / top: no reinforcement / stirrups: 2 legs Ø10 mm @ 22 cm
+    bottom: 2Ø20 mm + 1Ø16 mm / top: no reinforcement / stirrups: 1 stirrup Ø10 mm @ 22 cm
 
 From there:
 

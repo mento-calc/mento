@@ -25,7 +25,7 @@ def test_manual_count_is_preserved_and_checked(position, count, moments, expecte
     b = beam()
     b.check([Forces(M_y=m * kNm, V_z=10 * kN) for m in moments])
     before = b.section_geometry.to_dict("mm"), b.reinforcement, b.flexure_checks, b.shear_checks
-    b.set_skin_rebar(db_piel=10 * mm, cant_piel_cara=count, posicion=position)
+    b.set_skin_rebar(d_b=10 * mm, n_per_side=count, position=position)
     req = b.skin_reinforcement
     assert req.manual and req.n_per_side == count and not req.failures
     assert [y.to(mm).magnitude for y in req.rows] == pytest.approx(expected)
@@ -43,7 +43,7 @@ def test_manual_defect_is_failed_without_redesign(position, count):
     b = beam()
     b.check([Forces(M_y=100 * kNm, V_z=10 * kN)])
     b.set_skin_rebar(10 * mm, count, position)
-    assert b.skin_rebar.cant_piel_cara == count
+    assert b.skin_rebar.n_per_side == count
     assert b.skin_verification_status == "failed"
     assert b.verification_status["detailing"] == "failed"
     assert any(w.code in ("skin_reinforcement_failed", "skin_detailing_infeasible") for w in b.warnings)
@@ -93,8 +93,8 @@ def test_manual_input_is_independent_and_can_be_cleared():
     b.set_skin_rebar(diameter, 3, "total")
     diameter.ito(inch)
     readback = b.skin_rebar
-    readback.db_piel.ito(inch)
-    assert b.skin_rebar.db_piel.units == (1 * mm).units
+    readback.d_b.ito(inch)
+    assert b.skin_rebar.d_b.units == (1 * mm).units
     assert b.settings.skin_bar_diameter == original_setting
     b.clear_skin_rebar()
     assert b.skin_rebar is None
@@ -124,19 +124,17 @@ def test_en_manual_without_service_inputs_is_checked_with_the_assumptions(count,
     1 Ø10 en 600 mm: 78.5 mm², no alcanza.
     """
     b = en_beam()
-    b.set_longitudinal_rebar_bot(n1=4, d_b1=20 * mm)  # Invalidar los datos SLS previos.
+    b.set_longitudinal_rebar_bot(n1=4, d_b1=20 * mm)
     b.check_flexure([Forces(M_y=100 * kNm)])
     b.set_skin_rebar(10 * mm, count, "total")
-    assert b.skin_service_cases == ()
     req = b.skin_reinforcement
     assert req.status == "required" and req.manual
     assert req.check_zones[0].upper.to(mm).magnitude == pytest.approx(720)
     assert b.skin_verification_status == expected
     if expected == "failed":
         assert any("area" in failure for failure in req.failures)
-    codes = [w.code for w in b.warnings]
-    assert "skin_en_service_assumed" in codes
-    assert "skin_en_service_pending" not in codes
+    # The service data is mento's assumption (x = 0.4 h, the 720 mm above): it raises no notice of its own.
+    assert not any("service" in w.code for w in b.warnings)
 
 
 def test_en_manual_zone_must_cover_the_required_tension_face():
@@ -186,12 +184,12 @@ def test_manual_failure_reason_is_localized():
         set_language("en")
 
 
-SKIN_UNITS = {**BEAM_UNITS, "db_piel": "mm", "cant_piel_cara": "", "posicion": ""}
+SKIN_UNITS = {**BEAM_UNITS, "db_skin": "mm", "n_skin": "", "pos_skin": ""}
 
 
 def manual_tables(**skin):
     """A CIRSOC 30x120 beam with Ø10 manual skin, two per side at the bottom: the two tables of BeamSummary."""
-    row = {"Label": "Manual", "n1_bot": 4, "db1_bot": 20, "db_piel": 10, "cant_piel_cara": 2, "posicion": "bottom"}
+    row = {"Label": "Manual", "n1_bot": 4, "db1_bot": 20, "db_skin": 10, "n_skin": 2, "pos_skin": "bottom"}
     sections = beams([{**row, **skin}], units=SKIN_UNITS, b=30, h=120, cc=30, legs=2, dbs=8, sl=20)
     return sections, forces([{"Label": "Manual", "Comb.": "C1", "Vz": 10, "My": 100}])
 
@@ -200,7 +198,7 @@ def test_summary_excel_keeps_manual_skin_input(tmp_path):
     materials = beam()
     summary = BeamSummary(materials.concrete, materials.steel_bar, *manual_tables())
     b = summary.nodes[0].section
-    assert b.skin_rebar.cant_piel_cara == 2 and b.skin_rebar.posicion == "bottom"
+    assert b.skin_rebar.n_per_side == 2 and b.skin_rebar.position == "bottom"
     path = tmp_path / "manual_skin.xlsx"
     summary.to_excel(path)
     assert list(pd.read_excel(path, sheet_name="Sections").iloc[1][list(SKIN_COLUMNS)]) == [10, 2, "bottom"]
@@ -208,9 +206,7 @@ def test_summary_excel_keeps_manual_skin_input(tmp_path):
     assert summary.nodes[0].section.skin_rebar == b.skin_rebar
 
 
-@pytest.mark.parametrize(
-    "column,value", [("cant_piel_cara", 2.5), ("cant_piel_cara", True), ("db_piel", "oops"), ("posicion", "left")]
-)
+@pytest.mark.parametrize("column,value", [("n_skin", 2.5), ("n_skin", True), ("db_skin", "oops"), ("pos_skin", "left")])
 def test_summary_rejects_manual_typos(column, value):
     materials = beam()
     with pytest.raises(ValueError):
@@ -219,21 +215,19 @@ def test_summary_rejects_manual_typos(column, value):
 
 def test_summary_blank_skin_cells_keep_auto_and_a_position_needs_its_diameter():
     materials = beam()
-    summary = BeamSummary(
-        materials.concrete, materials.steel_bar, *manual_tables(db_piel=0, cant_piel_cara=0, posicion="")
-    )
+    summary = BeamSummary(materials.concrete, materials.steel_bar, *manual_tables(db_skin=0, n_skin=0, pos_skin=""))
     assert summary.nodes[0].section.skin_rebar is None
     # No section uses manual skin, and the table gave the columns: they are written back, empty.
     assert list(summary.sections_table.iloc[1][list(SKIN_COLUMNS)]) == [0, 0, ""]
-    with pytest.raises(ValueError, match="db_piel"):
-        BeamSummary(materials.concrete, materials.steel_bar, *manual_tables(db_piel=0))
+    with pytest.raises(ValueError, match="db_skin"):
+        BeamSummary(materials.concrete, materials.steel_bar, *manual_tables(db_skin=0))
 
 
 def test_summary_word_reports_insufficient_manual_skin(monkeypatch):
     from mento.results import DocumentBuilder
 
     materials = beam()
-    summary = BeamSummary(materials.concrete, materials.steel_bar, *manual_tables(cant_piel_cara=1))
+    summary = BeamSummary(materials.concrete, materials.steel_bar, *manual_tables(n_skin=1))
     summary.check()
     documents = []
     monkeypatch.setattr(DocumentBuilder, "save", lambda self, *_: documents.append(self.doc))
@@ -251,7 +245,7 @@ def test_mixed_manual_and_automatic_skin_roundtrip(tmp_path):
     materials = beam()
     sections, rows = manual_tables()
     auto = sections.iloc[1].copy()
-    auto["Label"], auto["db_piel"], auto["cant_piel_cara"], auto["posicion"] = "Auto", 0, 0, ""
+    auto["Label"], auto["db_skin"], auto["n_skin"], auto["pos_skin"] = "Auto", 0, 0, ""
     sections = pd.concat([sections, pd.DataFrame([auto])], ignore_index=True)
     rows = pd.concat([rows, rows.iloc[[1]].assign(Label="Auto")], ignore_index=True)
     summary = BeamSummary(materials.concrete, materials.steel_bar, sections, rows)
@@ -269,19 +263,19 @@ def test_mixed_manual_and_automatic_skin_roundtrip(tmp_path):
 
 @pytest.mark.parametrize("raw, normalized", [("Bottom", "bottom"), (" total", "total")])
 def test_summary_normalizes_manual_skin_position(raw, normalized):
-    sections, rows = manual_tables(posicion=raw, db_piel=1)
-    sections.loc[0, "db_piel"] = "cm"
+    sections, rows = manual_tables(pos_skin=raw, db_skin=1)
+    sections.loc[0, "db_skin"] = "cm"
     materials = beam()
     result = BeamSummary(materials.concrete, materials.steel_bar, sections, rows)
-    assert result.nodes[0].section.skin_rebar.posicion == normalized
-    assert result.nodes[0].section.skin_rebar.db_piel.to("mm").magnitude == 10
+    assert result.nodes[0].section.skin_rebar.position == normalized
+    assert result.nodes[0].section.skin_rebar.d_b.to("mm").magnitude == 10
 
 
 def test_summary_names_the_beam_of_a_skin_the_beam_rejects():
     """A skin below the minimum longitudinal diameter: the beam's error, with the section that gave it."""
     materials = beam()
     with pytest.raises(ValueError, match="Beam 'Manual': invalid manual skin") as raised:
-        BeamSummary(materials.concrete, materials.steel_bar, *manual_tables(db_piel=4))
+        BeamSummary(materials.concrete, materials.steel_bar, *manual_tables(db_skin=4))
     assert isinstance(raised.value.__cause__, ValueError)
 
 

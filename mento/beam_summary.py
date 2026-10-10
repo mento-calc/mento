@@ -59,22 +59,23 @@ BEAM_SPEC = TableSpec(
         length("sl", "cm", "in"),
         *_face_columns("top"),
         *_face_columns("bot"),
-        length("db_piel", "mm", "in"),
-        count("cant_piel_cara"),
-        text("posicion"),
+        length("db_skin", "mm", "in"),
+        count("n_skin"),
+        text("pos_skin"),
         text("Notes"),
     ),
     forces=forces_columns(),
 )
 
-#: The manual skin of a section, all three or none (see RectangularBeam.set_skin_rebar).
-SKIN_COLUMNS = ("db_piel", "cant_piel_cara", "posicion")
+#: The manual skin of a section, all three or none (see RectangularBeam.set_skin_rebar):
+#: the bar, how many per side face, and where over the height (top, bottom or total).
+SKIN_COLUMNS = ("db_skin", "n_skin", "pos_skin")
 
 
 def _stirrups_label(beam: RectangularBeam) -> str:
-    """The stirrups of a beam as the summary writes them: the compact notation, legs first.
+    """The stirrups of a beam as the summary writes them: the compact notation.
 
-    ``2 legs Ø6/20`` (``2 ramas Ø6/20`` in Spanish), in the language of
+    ``1sØ6/20`` (``1eØ6/20`` in Spanish), in the language of
     :func:`mento.set_language`; ``-`` for a beam without stirrups.
     """
     if beam._stirrup_n == 0:
@@ -168,16 +169,16 @@ class BeamSummary(_FlexuralSummary):
             raise _incomplete(key, "legs", " and ".join(n for n, ok in (("dbs", has_dbs), ("sl", has_sl)) if not ok))
         if legs == 0 and (has_dbs or has_sl):
             raise _incomplete(key, " and ".join(n for n, ok in (("dbs", has_dbs), ("sl", has_sl)) if ok), "legs")
-        position = str(row.get("posicion", "") or "").strip().lower()
-        if position or row.get("cant_piel_cara", 0) or _given(row.get("db_piel")):
+        position = str(row.get("pos_skin", "") or "").strip().lower()
+        if position or row.get("n_skin", 0) or _given(row.get("db_skin")):
             # Manual skin: the three columns together; blank and zero keep the automatic skin.
             if position not in ("top", "bottom", "total"):
                 raise ValueError(
-                    f"Beam {key_text(key)!r}: posicion is {row.get('posicion')!r}; manual skin needs "
-                    "posicion top, bottom or total, with db_piel and cant_piel_cara."
+                    f"Beam {key_text(key)!r}: pos_skin is {row.get('pos_skin')!r}; manual skin needs "
+                    "pos_skin top, bottom or total, with db_skin and n_skin."
                 )
-            if not _given(row.get("db_piel")):
-                raise _incomplete(key, "posicion", "db_piel")
+            if not _given(row.get("db_skin")):
+                raise _incomplete(key, "pos_skin", "db_skin")
         for face in FACES:
             placed = {}
             for group in GROUPS:
@@ -211,10 +212,10 @@ class BeamSummary(_FlexuralSummary):
                 n = int(row.get(f"n{group}_{face}", 0))
                 values += [n, row[f"db{group}_{face}"] if n > 0 else zero]
             setter(*values)
-        position = str(row.get("posicion", "") or "").strip().lower()
+        position = str(row.get("pos_skin", "") or "").strip().lower()
         if position:
             try:
-                beam.set_skin_rebar(row["db_piel"], int(row.get("cant_piel_cara", 0)), position)  # type: ignore[arg-type]
+                beam.set_skin_rebar(row["db_skin"], int(row.get("n_skin", 0)), position)  # type: ignore[arg-type]
             except ValueError as error:
                 raise ValueError(f"Beam {key_text(key)!r}: invalid manual skin: {error}") from error
         return beam
@@ -234,9 +235,9 @@ class BeamSummary(_FlexuralSummary):
                 row[f"db{group}_{face}"] = d_b if bars > 0 else zero
         skin = section.skin_rebar
         if skin is not None:
-            row.update({"db_piel": skin.db_piel, "cant_piel_cara": skin.cant_piel_cara, "posicion": skin.posicion})
+            row.update({"db_skin": skin.d_b, "n_skin": skin.n_per_side, "pos_skin": skin.position})
         else:
-            row.update({"db_piel": zero, "cant_piel_cara": 0, "posicion": ""})
+            row.update({"db_skin": zero, "n_skin": 0, "pos_skin": ""})
         return row
 
     def _rebar_labels(self, section: RectangularBeam) -> Tuple[str, str, str]:

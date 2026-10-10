@@ -95,7 +95,7 @@ Three rules, and the design applies all of them for you:
   faces, so a design ends on **one module**: the top either at the bottom's spacing or at
   exactly twice it, so one top bar lands on every second bottom bar. Within that, mento
   picks the module and both diameters that give the least steel covering what each face
-  needs — e.g. ``Ø20 c/15`` abajo con ``Ø20 c/30`` arriba. A footing reinforced on one
+  needs — e.g. ``Ø20 c/15`` at the bottom with ``Ø20 c/30`` on top. A footing reinforced on one
   face only keeps its single grid.
 - **Ø10 minimum.** A footing mesh is not detailed with the thinnest bar in the
   catalogue, so the search does not reach below Ø10 to shave the lightly loaded face.

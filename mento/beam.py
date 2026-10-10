@@ -6,7 +6,6 @@ from typing import (
     Callable,
     Dict,
     FrozenSet,
-    Iterable,
     Iterator,
     Literal,
     NamedTuple,
@@ -18,7 +17,6 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
     from mento.skin_reinforcement import ManualSkinRebar, SkinReinforcementRequirement
-    from mento.skin_service import SkinServiceCase
 import math
 
 from mento.compression_detailing import CompressionDetailing
@@ -324,9 +322,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         self._c_d_bot: float = 0
         self._shear_checked = False  # Tracks if shear check or design has been done
         self._flexure_checked = False  # Tracks if shear check or design has been done
-        self._skin_service_cases: tuple[SkinServiceCase, ...] = ()
         self._manual_skin_rebar: Optional[ManualSkinRebar] = None
-        self._skin_service_reference: tuple[Any, ...] | None = None
         # Depth of design calls in progress: their own bar placements keep the results.
         self._designing = 0
         self._doubly_reinforced = False  # Tracks if doubly reinforced section is used
@@ -813,10 +809,6 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         (``bars_do_not_fit``). What reads the section as it is now -- the
         reinforcement, the bar spacing -- is not a result and stays.
         """
-        # SLS results are external to the design operation. Even a design's
-        # own bar placements invalidate the section they were assessed on.
-        self._skin_service_cases = ()
-        self._skin_service_reference = None
         if getattr(self, "_designing", 0):
             return
         self._flexure_checked = False
@@ -1980,45 +1972,48 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         return skin_requirement(self)
 
     def set_skin_rebar(
-        self, db_piel: Quantity, cant_piel_cara: int, posicion: Literal["top", "bottom", "total"] = "total"
+        self, d_b: Quantity, n_per_side: int, position: Literal["top", "bottom", "total"] = "total"
     ) -> None:
-        """Piel simétrica por lateral, con zona top, bottom o total.
+        """Give the skin bars by hand: ``n_per_side`` bars of ``d_b`` on each side face.
 
-        Respeta la cantidad ingresada. No modifica la resistencia ni los
-        resultados resistentes; los chequeos de piel se leen del estado actual.
+        ``position`` is where they go over the height: ``"total"`` between the
+        bottom and top layers, ``"bottom"`` or ``"top"`` in the half next to
+        that face. The count is kept as given and checked -- spacing, area, fit
+        in the cage -- with what it misses in :attr:`warnings`. Skin is never
+        credited to the resistance.
         """
         from mento.skin_reinforcement import ManualSkinRebar
         from copy import deepcopy
         from mento.design_results import GRID, transverse_layout
 
-        supplied = ManualSkinRebar(db_piel, cant_piel_cara, posicion)
+        supplied = ManualSkinRebar(d_b, n_per_side, position)
         if transverse_layout(self) == GRID:
             raise ValueError("Manual skin reinforcement is supported for beam cages, not grid sections.")
         assert self.settings is not None
-        if db_piel < self.settings.minimum_longitudinal_diameter:
-            raise ValueError("db_piel is below minimum_longitudinal_diameter.")
+        if d_b < self.settings.minimum_longitudinal_diameter:
+            raise ValueError("d_b is below minimum_longitudinal_diameter.")
         self._manual_skin_rebar = deepcopy(supplied)
 
     @property
     def skin_rebar(self) -> "ManualSkinRebar | None":
-        """Entrada manual defensiva; None significa diseño automático."""
+        """The skin bars given by hand, as a copy; ``None`` where mento lays them out."""
         from copy import deepcopy
 
         return deepcopy(self._manual_skin_rebar)
 
     def clear_skin_rebar(self) -> None:
-        """Volver a diseño automático con el diámetro de piel configurado."""
+        """Drop the skin given by hand: mento lays it out by its criterion again."""
         self._manual_skin_rebar = None
 
     @property
     def skin_verification_status(self) -> str:
-        """Estado seccional de la piel propuesta o ingresada, separado de resistencia."""
+        """Whether the skin, proposed or given by hand, passes its checks; apart from the resistance."""
         from mento.cage_detailing import CageDetailingError
 
         try:
             req = self.skin_reinforcement
         except CageDetailingError:
-            return "pending"  # El requisito no pudo evaluarse; no aprobarlo silenciosamente.
+            return "pending"  # The requirement could not be evaluated: not passed in silence.
         if req.status == "not_applicable":
             return "not_applicable"
         if req.failures:
@@ -2034,44 +2029,6 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         except CageDetailingError as error:
             return "failed" if error.reason == "skin" else "pending"
         return "passed"
-
-    def set_skin_service_cases(self, cases: Iterable["SkinServiceCase"]) -> None:
-        """Attach independent SLS cases to this section's current reinforcement.
-
-        Data is copied, not shared through BeamSettings. Set after design;
-        any subsequent reinforcement placement requires fresh service inputs.
-        """
-        from copy import deepcopy
-
-        from mento.skin_service import SkinServiceCase, service_reference
-
-        cases = tuple(cases)
-        keys = set()
-        for case in cases:
-            if not isinstance(case, SkinServiceCase):
-                raise ValueError("Every skin service case must be a SkinServiceCase.")
-            key = (case.label, case.tension_face)
-            if key in keys:
-                raise ValueError(f"Duplicate skin service case {case.label!r} for {case.tension_face} tension.")
-            keys.add(key)
-            if case.steel_stress > self.steel_bar.f_y or case.neutral_axis >= self.height:
-                raise ValueError(
-                    f"Skin service case {case.label!r}: stress exceeds f_yk or neutral axis is outside the section."
-                )
-        self._skin_service_cases = deepcopy(tuple(cases))
-        self._skin_service_reference = deepcopy(service_reference(self))
-
-    @property
-    def skin_service_cases(self) -> tuple["SkinServiceCase", ...]:
-        """Defensive copies of SLS cases; an altered section has none."""
-        from copy import deepcopy
-
-        from mento.skin_service import service_reference
-
-        if self._skin_service_reference != service_reference(self):
-            self._skin_service_cases = ()
-            self._skin_service_reference = None
-        return deepcopy(self._skin_service_cases)
 
     @property
     def flexure_design(self) -> FlexureDesign:

@@ -245,7 +245,7 @@ Beam V101, $b$=20.00 cm, $h$=50.00 cm, $c_{c}$=2.50 cm,                         
 Top longitudinal rebar: 2Ø16+1Ø12, $A_{s,top}$ = 5.15 cm², $M_u$ = -80.0 kNm, $\phi M_n$ = 84.13 kNm → $\color{#efc200}{\text{DCR}=0.95}$ 
 
 Bottom longitudinal rebar: 2Ø20+1Ø16, $A_{s,bot}$ = 8.29 cm², $M_u$ = 120.0 kNm, $\phi M_n$ = 129.95 kNm → $\color{#439b00}{\text{DCR}=0.92}$ 
-Shear reinforcing 2 legs Ø10 mm @ 22 cm · 14 cm between legs (max 45.55 cm), $A_v$=7.14 cm²/m, $V_u$=150.0 kN, $\phi V_n$=160.52 kN → $\color{#439b00}{\text{DCR}=0.93}$ 
+Shear reinforcing 1 stirrup Ø10 mm @ 22 cm · 14 cm between legs (max 45.55 cm), $A_v$=7.14 cm²/m, $V_u$=150.0 kN, $\phi V_n$=160.52 kN → $\color{#439b00}{\text{DCR}=0.93}$ 
 
 ### flexure_design
 2Ø16 mm
@@ -254,10 +254,10 @@ Shear reinforcing 2 legs Ø10 mm @ 22 cm · 14 cm between legs (max 45.55 cm), $
 1Ø16 mm
 
 ### shear_design
-2 legs Ø10 mm @ 22 cm · 14 cm between legs (max 45.55 cm)
+1 stirrup Ø10 mm @ 22 cm · 14 cm between legs (max 45.55 cm)
 
 ### reinforcement.transverse
-2 legs Ø10 mm @ 22 cm
+1 stirrup Ø10 mm @ 22 cm
 
 ### warnings
 
@@ -267,5 +267,5 @@ Shear reinforcing 2 legs Ø10 mm @ 22 cm · 14 cm between legs (max 45.55 cm), $
 50 cm
 2Ø20+1Ø16
 2Ø16+1Ø12
-2 ramas Ø10 mm c/22 cm
+1 estribo Ø10 mm c/22 cm
 Cuantía: 142 kg/m³
