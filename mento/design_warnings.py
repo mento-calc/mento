@@ -216,8 +216,6 @@ class _Raw:
 #: catalog in :mod:`mento.i18n`. ``{face}`` is filled with the translated face.
 _MESSAGES: Dict[str, str] = {
     "transverse_legs_added_for_compression_support": "Detailing proposes {placed_legs} legs instead of {input_legs}: {pieces}. Enter the proposed legs to confirm; A_v still uses {input_legs}.",
-    "open_leg_anchorage_outside_model": "Open-leg hooks and anchorage are outside this sectional model; verify them separately.",
-    "crosstie_alternation_required": "135°/90° crossties: alternate the 90° ends along the member; seismic detailing not verified.",
     "skin_detailing_pending": "Skin layout is not verified: the detailing geometry does not contain the specified skin bars.",
     "skin_reinforcement_failed": "The supplied skin reinforcement does not comply: {reason}",
     "cage_detailing_pending": "The base cage cannot yet be verified: {reason}",
@@ -226,8 +224,7 @@ _MESSAGES: Dict[str, str] = {
     "compression_detailing_pending": "Required compression-bar support is not fully verified (§9.7.6.4.4): {reason}.",
     "skin_reinforcement_required": (
         "Longitudinal skin reinforcement is required on both side faces (§9.7.2.3), "
-        "at spacing no greater than {s_max}. See detailing_geometry for the supplementary proposal; "
-        "it is excluded from resistance."
+        "at spacing no greater than {s_max}. It is supplementary steel, excluded from resistance."
     ),
     "skin_reinforcement_pending": "Skin reinforcement is pending: verify flexure to identify the tension face.",
     "skin_tension_case_pending": "Skin reinforcement is pending: the checked combinations identify no tension face. A zero-moment or capacity check does not establish an exemption.",
@@ -974,7 +971,6 @@ _COMPRESSION_REASONS = {
     "clear_distance_exceeded": "The clear distance on a side exceeds the permitted limit",
     "cirsoc_limit_interpretation": "The 15 d_be and 150 mm limits give different outcomes; interpretation pending",
     "second_row_support_not_modelled": "Second-row compression support requires a separate detail",
-    "crosstie_anchorage_not_verified": "Crosstie anchorage is not verified",
     "crosstie_hook_rule_not_modelled": "The crosstie hook size is outside the supported model",
     "first_row_missing": "The required first compression row is missing",
     "closed_stirrups_missing": "Required compression steel has no closed stirrups",
@@ -1002,8 +998,4 @@ def transverse_proposal_warnings(beam: "RectangularBeam") -> List[_Raw]:
                 {"input_legs": entered, "placed_legs": placed, "pieces": geometry.arrangement()},
             )
         )
-    if any(t.extension is not None and t.alternate_hooks for t in geometry.crossties):
-        result.append(_Raw("crosstie_alternation_required", {}))
-    if any(t.extension is None for t in geometry.crossties):
-        result.append(_Raw("open_leg_anchorage_outside_model", {}))
     return result

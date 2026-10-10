@@ -20,7 +20,8 @@ and register it in ``_CATALOGS``.
 
 Scope. Translated: the detailed reports and the summaries, the text of the
 section drawing (``beam.plot()``), the warning messages (``DesignWarning.message``,
-worded when ``warnings`` is read), and the stirrup notation and cage description
+worded when ``warnings`` is read, the reason one quotes from a detailing error
+included), and the stirrup notation and cage description
 when asked for through ``notation()`` / ``arrangement()`` of a transverse result,
 which follow the language of the moment unless given one. Not translated: the
 ``str()`` of the result objects of :mod:`mento.design_results` -- the reinforcement,
@@ -53,7 +54,6 @@ ES: Dict[str, str] = {
     "failed": "no cumple",
     "pending": "pendiente",
     "Detailing proposes {placed_legs} legs instead of {input_legs}: {pieces}. Enter the proposed legs to confirm; A_v still uses {input_legs}.": "El detallado propone {placed_legs} ramas en vez de {input_legs}: {pieces}. Ingrese las ramas propuestas para confirmar; A_v sigue usando {input_legs}.",
-    "Open-leg hooks and anchorage are outside this sectional model; verify them separately.": "Los ganchos y anclajes de patas abiertas quedan fuera de este modelo seccional; verifíquelos aparte.",
     # -- console section titles --------------------------------------------
     "===== BEAM FLEXURE DETAILED RESULTS =====": "===== RESULTADOS DETALLADOS DE FLEXIÓN DE VIGA =====",
     "===== BEAM SHEAR DETAILED RESULTS =====": "===== RESULTADOS DETALLADOS DE CORTE DE VIGA =====",
@@ -541,14 +541,19 @@ ES.update(
 
 # The stirrup notation and the description of the cage (mento.design_results),
 # asked for through ``notation()`` / ``arrangement()``. The wording is the one the notation was specified with:
-# legs first, "c/" for the spacing along the member. "Gancho suplementario" is
-# the CIRSOC 201 name of the ACI crosstie.
+# the closed stirrup and the legs beyond it first ("1e+2r" in a narrow column),
+# "c/" for the spacing along the member. "Gancho suplementario" is the CIRSOC
+# 201 name of the ACI crosstie.
 ES.update(
     {
-        "{n_legs} legs Ø{d_b} @ {s_l}": "{n_legs} ramas Ø{d_b} c/{s_l}",
+        "{pieces} Ø{d_b} @ {s_l}": "{pieces} Ø{d_b} c/{s_l}",
+        "1 stirrup": "1 estribo",
+        "1 stirrup + 1 leg": "1 estribo + 1 rama",
+        "1 stirrup + {n} legs": "1 estribo + {n} ramas",
+        "1s": "1e",
+        "1s+{n}l": "1e+{n}r",
         "{s_w} between legs": "{s_w} entre ramas",
         "(max {s_max_w})": "(máx. {s_max_w})",
-        "{n_legs} legs Ø{d_b}/{s_l}": "{n_legs} ramas Ø{d_b}/{s_l}",
         "no stirrups": "sin estribos",
         "single perimeter stirrup": "estribo perimetral",
         "perimeter stirrup": "estribo perimetral",
@@ -558,7 +563,6 @@ ES.update(
         "{n} open legs": "{n} patas abiertas",
         "1 crosstie": "1 gancho suplementario",
         "{n} crossties": "{n} ganchos suplementarios",
-        "135°/90° crossties: alternate the 90° ends along the member; seismic detailing not verified.": "Trabas 135°/90°: alternar los extremos de 90° a lo largo de la viga; detallado sísmico no verificado.",
         "The crosstie hook size is outside the supported model": "El tamaño del gancho de la traba está fuera del modelo admitido",
     }
 )
@@ -615,10 +619,10 @@ ES.update(
 ES.update(
     {
         "Longitudinal skin reinforcement is required on both side faces (§9.7.2.3), "
-        "at spacing no greater than {s_max}. See detailing_geometry for the supplementary proposal; "
-        "it is excluded from resistance.": "Se requiere armadura longitudinal de piel en ambos laterales (§9.7.2.3), "
-        "con separación no mayor que {s_max}. Ver la propuesta complementaria en detailing_geometry; "
-        "no se computa en la resistencia.",
+        "at spacing no greater than {s_max}. It is supplementary steel, excluded from resistance.": (
+            "Se requiere armadura longitudinal de piel en ambos laterales (§9.7.2.3), "
+            "con separación no mayor que {s_max}. Es armadura complementaria: no se computa en la resistencia."
+        ),
         "Skin reinforcement is pending: verify flexure to identify the tension face.": "Armadura de piel pendiente: verificar flexión para identificar la cara traccionada.",
         "Skin detailing cannot be evaluated: {reason}": "No se puede evaluar el detalle de piel: {reason}",
         "Skin reinforcement is not supported for this design case; this is not an exemption.": "La armadura de piel no está implementada para este caso de diseño; esto no constituye una exención.",
@@ -769,7 +773,6 @@ ES.update(
         "The clear distance on a side exceeds the permitted limit": "La distancia libre a uno de los lados supera el límite permitido",
         "The 15 d_be and 150 mm limits give different outcomes; interpretation pending": "Los límites 15 d_be y 150 mm dan resultados distintos; interpretación pendiente",
         "Second-row compression support requires a separate detail": "El arriostramiento de la segunda capa comprimida requiere un detalle específico",
-        "Crosstie anchorage is not verified": "El anclaje de los estribos suplementarios no está verificado",
         "The required first compression row is missing": "Falta la primera capa requerida por compresión",
         "Required compression steel has no closed stirrups": "La armadura requerida por compresión no tiene estribos cerrados",
         "The stirrup bend is outside the supported model": "El doblado del estribo queda fuera del modelo admitido",
@@ -799,6 +802,57 @@ ES.update(
     {
         "The base cage cannot yet be verified: {reason}": "La jaula principal todavía no puede verificarse: {reason}",
         "The base cage cannot be detailed: {reason}": "La jaula principal no puede detallarse: {reason}",
+    }
+)
+
+# The {reason} of the cage and skin warnings: the text of the CageDetailingError
+# that stopped the detailing (mento.cage_detailing, mento.crosstie_detailing,
+# mento.skin_reinforcement, the skin and bend hooks of the codes). A warning
+# words it when it is read; str() of the error itself stays English. A setting
+# keeps its name, since that is what has to be changed.
+ES.update(
+    {
+        # -- the cage -------------------------------------------------------
+        "The stirrup is too narrow for its required bends.": "El estribo es demasiado angosto para los doblados que requiere.",
+        "This code has no supported stirrup-bend rule.": "Este código no tiene una regla de doblado de estribos implementada.",
+        "Stirrup diameter exceeds the transverse-bar bend table's supported range.": "El diámetro del estribo excede el rango de la tabla de doblado de barras transversales.",
+        "The resistant bars cannot fit between the stirrup corners with the required spacing.": "Las barras resistentes no entran entre las esquinas del estribo con la separación requerida.",
+        "The cage corners are too close, or too far apart, for the bars and spacing limits.": "Las esquinas de la jaula quedan demasiado juntas, o demasiado separadas, para las barras y los límites de separación.",
+        "The legs cannot accommodate their supporting bars with the required spacing.": "Las ramas no pueden alojar sus barras de apoyo con la separación requerida.",
+        "The resistant bars exceed their maximum centre spacing; mounting steel cannot replace them.": "Las barras resistentes superan su separación máxima entre ejes; la armadura de montaje no puede reemplazarlas.",
+        "The supported bars do not fit within the section height.": "Las barras de la jaula no entran en la altura de la sección.",
+        "A longitudinal bar would intersect a stirrup branch or bend.": "Una barra longitudinal interferiría con una rama o un doblado del estribo.",
+        "A longitudinal bar would intersect an open leg.": "Una barra longitudinal interferiría con una pata abierta.",
+        "The supported cage leaves insufficient clear spacing between longitudinal bars.": "La jaula deja una separación libre insuficiente entre las barras longitudinales.",
+        "The required compression bars cannot be supported by the selected transverse pieces.": "Las piezas transversales elegidas no pueden arriostrar las barras requeridas por compresión.",
+        "Compression support search exceeded its time budget.": "La búsqueda del arriostramiento de barras comprimidas superó su tiempo límite.",
+        "mounting_bar_diameter must be positive and finite.": "mounting_bar_diameter debe ser positivo y finito.",
+        "mounting_bar_diameter is below minimum_longitudinal_diameter.": "mounting_bar_diameter es menor que minimum_longitudinal_diameter.",
+        # -- the crossties --------------------------------------------------
+        "The crosstie bends do not fit within the section height.": "Los doblados de la traba no entran en la altura de la sección.",
+        "Each crosstie end must engage one peripheral longitudinal bar.": "Cada extremo de la traba debe abrazar una barra longitudinal perimetral.",
+        "A longitudinal bar would intersect a crosstie hook or tail.": "Una barra longitudinal interferiría con un gancho o una prolongación de la traba.",
+        "A crosstie hook or tail violates the section cover.": "Un gancho o una prolongación de la traba invade el recubrimiento de la sección.",
+        # -- the skin -------------------------------------------------------
+        "The section has no height between its layers for skin bars.": "La sección no tiene altura entre sus capas para barras de piel.",
+        "The two lateral skin bars cannot fit within the section width.": "Las dos barras laterales de piel no entran en el ancho de la sección.",
+        "Skin bars cannot meet the cover at the required spacing.": "Las barras de piel no respetan el recubrimiento con la separación requerida.",
+        "Skin reinforcement leaves insufficient clear spacing to longitudinal bars.": "La armadura de piel deja una separación libre insuficiente con las barras longitudinales.",
+        "No positive skin-bar spacing is permitted for this cover and steel grade.": "Este recubrimiento y este acero no admiten ninguna separación positiva de barras de piel.",
+        "No skin diameter meets the diameter cap of the code.": "Ningún diámetro de piel cumple el tope de diámetro del código.",
+        "The skin cannot reach the minimum area of EN 1992-1-1 §7.3.3(3) in the web.": "La piel no alcanza el área mínima de EN 1992-1-1 §7.3.3(3) en el alma.",
+        "EN skin reinforcement needs an outer tension layer.": "La armadura de piel EN necesita una capa exterior traccionada.",
+        "The service neutral axis must lie above the tension layer toward compression.": "El eje neutro de servicio debe quedar más allá de la capa traccionada, hacia la compresión.",
+        "SkinServiceCase.neutral_axis must be inside the section, measured from compression.": "SkinServiceCase.neutral_axis debe quedar dentro de la sección, medido desde la cara comprimida.",
+        "skin_bar_diameter must be a length quantity.": "skin_bar_diameter debe ser una longitud.",
+        "skin_bar_diameter must be finite and positive.": "skin_bar_diameter debe ser finito y positivo.",
+        "skin_bar_diameter must be finite, positive and meet minimum_longitudinal_diameter.": "skin_bar_diameter debe ser finito, positivo y no menor que minimum_longitudinal_diameter.",
+        # The EN skin hook builds these from a setting's name and from the Table 7.2N lookup.
+        "skin_crack_width must be a length quantity.": "skin_crack_width debe ser una longitud.",
+        "skin_crack_width must be finite and positive.": "skin_crack_width debe ser finito y positivo.",
+        "Skin service stress: Main service steel stress must be finite and positive.": "Tensión de servicio de la piel: la tensión de servicio del acero principal debe ser finita y positiva.",
+        "Skin service stress: skin_crack_width must be 0.2, 0.3 or 0.4 mm for Table 7.2N.": "Tensión de servicio de la piel: skin_crack_width debe ser 0.2, 0.3 o 0.4 mm para la Tabla 7.2N.",
+        "Skin service stress: Skin service stress is outside Table 7.2N.": "Tensión de servicio de la piel: la tensión de servicio queda fuera de la Tabla 7.2N.",
     }
 )
 

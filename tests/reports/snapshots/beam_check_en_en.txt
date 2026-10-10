@@ -237,7 +237,7 @@ Beam V102, $b$=20.00 cm, $h$=50.00 cm, $c_{c}$=2.50 cm,                         
 Top longitudinal rebar: 2Ø8, $A_{s,top}$ = 1.01 cm², $M_{Ed}$ = -60.0 kNm, $M_{Rd}$ = 19.99 kNm → $\color{#d43e36}{\text{DCR}=3.0}$ ⚠️ Some checks failed, see detailed results.
 
 Bottom longitudinal rebar: 2Ø10+5Ø25, $A_{s,bot}$ = 26.11 cm², $M_{Ed}$ = 60.0 kNm, $M_{Rd}$ = 153.31 kNm → $\color{#439b00}{\text{DCR}=0.39}$ ⚠️ Some checks failed, see detailed results.
-Shear reinforcing 2 legs Ø6 mm @ 40 cm · 14.4 cm between legs (max 34.27 cm), $A_{sw}$=1.41 cm²/m, $V_{Ed,2}$=120.0 kN, $V_{Rd}$=63.2 kN → $\color{#d43e36}{\text{DCR}=1.9}$ ⚠️ Some checks failed, see detailed results.
+Shear reinforcing 1 stirrup Ø6 mm @ 40 cm · 14.4 cm between legs (max 34.27 cm), $A_{sw}$=1.41 cm²/m, $V_{Ed,2}$=120.0 kN, $V_{Rd}$=63.2 kN → $\color{#d43e36}{\text{DCR}=1.9}$ ⚠️ Some checks failed, see detailed results.
 
 ### flexure_design
 2Ø8 mm
@@ -245,10 +245,10 @@ Shear reinforcing 2 legs Ø6 mm @ 40 cm · 14.4 cm between legs (max 34.27 cm), 
 5Ø25 mm
 
 ### shear_design
-2 legs Ø6 mm @ 40 cm · 14.4 cm between legs (max 34.27 cm)
+1 stirrup Ø6 mm @ 40 cm · 14.4 cm between legs (max 34.27 cm)
 
 ### reinforcement.transverse
-2 legs Ø6 mm @ 40 cm
+1 stirrup Ø6 mm @ 40 cm
 
 ### warnings
 As_below_min: Steel on the top face: A_s = 1.01 cm² is below the minimum it has to meet, A_s,min,eff = 1.24 cm².
@@ -263,5 +263,5 @@ stirrup_spacing_exceeds_max: Stirrup spacing along the member: 40 cm exceeds the
 50 cm
 2Ø10+5Ø25
 2Ø8
-2 legs Ø6 mm @ 40 cm
+1 stirrup Ø6 mm @ 40 cm
 Steel: 220 kg/m³

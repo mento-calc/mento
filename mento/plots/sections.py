@@ -687,7 +687,7 @@ def _annotate_layers(ax: "Axes", geometry: SectionGeometry) -> List[Tuple["Text"
 
 
 def _annotate_stirrups(ax: "Axes", self: "RectangularBeam", geometry: SectionGeometry) -> List[Tuple["Text", float]]:
-    """The stirrups, legs first (``2 legs Ø10 mm @ 22 cm``), to the right of the section at mid-height."""
+    """The stirrups (``1 stirrup Ø10 mm @ 22 cm``), to the right of the section at mid-height."""
     if not geometry.stirrups:
         return []
     anchor = _cm(geometry.height) / 2
@@ -933,7 +933,7 @@ def plot_beam_section(self: "RectangularBeam", show: bool = False) -> Figure:
     with their 90° and 135° hooks around the bars they hold, and the
     longitudinal bars -- resistant, mounting and skin alike -- in dark gray.
     On the right, the label of each layer, the skin per side and
-    the stirrups (``2 legs Ø10 mm @ 22 cm``); under the section, the steel
+    the stirrups (``1 stirrup Ø10 mm @ 22 cm``); under the section, the steel
     ratio in kg/m³ (lb/yd³ in US customary units, :func:`steel_ratio`). A
     face of the cage with no bars gets mounting bars at its corners. The
     limits are widened until every text fits, and the figure is cropped to

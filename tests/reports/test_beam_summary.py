@@ -595,7 +595,7 @@ def test_a_sagging_only_beam_has_a_bare_top(sample_concrete: Any, sample_steel: 
     summary = BeamSummary(sample_concrete, sample_steel, table, forces(rows))
     summary.design()
     check = summary.check()
-    assert list(check.iloc[1][["As,top", "As,bot", "Av"]]) == ["-", "2Ø16", "2 legs Ø10/22"]
+    assert list(check.iloc[1][["As,top", "As,bot", "Av"]]) == ["-", "2Ø16", "1sØ10/22"]
     assert list(check.iloc[2][["As,top", "As,bot"]]) == ["2Ø16", "2Ø12"]
 
 

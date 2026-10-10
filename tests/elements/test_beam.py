@@ -599,7 +599,7 @@ def test_shear_design_always_gives_a_beam_stirrups(code: str) -> None:
 
 
 def test_a_designed_beam_is_labelled_by_its_legs() -> None:
-    """A beam is written legs first, then the bar and s_l; the spacing across the width stays on the design."""
+    """A beam is written by its stirrup and legs, then the bar and s_l; the spacing across the width stays on the design."""
     beam = RectangularBeam(
         label="B1",
         concrete=Concrete_ACI_318_19(name="H25", f_c=25 * MPa),
@@ -612,8 +612,9 @@ def test_a_designed_beam_is_labelled_by_its_legs() -> None:
 
     transverse = beam.reinforcement.transverse
     assert transverse.layout == "stirrups"
-    assert str(transverse) == f"{transverse.n_legs} legs Ø{transverse.d_b:.4g~P} @ {transverse.s_l:.4g~P}"
-    assert str(transverse) == "2 legs Ø10 mm @ 23 cm"
+    assert transverse.n_legs == 2
+    assert str(transverse) == f"1 stirrup Ø{transverse.d_b:.4g~P} @ {transverse.s_l:.4g~P}"
+    assert str(transverse) == "1 stirrup Ø10 mm @ 23 cm"
     # The spacing between legs, checked against its maximum, is part of the shear design's notation.
     assert "14 cm between legs" in beam.shear_design.notation()
     assert beam._shear_reinforcement["Variable"][:4] == ["nl", "db", "s", "sw"]
@@ -760,7 +761,7 @@ def test_wide_cirsoc_beam_takes_five_stirrups_for_the_across_width_limit() -> No
     assert threshold == pytest.approx(3568.95, abs=0.01)
     assert shear.DCR == pytest.approx(0.9904, abs=1e-4)
     # Strength passes; the deep beam still requires supplementary web steel.
-    assert tuple(w.code for w in node.warnings) == ("open_leg_anchorage_outside_model", "skin_reinforcement_required")
+    assert tuple(w.code for w in node.warnings) == ("skin_reinforcement_required",)
 
 
 def test_check_state_records_the_row_of_table_9_7_6_2_2() -> None:
@@ -2968,9 +2969,9 @@ def test_plot_single_bar_layer_is_centered() -> None:
 def test_plot_annotates_stirrups_and_draws_two_legs() -> None:
     beam = _plot_beam(n_stirrups=2, d_b_stirrup=6 * mm, s_l=20 * cm)
 
-    # One label: the notation, legs first; no spacing between legs and no arrangement line.
+    # One label: the notation, stirrup and legs; no spacing between legs and no arrangement line.
     texts = [text.get_text() for text in beam._ax.texts]
-    assert _stirrup_label(beam._ax) == "4 legs Ø6 mm @ 20 cm"
+    assert _stirrup_label(beam._ax) == "1 stirrup + 2 legs Ø6 mm @ 20 cm"
     assert not any("between legs" in text for text in texts)
     assert "perimeter stirrup + 2 open legs" not in texts
     assert beam.detailing_geometry.arrangement("en") == "perimeter stirrup + 2 open legs"
@@ -2989,7 +2990,7 @@ def test_plot_six_legs_use_one_perimeter_and_four_open_legs() -> None:
     assert len(fancy_bboxes) == 2, "One perimeter closed stirrup."
 
     texts = [t.get_text() for t in beam._ax.texts]
-    assert _stirrup_label(beam._ax) == "6 legs Ø6 mm @ 15 cm"
+    assert _stirrup_label(beam._ax) == "1 stirrup + 4 legs Ø6 mm @ 15 cm"
     # The arrangement is the geometry's; the drawing shows it, it does not write it.
     assert beam.detailing_geometry.arrangement("en") == "perimeter stirrup + 4 open legs"
     assert "perimeter stirrup + 4 open legs" not in texts
@@ -3037,7 +3038,7 @@ def _drawn_leg_gaps(ax: object, d_cm: float) -> list[float]:
 
 
 def _stirrup_label(ax: Any) -> str:
-    """The stirrup label right of the section: the ``stirrup_text`` led by its legs.
+    """The stirrup label right of the section: the ``stirrup_text`` led by its stirrup count.
 
     The steel-ratio line under the section shares the gid, so the label is the one that starts with a digit.
     """
@@ -3096,11 +3097,11 @@ def test_plot_draws_every_stirrup_at_the_legs_the_check_assumes() -> None:
         "12Ø32",
         "10Ø8 (mounting)",
         "5Ø20 per side (skin)",
-        "10 legs Ø12 mm @ 14 cm",
+        "1 stirrup + 8 legs Ø12 mm @ 14 cm",
         "Steel: 98 kg/m³",
     ]
-    assert _stirrup_label(ax) == "10 legs Ø12 mm @ 14 cm"
-    assert beam.shear_design.notation() == "10 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)"
+    assert _stirrup_label(ax) == "1 stirrup + 8 legs Ø12 mm @ 14 cm"
+    assert beam.shear_design.notation() == "1 stirrup + 8 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)"
     assert not any("between legs" in t or "open legs" in t or "excluded from resistance" in t for t in texts)
     plt.close()
 
@@ -3196,7 +3197,7 @@ def test_plot_follows_the_language() -> None:
         "12Ø32",
         "10Ø8 (montaje)",
         "5Ø20 por lateral (piel)",
-        "10 ramas Ø12 mm c/14 cm",
+        "1 estribo + 8 ramas Ø12 mm c/14 cm",
         "Cuantía: 98 kg/m³",
     ]
     assert "estribo perimetral + 8 patas abiertas" not in texts
@@ -3260,7 +3261,7 @@ def test_plot_text_of_a_flat_beam_does_not_overlap() -> None:
     section_right, section_bottom = beam._ax.transData.transform((120.0, 0.0))
     stirrup_lines = [t for t in beam._ax.texts if t.get_gid() == "stirrup_text"]
     ratio_lines = [t for t in beam._ax.texts if t.get_gid() == "steel_ratio"]
-    assert [t.get_text() for t in stirrup_lines] == ["8 legs Ø8 mm @ 13 cm"]
+    assert [t.get_text() for t in stirrup_lines] == ["1 stirrup + 6 legs Ø8 mm @ 13 cm"]
     assert [t.get_text() for t in ratio_lines] == ["Steel: 123 kg/m³"]
     assert stirrup_lines[0].get_window_extent().x0 > section_right
     assert ratio_lines[0].get_window_extent().y1 < section_bottom
@@ -3269,7 +3270,7 @@ def test_plot_text_of_a_flat_beam_does_not_overlap() -> None:
     # order of their anchors: the two bottom layers, the stirrups at mid-height, the top layer.
     # (A label with room staying at its layer is test_plot_layer_text_follows_the_bars.)
     right = sorted((t for t in beam._ax.texts if t.get_position()[0] > 120), key=lambda t: float(t.get_position()[1]))
-    assert [t.get_text() for t in right] == ["10Ø16", "2Ø12", "8 legs Ø8 mm @ 13 cm", "2Ø12+6Ø10"]
+    assert [t.get_text() for t in right] == ["10Ø16", "2Ø12", "1 stirrup + 6 legs Ø8 mm @ 13 cm", "2Ø12+6Ø10"]
     plt.close()
 
 

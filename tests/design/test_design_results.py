@@ -142,7 +142,7 @@ def test_reinforcement_str_describes_both_faces_and_stirrups(beam: RectangularBe
     beam.set_transverse_rebar(n_stirrups=1, d_b=8 * mm, s_l=20 * cm)
     text = str(beam.reinforcement)
     assert "bottom: 3Ø20" in text
-    assert "stirrups: 2 legs Ø8 mm @ 20 cm" in text
+    assert "stirrups: 1 stirrup Ø8 mm @ 20 cm" in text
 
 
 def test_reinforcement_str_says_so_when_there_are_no_stirrups(beam: RectangularBeam) -> None:
@@ -279,7 +279,7 @@ def test_shear_provided_area_covers_the_requirement(designed_beam: RectangularBe
 
 def test_shear_str_is_the_engineering_shorthand(designed_beam: RectangularBeam) -> None:
     shear = designed_beam.shear_design
-    assert str(shear).startswith(f"{shear.n_legs} legs Ø")
+    assert shear.n_legs == 2 and str(shear).startswith("1 stirrup Ø")
 
 
 def test_shear_str_without_stirrups(beam: RectangularBeam) -> None:
@@ -841,7 +841,7 @@ def test_changing_the_bars_by_hand_drops_the_results_until_the_next_check() -> N
     with pytest.raises(DesignNotRunError):
         beam.shear_design
     assert beam.flexure_checks == () and beam.shear_checks == ()
-    assert str(beam.reinforcement.transverse) == "2 legs Ø8 mm @ 30 cm"
+    assert str(beam.reinforcement.transverse) == "1 stirrup Ø8 mm @ 30 cm"
 
     node.check()
     assert beam.flexure_design.DCR > 0 and beam.shear_design.DCR > 0

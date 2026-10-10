@@ -237,7 +237,7 @@ Beam V101, $b$=20.00 cm, $h$=50.00 cm, $c_{c}$=2.50 cm,                         
 Top longitudinal rebar: 2Ø16+1Ø12, $A_{s,top}$ = 5.15 cm², $M_{Ed}$ = -80.0 kNm, $M_{Rd}$ = 94.06 kNm → $\color{#439b00}{\text{DCR}=0.85}$ 
 
 Bottom longitudinal rebar: 2Ø20+1Ø16, $A_{s,bot}$ = 8.29 cm², $M_{Ed}$ = 120.0 kNm, $M_{Rd}$ = 143.72 kNm → $\color{#439b00}{\text{DCR}=0.83}$ 
-Shear reinforcing 2 legs Ø8 mm @ 29 cm · 14.2 cm between legs (max 34.31 cm), $A_{sw}$=3.47 cm²/m, $V_{Ed,2}$=150.0 kN, $V_{Rd}$=155.15 kN → $\color{#efc200}{\text{DCR}=0.97}$ 
+Shear reinforcing 1 stirrup Ø8 mm @ 29 cm · 14.2 cm between legs (max 34.31 cm), $A_{sw}$=3.47 cm²/m, $V_{Ed,2}$=150.0 kN, $V_{Rd}$=155.15 kN → $\color{#efc200}{\text{DCR}=0.97}$ 
 
 ### flexure_design
 2Ø16 mm
@@ -246,10 +246,10 @@ Shear reinforcing 2 legs Ø8 mm @ 29 cm · 14.2 cm between legs (max 34.31 cm), 
 1Ø16 mm
 
 ### shear_design
-2 legs Ø8 mm @ 29 cm · 14.2 cm between legs (max 34.31 cm)
+1 stirrup Ø8 mm @ 29 cm · 14.2 cm between legs (max 34.31 cm)
 
 ### reinforcement.transverse
-2 legs Ø8 mm @ 29 cm
+1 stirrup Ø8 mm @ 29 cm
 
 ### warnings
 compression_detailing_en_pending: Mento no verifica la sujeción de barras comprimidas EN (§9.2.1.2(3), 15φ).
@@ -259,5 +259,5 @@ compression_detailing_en_pending: Mento no verifica la sujeción de barras compr
 50 cm
 2Ø20+1Ø16
 2Ø16+1Ø12
-2 ramas Ø8 mm c/29 cm
+1 estribo Ø8 mm c/29 cm
 Cuantía: 123 kg/m³

@@ -82,9 +82,9 @@ It also applies to:
 .. code-block:: python
 
     mento.set_language("es")
-    beam.shear_design.notation()      # '2 ramas Ø6 mm c/28 cm · 14.4 cm entre ramas (máx. 40 cm)'
+    beam.shear_design.notation()      # '1 estribo Ø6 mm c/28 cm · 14.4 cm entre ramas (máx. 40 cm)'
     beam.shear_design.arrangement()   # 'estribo perimetral'
-    beam.shear_design.notation("en")  # '2 legs Ø6 mm @ 28 cm · 14.4 cm between legs (max 40 cm)'
+    beam.shear_design.notation("en")  # '1 stirrup Ø6 mm @ 28 cm · 14.4 cm between legs (max 40 cm)'
     str(beam.shear_design)            # always English, whatever the language
 
 Table headers, row labels and document headings are translated. These are deliberately
@@ -95,7 +95,7 @@ left as they are:
   ``Beam`` and ``Position`` but leaves ``As,bot`` and ``DCRv`` alone.
 - **Units and numbers** — ``cm``, ``MPa``, ``kNm``.
 - **Bar notation** — ``Ø16`` and ``#6`` stay unchanged. ``notation()`` translates
-  the transverse label: ``2 legs Ø10 @ 22`` / ``2 ramas Ø10 c/22``.
+  the transverse label: ``1 stirrup Ø10 @ 22`` / ``1 estribo Ø10 c/22``.
 - **The design code designation** — ``CIRSOC 201-25`` keeps its official name.
 - **Generated file names** — a project keeps one naming scheme regardless of the language
   its reports are written in.

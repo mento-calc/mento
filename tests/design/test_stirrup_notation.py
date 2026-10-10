@@ -1,9 +1,10 @@
-"""The stirrup notation, legs first, and the description of the cage.
+"""The stirrup notation and the description of the cage.
 
-A beam's transverse reinforcement reads ``10 legs Ø12 mm @ 14 cm · 15.87 cm
-between legs (max 20 cm)``: the legs the shear check counts, the bar and the
-spacing along the member, then the spacing of the legs across the width and
-the most Table 9.7.6.2.2 allows it. ``str()`` is always English;
+A beam's transverse reinforcement reads ``1 stirrup + 8 legs Ø12 mm @ 14 cm · 15.87 cm
+between legs (max 20 cm)``: one closed stirrup, which is two legs, and the legs
+beyond it -- the ten the shear check counts --, the bar and the spacing along
+the member, then the spacing of the legs across the width and the most Table
+9.7.6.2.2 allows it. Two legs read ``1 stirrup``. ``str()`` is always English;
 ``notation()`` and ``arrangement()`` follow :func:`mento.set_language`.
 
 Spanish expectations are built from the catalog (``ES[...]``), as the i18n
@@ -41,7 +42,7 @@ pytestmark = pytest.mark.filterwarnings("ignore::UserWarning")
 def test_formatter_keeps_the_published_bar_keyword() -> None:
     assert (
         format_transverse_rebar(layout=STIRRUPS, n_stirrups=1, bar="8", s_l="20", s_w="14")
-        == "2 legs Ø8 @ 20 · 14 between legs"
+        == "1 stirrup Ø8 @ 20 · 14 between legs"
     )
 
 
@@ -67,8 +68,16 @@ def designed() -> RectangularBeam:
     return beam
 
 
+def _es_pieces(n_legs: int) -> str:
+    """One closed stirrup and the legs beyond it, from the catalog."""
+    inner = n_legs - 2
+    if inner == 0:
+        return ES["1 stirrup"]
+    return ES["1 stirrup + 1 leg"] if inner == 1 else ES["1 stirrup + {n} legs"].format(n=inner)
+
+
 def _es_beam(n_legs: int, d_b: str, s_l: str, s_w: str | None, s_max_w: str | None = None) -> str:
-    text = ES["{n_legs} legs Ø{d_b} @ {s_l}"].format(n_legs=n_legs, d_b=d_b, s_l=s_l)
+    text = ES["{pieces} Ø{d_b} @ {s_l}"].format(pieces=_es_pieces(n_legs), d_b=d_b, s_l=s_l)
     if s_w is None:  # The reinforcement as configured: no spacing between legs.
         return text
     text += " · " + ES["{s_w} between legs"].format(s_w=s_w)
@@ -82,17 +91,17 @@ def _es_beam(n_legs: int, d_b: str, s_l: str, s_w: str | None, s_max_w: str | No
 # ---------------------------------------------------------------------------
 
 
-def test_the_wide_cirsoc_beam_reads_legs_first_in_english(designed: RectangularBeam) -> None:
+def test_the_wide_cirsoc_beam_reads_its_stirrup_and_legs_in_english(designed: RectangularBeam) -> None:
     shear = designed.shear_design
-    assert str(designed.reinforcement.transverse) == "10 legs Ø12 mm @ 14 cm"
-    assert str(shear) == "10 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)"
+    assert str(designed.reinforcement.transverse) == "1 stirrup + 8 legs Ø12 mm @ 14 cm"
+    assert str(shear) == "1 stirrup + 8 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)"
     # 16 legs would need 16 bars at the bottom, which carries 12: every leg holds a bar.
     assert [str(option) for option in shear.options] == [
-        "10 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)",
-        "10 legs Ø8 mm @ 6 cm · 15.91 cm between legs (max 20 cm)",
-        "10 legs Ø10 mm @ 9 cm · 15.89 cm between legs (max 20 cm)",
+        "1 stirrup + 8 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)",
+        "1 stirrup + 8 legs Ø8 mm @ 6 cm · 15.91 cm between legs (max 20 cm)",
+        "1 stirrup + 8 legs Ø10 mm @ 9 cm · 15.89 cm between legs (max 20 cm)",
     ]
-    assert shear.notation(compact=True) == "10 legs Ø12/14"
+    assert shear.notation(compact=True) == "1s+8lØ12/14"
     assert shear.arrangement() == "perimeter stirrup + 8 open legs"
     assert shear.options[1].arrangement() == "perimeter stirrup + 8 open legs"
 
@@ -102,26 +111,30 @@ def test_the_wide_cirsoc_beam_in_spanish_is_built_from_the_catalog(designed: Rec
     assert designed.reinforcement.transverse.notation("es") == _es_beam(10, "12 mm", "14 cm", None)
     assert shear.notation("es") == _es_beam(10, "12 mm", "14 cm", "15.87 cm", "20 cm")
     assert shear.options[1].notation("es") == _es_beam(10, "8 mm", "6 cm", "15.91 cm", "20 cm")
-    assert shear.notation("es", compact=True) == ES["{n_legs} legs Ø{d_b}/{s_l}"].format(n_legs=10, d_b=12, s_l=14)
+    assert shear.notation("es", compact=True) == ES["1s+{n}l"].format(n=8) + "Ø12/14"
     assert shear.arrangement("es") == " + ".join([ES["perimeter stirrup"], ES["{n} open legs"].format(n=8)])
 
 
 def test_the_spanish_wording_is_pinned(designed: RectangularBeam) -> None:
     """Pinned on purpose: the Spanish wording the notation was specified with, the one test that owns how it reads."""
     shear = designed.shear_design
-    assert shear.notation("es") == "10 ramas Ø12 mm c/14 cm · 15.87 cm entre ramas (máx. 20 cm)"
-    assert designed.reinforcement.transverse.notation("es") == "10 ramas Ø12 mm c/14 cm"
-    assert shear.notation("es", compact=True) == "10 ramas Ø12/14"
+    assert shear.notation("es") == "1 estribo + 8 ramas Ø12 mm c/14 cm · 15.87 cm entre ramas (máx. 20 cm)"
+    assert designed.reinforcement.transverse.notation("es") == "1 estribo + 8 ramas Ø12 mm c/14 cm"
+    assert shear.notation("es", compact=True) == "1e+8rØ12/14"
     assert shear.arrangement("es") == "estribo perimetral + 8 patas abiertas"
 
 
 @pytest.mark.parametrize(
     "key",
     [
-        "{n_legs} legs Ø{d_b} @ {s_l}",
+        "{pieces} Ø{d_b} @ {s_l}",
+        "1 stirrup",
+        "1 stirrup + 1 leg",
+        "1 stirrup + {n} legs",
+        "1s",
+        "1s+{n}l",
         "{s_w} between legs",
         "(max {s_max_w})",
-        "{n_legs} legs Ø{d_b}/{s_l}",
         "no stirrups",
         "single perimeter stirrup",
         "perimeter stirrup",
@@ -136,10 +149,40 @@ def test_every_notation_key_is_translated(key: str) -> None:
 
 
 @pytest.mark.parametrize(
+    "legs, english, spanish, compact_en, compact_es",
+    [
+        (2, "1 stirrup Ø10 mm @ 15 cm", "1 estribo Ø10 mm c/15 cm", "1sØ10/15", "1eØ10/15"),
+        (3, "1 stirrup + 1 leg Ø10 mm @ 15 cm", "1 estribo + 1 rama Ø10 mm c/15 cm", "1s+1lØ10/15", "1e+1rØ10/15"),
+        (4, "1 stirrup + 2 legs Ø10 mm @ 15 cm", "1 estribo + 2 ramas Ø10 mm c/15 cm", "1s+2lØ10/15", "1e+2rØ10/15"),
+        (7, "1 stirrup + 5 legs Ø10 mm @ 15 cm", "1 estribo + 5 ramas Ø10 mm c/15 cm", "1s+5lØ10/15", "1e+5rØ10/15"),
+    ],
+)
+def test_the_legs_are_written_as_one_stirrup_and_the_legs_beyond_it(
+    legs: int, english: str, spanish: str, compact_en: str, compact_es: str
+) -> None:
+    """Pinned on purpose, both languages: two legs are ``1 stirrup`` / ``1e``, and each leg more is added to it.
+
+    The pieces are those of ``arrangement()`` -- one perimeter stirrup and the rest
+    as single legs -- so an odd count needs no notation of its own, and the legs the
+    shear check counts stay the two of the stirrup plus the rest.
+    """
+    beam = _wide_cirsoc_beam(width=60 * cm)
+    beam.set_transverse_rebar(legs=legs, d_b=10 * mm, s_l=15 * cm)
+    transverse = beam.reinforcement.transverse
+    assert transverse.n_legs == legs
+    assert (transverse.notation("en"), transverse.notation("es")) == (english, spanish)
+    assert (transverse.notation("en", compact=True), transverse.notation("es", compact=True)) == (
+        compact_en,
+        compact_es,
+    )
+    assert str(transverse) == english
+
+
+@pytest.mark.parametrize(
     "stirrups, expected",
     [
-        (4, "8 legs Ø12 mm @ 14 cm · 20.4 cm between legs (max 20 cm)"),
-        (5, "10 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)"),
+        (4, "1 stirrup + 6 legs Ø12 mm @ 14 cm · 20.4 cm between legs (max 20 cm)"),
+        (5, "1 stirrup + 8 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)"),
     ],
 )
 def test_a_checked_cage_prints_the_limit_it_is_checked_against(stirrups: int, expected: str) -> None:
@@ -155,7 +198,7 @@ def test_a_checked_cage_prints_the_limit_it_is_checked_against(stirrups: int, ex
 def test_other_codes_on_the_wide_cirsoc_beam() -> None:
     aci = _wide_cirsoc_beam(Concrete_ACI_318_19(name="H25", f_c=25 * MPa))
     Node(section=aci, forces=WIDE_FORCES).design()
-    assert str(aci.shear_design) == "6 legs Ø16 mm @ 15 cm · 28.48 cm between legs (max 30 cm)"
+    assert str(aci.shear_design) == "1 stirrup + 4 legs Ø16 mm @ 15 cm · 28.48 cm between legs (max 30 cm)"
     assert aci.shear_design.arrangement() == "perimeter stirrup + 4 open legs"
 
     en = RectangularBeam(
@@ -167,7 +210,7 @@ def test_other_codes_on_the_wide_cirsoc_beam() -> None:
         c_c=30 * mm,
     )
     Node(section=en, forces=WIDE_FORCES).design()
-    assert str(en.shear_design) == "4 legs Ø12 mm @ 12 cm · 47.6 cm between legs (max 60 cm)"
+    assert str(en.shear_design) == "1 stirrup + 2 legs Ø12 mm @ 12 cm · 47.6 cm between legs (max 60 cm)"
 
 
 # ---------------------------------------------------------------------------
@@ -177,9 +220,9 @@ def test_other_codes_on_the_wide_cirsoc_beam() -> None:
 
 def test_str_stays_english_whatever_the_language(designed: RectangularBeam) -> None:
     mento.set_language("es")
-    assert str(designed.shear_design).startswith("10 legs Ø12 mm @ 14 cm")
+    assert str(designed.shear_design).startswith("1 stirrup + 8 legs Ø12 mm @ 14 cm")
     assert str(designed.reinforcement) == (
-        "bottom: 2Ø32 mm + 10Ø32 mm / top: no reinforcement / stirrups: 10 legs Ø12 mm @ 14 cm"
+        "bottom: 2Ø32 mm + 10Ø32 mm / top: no reinforcement / stirrups: 1 stirrup + 8 legs Ø12 mm @ 14 cm"
     )
     # notation() and arrangement() follow the language of the moment ...
     assert designed.shear_design.notation() == _es_beam(10, "12 mm", "14 cm", "15.87 cm", "20 cm")
@@ -209,15 +252,18 @@ def test_no_stirrups_is_translatable() -> None:
 def test_format_transverse_rebar_keeps_its_positional_call() -> None:
     """The 1.3.0 call still works; it is English unless asked, and the grid is unchanged."""
     assert format_transverse_rebar(STIRRUPS, 5, "12 mm", "14 cm", "15.87 cm") == (
-        "10 legs Ø12 mm @ 14 cm · 15.87 cm between legs"
+        "1 stirrup + 8 legs Ø12 mm @ 14 cm · 15.87 cm between legs"
     )
     assert format_transverse_rebar(GRID, 8, "10 mm", "8 cm", "16 cm") == "Ø10 mm/8 cm×16 cm"
     assert format_transverse_rebar(STIRRUPS, 5, "12", "14", "15.87", s_max_w="20", separator="\n") == (
-        "10 legs Ø12 @ 14\n15.87 between legs (max 20)"
+        "1 stirrup + 8 legs Ø12 @ 14\n15.87 between legs (max 20)"
     )
-    assert format_transverse_rebar(STIRRUPS, 4, "12", "14", "17.85", n_legs=9) == "9 legs Ø12 @ 14 · 17.85 between legs"
+    assert (
+        format_transverse_rebar(STIRRUPS, 4, "12", "14", "17.85", n_legs=9)
+        == "1 stirrup + 7 legs Ø12 @ 14 · 17.85 between legs"
+    )
     mento.set_language("es")
-    assert format_transverse_rebar(STIRRUPS, 1, "8", "20", "14") == "2 legs Ø8 @ 20 · 14 between legs"
+    assert format_transverse_rebar(STIRRUPS, 1, "8", "20", "14") == "1 stirrup Ø8 @ 20 · 14 between legs"
     assert format_transverse_rebar(STIRRUPS, 1, "8", "20", "14", language=None) == _es_beam(2, "8", "20", "14")
 
 
@@ -230,9 +276,9 @@ def test_the_width_spacings_read_in_the_unit_of_s_l() -> None:
     """A beam built in mm with its stirrups set in mm prints every spacing in one unit."""
     beam = _wide_cirsoc_beam(width=1500 * mm)
     beam.set_transverse_rebar(n_stirrups=5, d_b=12 * mm, s_l=140 * mm)
-    assert str(beam.reinforcement.transverse) == "10 legs Ø12 mm @ 140 mm"
+    assert str(beam.reinforcement.transverse) == "1 stirrup + 8 legs Ø12 mm @ 140 mm"
     beam.set_transverse_rebar(n_stirrups=5, d_b=12 * mm, s_l=14 * cm)
-    assert str(beam.reinforcement.transverse) == "10 legs Ø12 mm @ 14 cm"
+    assert str(beam.reinforcement.transverse) == "1 stirrup + 8 legs Ø12 mm @ 14 cm"
 
 
 def test_the_compact_form_on_imperial_and_grid_sections() -> None:
@@ -245,7 +291,7 @@ def test_the_compact_form_on_imperial_and_grid_sections() -> None:
         c_c=1.5 * inch,
     )
     imperial.set_transverse_rebar(n_stirrups=1, d_b=0.375 * inch, s_l=6 * inch)
-    assert imperial.reinforcement.transverse.notation(compact=True) == "2 legs #3@6"
+    assert imperial.reinforcement.transverse.notation(compact=True) == "1s#3@6"
 
     slab = OneWaySlab(
         label="S",
@@ -272,10 +318,10 @@ def test_the_compact_form_takes_its_unit_system_from_the_caller() -> None:
     beam = _wide_cirsoc_beam()
     beam.set_transverse_rebar(n_stirrups=1, d_b=8 * mm, s_l=6 * inch)
     transverse = beam.reinforcement.transverse
-    assert transverse.notation(compact=True, imperial=False) == "2 legs Ø8/15.24"
-    assert transverse.notation(compact=True, imperial=True) == '2 legs Ø0.31"@6'
+    assert transverse.notation(compact=True, imperial=False) == "1sØ8/15.24"
+    assert transverse.notation(compact=True, imperial=True) == '1sØ0.31"@6'
     # Left unsaid, it follows the unit of s_l, as documented.
-    assert transverse.notation(compact=True) == '2 legs Ø0.31"@6'
+    assert transverse.notation(compact=True) == '1sØ0.31"@6'
 
 
 def test_the_beam_summary_av_cell_stays_in_mm_and_cm_with_sl_in_inches() -> None:
@@ -287,7 +333,7 @@ def test_the_beam_summary_av_cell_stays_in_mm_and_cm_with_sl_in_inches() -> None
         steel_bar=SteelBar(name="ADN 420", f_y=420 * MPa),
         beam_list=beams,
     )
-    assert list(summary.check()["Av"])[1:] == ["-", "2 legs Ø6/20.32"]
+    assert list(summary.check()["Av"])[1:] == ["-", "1sØ6/20.32"]
 
 
 @pytest.mark.parametrize("language", ["ES", "es-AR", "sp", "fr", ""])
@@ -381,10 +427,10 @@ def test_the_beam_summary_av_cell_is_the_compact_notation() -> None:
         beam_list=_summary_list(),
     )
     table = summary.check()
-    assert list(table["Av"])[1:] == ["-", "2 legs Ø6/20"]
+    assert list(table["Av"])[1:] == ["-", "1sØ6/20"]
     mento.set_language("es")
     table = summary.check()
-    assert list(table["Av"])[1:] == ["-", ES["{n_legs} legs Ø{d_b}/{s_l}"].format(n_legs=2, d_b=6, s_l=20)]
+    assert list(table["Av"])[1:] == ["-", ES["1s"] + "Ø6/20"]
 
 
 @pytest.mark.parametrize("which", ["ACI", "EN"])
@@ -446,9 +492,9 @@ def test_the_design_results_page_example() -> None:
     )
     Node(section=beam, forces=[Forces(label="C1", V_z=80 * kN, M_y=100 * kNm)]).design()
     shear = beam.shear_design
-    assert str(shear) == "2 legs Ø10 mm @ 27 cm · 14 cm between legs (max 55.74 cm)"
-    assert shear.notation("es") == "2 ramas Ø10 mm c/27 cm · 14 cm entre ramas (máx. 55.74 cm)"
-    assert shear.notation(compact=True) == "2 legs Ø10/27"
+    assert str(shear) == "1 stirrup Ø10 mm @ 27 cm · 14 cm between legs (max 55.74 cm)"
+    assert shear.notation("es") == "1 estribo Ø10 mm c/27 cm · 14 cm entre ramas (máx. 55.74 cm)"
+    assert shear.notation(compact=True) == "1sØ10/27"
     assert shear.arrangement() == "single perimeter stirrup"
     assert f"{shear.s_w.to('cm'):.4g~P}" == "14 cm"
     assert f"{shear.s_max_w:.4g~P}" == "55.74 cm"
@@ -470,9 +516,9 @@ def test_the_design_results_page_example() -> None:
     )
     Node(section=shallow, forces=[Forces(label="C1", V_z=100 * kN, M_y=30 * kNm)]).design()
     assert [option.notation(compact=True) for option in shallow.shear_design.options] == [
-        "2 legs Ø10/17",
-        "2 legs Ø12/17",
-        "2 legs Ø16/17",
+        "1sØ10/17",
+        "1sØ12/17",
+        "1sØ16/17",
     ]
 
 
@@ -488,9 +534,9 @@ def test_the_language_page_example() -> None:
     )
     Node(section=beam, forces=[Forces(label="C1", V_z=80 * kN, M_y=100 * kNm)]).design()
     mento.set_language("es")
-    assert beam.shear_design.notation() == "2 ramas Ø6 mm c/28 cm · 14.4 cm entre ramas (máx. 40 cm)"
+    assert beam.shear_design.notation() == "1 estribo Ø6 mm c/28 cm · 14.4 cm entre ramas (máx. 40 cm)"
     assert beam.shear_design.arrangement() == "estribo perimetral"
-    assert beam.shear_design.notation("en") == "2 legs Ø6 mm @ 28 cm · 14.4 cm between legs (max 40 cm)"
+    assert beam.shear_design.notation("en") == "1 stirrup Ø6 mm @ 28 cm · 14.4 cm between legs (max 40 cm)"
     assert str(beam.shear_design) == beam.shear_design.notation("en")
 
 
@@ -512,7 +558,7 @@ def test_the_beams_page_notebook_line() -> None:
     ).check()
     beam.shear_results
     line = beam._md_shear_results
-    assert line.startswith("Shear reinforcing 2 legs Ø10 mm @ 20 cm · 14 cm between legs (max 54.29 cm), ")
+    assert line.startswith("Shear reinforcing 1 stirrup Ø10 mm @ 20 cm · 14 cm between legs (max 54.29 cm), ")
     assert "=7.85 cm²/m" in line and "=80.0 kN" in line and "=203.52 kN" in line and "DCR}=0.39" in line
     beam.flexure_results
     top, bottom = [row for row in beam._md_flexure_results.splitlines() if row.strip()]

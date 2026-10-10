@@ -129,9 +129,9 @@ The units each quantity is shown in:
 
 A US bar is named by its ASTM A615 size and its spacing follows an ``@``, as on a
 US drawing: ``3#6`` and ``2#6+1#5`` for the bars of a face, ``#4@12 in`` for a slab
-or a wall curtain, ``2 legs #3 @ 8 in`` for a two-leg stirrup. Transverse
-reinforcement is written by its number of legs, translated by ``notation()``:
-``2 legs Ø10 mm @ 22 cm`` / ``2 ramas Ø10 mm c/22 cm``. Its ``str()`` is English.
+or a wall curtain, ``1 stirrup #3 @ 8 in`` for a two-leg stirrup. Transverse
+reinforcement is written as one closed stirrup and the legs beyond it, translated by ``notation()``:
+``1 stirrup Ø10 mm @ 22 cm`` / ``1 estribo Ø10 mm c/22 cm``. Its ``str()`` is English.
 
 The table of ASTM sizes is public, so a program can use the same one::
 

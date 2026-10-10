@@ -11,14 +11,18 @@ it here would turn every terminology fix into a broken test. What these tests
 own is that the string is *translated*, not how it reads.
 """
 
+import ast
+import re
+from pathlib import Path
 from typing import Any, Dict, Generator, List, Set
 
 import pandas as pd
 import pytest
 
-from mento import i18n
+from mento import design_warnings, i18n
 from mento.beam import RectangularBeam
 from mento.beam_summary import BeamSummary
+from mento.codes.registry import design_code
 from mento.forces import Forces
 from mento.i18n import (
     ES,
@@ -364,6 +368,83 @@ class TestCatalogCoverage:
         in both languages — which has to be declared here on purpose."""
         same_in_both = {"Variable"}
         assert [k for k, v in ES.items() if k == v and k not in same_in_both] == []
+
+
+def _detailing_error_messages() -> List[ast.expr]:
+    """The message argument of every ``CageDetailingError(...)`` in mento, as written in the source."""
+    found: List[ast.expr] = []
+    for path in sorted(Path(i18n.__file__).parent.rglob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "CageDetailingError" and node.args:
+                found.append(node.args[0])
+    return found
+
+
+class TestWarningReasonCoverage:
+    """A cage or skin warning quotes, as its ``{reason}``, the text of the
+    ``CageDetailingError`` that stopped the detailing. One added without a
+    translation fails here instead of leaving English inside a Spanish warning."""
+
+    def test_every_warning_template_is_in_the_catalog(self) -> None:
+        texts = [*design_warnings._MESSAGES.values(), *design_warnings._COMPRESSION_REASONS.values()]
+        assert sorted(s for s in texts if s not in ES) == []
+
+    def test_every_detailing_error_text_is_in_the_catalog(self) -> None:
+        literals = {m.value for m in _detailing_error_messages() if isinstance(m, ast.Constant)}
+        assert len(literals) > 30, "the scan saw no errors"
+        assert sorted(s for s in literals if s not in ES) == []
+
+    def test_every_built_detailing_error_text_is_in_the_catalog(self) -> None:
+        """An f-string is in the catalog as the texts it can produce, so one of its
+        entries has to fit it. The exception quotes the label the user gave a
+        service case, which no catalog can hold, and stays English."""
+        quotes_user_text = {"Skin service case {}: steel stress exceeds f_yk."}
+        built = [m for m in _detailing_error_messages() if isinstance(m, ast.JoinedStr)]
+        assert built, "the scan saw no f-strings"
+        missing = []
+        for message in built:
+            parts = [v.value if isinstance(v, ast.Constant) else None for v in message.values]
+            shape = "".join("{}" if part is None else part for part in parts)
+            pattern = "".join(".+" if part is None else re.escape(part) for part in parts)
+            if shape not in quotes_user_text and not any(re.fullmatch(pattern, key) for key in ES):
+                missing.append(shape)
+        assert missing == []
+
+    def test_the_bend_table_error_is_in_the_catalog(self) -> None:
+        """The one reason that starts as a ``ValueError`` of a code's bend hook and is passed on."""
+        concrete = Concrete_ACI_318_19(name="H25", f_c=25 * MPa)
+        with pytest.raises(ValueError) as error:
+            design_code(concrete).stirrup_bend_inner_diameter(concrete, 60 * mm)
+        assert str(error.value) in ES
+
+    def test_a_cage_warning_words_its_reason_in_spanish(self) -> None:
+        """A 12 cm web cannot take the bends of a Ø12 stirrup: the reason follows the language."""
+        beam = RectangularBeam(
+            label="B1",
+            concrete=Concrete_ACI_318_19(name="H25", f_c=25 * MPa),
+            steel_bar=SteelBar(name="ADN 420", f_y=420 * MPa),
+            width=12 * cm,
+            height=100 * cm,
+            c_c=40 * mm,
+        )
+        beam.set_transverse_rebar(n_stirrups=1, d_b=12 * mm, s_l=15 * cm)
+        beam.set_longitudinal_rebar_bot(n1=2, d_b1=16 * mm)
+        beam.set_longitudinal_rebar_top(n1=2, d_b1=12 * mm)
+        node = Node(section=beam, forces=[Forces(label="U", V_z=50 * kN, M_y=60 * kNm)])
+        node.check()
+        reason = "The stirrup is too narrow for its required bends."
+
+        def message() -> str:
+            return next(w.message for w in node.warnings if w.code == "cage_detailing_infeasible")
+
+        assert message().endswith(reason)
+        set_language("es")
+        assert message() == ES["The base cage cannot be detailed: {reason}"].format(reason=ES[reason])
+
+    def test_no_warning_names_an_attribute_of_the_api(self) -> None:
+        """A message is read by whoever reads the report, who has no ``beam`` to look into."""
+        texts = [*design_warnings._MESSAGES.values(), *(ES[s] for s in design_warnings._MESSAGES.values())]
+        assert [s for s in texts if "detailing_geometry" in s or "section_geometry" in s] == []
 
 
 # ---------------------------------------------------------------------------

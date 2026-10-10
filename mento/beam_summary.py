@@ -72,9 +72,9 @@ SKIN_COLUMNS = ("db_piel", "cant_piel_cara", "posicion")
 
 
 def _stirrups_label(beam: RectangularBeam) -> str:
-    """The stirrups of a beam as the summary writes them: the compact notation, legs first.
+    """The stirrups of a beam as the summary writes them: the compact notation.
 
-    ``2 legs Ø6/20`` (``2 ramas Ø6/20`` in Spanish), in the language of
+    ``1sØ6/20`` (``1eØ6/20`` in Spanish), in the language of
     :func:`mento.set_language`; ``-`` for a beam without stirrups.
     """
     if beam._stirrup_n == 0:

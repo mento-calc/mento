@@ -161,7 +161,7 @@ from the release history and are summaries rather than complete lists.
   takes three Ø10 per side over the whole height.
 
 - **The beam section drawing shows the section, not its notes.** On the right, each layer,
-  the skin per side and the stirrups as the section carries them (`2 legs Ø10 mm @ 22 cm`);
+  the skin per side and the stirrups as the section carries them (`1 stirrup Ø10 mm @ 22 cm`);
   under it, one line, the steel ratio in kg/m³ (lb/yd³ in US customary units). The spacing
   between legs, the arrangement of the cage and every caption about pending or failed
   checks are gone from the figure, and `plot()` no longer warns: those are read in
@@ -172,7 +172,7 @@ from the release history and are summaries rather than complete lists.
   fill any face of the cage that has no bars even when the drawing falls back to the
   calculation geometry. The figure is cropped to the drawing.
 - **`str(beam.reinforcement)` and `reinforcement.transverse.notation()` leave out the
-  spacing between legs**: `2 legs Ø10 mm @ 22 cm`. It is a result of the check, which
+  spacing between legs**: `1 stirrup Ø10 mm @ 22 cm`. It is a result of the check, which
   `beam.shear_design.notation()` still prints with its maximum.
 - **A design holds a bar at every stirrup leg.** The first layer of each face a
   combination puts in tension carries at least as many bars as the section has legs; a
@@ -224,8 +224,15 @@ from the release history and are summaries rather than complete lists.
 - Jaula mixta: un cerrado perimetral y trabas interiores de 135°/90° para sujeción de barras comprimidas (§25.3.5, Tabla 25.3.2). Se comprueban ambos órdenes de ganchos; alternar los extremos de 90° en piezas sucesivas es requisito de ejecución, sin certificación sísmica. Entrada `legs` impar admitida desde tres ramas; dibujo de piezas y conteo real, sin crédito resistente silencioso para ramas agregadas. Ganchos de patas abiertas fuera del modelo seccional.
 
 
-- Beam transverse reinforcement is written by legs, for example
-  `10 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)`.
+- **Beam transverse reinforcement is written as one closed stirrup and the legs beyond
+  it.** Two legs read `1 stirrup Ø10 mm @ 22 cm` (`1 estribo Ø10 mm c/22 cm`), three
+  `1 stirrup + 1 leg`, four `1 stirrup + 2 legs`, ten
+  `1 stirrup + 8 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)`: the pieces of
+  `arrangement()`, one perimeter stirrup and the rest as single legs, so an odd count
+  needs no notation of its own. The compact form of a table cell is `1sØ10/22` and
+  `1s+8lØ12/14` (`1eØ10/22` and `1e+8rØ12/14` in Spanish; `1s#3@6` in US customary
+  units). 1.5.0 counted two-leg stirrups instead, `5sØ12/14cm` for ten legs
+  (`5eØ12/14cm` in Spanish). `n_legs` is still the count the shear check uses.
   `notation()` follows the requested/current language; `str()` is English.
   The slab grid notation is preserved. English and Spanish labels are available.
 - Section drawings show calculated bars and their layers, every stirrup leg,
@@ -368,6 +375,24 @@ from the release history and are summaries rather than complete lists.
 - **The limit table of a slab in the summary report shows its bar spacing against its
   maximum** (ACI 318-19 §7.7.2.3), as the slab's own report does: it was labelled "Minimum
   spacing" with the maximum dropped, so a slab at Ø12/40 showed "400 ≥ 37 ❌".
+- **The reason a cage or skin warning quotes follows the language.** `cage_detailing_infeasible`,
+  `cage_detailing_pending`, `skin_detailing_infeasible`, `skin_detailing_invalid` and the
+  compression-support warnings quote the text of the `CageDetailingError` that stopped the
+  detailing, and under `set_language("es")` that text stayed English: "La jaula principal no
+  puede detallarse: The stirrup is too narrow for its required bends." Every such text is
+  now in the Spanish catalog; `str()` of the error itself stays English. The one left in
+  English quotes the label the user gave a `SkinServiceCase`.
+- **`skin_reinforcement_required` no longer names `detailing_geometry`.** A message is read
+  by whoever reads the report, who has no `beam` to look into. It now ends "It is
+  supplementary steel, excluded from resistance."
+- **Open legs and crossties raise no warning of their own.** The informative
+  `open_leg_anchorage_outside_model` came with every cage that has a leg without modelled
+  hooks, which is the usual cage of more than two legs, and `crosstie_alternation_required`
+  with every cage the detailing gives 135°/90° crossties. Hooks, anchorage and seismic
+  detailing are outside the sectional model for any cage, as the guides say; a note on each
+  such section added nothing to check. Both codes are gone from `warnings`, from the
+  detailing notes of the report and from the catalog. The §25.3.5 alternation stays where a
+  program reads it: `alternate_hooks` of each crosstie in `detailing_geometry`.
 
 ### Migration notes — jaula mixta
 

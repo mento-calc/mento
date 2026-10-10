@@ -182,7 +182,7 @@ The first line provides the beam's geometry and material properties:
 
 - **Shear reinforcing**: Shear reinforcement details.
 
-  - ``2 legs Ø10 mm @ 20 cm · 14 cm between legs (max 54.29 cm)``: one closed stirrup of
+  - ``1 stirrup Ø10 mm @ 20 cm · 14 cm between legs (max 54.29 cm)``: one closed stirrup of
     10 mm, so two legs across the shear plane, every 20 cm along the beam; the legs are
     14 cm apart across the width, against the 54.29 cm Table 9.7.6.2.2 allows.
   - :math:`A_v = 7.85 \, \textsf{cm}^2/\textsf{m}`: Area of shear reinforcement per meter.
@@ -216,8 +216,8 @@ every stirrup of the cage at the legs the shear check spreads across the width, 
 legs between the perimeter stirrup drawn as ACI crossties -- a 90° leg around the bottom
 bar and a 135° hook around the top one -- and the longitudinal bars, resistant and
 mounting alike in dark gray. On the right of the section: the label of each layer, the
-skin per side when there is skin, and the stirrups as the section carries them, legs
-first (``2 legs Ø10 mm @ 22 cm``). Under it, one line: the steel ratio of the section,
+skin per side when there is skin, and the stirrups as the section carries them
+(``1 stirrup Ø10 mm @ 22 cm``; ``1 stirrup + 2 legs`` for four legs). Under it, one line: the steel ratio of the section,
 in kg/m³ (lb/yd³ in US customary units) -- the longitudinal bars by their area and the
 stirrups by the length of each piece over their spacing. The words follow
 ``mento.set_language``. The limits of the drawing are widened until every text fits,
@@ -411,8 +411,9 @@ su falla o pendiente; no se declara cumplimiento por agotar la búsqueda.
 Las trabas ACI/CIRSOC tienen mandril y cola de la Tabla 25.3.2; se verifican
 recubrimiento e intersecciones para los dos órdenes 135°/90° y 90°/135°. El
 §25.3.5 exige alternar los extremos de 90° en piezas sucesivas a lo largo de
-la viga: se indica en avisos, dibujo e informe, sin verificar la ejecución
-longitudinal. Este detalle no constituye una comprobación sísmica. Los tamaños
+la viga: cada traba lo lleva en ``alternate_hooks`` de la geometría de
+detallado, sin aviso propio y sin verificar la ejecución longitudinal. Este
+detalle no constituye una comprobación sísmica. Los tamaños
 fuera de la tabla modelada conservan la sujeción pendiente.
 
 EN mantiene su verificación de sujeción comprimida pendiente; las segundas

@@ -248,7 +248,7 @@ def test_a_longitudinal_alternative_past_the_shear_limit_of_its_section_is_dropp
     Node(section=beam, forces=forces).design()
     options = beam.flexure_design.bottom.options
 
-    assert str(beam.reinforcement.transverse) == "2 legs Ø10 mm @ 5 cm"
+    assert str(beam.reinforcement.transverse) == "1 stirrup Ø10 mm @ 5 cm"
     assert "2Ø10 mm + 2Ø10 mm" not in [str(o) for o in options]
     assert [str(o) for o in options[:2]] == ["2Ø10 mm", "2Ø12 mm"]
     assert [round(o.section_DCR, 3) for o in options[:2]] == [0.994, 0.999]  # type: ignore[arg-type]
@@ -283,7 +283,7 @@ def test_an_en_alternative_that_lowers_the_shear_resistance_past_the_demand_is_d
     top = beam.flexure_design.top.options
 
     assert str(top[0]) == "2Ø20 mm"
-    assert str(beam.reinforcement.transverse) == "2 legs Ø6 mm @ 37 cm"
+    assert str(beam.reinforcement.transverse) == "1 stirrup Ø6 mm @ 37 cm"
     assert not {"2Ø25 mm", "2Ø16 mm + 2Ø12 mm"} & {str(o) for o in top}
     assert all(o.section_DCR is not None and o.section_DCR <= 1.0 for o in top)
     assert top[0].section_DCR == pytest.approx(beam.shear_design.DCR)
@@ -423,8 +423,8 @@ def test_an_alternative_past_the_shear_limit_of_its_own_section_is_dropped() -> 
     options = beam.shear_design.options
 
     assert [str(o) for o in options] == [
-        "2 legs Ø10 mm @ 8 cm · 19 cm between legs (max 22.62 cm)",
-        "2 legs Ø12 mm @ 11 cm · 18.8 cm between legs (max 22.53 cm)",
+        "1 stirrup Ø10 mm @ 8 cm · 19 cm between legs (max 22.62 cm)",
+        "1 stirrup Ø12 mm @ 11 cm · 18.8 cm between legs (max 22.53 cm)",
     ]
     assert [round(o.section_DCR, 3) for o in options] == [0.994, 0.998]  # type: ignore[arg-type]
     assert [row.d_b.to("mm").magnitude for row in beam.shear_design_results.itertuples()] == [10, 12, 16]
@@ -453,8 +453,8 @@ def test_an_alternative_that_lowers_the_flexural_capacity_past_the_moment_is_dro
 
     assert str(beam.reinforcement.bottom) == "2Ø20 mm"
     assert [str(o) for o in options] == [
-        "2 legs Ø10 mm @ 22 cm · 14 cm between legs (max 45.5 cm)",
-        "2 legs Ø12 mm @ 22 cm · 13.8 cm between legs (max 45.3 cm)",
+        "1 stirrup Ø10 mm @ 22 cm · 14 cm between legs (max 45.5 cm)",
+        "1 stirrup Ø12 mm @ 22 cm · 13.8 cm between legs (max 45.3 cm)",
     ]
     assert [round(o.section_DCR, 3) for o in options] == [0.993, 0.998]  # type: ignore[arg-type]
     assert options[0].section_DCR == pytest.approx(beam.flexure_design.DCR)
