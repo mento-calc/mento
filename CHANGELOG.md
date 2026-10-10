@@ -311,19 +311,6 @@ from the release history and are summaries rather than complete lists.
   `design_data`, and the methods `check_and_process_input()`, `convert_to_nodes()` and
   `convert_to_walls()`. The tables are `sections_table` and `forces_table`.
 
-### Performance
-
-- **The cage detailing no longer parses `"mm"` on every conversion.** Its helpers converted
-  with `value.to("mm")`, and pint 0.25 parses the string on each call: 67 µs against 10 µs
-  with the unit object of `mento.units`, for the same number. The first read of
-  `beam.verification_status` on a wide cage (150 cm × 60 cm, 22 bars per face, 6 legs,
-  ACI 318-19) made 17,000 of those conversions and goes from 1.75 s to 0.60 s; a 12-leg
-  candidate of the support search, from 0.61 s to 0.15 s. The clash checks at the end of the
-  cage builder and the cover check of the crosstie hooks also convert the section's sides,
-  the stirrup's and `clear_spacing` once, not per bar or per point. The cage is the same,
-  bit for bit, over 2,448 sections of the three codes; the search and its 2 s budget are
-  untouched.
-
 ### Fixed
 
 - BeamSummary Word reports accept input containing only `n_legs` and display
@@ -418,6 +405,16 @@ from the release history and are summaries rather than complete lists.
   add the skin bars. On a 150 cm beam with 22 bars a face, a second read of
   `verification_status` went from 0.85 s to 0.2 s; the first is unchanged. A change in
   the skin requirement (manual skin, service cases) runs it again.
+- **The cage detailing no longer parses `"mm"` on every conversion.** Its helpers converted
+  with `value.to("mm")`, and pint 0.25 parses the string on each call: 67 µs against 10 µs
+  with the unit object of `mento.units`, for the same number. The first read of
+  `beam.verification_status` on a wide cage (150 cm × 60 cm, 22 bars per face, 6 legs,
+  ACI 318-19) made 17,000 of those conversions and goes from 1.67 s to 0.61 s; a 12-leg
+  candidate of the support search, from 0.58 s to 0.16 s. The clash checks at the end of the
+  cage builder and the cover check of the crosstie hooks also convert the section's sides,
+  the stirrup's and `clear_spacing` once, not per bar or per point. The cage is the same,
+  bit for bit, over 2,448 sections of the three codes; the search and its 2 s budget are
+  untouched.
 
 ### Migration notes — jaula mixta
 
