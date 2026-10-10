@@ -12,6 +12,8 @@ from the release history and are summaries rather than complete lists.
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-10
+
 ### Added
 
 - **`section_too_small_for_moment` warning** (#169). A design that finds no layout
