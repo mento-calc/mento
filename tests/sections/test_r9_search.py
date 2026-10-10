@@ -1,6 +1,6 @@
 """Una búsqueda por estado, truncamiento explícito y fuerzas no obsoletas."""
 
-import time
+import itertools
 import pytest
 from mento import Concrete_ACI_318_19, RectangularBeam, SteelBar, Forces
 from mento.units import cm, mm, MPa, kNm, kN
@@ -44,14 +44,69 @@ def test_one_search_per_state_and_invalidation(monkeypatch):
     assert len(calls) == 2
 
 
-def test_wide_cage_finishes_or_reports_bounded_search():
+def test_one_skin_pass_per_state_and_invalidation(monkeypatch):
+    b = subject()
+    original = cage._complete_skin_detail
+    calls = []
+
+    def counted(*args, **kwargs):
+        calls.append(1)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(cage, "_complete_skin_detail", counted)
+    b.verification_status
+    b.warnings
+    b.skin_verification_status
+    first = b.detailing_geometry
+    assert len(calls) == 1
+    b.set_skin_rebar(10 * mm, 2, "total")
+    assert len(b.detailing_geometry.skin_bars) == 4
+    assert len(calls) == 2
+    b.clear_skin_rebar()
+    assert b.detailing_geometry == first
+    assert len(calls) == 3
+
+
+def wide_cage(monkeypatch, clock):
+    """Jaula ancha con el reloj de la búsqueda dado; ramas probadas, una lista por búsqueda."""
     b = subject(150, 22)
     b.check([Forces(M_y=2500 * kNm, V_z=300 * kN)])
     assert b._compression_faces == {"top"}
-    start = time.perf_counter()
-    status = b.verification_status
-    assert time.perf_counter() - start < 5
-    assert status["detailing"] in ("failed", "pending")
+    search, candidate = cage._search_cage_detailing, cage._build_candidate
+    searches = []
+
+    def counted_search(*args, **kwargs):
+        searches.append([])
+        return search(*args, **kwargs)
+
+    def counted_candidate(beam, geometry, **kwargs):
+        if not kwargs["include_skin"]:
+            searches[-1].append(len(geometry.leg_x))
+        return candidate(beam, geometry, **kwargs)
+
+    monkeypatch.setattr(cage, "_search_cage_detailing", counted_search)
+    monkeypatch.setattr(cage, "_build_candidate", counted_candidate)
+    monkeypatch.setattr(cage, "perf_counter", clock)
+    return b, searches
+
+
+def test_wide_cage_finishes_when_the_budget_is_not_spent(monkeypatch):
+    b, searches = wide_cage(monkeypatch, lambda: 0)
+    assert b.verification_status["detailing"] in ("failed", "pending")
+    assert not any(w.code == "cage_detailing_pending" for w in b.warnings)
+    placed = len(b.detailing_geometry.leg_x)
+    assert placed > 6
+    assert searches == [list(range(6, placed + 1))]
+
+
+def test_wide_cage_reports_bounded_search(monkeypatch):
+    # Un segundo por lectura del reloj: el presupuesto de 2 s alcanza para dos
+    # candidatos, y la lectura siguiente no vuelve a gastarlo.
+    b, searches = wide_cage(monkeypatch, itertools.count().__next__)
+    assert b.verification_status["detailing"] == "pending"
+    assert any(w.code == "cage_detailing_pending" for w in b.warnings)
+    assert b.verification_status["detailing"] == "pending"
+    assert searches == [[6, 7]]
 
 
 def test_truncation_is_pending_and_cached(monkeypatch):
