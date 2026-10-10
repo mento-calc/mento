@@ -442,7 +442,7 @@ def _build_candidate(beam: RectangularBeam, geometry: SectionGeometry, *, includ
         # The layer behind hangs from the corner bars, so it sinks with them
         # and keeps the clear distance between layers.
         if abs(sink - max(seated, 0.0)) > 1e-9:
-            shift = inward * (sink - max(seated, 0.0)) * _geometry_unit(mounting.x)
+            shift: Quantity = inward * (sink - max(seated, 0.0)) * _geometry_unit(mounting.x)
             second = tuple(replace(bar, y=bar.y + shift) for bar in second)
         bars.extend(second)
         mounting_bars.extend(added)
