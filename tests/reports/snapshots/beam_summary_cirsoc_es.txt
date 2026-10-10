@@ -85,8 +85,8 @@ Verificación | Unidad | Valor | Mín. | Máx. | ¿Ok?
 As mín/máx de la armadura superior | cm² | 0.0 | 0.0 | 17.09 | ✅
 Separación mínima superior | mm | 138.0 |  |  | ✅
 As mín/máx de la armadura inferior | cm² | 2.26 | 1.8 | 14.75 | ✅
-Separación mínima inferior | mm | 114.0 | 25 |  | ✅
-Separación máxima inferior | mm | 126.0 |  | 300.0 | ✅
+Separación mínima inferior | mm | 110.49 | 25 |  | ✅
+Separación máxima inferior | mm | 122.49 |  | 300.0 | ✅
 Capacidad a flexión superior
 Verificación de la armadura superior | Variable | Valor | Unidad
 Barras de la primera capa | n1+n2 | - | 

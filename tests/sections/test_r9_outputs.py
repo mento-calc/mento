@@ -1,9 +1,9 @@
 """Salidas coherentes con ramas propuestas e ingresadas."""
 
+import matplotlib.pyplot as plt
 import pytest
 from mento import set_language
 from mento.design_results import format_transverse_rebar
-from mento.plots.sections import _cage_lines
 from mento.reports.views import verification_table
 from tests.sections.test_r9_search import subject
 from tests.sections.test_mixed_cage import beam
@@ -22,8 +22,15 @@ def test_added_legs_are_pending_and_visible(language):
         assert "3" in warning.message and "4" in warning.message
         assert b.verification_status["detailing"] == "pending"
         assert verification_table(b)["Status"][1] in ("Pendiente", "Pending")
-        assert _cage_lines(b, g)[0].startswith("3 ")
-        assert any("A_v" in line for line in _cage_lines(b, g))
+        # The drawing labels the legs the check counts; the proposal is a warning, not a line of it.
+        fig = b.plot()
+        # The steel-ratio line under the section shares the gid; the notation is the one led by the legs.
+        drawn = [t.get_text() for t in fig.axes[0].texts if t.get_gid() == "stirrup_text"]
+        notation = [text for text in drawn if text[:1].isdigit()]
+        assert len(notation) == 1 and notation[0].startswith("3 ")
+        assert notation[0] == b.reinforcement.transverse.notation()
+        assert not any("A_v" in t.get_text() for t in fig.axes[0].texts)
+        plt.close(fig)
         data = g.to_dict("mm")
         assert data["input_legs"] == 3 and data["placed_legs"] == 4
         assert data["calculation_s_w"] == pytest.approx(265)

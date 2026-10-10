@@ -114,18 +114,15 @@ each with 2Ø8 on its other face (the columns of the second layer, all zero, are
    "V9a", "apoyo", 0, 80, -60
    "V9t", "tramo", 0, 10, 170
 
-``check()`` gives V9a 0.804 on top; V9t 1.263 at the bottom and ❌, with the
-warnings ``not_tension_controlled (bottom)`` and
+``check()`` gives V9a 0.804 on top and ✅, with no warning; V9t 1.263 at the bottom and
+❌, with the warnings ``not_tension_controlled (bottom)`` and
 ``stirrup_spacing_exceeds_compression_support`` (``test_a_support_and_a_midspan_are_two_sections``).
-V9a carries its moment, but reads ❌ too: the cage detailing finds no layout of the 3Ø16
-within the Ø10 stirrup corners, ``cage_detailing_infeasible``.
 
 If the bars run through, it is one section under both combinations: one row of sections
 with ``n1_top = 3, db1_top = 16, n1_bot = 2, db1_bot = 32`` and the two rows of forces
 under the label ``V9``. ``check()`` then gives 0.804 on top (apoyo), 0.934 at the bottom
 (tramo) and 0.548 in shear (apoyo), as a :class:`~mento.node.Node` built by hand
-(``test_continuous_bars_are_one_section_declared_once``); its cage, as V9a's, does not
-fit the 3Ø16.
+(``test_continuous_bars_are_one_section_declared_once``), and ✅.
 
 The same tables in code:
 

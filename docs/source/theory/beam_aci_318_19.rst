@@ -452,6 +452,44 @@ report's limits table gives it a row of its own, with the verdict of the warning
 ``stirrup_spacing_exceeds_compression_support``, beside the along-length row it may
 undercut.
 
+.. _aci-skin:
+
+Skin reinforcement
+------------------
+
+§9.7.2.3 asks for longitudinal skin reinforcement on both side faces of a beam deeper
+than 900 mm (36 in.), over :math:`h/2` from the tension face, at the spacing
+:math:`s` of §24.3.2 with :math:`c_c` the clear cover from the skin bars to the side face
+and :math:`f_s = \tfrac{2}{3} f_y` (§24.3.2.1):
+
+.. math::
+
+   s = \min\left(380\,\frac{280}{f_s} - 2.5\,c_c,\; 300\,\frac{280}{f_s}\right) \quad [\text{mm, MPa}]
+
+ACI asks for no area and no diameter. mento lays skin out by a criterion of its own that
+meets this clause wherever it applies and goes beyond it (the same under every code):
+
+- **From 60 cm, not 90.** Web cracks above the main bars open wider than at their level
+  well before 90 cm; skin from 60 cm is common practice, and the bars are few.
+- **Over the whole height.** The bars run from the bottom layer to the top layer, not over
+  the tension half alone. In a continuous beam the tension face changes between span and
+  support, and one layout over the whole height covers :math:`h/2` from either face with
+  the same bars along the member. The count per side is the least that keeps them at
+  most :math:`s` apart: :math:`n = \lceil (y_{top} - y_{bot}) / s \rceil - 1`, evenly
+  spaced, the gaps to the two layers included.
+- **Diameter below 1 m**: Ø8 up to a 40 cm web, Ø10 above (No. 3 / No. 4), never below
+  ``BeamSettings.skin_bar_diameter``. A preference: ACI fixes none.
+- **Diameter from 1 m**: the smallest that gives, inside the tension zone, the minimum
+  area EN 1992-1-1 §7.3.3(3) asks of deep beams (see :ref:`en-skin`), with more bars if
+  none does. mento takes it as the envelope of both codes for deep beams: ACI has no area
+  requirement, and EN's grows with the width of the web. For an ACI concrete
+  :math:`f_{ct}` is taken as :math:`0.30\,f'^{2/3}_c` (EN Table 3.1) and
+  :math:`f_{yk} = f_y`. The tension zone ends at the neutral axis, at :math:`x = 0.4\,h`
+  from the compression face unless a ``SkinServiceCase`` gives it.
+
+The status is ``required`` above 900 mm, where §9.7.2.3 applies, and ``proposed`` from
+60 cm to 900 mm. Skin steel is not credited to the moment or shear strength.
+
 .. _aci-decisions:
 
 Implementation decisions

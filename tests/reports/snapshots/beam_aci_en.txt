@@ -34,9 +34,9 @@ Bottom max moment    Mu,bot        120  kNm
 Check                     Unit     Value  Min.      Max.  Ok?
 -----------------------  ------  -------  ------  ------  -----
 Min/Max As rebar top      cm²       5.15  3.05     22.45  ✅
-Minimum spacing top        mm         43  30              ✅
+Minimum spacing top        mm      39.49  30              ✅
 Min/Max As rebar bottom   cm²       8.29  3.04      19.4  ✅
-Minimum spacing bottom     mm         37  25              ✅ 
+Minimum spacing bottom     mm      34.07  25              ✅ 
 
 Top reinforcement check                    Variable       Value  Unit
 ----------------------------------------  ----------  ---------  ------
@@ -154,9 +154,9 @@ Bottom max moment | Mu,bot | 120.0 | kNm
 Limit checks
 Check | Unit | Value | Min. | Max. | Ok?
 Min/Max As rebar top | cm² | 5.15 | 3.05 | 22.45 | ✅
-Minimum spacing top | mm | 43.0 | 30.0 |  | ✅
+Minimum spacing top | mm | 39.49 | 30.0 |  | ✅
 Min/Max As rebar bottom | cm² | 8.29 | 3.04 | 19.4 | ✅
-Minimum spacing bottom | mm | 37.0 | 25.0 |  | ✅
+Minimum spacing bottom | mm | 34.07 | 25.0 |  | ✅
 Flexural Capacity Top
 Top reinforcement check | Variable | Value | Unit
 First layer bars | n1+n2 | 2Ø16+1Ø12 | 
@@ -257,7 +257,7 @@ Shear reinforcing 2 legs Ø10 mm @ 22 cm · 14 cm between legs (max 45.55 cm), $
 2 legs Ø10 mm @ 22 cm · 14 cm between legs (max 45.55 cm)
 
 ### reinforcement.transverse
-2 legs Ø10 mm @ 22 cm · 14 cm between legs
+2 legs Ø10 mm @ 22 cm
 
 ### warnings
 
@@ -268,5 +268,4 @@ Shear reinforcing 2 legs Ø10 mm @ 22 cm · 14 cm between legs (max 45.55 cm), $
 2Ø20+1Ø16
 2Ø16+1Ø12
 2 legs Ø10 mm @ 22 cm
-14 cm between legs (max 45.55 cm)
-single perimeter stirrup
+Steel: 142 kg/m³

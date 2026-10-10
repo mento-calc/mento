@@ -142,17 +142,16 @@ The attributes of the settings class are as follows:
   - max_longitudinal_diameter
   - max_bars_per_layer
 
-Skin bar diameter
------------------
+Skin bars
+---------
 
-``skin_bar_diameter`` selects the supplementary longitudinal skin bar diameter:
-10 mm in metric and 3/8 in. (No. 3) in imperial defaults. This is a preference,
-not a minimum imposed by §9.7.2.3. It must be a positive finite length and meet
-``minimum_longitudinal_diameter``. It is checked when required skin steel is
-read; 8 mm is permitted with the default metric minimum. Under ACI/CIRSOC
-the spacing cap is independent of diameter. Under EN the selected diameter
-controls the required count and is checked against the adjusted crack-control
-limit.
+``skin_bar_diameter`` is the smallest diameter the skin criterion uses: 8 mm in metric
+and No. 3 in imperial defaults. Raise it to have every skin bar at least that size. It
+must meet ``minimum_longitudinal_diameter``.
+
+``skin_bar_spacing`` (280 mm / 11 in.) is the most the skin bars are apart under a code
+that prints no spacing for them (EN 1992-1-1). ACI / CIRSOC use their own §24.3.2 cap.
+See the beams guide for the criterion.
 
 EN skin service inputs
 -----------------------

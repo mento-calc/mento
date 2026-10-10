@@ -482,8 +482,8 @@ def test_documented_examples() -> None:
     """The tables the user guides write in code build their summaries, and give the numbers the guides quote."""
     beam = _guide_tables("beam_summary.rst")["beam_summary"]
     support, midspan = beam.check().iloc[1], beam.check().iloc[2]
-    assert (support["DCRb,top"], support["Ok?"]) == (0.804, "❌")
-    assert support["Warnings"] == "cage_detailing_infeasible"
+    assert (support["DCRb,top"], support["Ok?"]) == (0.804, "✅")
+    assert support["Warnings"] == "-"
     assert (midspan["DCRb,bot"], midspan["Ok?"]) == (1.263, "❌")
     assert midspan["Warnings"] == "not_tension_controlled (bottom), stirrup_spacing_exceeds_compression_support"
 

@@ -34,9 +34,9 @@ Momento máximo inferior    Mu,bot         60  kNm
 Verificación                         Unidad     Valor  Mín.      Máx.  ¿Ok?
 ----------------------------------  --------  -------  ------  ------  ----------
 As mín/máx de la armadura superior    cm²        1.01  3.1      39.61  ❌
-Separación mínima superior             mm         122  30              ✅
+Separación mínima superior             mm      117.31  30              ✅
 As mín/máx de la armadura inferior    cm²       26.11  3.05     15.51  ❌ 9.3.3.1
-Separación mínima inferior             mm       -1.17  25              ❌ 
+Separación mínima inferior             mm       -1.85  25              ❌ 
 
 Verificación de la armadura superior             Variable     Valor  Unidad
 ----------------------------------------------  ----------  -------  --------
@@ -154,9 +154,9 @@ Momento máximo inferior | Mu,bot | 60.0 | kNm
 Verificaciones de límites
 Verificación | Unidad | Valor | Mín. | Máx. | ¿Ok?
 As mín/máx de la armadura superior | cm² | 1.01 | 3.1 | 39.61 | ❌
-Separación mínima superior | mm | 122.0 | 30.0 |  | ✅
+Separación mínima superior | mm | 117.31 | 30.0 |  | ✅
 As mín/máx de la armadura inferior | cm² | 26.11 | 3.05 | 15.51 | ❌ 9.3.3.1
-Separación mínima inferior | mm | -1.17 | 25.0 |  | ❌
+Separación mínima inferior | mm | -1.85 | 25.0 |  | ❌
 Capacidad a flexión superior
 Verificación de la armadura superior | Variable | Valor | Unidad
 Barras de la primera capa | n1+n2 | 2Ø8 | 
@@ -256,7 +256,7 @@ Shear reinforcing 2 legs Ø6 mm @ 40 cm · 14.4 cm between legs (max 45.7 cm), $
 2 legs Ø6 mm @ 40 cm · 14.4 cm between legs (max 45.7 cm)
 
 ### reinforcement.transverse
-2 legs Ø6 mm @ 40 cm · 14.4 cm between legs
+2 legs Ø6 mm @ 40 cm
 
 ### warnings
 not_tension_controlled: La sección no es controlada por tracción (§9.3.3.1): A_s = 26.1 cm² en la cara inferior supera A_s,máx = 15.5 cm². No cumple, aunque su capacidad alcance el momento.
@@ -272,6 +272,4 @@ stirrup_spacing_exceeds_max: Separación de estribos a lo largo del elemento: 40
 2Ø10+5Ø25
 2Ø8
 2 ramas Ø6 mm c/40 cm
-14.4 cm entre ramas (máx. 45.7 cm)
-estribo perimetral
-Solo modelo de cálculo · jaula no detallable
+Cuantía: 220 kg/m³

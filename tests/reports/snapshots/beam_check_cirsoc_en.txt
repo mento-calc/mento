@@ -34,9 +34,9 @@ Bottom max moment    Mu,bot         60  kNm
 Check                     Unit     Value  Min.      Max.  Ok?
 -----------------------  ------  -------  ------  ------  ----------
 Min/Max As rebar top      cm²       1.01  3.1      39.61  ❌
-Minimum spacing top        mm        122  30              ✅
+Minimum spacing top        mm     117.31  30              ✅
 Min/Max As rebar bottom   cm²      26.11  3.05     15.51  ❌ 9.3.3.1
-Minimum spacing bottom     mm      -1.17  25              ❌ 
+Minimum spacing bottom     mm      -1.85  25              ❌ 
 
 Top reinforcement check                    Variable     Value  Unit
 ----------------------------------------  ----------  -------  ------
@@ -154,9 +154,9 @@ Bottom max moment | Mu,bot | 60.0 | kNm
 Limit checks
 Check | Unit | Value | Min. | Max. | Ok?
 Min/Max As rebar top | cm² | 1.01 | 3.1 | 39.61 | ❌
-Minimum spacing top | mm | 122.0 | 30.0 |  | ✅
+Minimum spacing top | mm | 117.31 | 30.0 |  | ✅
 Min/Max As rebar bottom | cm² | 26.11 | 3.05 | 15.51 | ❌ 9.3.3.1
-Minimum spacing bottom | mm | -1.17 | 25.0 |  | ❌
+Minimum spacing bottom | mm | -1.85 | 25.0 |  | ❌
 Flexural Capacity Top
 Top reinforcement check | Variable | Value | Unit
 First layer bars | n1+n2 | 2Ø8 | 
@@ -256,7 +256,7 @@ Shear reinforcing 2 legs Ø6 mm @ 40 cm · 14.4 cm between legs (max 40 cm), $A_
 2 legs Ø6 mm @ 40 cm · 14.4 cm between legs (max 40 cm)
 
 ### reinforcement.transverse
-2 legs Ø6 mm @ 40 cm · 14.4 cm between legs
+2 legs Ø6 mm @ 40 cm
 
 ### warnings
 not_tension_controlled: The section is not tension-controlled (§9.3.3.1): A_s = 26.1 cm² on the bottom face exceeds A_s,max = 15.5 cm². It does not comply, even where its capacity covers the moment.
@@ -272,6 +272,4 @@ stirrup_spacing_exceeds_max: Stirrup spacing along the member: 40 cm exceeds the
 2Ø10+5Ø25
 2Ø8
 2 legs Ø6 mm @ 40 cm
-14.4 cm between legs (max 40 cm)
-single perimeter stirrup
-Calculation model only · cage detailing not feasible
+Steel: 220 kg/m³

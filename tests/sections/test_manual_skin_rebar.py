@@ -99,7 +99,8 @@ def test_manual_input_is_independent_and_can_be_cleared():
     b.clear_skin_rebar()
     assert b.skin_rebar is None
     assert not b.skin_reinforcement.manual
-    assert b.skin_reinforcement.n_per_side == 2
+    # Back to the automatic layout: ceil((1152 - 48) / 285) - 1 = 3 rows per side.
+    assert b.skin_reinforcement.n_per_side == 3
 
 
 @pytest.mark.parametrize("count,expected", [(6, "passed"), (1, "failed")])
@@ -115,13 +116,27 @@ def test_en_manual_area_is_checked_per_service_zone(count, expected):
         assert len(b.detailing_geometry.skin_bars) == 2 * count
 
 
-def test_en_manual_missing_service_inputs_remains_pending():
+@pytest.mark.parametrize("count,expected", [(3, "passed"), (1, "failed")])
+def test_en_manual_without_service_inputs_is_checked_with_the_assumptions(count, expected):
+    """Sin datos SLS: x = 0.4 * 1200 = 480 mm, zona 48..720 mm; Eq. (7.1) pide 92.3 mm² por lateral.
+
+    3 Ø10 en 324, 600, 876 mm: dos en la zona, 157 mm²; huecos 276, 276, 120 mm <= 280 mm. Pasa.
+    1 Ø10 en 600 mm: 78.5 mm², no alcanza.
+    """
     b = en_beam()
     b.set_longitudinal_rebar_bot(n1=4, d_b1=20 * mm)  # Invalidar los datos SLS previos.
     b.check_flexure([Forces(M_y=100 * kNm)])
-    b.set_skin_rebar(10 * mm, 3, "total")
-    assert b.skin_verification_status == "pending"
-    assert any(w.code == "skin_en_service_pending" for w in b.warnings)
+    b.set_skin_rebar(10 * mm, count, "total")
+    assert b.skin_service_cases == ()
+    req = b.skin_reinforcement
+    assert req.status == "required" and req.manual
+    assert req.check_zones[0].upper.to(mm).magnitude == pytest.approx(720)
+    assert b.skin_verification_status == expected
+    if expected == "failed":
+        assert any("area" in failure for failure in req.failures)
+    codes = [w.code for w in b.warnings]
+    assert "skin_en_service_assumed" in codes
+    assert "skin_en_service_pending" not in codes
 
 
 def test_en_manual_zone_must_cover_the_required_tension_face():
@@ -133,7 +148,8 @@ def test_en_manual_zone_must_cover_the_required_tension_face():
 
 
 def test_manual_skin_is_drawn_even_when_not_required():
-    b = beam(height=60 * cm)
+    # Below 60 cm mento lays out no skin of its own.
+    b = beam(height=55 * cm)
     b.set_skin_rebar(10 * mm, 2, "total")
     assert b.skin_reinforcement.status == "not_required"
     assert len(b.detailing_geometry.skin_bars) == 4
@@ -287,7 +303,11 @@ def test_nonconforming_but_fitting_manual_skin_is_drawn():
         set_language("es")
         fig = b.plot(show=False)
         assert sum(p.get_gid() == "skin_bar" for p in fig.axes[0].patches) == 4
-        assert any("NO CUMPLE" in t.get_text() for t in fig.axes[0].texts)
+        texts = [t.get_text() for t in fig.axes[0].texts]
+        assert "2Ø10 por lateral (piel)" in texts
+        # The non-conformity is a warning of the beam, not a caption of the drawing.
+        assert not any("NO CUMPLE" in t for t in texts)
+        assert any(w.code == "skin_reinforcement_failed" for w in b.warnings)
         plt.close(fig)
     finally:
         set_language("en")

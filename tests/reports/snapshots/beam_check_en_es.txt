@@ -34,9 +34,9 @@ Momento máximo inferior   MEd,bot         60  kNm
 Verificación                         Unidad     Valor  Mín.      Máx.  ¿Ok?
 ----------------------------------  --------  -------  ------  ------  ------
 As mín/máx de la armadura superior    cm²        1.01  1.24        40  ❌
-Separación mínima superior             mm         122  30              ✅
+Separación mínima superior             mm      117.31  30              ✅
 As mín/máx de la armadura inferior    cm²       26.11  1.22        40  ✅
-Separación mínima inferior             mm       -1.17  25              ❌ 
+Separación mínima inferior             mm       -1.85  25              ❌ 
 
 Verificación de la armadura superior             Variable     Valor  Unidad
 ----------------------------------------------  ----------  -------  --------
@@ -150,9 +150,9 @@ Momento máximo inferior | MEd,bot | 60.0 | kNm
 Verificaciones de límites
 Verificación | Unidad | Valor | Mín. | Máx. | ¿Ok?
 As mín/máx de la armadura superior | cm² | 1.01 | 1.24 | 40.0 | ❌
-Separación mínima superior | mm | 122.0 | 30.0 |  | ✅
+Separación mínima superior | mm | 117.31 | 30.0 |  | ✅
 As mín/máx de la armadura inferior | cm² | 26.11 | 1.22 | 40.0 | ✅
-Separación mínima inferior | mm | -1.17 | 25.0 |  | ❌
+Separación mínima inferior | mm | -1.85 | 25.0 |  | ❌
 Capacidad a flexión superior
 Verificación de la armadura superior | Variable | Valor | Unidad
 Barras de la primera capa | n1+n2 | 2Ø8 | 
@@ -248,7 +248,7 @@ Shear reinforcing 2 legs Ø6 mm @ 40 cm · 14.4 cm between legs (max 34.27 cm), 
 2 legs Ø6 mm @ 40 cm · 14.4 cm between legs (max 34.27 cm)
 
 ### reinforcement.transverse
-2 legs Ø6 mm @ 40 cm · 14.4 cm between legs
+2 legs Ø6 mm @ 40 cm
 
 ### warnings
 As_below_min: Armadura en la cara superior: A_s = 1.01 cm² es menor que la mínima que tiene que cumplir, A_s,mín,ef = 1.24 cm².
@@ -264,8 +264,4 @@ stirrup_spacing_exceeds_max: Separación de estribos a lo largo del elemento: 40
 2Ø10+5Ø25
 2Ø8
 2 ramas Ø6 mm c/40 cm
-14.4 cm entre ramas (máx. 34.27 cm)
-estribo perimetral
-Solo modelo de cálculo · jaula no detallable
-Arriostramiento de barras requeridas por compresión:
-pendiente
+Cuantía: 220 kg/m³

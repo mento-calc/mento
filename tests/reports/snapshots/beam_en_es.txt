@@ -34,9 +34,9 @@ Momento máximo inferior   MEd,bot        120  kNm
 Verificación                         Unidad     Valor  Mín.      Máx.  ¿Ok?
 ----------------------------------  --------  -------  ------  ------  ------
 As mín/máx de la armadura superior    cm²        5.15  1.23        40  ✅
-Separación mínima superior             mm          45  30              ✅
+Separación mínima superior             mm       42.66  30              ✅
 As mín/máx de la armadura inferior    cm²        8.29  1.22        40  ✅
-Separación mínima inferior             mm          39  25              ✅ 
+Separación mínima inferior             mm       37.24  25              ✅ 
 
 Verificación de la armadura superior             Variable       Valor  Unidad
 ----------------------------------------------  ----------  ---------  --------
@@ -150,9 +150,9 @@ Momento máximo inferior | MEd,bot | 120.0 | kNm
 Verificaciones de límites
 Verificación | Unidad | Valor | Mín. | Máx. | ¿Ok?
 As mín/máx de la armadura superior | cm² | 5.15 | 1.23 | 40.0 | ✅
-Separación mínima superior | mm | 45.0 | 30.0 |  | ✅
+Separación mínima superior | mm | 42.66 | 30.0 |  | ✅
 As mín/máx de la armadura inferior | cm² | 8.29 | 1.22 | 40.0 | ✅
-Separación mínima inferior | mm | 39.0 | 25.0 |  | ✅
+Separación mínima inferior | mm | 37.24 | 25.0 |  | ✅
 Capacidad a flexión superior
 Verificación de la armadura superior | Variable | Valor | Unidad
 Barras de la primera capa | n1+n2 | 2Ø16+1Ø12 | 
@@ -249,7 +249,7 @@ Shear reinforcing 2 legs Ø8 mm @ 29 cm · 14.2 cm between legs (max 34.31 cm), 
 2 legs Ø8 mm @ 29 cm · 14.2 cm between legs (max 34.31 cm)
 
 ### reinforcement.transverse
-2 legs Ø8 mm @ 29 cm · 14.2 cm between legs
+2 legs Ø8 mm @ 29 cm
 
 ### warnings
 compression_detailing_en_pending: Mento no verifica la sujeción de barras comprimidas EN (§9.2.1.2(3), 15φ).
@@ -260,7 +260,4 @@ compression_detailing_en_pending: Mento no verifica la sujeción de barras compr
 2Ø20+1Ø16
 2Ø16+1Ø12
 2 ramas Ø8 mm c/29 cm
-14.2 cm entre ramas (máx. 34.31 cm)
-estribo perimetral
-Arriostramiento de barras requeridas por compresión:
-pendiente
+Cuantía: 123 kg/m³

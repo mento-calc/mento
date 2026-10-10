@@ -122,8 +122,17 @@ def test_plot_and_export_publish_hook_geometry_and_alternation():
     b = subject()
     fig = b.plot(show=False)
     try:
-        assert sum(line.get_gid() == "crosstie_hook" for line in fig.axes[0].lines) == 10
-        assert any("135°/90°" in text.get_text() for text in fig.axes[0].texts)
+        # One band per crosstie, its two hooks part of it; the alternation is a warning, not a caption.
+        ties = b.detailing_geometry.crossties
+        bands = [p for p in fig.axes[0].patches if p.get_gid() == "crosstie"]
+        assert len(bands) == len(ties) == 5
+        for band, tie in zip(bands, ties):
+            xs, ys = band.get_xy()[:, 0], band.get_xy()[:, 1]
+            assert xs.min() < tie.x.to("cm").magnitude < xs.max()
+            assert ys.min() < tie.y_bottom.to("cm").magnitude and tie.y_top.to("cm").magnitude < ys.max()
+        assert not fig.axes[0].lines
+        assert any(w.code == "crosstie_alternation_required" for w in b.warnings)
+        assert not any("135°/90°" in text.get_text() for text in fig.axes[0].texts)
         data = b.detailing_geometry.to_dict("mm")
         assert all(t["alternate_hooks"] and len(t["engaged_bars"]) == 2 for t in data["crossties"])
     finally:

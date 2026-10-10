@@ -1,5 +1,6 @@
 """Estados límite de entradas y sujeción: no acreditar una jaula no verificada."""
 
+import warnings
 from dataclasses import replace
 from types import SimpleNamespace
 
@@ -94,7 +95,7 @@ def test_water_fill_respects_a_centre_spacing_cap():
     g = beam().section_geometry
     bar = replace(g.bars[0], d_b=10 * mm)
     row = tuple(replace(bar, x=x * mm) for x in (10, 30, 70))
-    resistant, mounting = cage._supported_layer(row, [(0, 1, 10), (80, -1, 10)], bar, 10, 30, 10, 10)
+    resistant, mounting, _ = cage._supported_layer(row, [(0, 1, 10), (80, -1, 10)], bar, 10, 30, 10, 10)
     assert not mounting
     assert [b.x.to(mm).magnitude for b in resistant] == pytest.approx([10, 40, 70])
 
@@ -175,10 +176,14 @@ def test_plot_marks_unverified_en_compression_support():
     b.check_flexure(forces)
     b.check_shear(forces)
     assert b.compression_detailing.status == "pending"
-    with pytest.warns(UserWarning, match="Required compression-bar support: pending"):
+    # The pending support is reported in beam.warnings; the drawing neither warns nor writes it.
+    assert "compression_detailing_en_pending" in [w.code for w in b.warnings]
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
         fig = b.plot(show=False)
     caption = translate("Required compression-bar support: {status}", status=translate("pending"))
-    assert any(caption in text.get_text() for text in fig.axes[0].texts)
+    assert not any(caption in text.get_text() for text in fig.axes[0].texts)
+    assert not any("compression" in text.get_text().lower() for text in fig.axes[0].texts)
     plt.close(fig)
 
 
@@ -201,18 +206,33 @@ def test_search_fallback_preserves_geometry_without_claiming_support(monkeypatch
 
 
 def test_open_leg_draws_only_explicit_hook_metadata():
-    import matplotlib.pyplot as plt
+    """An open leg with no modelled hooks is one band: a 90° leg at the bottom, a 135° hook on top."""
+    import math
 
-    from mento.plots.sections import _add_crosstie
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Polygon
+
+    from mento.plots.sections import _add_crosstie, _crosstie_path
     from mento.section_geometry import Crosstie
 
-    fig, ax = plt.subplots()
+    # No bar at the leg: each bend takes the stirrups' mandrel inside the branch.
+    no_bars = SimpleNamespace(bars=(), mounting_bars=())
     tie = Crosstie(1, 300 * mm, 50 * mm, 550 * mm, hooks=(90, 135))
-    _add_crosstie(ax, tie, 1.0)
-    assert len(ax.patches) == 1 and ax.patches[0].get_gid() == "crosstie"
-    assert [line.get_gid() for line in ax.lines] == ["crosstie_hook", "crosstie_hook"]
-    assert ax.lines[0].get_xdata() == pytest.approx([30, 34])
-    assert ax.lines[0].get_ydata() == pytest.approx([5, 5])
-    assert ax.lines[1].get_xdata() == pytest.approx([30, 30 + 2**0.5 * 2])
-    assert ax.lines[1].get_ydata() == pytest.approx([55, 55 - 2**0.5 * 2])
+    fig, ax = plt.subplots()
+    _add_crosstie(ax, tie, no_bars, 1.0, 4.0)
+    assert len(ax.patches) == 1
+    assert isinstance(ax.patches[0], Polygon) and ax.patches[0].get_gid() == "crosstie"
+    assert not ax.lines
     plt.close(fig)
+
+    path = _crosstie_path(tie, no_bars, 1.0, 4.0)
+    r = (4.0 + 1.0) / 2  # Mandrel radius to the centreline.
+    # 90° at the bottom: a horizontal tail of 6 d_b on the branch, then the bend up into the leg.
+    assert path[0] == pytest.approx((30 + r + 6, 5))
+    assert path[1] == pytest.approx((30 + r, 5))
+    # The leg runs vertical at x = 30 cm between the two bends.
+    leg = [p for p in path if abs(p[0] - 30) < 1e-9]
+    assert min(y for _, y in leg) == pytest.approx(5 + r) and max(y for _, y in leg) == pytest.approx(55 - r)
+    # 135° on top: the tail leaves the bend at 45°, pointing down into the core, 6 d_b long.
+    (x0, y0), (x1, y1) = path[-2], path[-1]
+    assert (x1 - x0, y1 - y0) == pytest.approx((6 * math.sin(math.pi / 4), -6 * math.cos(math.pi / 4)))

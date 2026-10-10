@@ -61,14 +61,19 @@ from mento.verification import resolve_legs, validate_supported_forces, verifica
 from mento.forces import Forces
 from mento.plots.sections import plot_beam_section
 from mento.precompute import refresh_section_floats
-from mento.rebar import Rebar
+from mento.rebar import Rebar, leg_count
 
 # from devtools import debug
 from mento.rectangular import RectangularSection
 from mento.reports import views
 from mento.reports.documents import flexure_report_doc, shear_report_doc
 from mento.reports.tables import build_flexure_report, build_shear_report
-from mento.section_geometry import SectionGeometry, build_section_geometry
+from mento.section_geometry import (
+    SectionGeometry,
+    build_section_geometry,
+    layer_end_setbacks,
+    stirrup_bend_inner_diameter,
+)
 from mento.settings import BeamSettings
 from mento.units import Quantity, cm, dimensionless, inch, kN, m, mm
 
@@ -565,9 +570,11 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         reinforcement -- the registry's ``flexure_admissible``, tension-
         controlled under ACI 318-19 / CIRSOC 201-25 §9.3.3.1 and the 4 % of
         EN 1992-1-1 §9.2.1.1(3), the same limit the design holds its own
-        layout to. It also names the faces the section relies on as
-        compression steel. Values-only checks, so the section is not written
-        to.
+        layout to. Every stirrup leg holds a bar of each face a combination
+        puts in tension: its first layer carries at least as many bars as the
+        section has legs, or its bars do not "fit" the cage. It also names the
+        faces the section relies on as compression steel. Values-only checks,
+        so the section is not written to.
         """
         admissible = design_code(self.concrete).flexure_admissible
         names = tuple("bottom" if face == "bot" else "top" for face in faces)
@@ -576,9 +583,14 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         clean = fits
         within = True
         compression: set[str] = set()
+        legs = leg_count(self)
         for force in forces:
             state = self._run_flexure_check(force, report=False)
             check = capture_flexure_check(self, force.label, state, has_axial_force=force.N_x.magnitude != 0)
+            pulled = "bot" if force._M_y > 0 * kN * m else "top" if force._M_y < 0 * kN * m else None
+            if pulled in faces and legs:
+                bars = (self._n1_b + self._n2_b) if pulled == "bot" else (self._n1_t + self._n2_t)
+                fits = fits and bars >= legs
             worst = max(worst, check.bottom.DCR, check.top.DCR)
             clean = clean and not flexure_warnings(self, force.label, state)
             tension = "bot" if force._M_y > 0 * kN * m else "top" if force._M_y < 0 * kN * m else None
@@ -587,7 +599,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             braced = self._compression_face_of(force, state)
             if braced is not None:
                 compression.add(braced)
-        return _Verdict(worst, clean and within, frozenset(compression), fits, within)
+        return _Verdict(worst, clean and fits and within, frozenset(compression), fits, within)
 
     def _verify_longitudinal_options(self, forces: list[Forces]) -> None:
         """Keep, of each face's pooled alternatives, those the finished section passes with.
@@ -1053,14 +1065,29 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             + area(self._n4_t, self._d_b4_t)
         )
 
-    def _layer_clear_spacing(self, n_a: int, d_a: Quantity, n_b: int, d_b: Quantity) -> Quantity:
+    def _layer_clear_spacing(
+        self, n_a: int, d_a: Quantity, n_b: int, d_b: Quantity, offset: Optional[Quantity] = None
+    ) -> Quantity:
         """The clear distance between the bars of one layer, spread evenly between the stirrup legs.
+
+        The end bars sit clear of the stirrup's bends, not in the square
+        corner of the inner faces: a bar thinner than the bend's inside
+        diameter is pushed inward by :func:`~mento.section_geometry.end_setback`
+        -- on the layer nearest the face, as far as a bar seated in the bend
+        (:func:`~mento.section_geometry.seated_corner`), 3.5 mm for a Ø16 in a
+        Ø10 stirrup. The rebar search, the calculation geometry and
+        ``detailing_geometry`` use the same rule, so a layout that fits here
+        is one the cage can hold. The effective depth keeps the bar at
+        ``d_b/2`` from the branch.
 
         Parameters:
             n_a (int): Number of bars in the first group of the layer.
             d_a (Quantity): Diameter of bars in the first group of the layer.
             n_b (int): Number of bars in the second group of the layer.
             d_b (Quantity): Diameter of bars in the second group of the layer.
+            offset (Quantity): How far behind the stirrup's horizontal branch
+                the layer starts: ``None`` or zero for the layer nearest the
+                face, ``max(d_b1, d_b2) + layers_spacing`` for the second.
 
         Returns:
             Quantity: Clear spacing for the given layer -- for a layer of one
@@ -1070,8 +1097,17 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         total_bars = n_a + n_b
         if total_bars <= 1:
             return effective_width - max(d_a, d_b)  # Clear space for one bar
+        bend, _ = stirrup_bend_inner_diameter(self)
+        left, right = layer_end_setbacks(
+            None if bend is None else float(bend.to(mm).magnitude),
+            n_a,
+            float(d_a.to(mm).magnitude),
+            n_b,
+            float(d_b.to(mm).magnitude),
+            0.0 if offset is None else float(offset.to(mm).magnitude),
+        )
         total_bar_width = n_a * d_a + n_b * d_b
-        return (effective_width - total_bar_width) / (total_bars - 1)
+        return (effective_width - (left + right) * mm - total_bar_width) / (total_bars - 1)
 
     def _tension_bar_spacing(self, face: str) -> Optional[Tuple[Quantity, Quantity]]:
         """The centre-to-centre spacing of the bars nearest ``face``, and the most the code allows it.
@@ -1124,8 +1160,11 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
 
         # AVAIABLE CLEAR SPACING FOR BOTTOM BARS
         # Calculate clear spacing for each layer
+        layers_spacing = self.settings.layers_spacing
         spacing_layer1_b = layer_clear_spacing(self._n1_b, self._d_b1_b, self._n2_b, self._d_b2_b)
-        spacing_layer2_b = layer_clear_spacing(self._n3_b, self._d_b3_b, self._n4_b, self._d_b4_b)
+        spacing_layer2_b = layer_clear_spacing(
+            self._n3_b, self._d_b3_b, self._n4_b, self._d_b4_b, max(self._d_b1_b, self._d_b2_b) + layers_spacing
+        )
 
         # Return the maximum clear spacing between the two layers
         self._available_s_bot = min(spacing_layer1_b, spacing_layer2_b)
@@ -1133,7 +1172,9 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         # AVAIABLE CLEAR SPACING FOR TOP BARS
         # Calculate clear spacing for each layer
         spacing_layer1_t = layer_clear_spacing(self._n1_t, self._d_b1_t, self._n2_t, self._d_b2_t)
-        spacing_layer2_t = layer_clear_spacing(self._n3_t, self._d_b3_t, self._n4_t, self._d_b4_t)
+        spacing_layer2_t = layer_clear_spacing(
+            self._n3_t, self._d_b3_t, self._n4_t, self._d_b4_t, max(self._d_b1_t, self._d_b2_t) + layers_spacing
+        )
 
         # Return the maximum clear spacing between the two layers
         self._available_s_top = min(spacing_layer1_t, spacing_layer2_t)
@@ -1915,8 +1956,11 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
     def detailing_geometry(self) -> SectionGeometry:
         """A supported cage, with supplementary mounting steel listed separately.
 
-        The calculated bar areas and vertical coordinates are preserved. Bars
-        are placed at the cage corners, and mounting bars fill missing supports.
+        The calculated bar areas are preserved. Bars are placed at the cage
+        corners, seated in the bends of the closed stirrups -- those and the
+        layer behind them a few millimetres deeper in than the calculation
+        places them (``section_geometry.seated_corner``) -- and mounting bars
+        fill missing supports.
         Raises ``CageDetailingError`` if the layout cannot satisfy spacing.
         """
         from mento.cage_detailing import build_cage_detailing

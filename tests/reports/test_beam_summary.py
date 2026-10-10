@@ -163,8 +163,8 @@ def test_a_support_and_a_midspan_are_two_sections(h25: Any, sample_steel: SteelB
 
     assert (support["Comb.,top"], support["Mu,top"], support["DCRb,top"]) == ("apoyo", -60.0, 0.804)
     assert (support["Comb.,v"], support["Vu"], support["DCRv"]) == ("apoyo", 80.0, 0.535)
-    # Strength passes; the cage detailing of main (#174) does not fit these bars, and fails the section.
-    assert (support["Warnings"], support[VERDICT_COLUMN]) == ("cage_detailing_infeasible", FAIL_MARK)
+    # The 3Ø16 seat in the bends of the Ø10 stirrup (#198), so the cage holds them: no warning.
+    assert (support["Warnings"], support[VERDICT_COLUMN]) == ("-", PASS_MARK)
     assert (midspan["Comb.,bot"], midspan["Mu,bot"], midspan["DCRb,bot"]) == ("tramo", 170.0, 1.263)
     assert midspan[VERDICT_COLUMN] == FAIL_MARK
     codes = [(w.code, w.face) for w in summary.warnings[("", "V9t")]]
@@ -189,11 +189,8 @@ def test_continuous_bars_are_one_section_declared_once(h25: Any, sample_steel: S
     assert (row["Comb.,top"], row["Mu,top"], row["DCRb,top"]) == ("apoyo", -60.0, 0.804)
     assert (row["Comb.,bot"], row["Mu,bot"], row["DCRb,bot"]) == ("tramo", 170.0, 0.934)
     assert (row["Comb.,v"], row["Vu"], row["DCRv"]) == ("apoyo", 80.0, 0.548)
-    # Strength passes; the cage detailing of main (#174) does not fit these bars, and fails the section.
-    assert (row["Warnings"], row[VERDICT_COLUMN]) == (
-        "compression_detailing_pending, cage_detailing_infeasible",
-        FAIL_MARK,
-    )
+    # The cage holds the 3Ø16 seated in its bends (#198), as V9a's: no warning.
+    assert (row["Warnings"], row[VERDICT_COLUMN]) == ("-", PASS_MARK)
 
     beam = RectangularBeam(label="V9", concrete=h25, steel_bar=sample_steel, width=20 * cm, height=40 * cm, c_c=25 * mm)
     beam.set_transverse_rebar(1, 10 * mm, 17 * cm)
@@ -279,9 +276,9 @@ def test_a_one_sign_beam_reads_back_with_its_compression_bars(h25: Any, sample_s
     assert (midspan["n1_bot"], midspan["db1_bot"], midspan["legs"], midspan["dbs"], midspan["sl"]) == (2, 32, 2, 10, 17)
     before = summary.check()
     assert list(before["DCRb,top"][1:]) == [0.928, 0.0] and list(before["DCRb,bot"][1:]) == [0.0, 0.934]
-    # The midspan's cage does not fit the bars the design chose (main's cage detailing, #174).
-    assert list(before[VERDICT_COLUMN][1:]) == [PASS_MARK, FAIL_MARK]
-    assert before["Warnings"].iloc[2] == "compression_detailing_pending, cage_detailing_infeasible"
+    # The design lays the bars out clear of the stirrup bends (#198), so both cages hold what it chose.
+    assert list(before[VERDICT_COLUMN][1:]) == [PASS_MARK, PASS_MARK]
+    assert list(before["Warnings"][1:]) == ["-", "-"]
 
     path = tmp_path / "beams.xlsx"
     summary.to_excel(path)
@@ -484,9 +481,9 @@ def test_design_is_node_design(sample_steel: SteelBar) -> None:
         assert (row["n1_bot"], row["db1_bot"], row["n2_bot"], row["db2_bot"]) == (2, 25, 1, 20)
         assert (row["legs"], row["dbs"], row["sl"]) == (2, 10, 11)
         check = summary.check().iloc[1]
-        # The strength closes; main's cage detailing (#174) does not fit 2Ø25 + 1Ø20 in the 20 cm web.
-        assert (check["DCRb,bot"], check[VERDICT_COLUMN]) == (0.787, FAIL_MARK)
-        assert "cage_detailing_infeasible" in check["Warnings"]
+        # The strength closes, and the cage holds 2Ø25 + 1Ø20 in the 20 cm web (#198).
+        assert (check["DCRb,bot"], check[VERDICT_COLUMN]) == (0.787, PASS_MARK)
+        assert check["Warnings"] == "-"
 
     en = Concrete_EN_1992_2004(name="C25/30", f_c=25 * MPa)
     b500 = SteelBar(name="B500S", f_y=500 * MPa)
@@ -1507,9 +1504,10 @@ def test_the_report_words_every_warning(
     finally:
         set_language("en")
     table = _rows(_table_after(doc, heading))
-    # The support's cage does not fit its bars (main's cage detailing, #174): a warning of the section.
-    assert [row[1:3] for row in table[1:]] == [["-", "-"], [face, "tramo"], ["-", "-"], ["-", "-"]]
-    assert [row[0] for row in table[1:]] == ["V9a", "V9t", "V9t", "V10"]
+    # The support misses no limit, so it has no row: its cage holds the 3Ø16 (#198).
+    assert support_messages == []
+    assert [row[1:3] for row in table[1:]] == [[face, "tramo"], ["-", "-"], ["-", "-"]]
+    assert [row[0] for row in table[1:]] == ["V9t", "V9t", "V10"]
     assert [row[3] for row in table[1:]] == [*support_messages, *expected_messages, no_forces]
 
 

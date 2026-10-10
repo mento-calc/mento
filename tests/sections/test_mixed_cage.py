@@ -67,7 +67,11 @@ def test_extra_closed_pieces_are_shown_but_not_credited_in_shear():
     assert len(g.leg_x) > 3 and len(g.stirrups) == 1
     assert (b.reinforcement, b.section_geometry.to_dict("mm")) == before
     fig = b.plot(show=False)
-    assert any("proposed legs; A_v uses" in t.get_text() for t in fig.axes[0].texts)
+    # The extra legs are drawn; that A_v does not count them is a warning, not a caption.
+    assert sum(p.get_gid() == "crosstie" for p in fig.axes[0].patches) == len(g.crossties) == len(g.leg_x) - 2
+    added = [w for w in b.warnings if w.code == "transverse_legs_added_for_compression_support"]
+    assert added and "A_v still uses 3" in added[0].message
+    assert not any("proposed legs; A_v uses" in t.get_text() for t in fig.axes[0].texts)
     plt.close(fig)
 
 

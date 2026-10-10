@@ -34,9 +34,9 @@ Bottom max moment   MEd,bot        120  kNm
 Check                     Unit     Value  Min.      Max.  Ok?
 -----------------------  ------  -------  ------  ------  -----
 Min/Max As rebar top      cm²       5.15  1.23        40  ✅
-Minimum spacing top        mm         45  30              ✅
+Minimum spacing top        mm      42.66  30              ✅
 Min/Max As rebar bottom   cm²       8.29  1.22        40  ✅
-Minimum spacing bottom     mm         39  25              ✅ 
+Minimum spacing bottom     mm      37.24  25              ✅ 
 
 Top reinforcement check                    Variable       Value  Unit
 ----------------------------------------  ----------  ---------  ------
@@ -150,9 +150,9 @@ Bottom max moment | MEd,bot | 120.0 | kNm
 Limit checks
 Check | Unit | Value | Min. | Max. | Ok?
 Min/Max As rebar top | cm² | 5.15 | 1.23 | 40.0 | ✅
-Minimum spacing top | mm | 45.0 | 30.0 |  | ✅
+Minimum spacing top | mm | 42.66 | 30.0 |  | ✅
 Min/Max As rebar bottom | cm² | 8.29 | 1.22 | 40.0 | ✅
-Minimum spacing bottom | mm | 39.0 | 25.0 |  | ✅
+Minimum spacing bottom | mm | 37.24 | 25.0 |  | ✅
 Flexural Capacity Top
 Top reinforcement check | Variable | Value | Unit
 First layer bars | n1+n2 | 2Ø16+1Ø12 | 
@@ -249,7 +249,7 @@ Shear reinforcing 2 legs Ø8 mm @ 29 cm · 14.2 cm between legs (max 34.31 cm), 
 2 legs Ø8 mm @ 29 cm · 14.2 cm between legs (max 34.31 cm)
 
 ### reinforcement.transverse
-2 legs Ø8 mm @ 29 cm · 14.2 cm between legs
+2 legs Ø8 mm @ 29 cm
 
 ### warnings
 compression_detailing_en_pending: EN compression-bar support (§9.2.1.2(3), 15φ) is not verified by Mento.
@@ -260,6 +260,4 @@ compression_detailing_en_pending: EN compression-bar support (§9.2.1.2(3), 15φ
 2Ø20+1Ø16
 2Ø16+1Ø12
 2 legs Ø8 mm @ 29 cm
-14.2 cm between legs (max 34.31 cm)
-single perimeter stirrup
-Required compression-bar support: pending
+Steel: 123 kg/m³

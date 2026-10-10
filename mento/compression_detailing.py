@@ -52,18 +52,29 @@ def _corner_supported(bar: BarPosition, geometry: SectionGeometry) -> bool:
     Closed rectangle corners have interior angle 90 degrees (<135).
     Supplementary mounting bars do not make a resistant bar supported.
     """
+    from mento.section_geometry import seated_corner
+
     d_st = _mm(geometry.stirrup_d_b)
-    offset = max((_mm(geometry.stirrup_bend_inner_diameter) + d_st) / 2, (_mm(bar.d_b) + d_st) / 2)
-    vertical = (_mm(bar.d_b) + d_st) / 2
+    bend = _mm(geometry.stirrup_bend_inner_diameter)
+    seated = d_st / 2 + seated_corner(bend, _mm(bar.d_b))
+    # (offset from the leg, offset from the horizontal branch), both from the
+    # stirrup's centrelines: seated in the bend, as the cage builder places
+    # it, or tangent to the branch where the bend ends -- both in contact.
+    positions = (
+        (seated, seated),
+        (max((bend + d_st) / 2, (_mm(bar.d_b) + d_st) / 2), (_mm(bar.d_b) + d_st) / 2),
+    )
     for stirrup in geometry.stirrups:
         branch = stirrup.y_top if bar.face == "top" else stirrup.y_bottom
         side_y = -1 if bar.face == "top" else 1
-        if abs(_mm(bar.y - branch) - side_y * vertical) > 1e-6:
-            continue
-        if any(
-            abs(_mm(bar.x - leg) - side * offset) <= 1e-6 for leg, side in ((stirrup.x_left, 1), (stirrup.x_right, -1))
-        ):
-            return True
+        for offset, vertical in positions:
+            if abs(_mm(bar.y - branch) - side_y * vertical) > 1e-6:
+                continue
+            if any(
+                abs(_mm(bar.x - leg) - side * offset) <= 1e-6
+                for leg, side in ((stirrup.x_left, 1), (stirrup.x_right, -1))
+            ):
+                return True
     return False
 
 

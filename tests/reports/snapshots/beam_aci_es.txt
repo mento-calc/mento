@@ -34,9 +34,9 @@ Momento máximo inferior    Mu,bot        120  kNm
 Verificación                         Unidad     Valor  Mín.      Máx.  ¿Ok?
 ----------------------------------  --------  -------  ------  ------  ------
 As mín/máx de la armadura superior    cm²        5.15  3.05     22.45  ✅
-Separación mínima superior             mm          43  30              ✅
+Separación mínima superior             mm       39.49  30              ✅
 As mín/máx de la armadura inferior    cm²        8.29  3.04      19.4  ✅
-Separación mínima inferior             mm          37  25              ✅ 
+Separación mínima inferior             mm       34.07  25              ✅ 
 
 Verificación de la armadura superior             Variable       Valor  Unidad
 ----------------------------------------------  ----------  ---------  --------
@@ -154,9 +154,9 @@ Momento máximo inferior | Mu,bot | 120.0 | kNm
 Verificaciones de límites
 Verificación | Unidad | Valor | Mín. | Máx. | ¿Ok?
 As mín/máx de la armadura superior | cm² | 5.15 | 3.05 | 22.45 | ✅
-Separación mínima superior | mm | 43.0 | 30.0 |  | ✅
+Separación mínima superior | mm | 39.49 | 30.0 |  | ✅
 As mín/máx de la armadura inferior | cm² | 8.29 | 3.04 | 19.4 | ✅
-Separación mínima inferior | mm | 37.0 | 25.0 |  | ✅
+Separación mínima inferior | mm | 34.07 | 25.0 |  | ✅
 Capacidad a flexión superior
 Verificación de la armadura superior | Variable | Valor | Unidad
 Barras de la primera capa | n1+n2 | 2Ø16+1Ø12 | 
@@ -257,7 +257,7 @@ Shear reinforcing 2 legs Ø10 mm @ 22 cm · 14 cm between legs (max 45.55 cm), $
 2 legs Ø10 mm @ 22 cm · 14 cm between legs (max 45.55 cm)
 
 ### reinforcement.transverse
-2 legs Ø10 mm @ 22 cm · 14 cm between legs
+2 legs Ø10 mm @ 22 cm
 
 ### warnings
 
@@ -268,5 +268,4 @@ Shear reinforcing 2 legs Ø10 mm @ 22 cm · 14 cm between legs (max 45.55 cm), $
 2Ø20+1Ø16
 2Ø16+1Ø12
 2 ramas Ø10 mm c/22 cm
-14 cm entre ramas (máx. 45.55 cm)
-estribo perimetral
+Cuantía: 142 kg/m³
