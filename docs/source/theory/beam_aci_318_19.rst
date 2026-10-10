@@ -484,8 +484,8 @@ meets this clause wherever it applies and goes beyond it (the same under every c
   none does. mento takes it as the envelope of both codes for deep beams: ACI has no area
   requirement, and EN's grows with the width of the web. For an ACI concrete
   :math:`f_{ct}` is taken as :math:`0.30\,f'^{2/3}_c` (EN Table 3.1) and
-  :math:`f_{yk} = f_y`. The tension zone ends at the neutral axis, at :math:`x = 0.4\,h`
-  from the compression face unless a ``SkinServiceCase`` gives it.
+  :math:`f_{yk} = f_y`. The tension zone ends at the neutral axis, which mento takes at
+  :math:`x = 0.4\,h` from the compression face.
 
 The status is ``required`` above 900 mm, where §9.7.2.3 applies, and ``proposed`` from
 60 cm to 900 mm. Skin steel is not credited to the moment or shear strength.

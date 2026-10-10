@@ -40,7 +40,7 @@ def test_both_faces_are_supported_by_one_perimeter_and_real_crossties():
     assert all(
         tie_supports(bar, tie, g, b.concrete.design_code, False) for tie in g.crossties for bar in tie.engaged_bars
     )
-    assert "crosstie_alternation_required" in [w.code for w in b.warnings]
+    assert not any("crosstie" in w.code for w in b.warnings)  # alternation is data (alternate_hooks), not a warning
     assert check_compression_detailing(b, replace(g, crossties=())).status == "failed"
 
 
@@ -122,7 +122,7 @@ def test_plot_and_export_publish_hook_geometry_and_alternation():
     b = subject()
     fig = b.plot(show=False)
     try:
-        # One band per crosstie, its two hooks part of it; the alternation is a warning, not a caption.
+        # One band per crosstie, its two hooks part of it; the alternation is in the export, not a caption.
         ties = b.detailing_geometry.crossties
         bands = [p for p in fig.axes[0].patches if p.get_gid() == "crosstie"]
         assert len(bands) == len(ties) == 5
@@ -131,7 +131,6 @@ def test_plot_and_export_publish_hook_geometry_and_alternation():
             assert xs.min() < tie.x.to("cm").magnitude < xs.max()
             assert ys.min() < tie.y_bottom.to("cm").magnitude and tie.y_top.to("cm").magnitude < ys.max()
         assert not fig.axes[0].lines
-        assert any(w.code == "crosstie_alternation_required" for w in b.warnings)
         assert not any("135°/90°" in text.get_text() for text in fig.axes[0].texts)
         data = b.detailing_geometry.to_dict("mm")
         assert all(t["alternate_hooks"] and len(t["engaged_bars"]) == 2 for t in data["crossties"])

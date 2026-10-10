@@ -5,7 +5,7 @@ import math
 
 import pytest
 
-from mento import Forces, SkinServiceCase
+from mento import Forces
 from mento.cage_detailing import CageDetailingError
 from mento.codes.en_1992_2004 import skin
 from mento.codes.en_1992_2004.equations.skin import adjusted_diameter, tabulated_skin_diameter
@@ -49,10 +49,8 @@ def test_zero_demand_is_pending_without_a_tension_case():
     "fault,message",
     [
         ("diameter", "minimum_longitudinal_diameter"),
-        ("stress", "stress exceeds f_yk"),
         ("table", "skin_crack_width"),
-        ("axis", "inside the section"),
-        # x = 1150 mm leaves a zone 48..50 mm that no row reaches: no count gives the area of Eq. (7.1).
+        # A zone that no row reaches: no count gives the area of Eq. (7.1).
         ("distribution", "cannot reach the minimum area"),
     ],
 )
@@ -64,11 +62,8 @@ def test_service_adapter_rejects_invalid_or_unbuildable_proposals(fault, message
     elif fault == "table":
         b.settings.skin_crack_width = 0.1 * mm
     else:
-        stress = 501 * MPa if fault == "stress" else 200 * MPa
-        axis = (1200 if fault == "axis" else 1150 if fault == "distribution" else 240) * mm
-        cases = (SkinServiceCase("SLS", "bottom", stress, axis),)
-        # El adaptador mantiene guardas defensivas aunque el setter público también rechace estos datos.
-        monkeypatch.setattr(type(b), "skin_service_cases", property(lambda _: cases))
+        # x = 1150 mm from the top leaves a zone 48..50 mm at the bottom.
+        monkeypatch.setattr("mento.skin_reinforcement.ASSUMED_NEUTRAL_AXIS", 1150 / 1200)
     with pytest.raises(CageDetailingError, match=message) as error:
         _ = b.skin_reinforcement
     assert error.value.reason == "skin"

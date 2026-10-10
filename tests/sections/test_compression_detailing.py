@@ -128,7 +128,7 @@ def test_required_faces_follow_real_positive_negative_and_reversal_checks():
         assert b.compression_detailing.status == "passed"
         assert len(b.detailing_geometry.stirrups) == 1
         assert all(t.hooks == (135, 90) for t in b.detailing_geometry.crossties)
-        assert any(w.code == "crosstie_alternation_required" for w in b.warnings)
+        assert all(t.alternate_hooks for t in b.detailing_geometry.crossties)
 
 
 def test_plot_labels_required_compression_support_without_mutating_strength():

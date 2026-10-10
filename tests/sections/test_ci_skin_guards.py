@@ -6,9 +6,9 @@ from types import SimpleNamespace
 import pytest
 
 import mento.skin_reinforcement as skin
-from mento import Forces, SkinServiceCase
+from mento import Forces
 from mento.cage_detailing import CageDetailingError
-from mento.units import MPa, cm, kNm, mm
+from mento.units import cm, kNm, mm
 from tests.sections.test_skin_reinforcement import beam
 
 
@@ -17,12 +17,6 @@ def checked():
     b = beam()
     b.check_flexure([Forces(M_y=100 * kNm)])
     return b
-
-
-@pytest.mark.parametrize("label,face", [("", "bottom"), ("   ", "top"), ("SLS", "left")])
-def test_invalid_service_identity_is_rejected(label, face):
-    with pytest.raises(ValueError, match="non-empty label|tension_face"):
-        SkinServiceCase(label, face, 200 * MPa, 200 * mm)
 
 
 def test_unmodelled_code_is_unsupported_not_exempt(checked, monkeypatch):

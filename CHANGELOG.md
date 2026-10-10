@@ -12,6 +12,8 @@ from the release history and are summaries rather than complete lists.
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-10
+
 ### Added
 
 - **`section_too_small_for_moment` warning** (#169). A design that finds no layout
@@ -72,9 +74,9 @@ from the release history and are summaries rather than complete lists.
   separate from strength steel and mounting bars. Unsupported and pending
   cases are explicit, and infeasible detailing carries its cause.
 
-- `SkinServiceCase` inputs belong to each section, keep stress and neutral
-  axis paired for each SLS case and are invalidated by reinforcement edits.
-  EN checks minimum area in every applicable service zone. Its conservative
+- EN checks the minimum skin area in the tension zone of each face, with the service
+  steel stress and neutral axis mento assumes (σ_s = 0.6 f_yk, x = 0.4 h): they are
+  not inputs. Its conservative
   diameter interpretation is documented as a Mento project rule for review;
   sparse rows remain allowed with distribution warnings, not a w_k certificate.
   Annex J surface mesh is independently flagged and remains outside this proposal.
@@ -152,27 +154,25 @@ from the release history and are summaries rather than complete lists.
   to a 40 cm web and Ø10 above; from 1 m it is the smallest that gives, in the tension zone,
   the minimum area of EN §7.3.3(3), under every code, and under EN within the Table 7.2N
   cap. The status is `required` where the code requires skin and the new `proposed` below
-  that. EN no longer leaves skin pending without service data: it assumes
-  σ_s = 0.6 f_yk and x = 0.4 h for each face in tension that has no `SkinServiceCase`, and
-  says so (`skin_en_service_assumed`, which replaces `skin_en_service_pending`). Every
-  service case of a face is checked, each with its own zone and stress, not only the
-  first. `skin_bar_diameter` defaults to 8 mm and is the smallest diameter used. The skin
+  that. EN reads the Table 7.2N cap and the tension zone with σ_s = 0.6 f_yk and
+  x = 0.4 h, which mento assumes for every beam: there is no input for service data and
+  no warning about it. `skin_bar_diameter` defaults to 8 mm and is the smallest diameter used. The skin
   bars are drawn in dark gray, like the other bars. A CIRSOC 30x120 under +700 / -500 kN·m
   takes three Ø10 per side over the whole height.
 
 - **The beam section drawing shows the section, not its notes.** On the right, each layer,
-  the skin per side and the stirrups as the section carries them (`2 legs Ø10 mm @ 22 cm`);
+  the skin per side and the stirrups as the section carries them (`1 stirrup Ø10 mm @ 22 cm`);
   under it, one line, the steel ratio in kg/m³ (lb/yd³ in US customary units). The spacing
   between legs, the arrangement of the cage and every caption about pending or failed
   checks are gone from the figure, and `plot()` no longer warns: those are read in
   `beam.warnings`, which already carried them (`cage_detailing_infeasible`,
-  `skin_en_service_pending`, ...). Legs between the perimeter stirrup are drawn as ACI
+  `skin_detailing_infeasible`, ...). Legs between the perimeter stirrup are drawn as ACI
   crossties, two lines with a 90° leg around the bottom bar and a 135° hook around the
   top one; mounting bars are drawn and labelled like the other bars, in dark gray, and
   fill any face of the cage that has no bars even when the drawing falls back to the
   calculation geometry. The figure is cropped to the drawing.
 - **`str(beam.reinforcement)` and `reinforcement.transverse.notation()` leave out the
-  spacing between legs**: `2 legs Ø10 mm @ 22 cm`. It is a result of the check, which
+  spacing between legs**: `1 stirrup Ø10 mm @ 22 cm`. It is a result of the check, which
   `beam.shear_design.notation()` still prints with its maximum.
 - **A design holds a bar at every stirrup leg.** The first layer of each face a
   combination puts in tension carries at least as many bars as the section has legs; a
@@ -224,8 +224,15 @@ from the release history and are summaries rather than complete lists.
 - Jaula mixta: un cerrado perimetral y trabas interiores de 135°/90° para sujeción de barras comprimidas (§25.3.5, Tabla 25.3.2). Se comprueban ambos órdenes de ganchos; alternar los extremos de 90° en piezas sucesivas es requisito de ejecución, sin certificación sísmica. Entrada `legs` impar admitida desde tres ramas; dibujo de piezas y conteo real, sin crédito resistente silencioso para ramas agregadas. Ganchos de patas abiertas fuera del modelo seccional.
 
 
-- Beam transverse reinforcement is written by legs, for example
-  `10 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)`.
+- **Beam transverse reinforcement is written as one closed stirrup and the legs beyond
+  it.** Two legs read `1 stirrup Ø10 mm @ 22 cm` (`1 estribo Ø10 mm c/22 cm`), three
+  `1 stirrup + 1 leg`, four `1 stirrup + 2 legs`, ten
+  `1 stirrup + 8 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)`: the pieces of
+  `arrangement()`, one perimeter stirrup and the rest as single legs, so an odd count
+  needs no notation of its own. The compact form of a table cell is `1sØ10/22` and
+  `1s+8lØ12/14` (`1eØ10/22` and `1e+8rØ12/14` in Spanish; `1s#3@6` in US customary
+  units). 1.5.0 counted two-leg stirrups instead, `5sØ12/14cm` for ten legs
+  (`5eØ12/14cm` in Spanish). `n_legs` is still the count the shear check uses.
   `notation()` follows the requested/current language; `str()` is English.
   The slab grid notation is preserved. English and Spanish labels are available.
 - Section drawings show calculated bars and their layers, every stirrup leg,
@@ -381,6 +388,36 @@ from the release history and are summaries rather than complete lists.
 - **The limit table of a slab in the summary report shows its bar spacing against its
   maximum** (ACI 318-19 §7.7.2.3), as the slab's own report does: it was labelled "Minimum
   spacing" with the maximum dropped, so a slab at Ø12/40 showed "400 ≥ 37 ❌".
+- **The reason a cage or skin warning quotes follows the language.** `cage_detailing_infeasible`,
+  `cage_detailing_pending`, `skin_detailing_infeasible`, `skin_detailing_invalid` and the
+  compression-support warnings quote the text of the `CageDetailingError` that stopped the
+  detailing, and under `set_language("es")` that text stayed English: "La jaula principal no
+  puede detallarse: The stirrup is too narrow for its required bends." Every such text is
+  now in the Spanish catalog; `str()` of the error itself stays English.
+- **`skin_reinforcement_required` no longer names `detailing_geometry`.** A message is read
+  by whoever reads the report, who has no `beam` to look into. It now ends "It is
+  supplementary steel, excluded from resistance."
+- **The example notebooks of the documentation show their results again.** The eight
+  rectangular-beam notebooks had been left without outputs; all 21 are executed with this
+  release. The beams guide is in English throughout and shorter in its plot, skin and
+  stirrup-cage sections, with its figures and the README section redrawn.
+- **Open legs and crossties raise no warning of their own.** The informative
+  `open_leg_anchorage_outside_model` came with every cage that has a leg without modelled
+  hooks, which is the usual cage of more than two legs, and `crosstie_alternation_required`
+  with every cage the detailing gives 135°/90° crossties. Hooks, anchorage and seismic
+  detailing are outside the sectional model for any cage, as the guides say; a note on each
+  such section added nothing to check. Both codes are gone from `warnings`, from the
+  detailing notes of the report and from the catalog. The §25.3.5 alternation stays where a
+  program reads it: `alternate_hooks` of each crosstie in `detailing_geometry`.
+
+### Performance
+
+- **The skin pass of `detailing_geometry` runs once per state.** The cage search was
+  already kept per state, but `beam.warnings`, `verification_status`,
+  `skin_verification_status` and `plot()` each placed and checked the found cage again to
+  add the skin bars. On a 150 cm beam with 22 bars a face, a second read of
+  `verification_status` went from 0.85 s to 0.2 s; the first is unchanged. A change in
+  the skin requirement (manual skin, service cases) runs it again.
 
 ### Migration notes — jaula mixta
 
@@ -545,17 +582,19 @@ What else changes for a program:
 - `export_design()` no longer requires `design()` first: it writes the two sheets of the
   summary as it stands.
 
-### Piel seccional: entrada manual y estado
+### Manual skin and its status
 
-- `set_skin_rebar(db_piel, cant_piel_cara, posicion)` define piel simétrica por
-  lateral en la zona `top`, `bottom` o `total`, respetando la cantidad ingresada.
-  Las tres columnas opcionales de BeamSummary se conservan en Excel.
-- `skin_verification_status` comprueba la piel diseñada o ingresada con los
-  criterios seccionales implementados. Necesitar piel deja de significar
-  «No cumple»: la propuesta válida cumple; datos faltantes o casos no soportados
-  quedan pendientes; incumplimientos concretos fallan. Piel sin crédito resistente.
-- Anclajes, empalmes y detalles longitudinales mantienen el alcance general
-  del programa; no agregan un pendiente automático a la verificación seccional.
+- `set_skin_rebar(d_b, n_per_side, position)` gives the skin by hand, the same on both
+  side faces: `n_per_side` bars of `d_b`, over the whole height (`"total"`) or in the
+  half next to one face (`"bottom"` / `"top"`). The count is kept as given.
+  `BeamSummary` reads it from three optional columns, `db_skin`, `n_skin` and
+  `pos_skin`, which the Excel export keeps.
+- `skin_verification_status` checks the skin, proposed or given by hand, against the
+  sectional criteria: a valid proposal passes, missing data or an unsupported case is
+  pending, a concrete miss fails. Needing skin is not a failure. Skin is never credited
+  to the resistance.
+- Anchorage, splices and longitudinal details keep the general scope of the program;
+  they add no pending item of their own to the sectional verification.
 
 ## [1.5.0] - 2026-10-05
 
