@@ -336,20 +336,21 @@ def test_a_designed_wide_beam_keeps_its_bars_within_table_24_3_2() -> None:
 def test_a_designed_beam_reports_the_spacing_of_its_tension_bars() -> None:
     """The flexure check of a design adds the ``Maximum spacing`` row of the face in tension.
 
-    A 60x50 ACI beam under 150 kN·m and 50 kN comes out as 3Ø20 with two
-    Ø10 stirrups -- PR #164 designed it so as well, the cap has nothing to
-    change here: 600 - 2*(25 + 10) = 530 mm between the legs, the corner
-    Ø20 seated 2.93 mm past their radius: (530 - 5.86 - 60)/2 = 232.1 mm
-    clear and 252.1 mm centre to centre, inside 292.5.
+    A 60x50 ACI beam under 150 kN·m and 50 kN takes 4 legs of Ø10 across its
+    width, and every leg holds a bar of the tension face: the bottom comes out
+    as 2Ø16 + 3Ø16 (it was 3Ø20, with two legs on no bar). The bars sit
+    (530 - 2*3.51 - 16)/4 = 126.7 mm centre to centre, the corner Ø16 seated
+    in the 40 mm bends 3.51 mm past their radius; inside 292.5.
     """
     beam = _beam(Concrete_ACI_318_19(name="H25", f_c=25 * MPa), 60 * cm)
     Node(section=beam, forces=[Forces(label="C1", M_y=150 * kNm, V_z=50 * kN)]).design()
 
-    assert beam.reinforcement.bottom.n_bars == 3
+    assert beam.reinforcement.bottom.n_bars == 5
+    assert beam.reinforcement.bottom.n_bars >= beam.reinforcement.transverse.n_legs == 4
     assert beam.reinforcement.transverse.d_b == 10 * mm
     rows = beam._data_min_max_flexure
     assert rows["Check"][-1] == "Maximum spacing bottom"
-    assert rows["Value"][-1] == pytest.approx(252.07)
+    assert rows["Value"][-1] == pytest.approx(126.74)
     assert rows["Ok?"][-1] == "✅"
     assert "bar_spacing_exceeds_max" not in {
         w.code for w in beam.warnings

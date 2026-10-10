@@ -512,7 +512,7 @@ def format_transverse_rebar(
     n_stirrups: float,
     bar: str,
     s_l: str,
-    s_w: str,
+    s_w: Optional[str],
     *,
     n_legs: Optional[int] = None,
     s_max_w: Optional[str] = None,
@@ -526,8 +526,9 @@ def format_transverse_rebar(
     its legs, so the legs lead, then the bar and the spacing along the
     length, then the spacing of the legs across the width -- which is what
     ``s_max_w`` limits, and is printed after it when given:
-    ``10 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)``. ``n_legs``
-    defaults to two per stirrup. A slab strip has no cage -- the same bar sits
+    ``10 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)``. With
+    ``s_w`` None the label stops at the spacing along the length,
+    ``10 legs Ø12 mm @ 14 cm``. ``n_legs`` defaults to two per stirrup. A slab strip has no cage -- the same bar sits
     on a grid -- so what identifies it is the diameter once and a spacing each
     way, longitudinal first: ``Ø10/15cm×20cm``. The diameter is not repeated:
     both directions are the same bar.
@@ -554,6 +555,8 @@ def format_transverse_rebar(
     text = translate("{n_legs} legs Ø{d_b} @ {s_l}", language, n_legs=legs, d_b=d_b.removeprefix("Ø"), s_l=s_l).replace(
         "Ø#", "#"
     )
+    if s_w is None:
+        return text
     text += separator + translate("{s_w} between legs", language, s_w=s_w)
     if s_max_w is not None:
         text += " " + translate("(max {s_max_w})", language, s_max_w=s_max_w)
@@ -577,6 +580,7 @@ def transverse_notation(
     separator: str = " · ",
     compact: bool = False,
     imperial: Optional[bool] = None,
+    legs_spacing: bool = True,
 ) -> str:
     """The notation of a transverse reinforcement given as quantities.
 
@@ -593,6 +597,9 @@ def transverse_notation(
     (``beam.concrete.is_imperial``), or the system of the table they sit in.
     With ``imperial`` left as ``None`` the compact form follows the unit of
     ``s_l``: ASTM sizes and inches when it is in inches or feet, mm and cm otherwise.
+
+    ``legs_spacing=False`` leaves out the spacing of the legs across the width
+    of a beam, and its maximum: ``10 legs Ø12 mm @ 14 cm``.
 
     ``language`` is the catalog the words come from, the current one with
     ``None``; an explicit code without a catalog raises ``ValueError``, as
@@ -632,7 +639,7 @@ def transverse_notation(
         n_stirrups,
         bar_designation(d_b) if imperial else f"{d_b:.4g~P}",
         f"{s_l:.4g~P}",
-        s_w_shown,
+        s_w_shown if legs_spacing or layout == GRID else None,
         n_legs=int(2 * n_stirrups),
         s_max_w=max_shown,
         language=language,
@@ -723,7 +730,10 @@ class TransverseReinforcement:
     ) -> str:
         """The stirrups in the notation of the element, in ``language`` (the current one by default).
 
-        The configuration carries no limit, so no maximum is printed.
+        What the section carries: the legs, the bar and the spacing along the
+        length, ``2 legs Ø10 mm @ 22 cm``. The spacing of the legs across the
+        width is a result of the check, which :meth:`ShearDesign.notation`
+        prints with its maximum; it is :attr:`s_w` here.
         See :func:`transverse_notation` for ``separator``, ``compact`` and ``imperial``.
         """
         return transverse_notation(
@@ -737,6 +747,7 @@ class TransverseReinforcement:
             separator=separator,
             compact=compact,
             imperial=imperial,
+            legs_spacing=False,
         )
 
     def arrangement(self, language: Optional[str] = None) -> str:

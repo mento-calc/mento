@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from matplotlib.colors import to_rgba
-from matplotlib.patches import Circle, FancyBboxPatch, Rectangle
+from matplotlib.patches import Circle, FancyBboxPatch, Polygon, Rectangle
 from pint import Quantity
 
 from mento.beam import RectangularBeam
@@ -33,7 +33,7 @@ from mento.material import (
     SteelBar,
 )
 from mento.node import Node
-from mento.plots.sections import _format_rebar_layer_text
+from mento.plots.sections import _align_bars_to_ties, _format_rebar_layer_text, _with_mounting
 from mento.precompute import section_floats
 from mento.rebar import Rebar
 from mento.results import CUSTOM_COLORS, DocumentBuilder
@@ -599,7 +599,7 @@ def test_shear_design_always_gives_a_beam_stirrups(code: str) -> None:
 
 
 def test_a_designed_beam_is_labelled_by_its_legs() -> None:
-    """A beam is written legs first, then the bar, s_l and the spacing of the legs across the width."""
+    """A beam is written legs first, then the bar and s_l; the spacing across the width stays on the design."""
     beam = RectangularBeam(
         label="B1",
         concrete=Concrete_ACI_318_19(name="H25", f_c=25 * MPa),
@@ -612,11 +612,10 @@ def test_a_designed_beam_is_labelled_by_its_legs() -> None:
 
     transverse = beam.reinforcement.transverse
     assert transverse.layout == "stirrups"
-    assert str(transverse) == (
-        f"{transverse.n_legs} legs Ø{transverse.d_b:.4g~P} @ {transverse.s_l:.4g~P}"
-        f" · {transverse.s_w.to(transverse.s_l.units):.4g~P} between legs"
-    )
-    assert str(transverse) == "2 legs Ø10 mm @ 23 cm · 14 cm between legs"
+    assert str(transverse) == f"{transverse.n_legs} legs Ø{transverse.d_b:.4g~P} @ {transverse.s_l:.4g~P}"
+    assert str(transverse) == "2 legs Ø10 mm @ 23 cm"
+    # The spacing between legs, checked against its maximum, is part of the shear design's notation.
+    assert "14 cm between legs" in beam.shear_design.notation()
     assert beam._shear_reinforcement["Variable"][:4] == ["nl", "db", "s", "sw"]
 
 
@@ -2208,7 +2207,11 @@ def test_rectangular_section_plot_components(
     # Annotations are stored in ax.texts for text, ax.lines or ax.artists for arrows
     # matplotlib.axes.Axes.annotate returns an Annotation object.
     # Text labels are found in ax.texts
-    assert len(ax.texts) == 6, "Expected 6 text annotations for dimensions (width, height)."
+    # Width and height (an arrow and a label each), a label per bar layer, and the steel ratio.
+    texts = [t.get_text() for t in ax.texts]
+    assert len(ax.texts) == 7, "Expected 4 dimension annotations, 2 layer labels and the steel ratio."
+    assert texts[:4] == ["", "12 in", "", "24 in"]
+    assert texts[-1].startswith("Steel: ") and texts[-1].endswith(" lb/yd³")
 
     # You could add more specific checks, e.g.:
     # - Check the coordinates of the main rectangle:
@@ -2965,15 +2968,16 @@ def test_plot_single_bar_layer_is_centered() -> None:
 def test_plot_annotates_stirrups_and_draws_two_legs() -> None:
     beam = _plot_beam(n_stirrups=2, d_b_stirrup=6 * mm, s_l=20 * cm)
 
-    # Unchecked: the configuration, with no maximum; three cage lines.
-    assert [text.get_text() for text in beam._ax.texts if text.get_gid() == "stirrup_text"][:3] == [
-        "4 legs Ø6 mm @ 20 cm",
-        f"{beam.reinforcement.transverse.s_w.to('cm'):.4g~P} between legs",
-        "perimeter stirrup + 2 open legs",
-    ]
+    # One label: the notation, legs first; no spacing between legs and no arrangement line.
+    texts = [text.get_text() for text in beam._ax.texts]
+    assert _stirrup_label(beam._ax) == "4 legs Ø6 mm @ 20 cm"
+    assert not any("between legs" in text for text in texts)
+    assert "perimeter stirrup + 2 open legs" not in texts
+    assert beam.detailing_geometry.arrangement("en") == "perimeter stirrup + 2 open legs"
 
     fancy_bboxes = [p for p in beam._ax.patches if isinstance(p, FancyBboxPatch)]
-    assert len(fancy_bboxes) == 2, "One perimeter stirrup, plus two open legs."
+    assert len(fancy_bboxes) == 2, "One perimeter stirrup (outer and inner line)."
+    assert len([p for p in beam._ax.patches if p.get_gid() == "crosstie"]) == 2, "Two open legs."
 
     plt.close()
 
@@ -2985,8 +2989,11 @@ def test_plot_six_legs_use_one_perimeter_and_four_open_legs() -> None:
     assert len(fancy_bboxes) == 2, "One perimeter closed stirrup."
 
     texts = [t.get_text() for t in beam._ax.texts]
-    assert "6 legs Ø6 mm @ 15 cm" in texts
-    assert "perimeter stirrup + 4 open legs" in texts
+    assert _stirrup_label(beam._ax) == "6 legs Ø6 mm @ 15 cm"
+    # The arrangement is the geometry's; the drawing shows it, it does not write it.
+    assert beam.detailing_geometry.arrangement("en") == "perimeter stirrup + 4 open legs"
+    assert "perimeter stirrup + 4 open legs" not in texts
+    assert len([p for p in beam._ax.patches if p.get_gid() == "crosstie"]) == 4
 
     plt.close()
 
@@ -3006,12 +3013,37 @@ def _outer_patches(ax: object) -> list[FancyBboxPatch]:
     return [p for p in ax.patches if isinstance(p, FancyBboxPatch)][::2]  # type: ignore[attr-defined]
 
 
+def _band_leg_x(patch: Any) -> float:
+    """The x of a crosstie's leg: the longest vertical run of the centreline of its band.
+
+    The band is the left offset of the centreline and the right one reversed,
+    so each vertex and its mirror average to the centreline.
+    """
+    xy = patch.get_xy()
+    if len(xy) % 2:  # A closed polygon repeats its first vertex.
+        xy = xy[:-1]
+    centre = [(xy[i] + xy[len(xy) - 1 - i]) / 2 for i in range(len(xy) // 2)]
+    k = max(range(len(centre) - 1), key=lambda i: abs(centre[i + 1][1] - centre[i][1]))
+    assert centre[k][0] == pytest.approx(centre[k + 1][0])
+    return float(centre[k][0])
+
+
 def _drawn_leg_gaps(ax: object, d_cm: float) -> list[float]:
     """Centre-to-centre gaps between every drawn leg, left to right."""
     legs = sorted(x for p in _outer_patches(ax) for x in (p.get_x() + d_cm / 2, p.get_x() + p.get_width() - d_cm / 2))
-    legs += [p.get_x() + d_cm / 2 for p in ax.patches if p.get_gid() == "crosstie"]  # type: ignore[attr-defined]
+    legs += [_band_leg_x(p) for p in ax.patches if p.get_gid() == "crosstie"]  # type: ignore[attr-defined]
     legs.sort()
     return [b - a for a, b in zip(legs, legs[1:])]
+
+
+def _stirrup_label(ax: Any) -> str:
+    """The stirrup label right of the section: the ``stirrup_text`` led by its legs.
+
+    The steel-ratio line under the section shares the gid, so the label is the one that starts with a digit.
+    """
+    labels = [t.get_text() for t in ax.texts if t.get_gid() == "stirrup_text" and t.get_text()[:1].isdigit()]
+    assert len(labels) == 1, labels
+    return str(labels[0])
 
 
 def test_plot_draws_every_stirrup_at_the_legs_the_check_assumes() -> None:
@@ -3019,6 +3051,11 @@ def test_plot_draws_every_stirrup_at_the_legs_the_check_assumes() -> None:
 
     The old drawing capped the cage at three stirrups at fixed places, whose
     legs were up to 36.30 cm apart against the 20 cm the modelled 15.87 cm meets.
+
+    Skin: layers at 30 + 12 + 16 = 58 mm and, with no top bars, 1500 - 52 = 1448 mm; s_max =
+    380 - 2.5 * 42 = 275 mm, n = ceil(1390 / 275) - 1 = 5 rows. Eq. (7.1): 0.2 * 2.565 * 1500 * 1500 / 2
+    / 420 / 2 = 687 mm² from the three rows below 900 mm (x = 0.4 h): Ø16 603 mm², Ø20 942 mm².
+    The 10 Ø20 replace the old 6 Ø10: +2670 mm² of steel, 21 kg/m over 2.25 m³/m, 89 -> 98 kg/m³.
     """
     beam = _wide_cirsoc_beam()
     Node(section=beam, forces=[Forces(label="C1", M_y=5000 * kNm, V_z=5000 * kN)]).design()
@@ -3037,23 +3074,34 @@ def test_plot_draws_every_stirrup_at_the_legs_the_check_assumes() -> None:
     assert gaps == pytest.approx([15.8667] * 9, abs=1e-4)
 
     circles = [p for p in ax.patches if isinstance(p, Circle)]
-    assert len(circles) == 28
+    assert len(circles) == 32
     assert len([c for c in circles if c.get_gid() == "resistant_bar"]) == 12
     assert len([c for c in circles if c.get_gid() == "mounting_bar"]) == 10
-    assert len([c for c in circles if c.get_gid() == "skin_bar"]) == 6
+    assert len([c for c in circles if c.get_gid() == "skin_bar"]) == 10
+    # Mounting and skin bars are drawn as the resistant ones are: filled, dark gray.
+    assert {c.get_facecolor() for c in circles} == {to_rgba(CUSTOM_COLORS["dark_gray"])}
     all_bars = geometry.bars + geometry.mounting_bars + geometry.skin_bars
-    assert [c.get_center()[0] for c in circles] == pytest.approx([b.x.to("cm").magnitude for b in all_bars])
     assert [c.get_center()[1] for c in circles] == pytest.approx([b.y.to("cm").magnitude for b in all_bars])
+    # A bar an open leg wraps is drawn beside the leg, on the side its hooks bend to: within a bar and a leg.
+    shift = (geometry.bars[0].d_b + geometry.stirrup_d_b).to("cm").magnitude
+    for circle, bar in zip(circles, all_bars):
+        assert abs(circle.get_center()[0] - bar.x.to("cm").magnitude) <= shift + 1e-9
+    drawn = _align_bars_to_ties(_with_mounting(beam, geometry))
+    drawn_bars = drawn.bars + drawn.mounting_bars + drawn.skin_bars
+    assert [c.get_center()[0] for c in circles] == pytest.approx([b.x.to("cm").magnitude for b in drawn_bars])
 
     texts = [t.get_text() for t in ax.texts]
-    assert [t for t in texts if not t.startswith("Open-leg")][-5:] == [
+    # The layers, the skin and the stirrups are labelled on the right; only the steel ratio sits under the section.
+    assert texts[4:] == [
+        "12Ø32",
+        "10Ø8 (mounting)",
+        "5Ø20 per side (skin)",
         "10 legs Ø12 mm @ 14 cm",
-        "15.87 cm between legs (max 20 cm)",
-        "perimeter stirrup + 8 open legs",
-        "Orange: mounting steel · excluded from resistance",
-        "Skin: 3Ø10 per side · s=23.1 cm · excluded from resistance",
+        "Steel: 98 kg/m³",
     ]
-    assert "12Ø32" in texts
+    assert _stirrup_label(ax) == "10 legs Ø12 mm @ 14 cm"
+    assert beam.shear_design.notation() == "10 legs Ø12 mm @ 14 cm · 15.87 cm between legs (max 20 cm)"
+    assert not any("between legs" in t or "open legs" in t or "excluded from resistance" in t for t in texts)
     plt.close()
 
 
@@ -3072,7 +3120,12 @@ def test_plot_of_the_aci_beam_keeps_its_legs_within_30_cm() -> None:
     assert len(fancy) == 2
     gaps = _drawn_leg_gaps(beam._ax, beam._stirrup_d_b.to("cm").magnitude)
     assert max(gaps) == pytest.approx(28.48, abs=0.005)
-    assert "28.48 cm between legs (max 30 cm)" in [t.get_text() for t in beam._ax.texts]
+    # The drawn legs are the ones the design checks against its 30 cm, which only its notation writes.
+    assert "28.48 cm between legs (max 30 cm)" in beam.shear_design.notation()
+    assert not any("between legs" in t.get_text() for t in beam._ax.texts)
+    # Every leg holds a bar of the tension face: twelve bars for six legs.
+    assert beam.flexure_design.bottom.layers[0].n + beam.flexure_design.bottom.layers[1].n == 12
+    assert beam.shear_design.n_legs == 6
     plt.close()
 
 
@@ -3094,11 +3147,31 @@ def test_plot_draws_a_crosstie_from_the_geometry() -> None:
     _plot_stirrups_in_section(ax, with_tie)
     ties = [p for p in ax.patches if p.get_gid() == "crosstie"]
     assert len(ties) == 1
-    assert ties[0].get_x() == pytest.approx(20 - 0.4)
-    assert len([line for line in ax.lines if line.get_gid() == "crosstie_hook"]) == 0
+    assert isinstance(ties[0], Polygon)
+    assert _band_leg_x(ties[0]) == pytest.approx(20)
+    assert not ax.lines  # The hooks are part of the band, not separate lines.
     assert len([p for p in ax.patches if isinstance(p, FancyBboxPatch)]) == 2
     plt.close(fig)
     plt.close()
+
+
+def test_a_crosstie_with_no_bar_at_its_leg_moves_no_bar() -> None:
+    """A tie whose leg holds no bar (corner bars only) leaves every bar where the geometry put it."""
+    from dataclasses import replace
+
+    from mento.plots.sections import _align_bars_to_ties
+    from mento.section_geometry import Crosstie
+
+    beam = _plot_beam(n_stirrups=1, d_b_stirrup=8 * mm, s_l=20 * cm)
+    geometry = beam.section_geometry
+    perimeter = geometry.stirrups[0]
+    middle = (perimeter.x_left + perimeter.x_right) / 2
+    with_tie = replace(
+        geometry,
+        bars=tuple(bar for bar in geometry.bars if abs(bar.x - middle) > 5 * cm),
+        crossties=(Crosstie(leg=1, x=middle, y_bottom=perimeter.y_bottom, y_top=perimeter.y_top),),
+    )
+    assert _align_bars_to_ties(with_tie) == with_tie
 
 
 def test_plot_layer_text_follows_the_bars() -> None:
@@ -3118,10 +3191,16 @@ def test_plot_follows_the_language() -> None:
     mento.set_language("es")
     beam.plot()
     texts = [t.get_text() for t in beam._ax.texts]
-    assert "estribo perimetral + 8 patas abiertas" in texts
-    assert "Montaje en naranja · sin aporte resistente" in texts
-    assert texts[-1] == "Piel: 3Ø10 por lateral · s=23.1 cm · sin aporte resistente"
-    assert any(text.startswith("10 ramas") for text in texts)
+    mento.set_language("en")
+    assert texts[4:] == [
+        "12Ø32",
+        "10Ø8 (montaje)",
+        "5Ø20 por lateral (piel)",
+        "10 ramas Ø12 mm c/14 cm",
+        "Cuantía: 98 kg/m³",
+    ]
+    assert "estribo perimetral + 8 patas abiertas" not in texts
+    assert "Montaje en naranja · sin aporte resistente" not in texts
     plt.close()
 
 
@@ -3133,25 +3212,33 @@ def _text_extents(beam: RectangularBeam) -> list[tuple[str, Any]]:
 
 @pytest.mark.parametrize("language", ["en", "es"])
 def test_plot_text_fits_the_default_figure(language: str) -> None:
-    """The three stirrup lines of the 150x150 beam stay inside a plain 640x480 savefig, in both languages."""
+    """Every text of the 150x150 beam stays inside its figure, cropped from 640x480 to the drawing, in both languages."""
     import mento
 
     mento.set_language(language)
-    beam = _wide_cirsoc_beam()
-    Node(section=beam, forces=[Forces(label="C1", M_y=5000 * kNm, V_z=5000 * kN)]).design()
-    beam.plot()
+    try:
+        beam = _wide_cirsoc_beam()
+        Node(section=beam, forces=[Forces(label="C1", M_y=5000 * kNm, V_z=5000 * kN)]).design()
+        beam.plot()
+        extents = _text_extents(beam)
+    finally:
+        mento.set_language("en")
     figure_box = beam._fig.bbox
-    assert (figure_box.width, figure_box.height) == (640, 480)
-    for text, extent in _text_extents(beam):
+    # Cropped to the drawing: no larger than the default figure, shorter for a square section and its labels.
+    assert figure_box.width <= 640 and figure_box.height < 480
+    assert len(extents) == 7  # Two dimensions, two layers, the skin, the stirrups and the steel ratio.
+    for text, extent in extents:
         assert figure_box.x0 <= extent.x0 and extent.x1 <= figure_box.x1, text
         assert figure_box.y0 <= extent.y0 and extent.y1 <= figure_box.y1, text
+    plt.close()
 
 
 def test_plot_text_of_a_flat_beam_does_not_overlap() -> None:
     """120x25 with two bottom layers: layer labels and stirrup text each print clear of the others.
 
-    The stirrup lines sit under the section, below its width, and two layer
-    labels closer than a line are moved apart.
+    The stirrup label sits on the right with the layer labels, the steel
+    ratio under the section, below its width, and two labels closer than a
+    line are moved apart.
     """
     beam = RectangularBeam(
         label="FLAT",
@@ -3169,19 +3256,20 @@ def test_plot_text_of_a_flat_beam_does_not_overlap() -> None:
     for i, (text_a, a) in enumerate(extents):
         for text_b, b in extents[i + 1 :]:
             assert not a.overlaps(b), (text_a, text_b)
-    # The stirrup text reads under the section.
-    section_bottom = beam._ax.transData.transform((0.0, 0.0))[1]
+    # The stirrup label reads right of the section; only the steel ratio reads under it.
+    section_right, section_bottom = beam._ax.transData.transform((120.0, 0.0))
     stirrup_lines = [t for t in beam._ax.texts if t.get_gid() == "stirrup_text"]
-    assert len(stirrup_lines) == 5
-    assert stirrup_lines[-1].get_text() == "Tension-bar spacing pending · no flexure verification"
-    assert all(t.get_window_extent().y1 < section_bottom for t in stirrup_lines)
-    # A label with room stays at its layer: the top layer's is at the middle of
-    # its bars as drawn, the corner ones seated in their bends.
-    top = beam.detailing_geometry.bars_on("top", 1)
-    low = min((bar.y - bar.d_b / 2).to("cm").magnitude for bar in top)
-    high = max((bar.y + bar.d_b / 2).to("cm").magnitude for bar in top)
-    label = next(t for t in beam._ax.texts if t.get_text() == "2Ø12+6Ø10")
-    assert label.get_position()[1] == pytest.approx((low + high) / 2)
+    ratio_lines = [t for t in beam._ax.texts if t.get_gid() == "steel_ratio"]
+    assert [t.get_text() for t in stirrup_lines] == ["8 legs Ø8 mm @ 13 cm"]
+    assert [t.get_text() for t in ratio_lines] == ["Steel: 123 kg/m³"]
+    assert stirrup_lines[0].get_window_extent().x0 > section_right
+    assert ratio_lines[0].get_window_extent().y1 < section_bottom
+    assert not any("pending" in t.get_text() for t in beam._ax.texts)
+    # The section is too shallow for the four labels on its right, so they are spread a line apart, in the
+    # order of their anchors: the two bottom layers, the stirrups at mid-height, the top layer.
+    # (A label with room staying at its layer is test_plot_layer_text_follows_the_bars.)
+    right = sorted((t for t in beam._ax.texts if t.get_position()[0] > 120), key=lambda t: float(t.get_position()[1]))
+    assert [t.get_text() for t in right] == ["10Ø16", "2Ø12", "8 legs Ø8 mm @ 13 cm", "2Ø12+6Ø10"]
     plt.close()
 
 
@@ -3198,7 +3286,8 @@ def test_plot_narrow_cage_falls_back_to_labelled_calculation_geometry() -> None:
     """ACI 20x30, Vu 100 kN: two Ø10 stirrups, legs 4.67 cm apart, less than the 5·d_st two bends take.
 
     The valid perimeter remains visible; unnecessary narrow closed pieces
-    are no longer invented. The calculation caption still rejects this cage.
+    are no longer invented. beam.warnings rejects this cage; the drawing writes
+    no caption, and holds the top of the stirrups with mounting bars in its corners.
     """
     beam = RectangularBeam(
         label="N",
@@ -3211,12 +3300,24 @@ def test_plot_narrow_cage_falls_back_to_labelled_calculation_geometry() -> None:
     Node(section=beam, forces=[Forces(label="C1", V_z=100 * kN)]).design()
     assert beam.shear_design.n_stirrups == 2
     assert beam.shear_design.s_w.to("cm").magnitude < 5 * beam._stirrup_d_b.to("cm").magnitude
-    with pytest.warns(UserWarning, match="Cage detailing is not feasible"):
+    infeasible = [w for w in beam.warnings if w.code == "cage_detailing_infeasible"]
+    assert infeasible and "cannot be detailed" in infeasible[0].message
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
         beam.plot()
-    assert "Calculation model only · cage detailing not feasible" in [text.get_text() for text in beam._ax.texts]
+    texts = [text.get_text() for text in beam._ax.texts]
+    assert "Calculation model only · cage detailing not feasible" not in texts
+    assert not any("not feasible" in text for text in texts)
     fancy = [p for p in beam._ax.patches if isinstance(p, FancyBboxPatch)]
     assert len(fancy) == 2  # El perimetral válido permanece en la geometría de cálculo.
     assert len([p for p in beam._ax.patches if p.get_gid() == "crosstie"]) == 2
+    # The calculation geometry has no top bars: the drawing adds mounting bars at the perimeter's top corners.
+    assert not beam.section_geometry.bars_on("top") and not beam.section_geometry.mounting_bars
+    mounting = [p for p in beam._ax.patches if p.get_gid() == "mounting_bar"]
+    assert len(mounting) == 2
+    top = beam.section_geometry.stirrups[0].y_top.to("cm").magnitude
+    assert all(top - 2 < p.get_center()[1] < top for p in mounting)
+    assert "2Ø8 (mounting)" in texts
     plt.close()
 
 

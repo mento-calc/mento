@@ -61,7 +61,7 @@ from mento.verification import resolve_legs, validate_supported_forces, verifica
 from mento.forces import Forces
 from mento.plots.sections import plot_beam_section
 from mento.precompute import refresh_section_floats
-from mento.rebar import Rebar
+from mento.rebar import Rebar, leg_count
 
 # from devtools import debug
 from mento.rectangular import RectangularSection
@@ -570,9 +570,11 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         reinforcement -- the registry's ``flexure_admissible``, tension-
         controlled under ACI 318-19 / CIRSOC 201-25 §9.3.3.1 and the 4 % of
         EN 1992-1-1 §9.2.1.1(3), the same limit the design holds its own
-        layout to. It also names the faces the section relies on as
-        compression steel. Values-only checks, so the section is not written
-        to.
+        layout to. Every stirrup leg holds a bar of each face a combination
+        puts in tension: its first layer carries at least as many bars as the
+        section has legs, or its bars do not "fit" the cage. It also names the
+        faces the section relies on as compression steel. Values-only checks,
+        so the section is not written to.
         """
         admissible = design_code(self.concrete).flexure_admissible
         names = tuple("bottom" if face == "bot" else "top" for face in faces)
@@ -581,9 +583,14 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         clean = fits
         within = True
         compression: set[str] = set()
+        legs = leg_count(self)
         for force in forces:
             state = self._run_flexure_check(force, report=False)
             check = capture_flexure_check(self, force.label, state, has_axial_force=force.N_x.magnitude != 0)
+            pulled = "bot" if force._M_y > 0 * kN * m else "top" if force._M_y < 0 * kN * m else None
+            if pulled in faces and legs:
+                bars = (self._n1_b + self._n2_b) if pulled == "bot" else (self._n1_t + self._n2_t)
+                fits = fits and bars >= legs
             worst = max(worst, check.bottom.DCR, check.top.DCR)
             clean = clean and not flexure_warnings(self, force.label, state)
             tension = "bot" if force._M_y > 0 * kN * m else "top" if force._M_y < 0 * kN * m else None
@@ -592,7 +599,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             braced = self._compression_face_of(force, state)
             if braced is not None:
                 compression.add(braced)
-        return _Verdict(worst, clean and within, frozenset(compression), fits, within)
+        return _Verdict(worst, clean and fits and within, frozenset(compression), fits, within)
 
     def _verify_longitudinal_options(self, forces: list[Forces]) -> None:
         """Keep, of each face's pooled alternatives, those the finished section passes with.

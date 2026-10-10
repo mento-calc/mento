@@ -155,9 +155,9 @@ V103 | Pass (modelled checks) | Pass (modelled checks) |
 Beam Data
 Label | b | h | cc | As,bot | As,top | Av
  | cm | cm | mm |  |  | 
-V101 | 20 | 50 | 25 | 2Ø12 mm | - | 2 legs Ø10 mm @ 22 cm · 14 cm between legs
-V102 | 20 | 50 | 25 | 2Ø12 mm | 2Ø12 mm + 1Ø10 mm | 2 legs Ø10 mm @ 22 cm · 14 cm between legs
-V103 | 25 | 60 | 25 | 2Ø16 mm | - | 2 legs Ø10 mm @ 27 cm · 19 cm between legs
+V101 | 20 | 50 | 25 | 2Ø12 mm | - | 2 legs Ø10 mm @ 22 cm
+V102 | 20 | 50 | 25 | 2Ø12 mm | 2Ø12 mm + 1Ø10 mm | 2 legs Ø10 mm @ 22 cm
+V103 | 25 | 60 | 25 | 2Ø16 mm | - | 2 legs Ø10 mm @ 27 cm
 Flexure Results
 Label | Comb. | Position | As,min | As,req top | As,req bot | As | Mu | ØMn | DCR
  |  |  | cm² | cm² | cm² | cm² | kNm | kNm | 

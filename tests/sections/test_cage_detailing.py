@@ -43,9 +43,10 @@ def test_unsupported_bend_diameter_preserves_calculation_geometry_and_plot():
     with pytest.raises(CageDetailingError) as raised:
         beam.detailing_geometry
     assert raised.value.reason == "unsupported_bend"
-    with pytest.warns(UserWarning, match="Cage detailing is not feasible"):
-        figure = beam.plot(show=False)
+    # The drawing falls back to the calculation geometry; the reason is the beam's warning.
+    figure = beam.plot(show=False)
     plt.close(figure)
+    assert "cage_detailing_pending" in [w.code for w in beam.warnings]
 
 
 def _sink(geometry: SectionGeometry, bar: object) -> float:
@@ -121,14 +122,14 @@ def test_ten_leg_design_adds_upper_mounting_steel_without_mutating_results() -> 
     assert len(detail.bars) == len(before.bars) == 12
     assert len(detail.mounting_bars) == 10
     assert {bar.face for bar in detail.mounting_bars} == {"top"}
-    assert [_mm(bar.d_b) for bar in detail.mounting_bars] == pytest.approx([10] * 10)
+    assert [_mm(bar.d_b) for bar in detail.mounting_bars] == pytest.approx([8] * 10)
     assert detail.bars_on("top") == ()  # Mounting is not resistant steel.
     assert beam.reinforcement == reinforcement
     assert beam.flexure_design == flexure
     assert beam.shear_design == shear
     assert beam.section_geometry == before
     assert len(detail.to_dict("in")["mounting_bars"]) == 10
-    assert detail.to_dict("mm")["mounting_bars"][0]["d_b"] == pytest.approx(10)
+    assert detail.to_dict("mm")["mounting_bars"][0]["d_b"] == pytest.approx(8)
 
 
 def test_mounting_steel_fills_both_faces_and_retains_a_single_resistant_bar() -> None:
@@ -190,11 +191,13 @@ def test_impossible_cage_is_rejected_and_plot_is_explicitly_a_calculation_model(
         _ = beam.detailing_geometry
     set_language("es")
     try:
-        with pytest.warns(UserWarning, match="Cage detailing is not feasible"):
-            figure = beam.plot()
-        assert any("jaula no detallable" in text.get_text() for text in figure.axes[0].texts)
+        # Drawn as the calculation assumes it, with no caption: beam.warnings says it.
+        figure = beam.plot()
+        assert not any("jaula" in text.get_text() for text in figure.axes[0].texts)
+        # Both faces carry bars (the top keeps the beam's starter bars), so none is added.
         assert not [patch for patch in figure.axes[0].patches if patch.get_gid() == "mounting_bar"]
         plt.close(figure)
+        assert "cage_detailing_infeasible" in [w.code for w in beam.warnings]
     finally:
         set_language("en")
 
@@ -206,8 +209,9 @@ def test_invalid_mounting_diameter_is_rejected(diameter: object) -> None:
     beam.settings.mounting_bar_diameter = diameter  # type: ignore[union-attr]
     with pytest.raises(ValueError, match="mounting_bar_diameter"):
         _ = beam.detailing_geometry
-    with pytest.warns(UserWarning, match="mounting_bar_diameter"):
-        figure = beam.plot(show=False)
+    # The drawing does not invent mounting bars of a diameter the detailing rejects.
+    figure = beam.plot(show=False)
+    assert not [patch for patch in figure.axes[0].patches if patch.get_gid() == "mounting_bar"]
     plt.close(figure)
 
 
@@ -257,7 +261,7 @@ def test_three_upper_bars_with_four_legs_add_one_mounting_bar() -> None:
     assert len(detail.bars_on("top")) == 3
     assert len(detail.mounting_bars) == 1
     assert detail.mounting_bars[0].face == "top"
-    assert _mm(detail.mounting_bars[0].d_b) == pytest.approx(10)
+    assert _mm(detail.mounting_bars[0].d_b) == pytest.approx(8)
     assert beam.section_geometry == original
 
 
@@ -276,13 +280,8 @@ def test_unchecked_cage_does_not_guess_tension_faces_and_labels_spacing_pending(
     try:
         figure = beam.plot()
         texts = [text.get_text().replace("\n", " ") for text in figure.axes[0].texts]
-        expected = (
-            "Separación por tracción pendiente · sin verificación de flexión"
-            if language == "es"
-            else "Tension-bar spacing pending · no flexure verification"
-        )
-        assert expected in texts
-        assert not any("calculation model only" in text.lower() or "jaula no detallable" in text for text in texts)
+        # Nothing pending is written on the drawing.
+        assert not any("pendiente" in text.lower() or "pending" in text.lower() for text in texts)
         plt.close(figure)
     finally:
         set_language("en")
@@ -412,14 +411,10 @@ def test_large_inner_stirrup_that_cannot_be_bent_is_not_drawn_as_a_hairpin() -> 
     with pytest.raises(CageDetailingError, match="too narrow") as caught:
         _ = beam.detailing_geometry
     assert caught.value.reason == "bend"
-    with pytest.warns(UserWarning, match="too narrow"):
-        figure = beam.plot()
+    figure = beam.plot()
     try:
         assert not any(isinstance(patch, FancyBboxPatch) for patch in figure.axes[0].patches)
-        assert any(
-            "not feasible" in text.get_text() or "jaula no detallable" in text.get_text()
-            for text in figure.axes[0].texts
-        )
+        assert not any("not feasible" in text.get_text() for text in figure.axes[0].texts)
     finally:
         plt.close(figure)
 
@@ -445,8 +440,9 @@ def test_imperial_detail_default_export_keeps_inches_and_mounting_bars() -> None
         mounting = [p for p in figure.axes[0].patches if p.get_gid() == "mounting_bar"]
         resistant = [p for p in figure.axes[0].patches if p.get_gid() == "resistant_bar"]
         assert mounting and resistant
-        assert all(not p.get_fill() for p in mounting)
-        assert all(p.get_fill() for p in resistant)
+        # Mounting steel is drawn as the resistant bars are, in the same dark gray.
+        assert all(p.get_fill() for p in (*mounting, *resistant))
+        assert {p.get_facecolor() for p in mounting} == {p.get_facecolor() for p in resistant}
     finally:
         plt.close(figure)
 

@@ -406,6 +406,9 @@ ES.update(
 ES.update(
     {
         "mounting": "montaje",
+        "{bars} per side (skin)": "{bars} por lateral (piel)",
+        "EN skin checked with mento's service assumptions (sigma_s = 0.6 f_yk, x = 0.4 h); give SkinServiceCase for the project's values.": "Piel EN verificada con los supuestos de servicio de mento (sigma_s = 0,6 f_yk, x = 0,4 h); cargá SkinServiceCase con los valores del proyecto.",
+        "Steel: {ratio}": "Cuantía: {ratio}",
         "Orange: mounting steel · excluded from resistance": "Montaje en naranja · sin aporte resistente",
         "Calculation model only · cage detailing not feasible": "Solo modelo de cálculo · jaula no detallable",
         "Skin proposal not shown · skin detailing not feasible": "No se muestra la propuesta de piel · detalle de piel inviable",
@@ -434,7 +437,6 @@ ES.update(
 ES.update(
     {
         "EN §7.3.3(3): longitudinal skin steel is required; minimum {area} per side, adjusted maximum diameter {diameter}. Excluded from resistance.": "EN §7.3.3(3): se requiere piel longitudinal; mínimo {area} por lateral, diámetro máximo corregido {diameter}. Sin aporte resistente.",
-        "EN skin detailing is pending: supply cracked-service steel stress and neutral-axis depth; ultimate forces cannot replace them.": "Detalle de piel EN pendiente: indicar tensión del acero y profundidad del eje neutro en servicio fisurado; los esfuerzos últimos no los reemplazan.",
         "EN skin detailing with axial force is not supported; the pure-bending skin proposal cannot be used.": "La piel EN con esfuerzo axial no está implementada; no corresponde aplicar la propuesta de flexión pura.",
         "Skin reinforcement is pending: the checked combinations identify no tension face. A zero-moment or capacity check does not establish an exemption.": "La armadura de piel está pendiente: las combinaciones verificadas no identifican una cara traccionada. Una comprobación con momento nulo o de capacidad no establece una exención.",
         "Review skin ({face}): {rows} rows · max interval {gap}": "Revisar piel ({face}): {rows} filas · intervalo máx. {gap}",

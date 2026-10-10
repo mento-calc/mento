@@ -299,7 +299,7 @@ def test_a_design_that_does_not_close_keeps_the_closest_layout_within_the_limits
 
     assert str(beam.reinforcement.bottom) == "2Ø20 mm"
     assert str(beam.reinforcement.top) == "2Ø10 mm + 1Ø10 mm"
-    assert str(beam.reinforcement.transverse) == "2 legs Ø6 mm @ 9 cm · 11.4 cm between legs"
+    assert str(beam.reinforcement.transverse) == "2 legs Ø6 mm @ 9 cm"
     assert beam.flexure_design.bottom.DCR == pytest.approx(1.114, abs=0.0005)
     assert beam.flexure_checks[0].bottom.admissible
     assert "bottom" in [w.face for w in node.warnings if w.code == "As_below_required"]

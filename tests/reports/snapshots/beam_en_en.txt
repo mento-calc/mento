@@ -249,7 +249,7 @@ Shear reinforcing 2 legs Ø8 mm @ 29 cm · 14.2 cm between legs (max 34.31 cm), 
 2 legs Ø8 mm @ 29 cm · 14.2 cm between legs (max 34.31 cm)
 
 ### reinforcement.transverse
-2 legs Ø8 mm @ 29 cm · 14.2 cm between legs
+2 legs Ø8 mm @ 29 cm
 
 ### warnings
 compression_detailing_en_pending: EN compression-bar support (§9.2.1.2(3), 15φ) is not verified by Mento.
@@ -260,6 +260,4 @@ compression_detailing_en_pending: EN compression-bar support (§9.2.1.2(3), 15φ
 2Ø20+1Ø16
 2Ø16+1Ø12
 2 legs Ø8 mm @ 29 cm
-14.2 cm between legs (max 34.31 cm)
-single perimeter stirrup
-Required compression-bar support: pending
+Steel: 123 kg/m³

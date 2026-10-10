@@ -26,15 +26,16 @@ def test_invalid_service_identity_is_rejected(label, face):
 
 
 def test_unmodelled_code_is_unsupported_not_exempt(checked, monkeypatch):
-    monkeypatch.setattr(
-        skin, "design_code", lambda _: SimpleNamespace(skin_requirement=None, skin_reinforcement_threshold=None)
-    )
+    monkeypatch.setattr(skin, "design_code", lambda _: SimpleNamespace(skin_reinforcement_threshold=None))
     assert skin.skin_requirement(checked).status == "unsupported"
 
 
 def test_nonpositive_spacing_cap_reports_skin_error(checked, monkeypatch):
     code = SimpleNamespace(
-        skin_requirement=None, skin_reinforcement_threshold=lambda _: 900 * mm, max_skin_bar_spacing=lambda *_: 0 * mm
+        skin_reinforcement_threshold=lambda _: 900 * mm,
+        skin_threshold_inclusive=False,
+        skin_diameter_cap=None,
+        max_skin_bar_spacing=lambda *_: 0 * mm,
     )
     monkeypatch.setattr(skin, "design_code", lambda _: code)
     with pytest.raises(CageDetailingError, match="No positive skin-bar spacing") as error:
@@ -42,13 +43,31 @@ def test_nonpositive_spacing_cap_reports_skin_error(checked, monkeypatch):
     assert error.value.reason == "skin"
 
 
-@pytest.mark.parametrize("fault", ["missing", "outside"])
-def test_tension_anchor_must_exist_and_lie_in_its_half(checked, monkeypatch, fault):
+def test_missing_layers_anchor_the_skin_at_the_stirrup(checked, monkeypatch):
+    """No bars: both anchors at 30 + 8 + 10 = 48 mm from the faces, the same rows as the Ø20 layers give."""
     g = checked.section_geometry
-    bars = () if fault == "missing" else tuple(replace(b, y=1000 * mm) if b.face == "bottom" else b for b in g.bars)
+    monkeypatch.setattr(type(checked), "section_geometry", property(lambda _: replace(g, bars=())))
+    req = skin.skin_requirement(checked)
+    assert req.status == "required"
+    assert [y.to(mm).magnitude for y in req.rows] == pytest.approx([324, 600, 876])
+
+
+@pytest.mark.parametrize(
+    "bottom,message",
+    [
+        # Layer at 1000 mm, above the neutral axis at 1200 - 0.4 * 1200 = 720 mm.
+        (1000, "neutral axis must lie above the tension layer"),
+        # Layer at 1160 mm, above the top layer at 1152 mm: nothing left between them.
+        (1160, "no height between its layers"),
+    ],
+)
+def test_tension_anchor_must_lie_below_the_neutral_axis_and_the_top_layer(checked, monkeypatch, bottom, message):
+    g = checked.section_geometry
+    bars = tuple(replace(b, y=bottom * mm) if b.face == "bottom" else b for b in g.bars)
     monkeypatch.setattr(type(checked), "section_geometry", property(lambda _: replace(g, bars=bars)))
-    with pytest.raises(CageDetailingError, match="lateral tension-layer anchor|tension half"):
+    with pytest.raises(CageDetailingError, match=message) as error:
         skin.skin_requirement(checked)
+    assert error.value.reason == "skin"
 
 
 def test_manual_not_applicable_preserves_scope(checked):

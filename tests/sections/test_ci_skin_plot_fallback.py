@@ -1,7 +1,8 @@
-"""Una falla de piel y otra de jaula conservan el modelo de cálculo rotulado."""
+"""Una falla de piel y otra de jaula conservan el modelo de cálculo; la causa va en beam.warnings."""
+
+import warnings
 
 import matplotlib.pyplot as plt
-import pytest
 
 import mento.cage_detailing as cage
 from mento import Forces
@@ -24,16 +25,17 @@ def test_plot_fallback_reports_skin_and_base_failure_without_inventing_skin(monk
         )
 
     monkeypatch.setattr(cage, "build_cage_detailing", unavailable)
-    with pytest.warns(UserWarning) as caught:
+    # The drawing falls back to the calculation model silently; beam.warnings says why.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
         fig = b.plot(show=False)
     try:
-        messages = [str(w.message) for w in caught]
-        assert any("Cage detailing is not feasible: base clash" in message for message in messages)
-        assert any("Skin detailing is not feasible: skin clash" in message for message in messages)
         assert calls[:2] == [True, False]
         assert not any(p.get_gid() in ("skin_bar", "mounting_bar") for p in fig.axes[0].patches)
-        assert any(
-            translate("Calculation model only · cage detailing not feasible") in t.get_text() for t in fig.axes[0].texts
-        )
+        texts = [t.get_text() for t in fig.axes[0].texts]
+        assert not any(translate("Calculation model only · cage detailing not feasible") in t for t in texts)
+        assert not any("clash" in t for t in texts)
+        infeasible = [w for w in b.warnings if w.code == "cage_detailing_infeasible"]
+        assert infeasible and "base clash" in infeasible[0].message
     finally:
         plt.close(fig)

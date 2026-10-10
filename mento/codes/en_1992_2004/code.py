@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from mento.codes.en_1992_2004.skin import requirement as _skin_requirement
+from mento.codes.en_1992_2004.skin import diameter_cap as _skin_diameter_cap
+from mento.codes.en_1992_2004.skin import threshold as _skin_threshold
 from mento.codes.en_1992_2004.skin import warnings as _skin_warnings
 from mento.codes.check_state import apply_en_flexure_state, apply_en_shear_state, apply_en_wall_shear_state
 from mento.codes.EN_1992_2004_beam import (
@@ -242,7 +243,9 @@ EN_1992_2004 = register(
         min_thickness_on_soil=_min_thickness_on_soil,
         # A_s,max caps either face, §9.2.1.1(3): what a layout is held to.
         flexure_admissible=_flexure_admissible_EN_1992_2004,
-        skin_requirement=_skin_requirement,
+        skin_reinforcement_threshold=_skin_threshold,
+        skin_threshold_inclusive=True,
+        skin_diameter_cap=_skin_diameter_cap,
         skin_warnings=_skin_warnings,
     )
 )

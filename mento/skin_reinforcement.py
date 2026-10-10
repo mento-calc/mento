@@ -1,6 +1,22 @@
-"""Longitudinal skin-steel proposals, ACI 318-19 / CIRSOC 201-25 §9.7.2.3.
+"""Longitudinal skin steel: mento's criterion, and the checks of the code where it requires skin.
 
-This steel controls web cracking. It is never credited to moment or shear
+Skin is laid out on both side faces of every beam 60 cm (24 in.) deep or
+more, over the whole height between the bottom and top layers, so the same
+bars serve a span and a support of a continuous beam:
+
+- its count per side keeps the bars at most the code's spacing apart -- ACI
+  318-19 / CIRSOC 201-25 §24.3.2 with the side cover, ``skin_bar_spacing``
+  (28 cm) under EN 1992-1-1, which prints no cap;
+- below 1 m its diameter is the smallest of mento's choice, Ø8 up to a 40 cm
+  web and Ø10 above (No. 3 / No. 4);
+- from 1 m it is the smallest diameter whose bars inside the tension zone
+  give the minimum area of EN 1992-1-1 §7.3.3(3), Eq. (7.1), whatever the
+  code -- with more bars if no diameter does -- and, under EN, within the
+  diameter cap of Table 7.2N.
+
+The status is ``required`` where the code requires skin (ACI / CIRSOC h > 900
+mm, EN h >= 1 m) and ``proposed`` where mento lays it out on its own. This
+steel controls web cracking: it is never credited to moment or shear
 resistance, and does not make a sectional model a strut-and-tie design.
 """
 
@@ -14,7 +30,7 @@ from typing import TYPE_CHECKING, Literal
 from mento.codes.registry import design_code
 from mento.design_results import GRID, transverse_layout
 from mento.section_geometry import BarPosition, SectionGeometry
-from mento.units import Quantity, mm
+from mento.units import Quantity, inch, mm
 
 if TYPE_CHECKING:
     from mento.beam import RectangularBeam
@@ -64,18 +80,22 @@ class SkinCheckZone:
 class SkinReinforcementRequirement:
     """Requirement, not a certificate that a provided cage complies.
 
-    status is required, not_required, pending, unsupported or not_applicable.
-    Pending means flexure, a tension case or independent EN service inputs
-    are missing; pending_reason identifies which. Unsupported is NOT an exemption.
-    n_per_side counts supplementary bars on EACH lateral face, counting the
-    shared mid-height bar once when both bending signs occur. spacing is the
-    uniform spacing within each ACI h/2 zone, including its boundary gap.
-    EN supplies explicit rows, a minimum area and an adjusted diameter limit;
-    its selected diameter route has no independent s_max.
+    status is required, proposed, not_required, pending, unsupported or not_applicable:
+    required where the code requires skin, proposed where mento's criterion lays it out
+    without the code asking (60 cm deep or more).
+    Pending means the flexure check or a tension case is missing; pending_reason
+    identifies which ("no_tension_case"), and "axial" marks an unsupported EN beam
+    with axial force. Unsupported is NOT an exemption.
+    n_per_side counts the bars on EACH side face, in rows spread evenly over the
+    whole height between the bottom and top layers; spacing is the gap between
+    them, the gaps to the two layers included, and s_max the cap it meets.
+    From 1 m area_min_per_side is the EN §7.3.3(3) minimum the rows inside each
+    check zone give, and under EN diameter_max is the Table 7.2N cap.
+    distribution_reviews is filled only for manual skin.
     Geometry and fit are verified by beam.detailing_geometry, which may raise.
     """
 
-    status: Literal["required", "not_required", "pending", "unsupported", "not_applicable"]
+    status: Literal["required", "proposed", "not_required", "pending", "unsupported", "not_applicable"]
     threshold: Quantity | None = None
     tension_faces: tuple[str, ...] = ()
     d_b: Quantity | None = None
@@ -83,7 +103,6 @@ class SkinReinforcementRequirement:
     s_max: Quantity | None = None
     spacing: Quantity | None = None
     n_per_side: int = 0
-    # EN uses the diameter route, not an ACI-style spacing cap.
     rows: tuple[Quantity, ...] = ()
     area_min_per_side: Quantity | None = None
     area_per_side: Quantity | None = None
@@ -109,17 +128,96 @@ def skin_requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
         raise CageDetailingError(str(error), reason="skin") from error
 
 
+#: Depth from which mento lays out skin, and from which its diameter follows the EN minimum area.
+SKIN_FROM = 600 * mm
+ENVELOPE_FROM = 1000 * mm
+#: Neutral axis depth over h assumed for the tension zone, when no service case gives it.
+ASSUMED_NEUTRAL_AXIS = 0.4
+#: Widest web that takes the smaller diameter below ENVELOPE_FROM.
+NARROW_WEB = 400 * mm
+
+
+def _imperial(beam: RectangularBeam) -> bool:
+    return bool(beam.concrete.is_imperial)
+
+
+def _skin_from(beam: RectangularBeam) -> Quantity:
+    return 24 * inch if _imperial(beam) else SKIN_FROM
+
+
+def _catalogue(beam: RectangularBeam) -> tuple[Quantity, ...]:
+    """The skin diameters mento chooses from, smallest first, from the minimum the settings allow."""
+    from mento.bar_sizes import bar_diameter
+
+    settings = beam.settings
+    assert settings is not None
+    bars = (
+        tuple(bar_diameter(n) for n in (3, 4, 5, 6)) if _imperial(beam) else tuple(d * mm for d in (8, 10, 12, 16, 20))
+    )
+    return tuple(d for d in bars if d >= settings.skin_bar_diameter - 1e-9 * mm) or (settings.skin_bar_diameter,)
+
+
+def _anchors(beam: RectangularBeam) -> tuple[float, float]:
+    """The levels (mm) the skin spans between: the inner bottom layer and the inner top layer."""
+    geometry = beam.section_geometry
+    inset = float((beam.c_c + beam._stirrup_d_b).to(mm).magnitude) + 10.0
+    height = float(beam.height.to(mm).magnitude)
+
+    def level(face: str) -> float:
+        second = geometry.bars_on(face, layer=2)
+        bars = second if len(second) >= 2 else geometry.bars_on(face, layer=1)
+        if bars:
+            return (max if face == "bottom" else min)(float(bar.y.to(mm).magnitude) for bar in bars)
+        return inset if face == "bottom" else height - inset
+
+    return level("bottom"), level("top")
+
+
+def _neutral_axes(beam: RectangularBeam, face: str) -> tuple[tuple[str, float], ...]:
+    """(label, depth in mm from the compression face) of each service case with ``face`` in tension.
+
+    A face with no case takes the assumed axis, ASSUMED_NEUTRAL_AXIS * h, unlabelled.
+    """
+    axes = tuple(
+        (case.label, float(case.neutral_axis.to(mm).magnitude))
+        for case in beam.skin_service_cases
+        if case.tension_face == face
+    )
+    return axes or (("", ASSUMED_NEUTRAL_AXIS * float(beam.height.to(mm).magnitude)),)
+
+
+def _minimum_area_per_side(beam: RectangularBeam) -> float:
+    """EN 1992-1-1 §7.3.3(3): Eq. (7.1) with kc = 0.4, k = 0.5, sigma_s = f_yk, A_ct = b*h/2; half per side, mm².
+
+    mento applies it from 1 m under every code, as the envelope of its criterion.
+    A concrete without an EN f_ctm takes 0.30*f_c^(2/3) (Table 3.1).
+    """
+    from mento.units import MPa
+
+    f_ctm = getattr(beam.concrete, "f_ctm", None)
+    fct = (
+        float(f_ctm.to(MPa).magnitude)
+        if isinstance(f_ctm, Quantity)
+        else 0.30 * float(beam.concrete.f_c.to(MPa).magnitude) ** (2 / 3)
+    )
+    fy = float(beam.steel_bar.f_y.to(MPa).magnitude)
+    b = float(beam.width.to(mm).magnitude)
+    h = float(beam.height.to(mm).magnitude)
+    return 0.4 * 0.5 * fct * (b * h / 2) / fy / 2
+
+
 def _skin_requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
+    from mento.cage_detailing import CageDetailingError
+
     if transverse_layout(beam) == GRID:
         return SkinReinforcementRequirement("not_applicable")
     code = design_code(beam.concrete)
-    if code.skin_requirement is not None:
-        return code.skin_requirement(beam)
-    if code.skin_reinforcement_threshold is None or code.max_skin_bar_spacing is None:
+    if code.skin_reinforcement_threshold is None:
         return SkinReinforcementRequirement("unsupported")
     threshold = code.skin_reinforcement_threshold(beam.concrete)
-    if beam.height <= threshold:
+    if beam.height < _skin_from(beam):
         return SkinReinforcementRequirement("not_required", threshold)
+    code_requires = beam.height >= threshold if code.skin_threshold_inclusive else beam.height > threshold
     if not beam._flexure_checked or not beam.flexure_checks:
         return SkinReinforcementRequirement("pending", threshold)
     # Demand/capacity ratios belong to every checked combination, so reversals
@@ -127,59 +225,103 @@ def _skin_requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
     faces = tuple(
         face for face in ("bottom", "top") if any(getattr(check, face).DCR > 0 for check in beam.flexure_checks)
     )
+    envelope = beam.height >= ENVELOPE_FROM
+    if envelope and code.skin_diameter_cap is not None and any(c.has_axial_force for c in beam.flexure_checks):
+        # The diameter cap of the code reads a section in pure bending.
+        return SkinReinforcementRequirement("unsupported", threshold, faces, pending_reason="axial")
     if not faces:
         return SkinReinforcementRequirement("pending", threshold, pending_reason="no_tension_case")
     settings = beam.settings
     assert settings is not None
-    manual = beam.skin_rebar
-    diameter = manual.db_piel if manual is not None else settings.skin_bar_diameter
-    from mento.cage_detailing import CageDetailingError
-
-    if not isinstance(diameter, Quantity) or not diameter.check("[length]"):
+    minimum = settings.skin_bar_diameter
+    if not isinstance(minimum, Quantity) or not minimum.check("[length]"):
         raise CageDetailingError("skin_bar_diameter must be a length quantity.")
-    d = float(diameter.to(mm).magnitude)
-    if not math.isfinite(d) or d <= 0 or diameter < settings.minimum_longitudinal_diameter:
+    if not math.isfinite(float(minimum.to(mm).magnitude)) or minimum <= 0 * mm:
+        raise CageDetailingError("skin_bar_diameter must be finite and positive.")
+    if minimum < settings.minimum_longitudinal_diameter:
         raise CageDetailingError("skin_bar_diameter must be finite, positive and meet minimum_longitudinal_diameter.")
-    # Placed just INSIDE the perimeter stirrup. With no stirrups, the cover
-    # reserved by the flexural model is retained, making the gap explicit.
+    # Placed just INSIDE the perimeter stirrup.
     cover = beam.c_c + beam._stirrup_d_b
-    cap = code.max_skin_bar_spacing(beam, cover)
+    cap = code.max_skin_bar_spacing(beam, cover) if code.max_skin_bar_spacing is not None else settings.skin_bar_spacing
     limit = float(cap.to(mm).magnitude)
     if not math.isfinite(limit) or limit <= 0:
         raise CageDetailingError("No positive skin-bar spacing is permitted for this cover and steel grade.")
-    # ACI Fig. R9.7.2.3 / CIRSOC Fig. C 9.7.2.3 show the first interval
-    # from the lateral tension bar, not the concrete face. Start at the
-    # innermost tension layer that has lateral bars, and include h/2.
-    geometry = beam.section_geometry
-    midpoint = float((beam.height / 2).to(mm).magnitude)
-    rows: set[float] = set()
-    spacings = []
+    low, high = _anchors(beam)
+    if high <= low:
+        raise CageDetailingError("The section has no height between its layers for skin bars.")
+    count = max(1, math.ceil((high - low) / limit - 1e-12) - 1)
+    height = float(beam.height.to(mm).magnitude)
     zones = []
     for face in faces:
-        second = geometry.bars_on(face, layer=2)
-        anchor_bars = second if len(second) >= 2 else geometry.bars_on(face, layer=1)
-        if not anchor_bars:
-            raise CageDetailingError("Skin reinforcement needs a lateral tension-layer anchor.")
-        level = (max if face == "bottom" else min)(float(bar.y.to(mm).magnitude) for bar in anchor_bars)
-        span = abs(midpoint - level)
-        if span <= 0 or (face == "bottom" and level >= midpoint) or (face == "top" and level <= midpoint):
-            raise CageDetailingError("The lateral tension layer must lie within its tension half.")
-        zones.append(SkinCheckZone(face, min(level, midpoint) * mm, max(level, midpoint) * mm))
-        count = max(1, math.ceil(span / limit - 1e-12))
-        pitch = span / count
-        spacings.append(pitch)
-        direction = 1 if face == "bottom" else -1
-        rows.update(round(level + direction * pitch * i, 9) for i in range(1, count + 1))
+        for label, x in _neutral_axes(beam, face):
+            if not 0 < x < height:
+                raise CageDetailingError(
+                    "SkinServiceCase.neutral_axis must be inside the section, measured from compression."
+                )
+            anchor, neutral = (low, height - x) if face == "bottom" else (high, x)
+            if (face == "bottom" and neutral <= anchor) or (face == "top" and neutral >= anchor):
+                raise CageDetailingError(
+                    "The service neutral axis must lie above the tension layer toward compression."
+                )
+            zones.append(SkinCheckZone(face, min(anchor, neutral) * mm, max(anchor, neutral) * mm, label))
+
+    def rows_for(n: int) -> tuple[float, ...]:
+        pitch = (high - low) / (n + 1)
+        return tuple(low + pitch * i for i in range(1, n + 1))
+
+    area_min = None
+    diameter_max = None
+    if envelope:
+        area_min = _minimum_area_per_side(beam)
+        candidates = _catalogue(beam)
+        if code.skin_diameter_cap is not None:
+            diameter_max = min(code.skin_diameter_cap(beam, faces, d) for d in candidates[:1])
+            candidates = tuple(d for d in candidates if d <= code.skin_diameter_cap(beam, faces, d) + 1e-9 * mm)
+            if not candidates:
+                raise CageDetailingError("No skin diameter meets the diameter cap of the code.")
+        clear = max(settings.clear_spacing, settings.vibrator_size)
+        chosen = None
+        for n in range(count, count + 20):
+            rows = rows_for(n)
+            for d in candidates:
+                if (high - low) / (n + 1) < float((d + clear).to(mm).magnitude):
+                    continue
+                bar = math.pi * float(d.to(mm).magnitude) ** 2 / 4
+                inside = [
+                    sum(
+                        float(z.lower.to(mm).magnitude) - 1e-9 <= y <= float(z.upper.to(mm).magnitude) + 1e-9
+                        for y in rows
+                    )
+                    for z in zones
+                ]
+                if all(k * bar >= area_min - 1e-9 for k in inside):
+                    chosen = (n, d)
+                    break
+            if chosen is not None:
+                break
+        if chosen is None:
+            raise CageDetailingError("The skin cannot reach the minimum area of EN 1992-1-1 §7.3.3(3) in the web.")
+        count, diameter = chosen
+        if code.skin_diameter_cap is not None:
+            diameter_max = code.skin_diameter_cap(beam, faces, diameter)
+    else:
+        narrow = 16 * inch if _imperial(beam) else NARROW_WEB
+        catalogue = _catalogue(beam)
+        diameter = catalogue[0] if beam.width <= narrow else (catalogue[1] if len(catalogue) > 1 else catalogue[0])
+    rows = rows_for(count)
     return SkinReinforcementRequirement(
-        "required",
+        "required" if code_requires else "proposed",
         threshold,
         faces,
         diameter,
         cover,
         cap,
-        max(spacings) * mm,
-        len(rows),
-        rows=tuple(y * mm for y in sorted(rows)),
+        (high - low) / (count + 1) * mm,
+        count,
+        rows=tuple(y * mm for y in rows),
+        area_min_per_side=None if area_min is None else area_min * mm**2,
+        area_per_side=count * math.pi * diameter**2 / 4,
+        diameter_max=diameter_max,
         check_zones=tuple(zones),
     )
 
@@ -293,19 +435,18 @@ def add_skin_bars(beam: RectangularBeam, geometry: SectionGeometry) -> SectionGe
 
 
 def _add_skin_bars(beam: RectangularBeam, geometry: SectionGeometry) -> SectionGeometry:
-    """Supplementary bars in the required zones; reject clashes rather than hide them.
+    """Draw the skin rows on both side faces; reject clashes rather than hide them.
 
-    ACI starts above the lateral tension-layer bar and includes a mid-height bar; each
-    gap meets its spacing cap. EN supplies explicit service-zone rows.
-    The flexural layers are not credited toward the supplementary proposal.
-    Reversal envelopes share rows rather than duplicating or clashing them.
+    The rows come from the requirement (mento's criterion or the manual input),
+    just inside the perimeter stirrup. The flexural layers are not credited
+    toward the skin.
     """
     from mento.cage_detailing import CageDetailingError
 
     req = skin_requirement(beam)
     if req.failures and not req.rows:
         raise CageDetailingError(" ".join(req.failures), reason="skin")
-    if req.status != "required" and not req.manual:
+    if req.status not in ("required", "proposed") and not req.manual:
         return geometry
     if not req.rows:
         return geometry

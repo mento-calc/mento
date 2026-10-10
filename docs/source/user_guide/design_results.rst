@@ -268,7 +268,7 @@ few millimetres deeper in that the seat asks for; the other bars keep the depth 
 calculation. Extra bars are spread between those supports.
 Where a face has too few bars, ``mounting_bars`` supplies the missing corner supports,
 including an otherwise empty upper face. Their diameter is controlled by
-``settings.mounting_bar_diameter`` (10 mm or No. 3 by default).
+``settings.mounting_bar_diameter`` (8 mm or No. 3 by default).
 
 .. code-block:: python
 
