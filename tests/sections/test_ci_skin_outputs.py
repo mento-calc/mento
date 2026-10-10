@@ -10,7 +10,7 @@ from mento import BeamSummary, OneWaySlab, SkinServiceCase
 from mento.cage_detailing import CageDetailingError
 from mento.design_warnings import skin_warnings
 from mento.units import MPa, cm, mm
-from tests.sections.test_manual_skin_rebar import manual_table
+from tests.sections.test_manual_skin_rebar import manual_tables
 from tests.sections.test_skin_reinforcement import beam
 
 
@@ -81,20 +81,19 @@ def test_missing_skin_rule_keeps_unsupported_warning(monkeypatch, status):
 
 @pytest.mark.parametrize("column", ["cant_piel_cara", "posicion"])
 def test_manual_counts_and_position_have_no_units(column):
-    table = manual_table()
-    table.loc[0, column] = "mm"
+    sections, rows = manual_tables()
+    sections.loc[0, column] = "mm"
     b = beam()
-    with pytest.raises(ValueError, match="blank units cell"):
-        BeamSummary(b.concrete, b.steel_bar, table)
+    with pytest.raises(ValueError, match="unit row says"):
+        BeamSummary(b.concrete, b.steel_bar, sections, rows)
 
 
-def test_missing_manual_diameter_unit_is_rejected_with_row_and_cause():
-    table = manual_table()
-    table.loc[0, "db_piel"] = ""
+def test_a_manual_diameter_without_unit_is_rejected_naming_the_column():
+    sections, rows = manual_tables()
+    sections.loc[0, "db_piel"] = ""
     b = beam()
-    with pytest.raises(ValueError, match="Invalid db_piel unit.*row 1") as error:
-        BeamSummary(b.concrete, b.steel_bar, table)
-    assert isinstance(error.value.__cause__, ValueError)
+    with pytest.raises(ValueError, match="Column db_piel of the sections table is a length"):
+        BeamSummary(b.concrete, b.steel_bar, sections, rows)
 
 
 def test_service_setter_rejects_non_case_objects():
@@ -104,13 +103,9 @@ def test_service_setter_rejects_non_case_objects():
     assert b.skin_service_cases == ()
 
 
-@pytest.mark.parametrize("fault", ["missing", "units"])
-def test_summary_requires_a_dimensionless_transverse_count(fault):
-    table = manual_table()
-    if fault == "missing":
-        table = table.drop(columns="ns")
-    else:
-        table.loc[0, "ns"] = "mm"
+def test_summary_requires_a_dimensionless_leg_count():
+    sections, rows = manual_tables()
+    sections.loc[0, "legs"] = "mm"
     b = beam()
-    with pytest.raises(ValueError, match="requires 'n_legs'|blank units cell"):
-        BeamSummary(b.concrete, b.steel_bar, table)
+    with pytest.raises(ValueError, match="unit row says"):
+        BeamSummary(b.concrete, b.steel_bar, sections, rows)

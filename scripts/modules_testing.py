@@ -18,6 +18,7 @@ from mento.rectangular import RectangularSection
 from mento import Forces, RectangularBeam, Node, OneWaySlab
 from mento.rebar import Rebar
 from mento.beam_summary import BeamSummary
+from mento.summary_tables import split_single_table
 
 #######################################################################################
 
@@ -701,13 +702,14 @@ def summary_ACI() -> None:
     }
     input_df = pd.DataFrame(data)
 
-    beam_summary = BeamSummary(concrete=conc, steel_bar=steel, beam_list=input_df)
+    # A table in the single-table format of 1.4.0, converted into sections and forces.
+    beam_summary = BeamSummary(conc, steel, *split_single_table(input_df, "beam"))
 
     # path = Path(__file__).parents[1] / "_notebooks" / "Mento-Input.xlsx"
     # path = "G:\Mi unidad\mento\Tools\Mento-Input.xlsx"
     # input_df = pd.read_excel(path, sheet_name="Design", usecols="B:T", skiprows=4)
-    # beam_summary = BeamSummary(concrete=conc, steel_bar=steel, beam_list=input_df)
-    # print(beam_summary.data)
+    # beam_summary = BeamSummary.from_excel(conc, steel, path)
+    # print(beam_summary.sections_table)
 
     # # --- Step 2: Run design and export suggested rebars ---
     print(beam_summary.design())
@@ -715,7 +717,7 @@ def summary_ACI() -> None:
 
     # --- Step 3: Import edited design and run checks ---
     # beam_summary.import_design("Beam-Design.xlsx")
-    # print(beam_summary.data)
+    # print(beam_summary.sections_table)
     # capacity = beam_summary.check(capacity_check=True)
     # print(capacity)
     # check = beam_summary.check(capacity_check=False)
@@ -756,9 +758,9 @@ def summary_EN_1992() -> None:
     }
     input_df = pd.DataFrame(data)
 
-    beam_summary = BeamSummary(concrete=conc, steel_bar=steel, beam_list=input_df)
+    beam_summary = BeamSummary(conc, steel, *split_single_table(input_df, "beam"))
 
-    print(beam_summary.data)
+    print(beam_summary.sections_table)
     capacity = beam_summary.check(capacity_check=True)
     print(capacity)
     check = beam_summary.check(capacity_check=False)

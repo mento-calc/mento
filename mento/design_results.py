@@ -32,6 +32,7 @@ from mento.units import Quantity, ureg
 
 if TYPE_CHECKING:
     from mento.beam import RectangularBeam
+    from mento.forces import Forces
 
 
 class DesignNotRunError(RuntimeError):
@@ -266,11 +267,20 @@ class FlexureFaceCheck:
 
 @dataclass(frozen=True)
 class FlexureCheck:
-    """The flexure result of one load combination, on both faces."""
+    """The flexure result of one load combination, on both faces.
+
+    ``M_demand`` is the moment of the combination, with its sign (positive
+    puts the bottom face in tension), and ``N_demand`` its axial load
+    (positive in compression), which a beam's flexure check does not use:
+    what a table of results shows next to the DCR they belong to. ``None``
+    on a result that is not one combination's.
+    """
 
     label: str
     bottom: FlexureFaceCheck
     top: FlexureFaceCheck
+    M_demand: Optional[Quantity] = None
+    N_demand: Optional[Quantity] = None
     # Demand metadata, not a claim that flexure includes axial interaction.
     has_axial_force: bool = False
 
@@ -304,6 +314,12 @@ class ShearCheck:
     halves its limits, and ``spacing_halved`` whether this combination passed
     it. Each is ``None`` where the code has no such quantity (those three
     under EN 1992-1-1) or the check set no limit (EN with no stirrups).
+
+    ``V_demand`` is the shear that ``DCR`` was formed from, in magnitude --
+    ``Vu`` under ACI 318-19 and CIRSOC 201-25, ``VEd,2``, at d from the
+    support, under EN 1992-1-1 -- and ``N_demand`` the axial load of the
+    combination (positive in compression), which enters ``V_c``. ``None`` on
+    an envelope.
     """
 
     label: str
@@ -311,6 +327,8 @@ class ShearCheck:
     A_v_min: Optional[Quantity]
     DCR: float
     V_capacity: Optional[Quantity] = None
+    V_demand: Optional[Quantity] = None
+    N_demand: Optional[Quantity] = None
     V_s_req: Optional[Quantity] = None
     V_s_threshold: Optional[Quantity] = None
     spacing_halved: Optional[bool] = None
@@ -415,12 +433,19 @@ def envelope_shear(checks: Sequence[ShearCheck]) -> ShearCheck:
     )
 
 
-def capture_flexure_check(beam: RectangularBeam, label: str, state: Any, has_axial_force: bool = False) -> FlexureCheck:
+def capture_flexure_check(
+    beam: RectangularBeam,
+    label: str,
+    state: Any,
+    force: Optional["Forces"] = None,
+    has_axial_force: bool = False,
+) -> FlexureCheck:
     """The flexure result of the combination just run.
 
     Reads the ``state`` the design code returned, so nothing has to have been
     written to the beam: the result is a value of the check, not a reading of
-    the section afterwards.
+    the section afterwards. ``force`` is the combination, whose axial load the
+    result carries as ``N_demand``.
     """
     imperial = beam.concrete.is_imperial
     over = steel_above_maximum(beam, state)
@@ -441,7 +466,21 @@ def capture_flexure_check(beam: RectangularBeam, label: str, state: Any, has_axi
             admissible=suffix not in over,
         )
 
-    return FlexureCheck(label=label, bottom=face("bot"), top=face("top"), has_axial_force=has_axial_force)
+    return FlexureCheck(
+        label=label,
+        bottom=face("bot"),
+        top=face("top"),
+        M_demand=state.moment_demand_quantity(imperial),
+        N_demand=_axial(force, imperial),
+        has_axial_force=has_axial_force or (force is not None and force.N_x.magnitude != 0),
+    )
+
+
+def _axial(force: Optional["Forces"], imperial: bool) -> Optional[Quantity]:
+    """The axial load of a combination in the unit results are shown in, or None without one."""
+    if force is None:
+        return None
+    return force._N_x.to(DISPLAY[imperial]["force"])
 
 
 def capture_shear_check(beam: RectangularBeam, label: str, state: Any) -> ShearCheck:
@@ -453,12 +492,15 @@ def capture_shear_check(beam: RectangularBeam, label: str, state: Any) -> ShearC
     imperial = beam.concrete.is_imperial
     A_v_req, A_v_min = state.shear_reinforcement_quantities(imperial)
     V_s_req, V_s_threshold, spacing_halved, s_max_l_table, s_max_w = state.spacing_quantities(imperial)
+    V_demand, N_demand = state.shear_demand_quantities(imperial)
     return ShearCheck(
         label=label,
         A_v_req=A_v_req,
         A_v_min=A_v_min,
         DCR=float(state.DCR),
         V_capacity=state.shear_capacity_quantity(imperial),
+        V_demand=V_demand,
+        N_demand=N_demand,
         V_s_req=V_s_req,
         V_s_threshold=V_s_threshold,
         spacing_halved=spacing_halved,

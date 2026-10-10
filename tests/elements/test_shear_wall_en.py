@@ -43,6 +43,7 @@ from mento.material import Concrete_ACI_318_19, Concrete_EN_1992_2004, SteelBar
 from mento.node import Node
 from mento.shear_wall import ShearWall
 from mento.shear_wall_summary import ShearWallSummary
+from mento.summary_tables import split_single_table
 from mento.units import MPa, cm, kN, m, mm
 
 V_RD_C = 156_524.76  # N
@@ -495,20 +496,24 @@ def _wall_list() -> pd.DataFrame:
 class TestSummary:
     def test_design_then_check(self) -> None:
         summary = ShearWallSummary(
-            Concrete_EN_1992_2004(name="C25/30", f_c=25 * MPa), SteelBar(name="B500S", f_y=500 * MPa), _wall_list()
+            Concrete_EN_1992_2004(name="C25/30", f_c=25 * MPa),
+            SteelBar(name="B500S", f_y=500 * MPa),
+            *split_single_table(_wall_list(), "wall"),
         )
         summary.design()
         table = summary.check()
-        assert {"ρh", "ρv", "VEd,max", "VRd"} <= set(table.columns)
+        assert {"ρh", "ρv", "VEd", "NEd", "VRd"} <= set(table.columns)
         assert "ØVn" not in table.columns
         assert list(table["Status"].iloc[1:]) == ["✅", "✅"]
         first = table.iloc[1]
-        assert first["VEd,max"] == pytest.approx(1200.0)
+        assert first["VEd"] == pytest.approx(1200.0)
 
     def test_check_columns_carry_units(self) -> None:
         summary = ShearWallSummary(
-            Concrete_EN_1992_2004(name="C25/30", f_c=25 * MPa), SteelBar(name="B500S", f_y=500 * MPa), _wall_list()
+            Concrete_EN_1992_2004(name="C25/30", f_c=25 * MPa),
+            SteelBar(name="B500S", f_y=500 * MPa),
+            *split_single_table(_wall_list(), "wall"),
         )
         summary.design()
         units = summary.check().iloc[0]
-        assert units["VEd,max"] == "kN" and units["VRd"] == "kN"
+        assert units["VEd"] == "kN" and units["VRd"] == "kN"

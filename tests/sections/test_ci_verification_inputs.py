@@ -5,9 +5,9 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from mento import Concrete_ACI_318_19, MPa, RectangularBeam, SteelBar, cm, mm
-
-
+from mento import Concrete_ACI_318_19, Forces, MPa, RectangularBeam, SteelBar, cm, mm
+from mento.beam_summary import BeamSummary
+from mento.node import Node
 from mento.verification import normalize_leg_column, verification_status
 
 
@@ -86,3 +86,14 @@ def test_transverse_alias_rejects_invalid_legacy_count_before_mutating_reinforce
     with pytest.raises(TypeError, match="n_stirrups must be an integer"):
         beam.set_transverse_rebar(n_stirrups=count, legs=2, d_b=8 * mm, s_l=20 * cm)
     assert beam.reinforcement.transverse == previous
+
+
+def test_summary_labels_preserve_bars_in_second_group_of_first_layer():
+    beam = _beam()
+    summary = BeamSummary.from_nodes(beam.concrete, beam.steel_bar, [Node(beam, [Forces()])])
+    # Un nodo puede cambiar tras leer las tablas; el informe debe conservar
+    # las barras actuales aunque el grupo inicial haya quedado vacío.
+    beam.set_longitudinal_rebar_bot(n1=0, d_b1=0 * mm, n2=3, d_b2=12 * mm)
+    _, bottom, _ = summary._rebar_labels(beam)
+    assert bottom == beam._format_longitudinal_rebar_string(3, 12 * mm, 0, 0 * mm)
+    assert "3" in bottom and "12" in bottom

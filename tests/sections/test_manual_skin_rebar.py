@@ -7,7 +7,9 @@ import pandas as pd
 import pytest
 
 from mento import BeamSummary, CageDetailingError, Forces, set_language
+from mento.beam_summary import SKIN_COLUMNS
 from mento.units import MPa, cm, inch, kN, kNm, mm
+from tests.reports.summary_data import BEAM_UNITS, beams, forces
 from tests.sections.test_skin_reinforcement import beam, en_beam
 
 
@@ -184,160 +186,111 @@ def test_manual_failure_reason_is_localized():
         set_language("en")
 
 
-def manual_table():
-    units = {
-        "Label": "",
-        "Comb.": "",
-        "b": "cm",
-        "h": "cm",
-        "cc": "mm",
-        "Nx": "kN",
-        "Vz": "kN",
-        "My": "kNm",
-        "ns": "",
-        "dbs": "mm",
-        "sl": "cm",
-        "db_piel": "mm",
-        "cant_piel_cara": "",
-        "posicion": "",
-    }
-    for i in range(1, 5):
-        units[f"n{i}"] = ""
-        units[f"db{i}"] = "mm"
-    row = {key: 0 for key in units}
-    row.update(
-        Label="Manual",
-        b=30,
-        h=120,
-        cc=30,
-        Nx=0,
-        Vz=10,
-        My=100,
-        ns=1,
-        dbs=8,
-        sl=20,
-        db_piel=10,
-        cant_piel_cara=2,
-        posicion="bottom",
-        n1=4,
-        db1=20,
-    )
-    row["Comb."] = "C1"
-    return pd.DataFrame([units, row])
+SKIN_UNITS = {**BEAM_UNITS, "db_piel": "mm", "cant_piel_cara": "", "posicion": ""}
+
+
+def manual_tables(**skin):
+    """A CIRSOC 30x120 beam with Ø10 manual skin, two per side at the bottom: the two tables of BeamSummary."""
+    row = {"Label": "Manual", "n1_bot": 4, "db1_bot": 20, "db_piel": 10, "cant_piel_cara": 2, "posicion": "bottom"}
+    sections = beams([{**row, **skin}], units=SKIN_UNITS, b=30, h=120, cc=30, legs=2, dbs=8, sl=20)
+    return sections, forces([{"Label": "Manual", "Comb.": "C1", "Vz": 10, "My": 100}])
 
 
 def test_summary_excel_keeps_manual_skin_input(tmp_path):
     materials = beam()
-    summary = BeamSummary(materials.concrete, materials.steel_bar, manual_table())
+    summary = BeamSummary(materials.concrete, materials.steel_bar, *manual_tables())
     b = summary.nodes[0].section
     assert b.skin_rebar.cant_piel_cara == 2 and b.skin_rebar.posicion == "bottom"
-    summary.design_data = summary.data.copy()
     path = tmp_path / "manual_skin.xlsx"
-    summary.export_design(str(path))
-    summary.import_design(str(path))
+    summary.to_excel(path)
+    assert list(pd.read_excel(path, sheet_name="Sections").iloc[1][list(SKIN_COLUMNS)]) == [10, 2, "bottom"]
+    summary.import_design(path)
     assert summary.nodes[0].section.skin_rebar == b.skin_rebar
-
-
-def test_summary_skin_belongs_to_the_beam_of_its_rows():
-    """Rows that share a Label are one beam: the skin given on one row is the beam's."""
-    materials = beam()
-    table = manual_table()
-    second = table.iloc[1].copy()
-    second["Comb."], second["My"] = "C2", -80
-    second["db_piel"], second["cant_piel_cara"], second["posicion"] = "", "", ""
-    table = pd.concat([table, second.to_frame().T], ignore_index=True)
-    summary = BeamSummary(materials.concrete, materials.steel_bar, table)
-    assert len(summary.nodes) == 1
-    skin = summary.nodes[0].section.skin_rebar
-    assert skin.cant_piel_cara == 2 and skin.posicion == "bottom"
-
-    table.loc[2, ["db_piel", "cant_piel_cara", "posicion"]] = [10, 3, "bottom"]
-    with pytest.raises(ValueError, match="different skin reinforcement"):
-        BeamSummary(materials.concrete, materials.steel_bar, table)
 
 
 @pytest.mark.parametrize(
     "column,value", [("cant_piel_cara", 2.5), ("cant_piel_cara", True), ("db_piel", "oops"), ("posicion", "left")]
 )
-def test_summary_rejects_manual_typos_before_numeric_coercion(column, value):
-    table = manual_table()
-    table.loc[1, column] = value
+def test_summary_rejects_manual_typos(column, value):
     materials = beam()
     with pytest.raises(ValueError):
-        BeamSummary(materials.concrete, materials.steel_bar, table)
+        BeamSummary(materials.concrete, materials.steel_bar, *manual_tables(**{column: value}))
 
 
-def test_summary_blank_skin_cells_keep_auto_and_partial_columns_are_rejected():
+def test_summary_blank_skin_cells_keep_auto_and_a_position_needs_its_diameter():
     materials = beam()
-    data = manual_table()
-    for col in ("db_piel", "cant_piel_cara", "posicion"):
-        data.loc[1, col] = ""
-    summary = BeamSummary(materials.concrete, materials.steel_bar, data)
+    summary = BeamSummary(
+        materials.concrete, materials.steel_bar, *manual_tables(db_piel=0, cant_piel_cara=0, posicion="")
+    )
     assert summary.nodes[0].section.skin_rebar is None
-    with pytest.raises(ValueError, match="together"):
-        BeamSummary(materials.concrete, materials.steel_bar, data.drop(columns="posicion"))
+    # No section uses manual skin, and the table gave the columns: they are written back, empty.
+    assert list(summary.sections_table.iloc[1][list(SKIN_COLUMNS)]) == [0, 0, ""]
+    with pytest.raises(ValueError, match="db_piel"):
+        BeamSummary(materials.concrete, materials.steel_bar, *manual_tables(db_piel=0))
 
 
 def test_summary_word_reports_insufficient_manual_skin(monkeypatch):
     from mento.results import DocumentBuilder
 
     materials = beam()
-    table = manual_table()
-    table.loc[1, "cant_piel_cara"] = 1
-    summary = BeamSummary(materials.concrete, materials.steel_bar, table)
-    summary.check(capacity_check=True)
+    summary = BeamSummary(materials.concrete, materials.steel_bar, *manual_tables(cant_piel_cara=1))
+    summary.check()
     documents = []
     monkeypatch.setattr(DocumentBuilder, "save", lambda self, *_: documents.append(self.doc))
     try:
         set_language("es")
         summary.results_detailed_doc()
-        rows = [[c.text for c in row.cells] for t in documents[0].tables for row in t.rows]
-        assert any(row[0] == "Manual" and len(row) == 4 and row[2] == "No cumple" for row in rows)
         assert summary.nodes[0].section.skin_verification_status == "failed"
+        rows = [[c.text for c in row.cells] for t in documents[0].tables for row in t.rows]
+        assert any(row[0] == "Manual" and "piel" in " ".join(row).lower() for row in rows)
     finally:
         set_language("en")
 
 
-@pytest.mark.parametrize("automatic", [("", "", ""), (0, 0, ""), (None, 0, None)])
-def test_mixed_manual_automatic_excel_roundtrip(tmp_path, automatic):
+def test_mixed_manual_and_automatic_skin_roundtrip(tmp_path):
     materials = beam()
-    table = manual_table()
-    auto = table.iloc[1].copy()
-    auto["Label"] = "Auto"
-    for column, value in zip(("db_piel", "cant_piel_cara", "posicion"), automatic):
-        auto[column] = value
-    table = pd.concat([table, pd.DataFrame([auto])], ignore_index=True)
-    summary = BeamSummary(materials.concrete, materials.steel_bar, table)
+    sections, rows = manual_tables()
+    auto = sections.iloc[1].copy()
+    auto["Label"], auto["db_piel"], auto["cant_piel_cara"], auto["posicion"] = "Auto", 0, 0, ""
+    sections = pd.concat([sections, pd.DataFrame([auto])], ignore_index=True)
+    rows = pd.concat([rows, rows.iloc[[1]].assign(Label="Auto")], ignore_index=True)
+    summary = BeamSummary(materials.concrete, materials.steel_bar, sections, rows)
     manual = summary.nodes[0].section.skin_rebar
     summary.design()
     first, second = tmp_path / "first.xlsx", tmp_path / "second.xlsx"
-    summary.export_design(str(first))
-    summary.import_design(str(first))
+    summary.to_excel(first)
+    summary.import_design(first)
     assert summary.nodes[0].section.skin_rebar == manual
     assert summary.nodes[1].section.skin_rebar is None
-    summary.design_data = summary.data.copy()
-    summary.export_design(str(second))
-    pd.testing.assert_frame_equal(pd.read_excel(first), pd.read_excel(second))
+    summary.to_excel(second)
+    for sheet in ("Sections", "Forces"):
+        pd.testing.assert_frame_equal(pd.read_excel(first, sheet_name=sheet), pd.read_excel(second, sheet_name=sheet))
 
 
 @pytest.mark.parametrize("raw, normalized", [("Bottom", "bottom"), (" total", "total")])
 def test_summary_normalizes_manual_skin_position(raw, normalized):
-    table = manual_table()
-    table.loc[1, "posicion"] = raw
-    table.loc[0, "db_piel"] = "cm"
-    table.loc[1, "db_piel"] = 1
+    sections, rows = manual_tables(posicion=raw, db_piel=1)
+    sections.loc[0, "db_piel"] = "cm"
     materials = beam()
-    result = BeamSummary(materials.concrete, materials.steel_bar, table)
+    result = BeamSummary(materials.concrete, materials.steel_bar, sections, rows)
     assert result.nodes[0].section.skin_rebar.posicion == normalized
     assert result.nodes[0].section.skin_rebar.db_piel.to("mm").magnitude == 10
 
 
-def test_unused_skin_columns_need_no_diameter_unit():
-    table = manual_table()
-    table.loc[0, "db_piel"] = ""
-    table.loc[1, ["db_piel", "cant_piel_cara", "posicion"]] = [0, 0, ""]
+def test_summary_names_the_beam_of_a_skin_the_beam_rejects():
+    """A skin below the minimum longitudinal diameter: the beam's error, with the section that gave it."""
     materials = beam()
-    assert BeamSummary(materials.concrete, materials.steel_bar, table).nodes[0].section.skin_rebar is None
+    with pytest.raises(ValueError, match="Beam 'Manual': invalid manual skin") as raised:
+        BeamSummary(materials.concrete, materials.steel_bar, *manual_tables(db_piel=4))
+    assert isinstance(raised.value.__cause__, ValueError)
+
+
+def test_a_table_without_skin_columns_writes_none():
+    materials = beam()
+    sections, rows = manual_tables()
+    summary = BeamSummary(materials.concrete, materials.steel_bar, sections.drop(columns=list(SKIN_COLUMNS)), rows)
+    assert summary.nodes[0].section.skin_rebar is None
+    assert not set(SKIN_COLUMNS) & set(summary.sections_table.columns)
 
 
 def test_nonconforming_but_fitting_manual_skin_is_drawn():

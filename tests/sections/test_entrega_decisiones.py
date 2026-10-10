@@ -136,65 +136,38 @@ def test_en_footing_axial_rejection_is_explained_in_spanish():
 
 def test_preferred_legs_survives_summary_design_and_excel(tmp_path):
     from mento import BeamSummary
+    from tests.reports.summary_data import beams, forces
 
-    units = {
-        "Label": "",
-        "Comb.": "",
-        "b": "cm",
-        "h": "cm",
-        "cc": "mm",
-        "Nx": "kN",
-        "Vz": "kN",
-        "My": "kNm",
-        "legs": "",
-        "dbs": "mm",
-        "sl": "cm",
-    }
-    for n in range(1, 5):
-        units[f"n{n}"] = ""
-        units[f"db{n}"] = "mm"
-    row = {c: 0 for c in units}
-    row.update(Label="V1", **{"Comb.": "U"}, b=40, h=60, cc=25, Vz=10, My=20, legs=4, dbs=8, sl=20, n1=4, db1=16)
-    frame = pd.DataFrame([units, row])
     beam = make_beam()
-    summary = BeamSummary(beam.concrete, beam.steel_bar, frame)
+    summary = BeamSummary(
+        beam.concrete,
+        beam.steel_bar,
+        beams([{"Label": "V1", "n1_bot": 4, "db1_bot": 16}], b=40, h=60, legs=4, dbs=8, sl=20),
+        forces([{"Label": "V1", "Comb.": "U", "Vz": 10, "My": 20}]),
+    )
     assert summary.nodes[0].section.reinforcement.transverse.n_legs == 4
-    assert "n_legs" not in frame.columns
     summary.design()
     actual = summary.nodes[0].section.reinforcement.transverse.n_legs
-    assert summary.design_data.iloc[0]["legs"] == actual
+    assert summary.sections_table.iloc[1]["legs"] == actual
     path = tmp_path / "legs.xlsx"
-    summary.export_design(str(path))
-    imported = BeamSummary(beam.concrete, beam.steel_bar, pd.read_excel(path))
+    summary.to_excel(path)
+    imported = BeamSummary.from_excel(beam.concrete, beam.steel_bar, path)
     assert imported.nodes[0].section.reinforcement.transverse.n_legs == actual
 
 
-def test_word_section_data_always_contains_both_faces_and_metric_cover():
+def test_word_sections_always_contain_both_faces_and_metric_cover():
     from mento import BeamSummary
+    from tests.reports.summary_data import beams, forces
 
-    units = {
-        "Label": "",
-        "Comb.": "",
-        "b": "cm",
-        "h": "cm",
-        "cc": "mm",
-        "Nx": "kN",
-        "Vz": "kN",
-        "My": "kNm",
-        "legs": "",
-        "dbs": "mm",
-        "sl": "cm",
-    }
-    for n in range(1, 5):
-        units[f"n{n}"] = ""
-        units[f"db{n}"] = "mm"
-    row = {c: 0 for c in units}
-    row.update(Label="V1", **{"Comb.": "U"}, b=40, h=60, cc=25, legs=4, dbs=8, sl=20, n1=4, db1=16)
     beam = make_beam()
-    summary = BeamSummary(beam.concrete, beam.steel_bar, pd.DataFrame([units, row]))
-    section = summary.nodes[0].section
-    section.set_longitudinal_rebar_top(n1=3, d_b1=12 * mm)
-    data = summary.section_data()
+    summary = BeamSummary(
+        beam.concrete,
+        beam.steel_bar,
+        beams([{"Label": "V1", "n1_bot": 4, "db1_bot": 16}], b=40, h=60, legs=4, dbs=8, sl=20),
+        forces([{"Label": "V1", "Comb.": "U", "Vz": 10, "My": 20}]),
+    )
+    summary.nodes[0].section.set_longitudinal_rebar_top(n1=3, d_b1=12 * mm)
+    data = summary._sections_overview()
     assert data.iloc[0]["cc"] == "mm"
     assert data.iloc[1]["cc"] == 25
     assert "3" in data.iloc[1]["As,top"]

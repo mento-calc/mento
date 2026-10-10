@@ -1,14 +1,21 @@
+### forces
+     Level Label  Comb.    Nx   Vz    My
+0                          kN   kN   kNm
+1  Level 1    M1  ELU 1     0  264  -172
+2  Level 1    M1  ELU 2  -301  152  -234
+3  Level 2    M2  ELU 1  55.5  163  -278
+
 ### design
-     Level Label  Comb.         t      lw      hw        cc          Nx         Vz            My dbh  sh dbv  sv
-0  Level 1    M1  ELU 1  20.00 cm  3.00 m  3.00 m  25.00 mm     0.00 kN  264.00 kN  -172.00 kN·m   6  27  10  37
-1  Level 1    M1  ELU 2  20.00 cm  3.00 m  3.00 m  25.00 mm  -301.00 kN  152.00 kN  -234.00 kN·m   6  27  10  37
-2  Level 2    M2  ELU 1  20.00 cm  2.00 m  3.00 m  25.00 mm    55.50 kN  163.00 kN  -278.00 kN·m   6  27  10  37
+     Level Label   t lw hw  cc dbh  sh dbv  sv
+0                 cm  m  m  mm  mm  cm  mm  cm
+1  Level 1    M1  20  3  3  25   6  27  10  37
+2  Level 2    M2  20  2  3  25   6  27  10  37
 
 ### check
-     Level Label   t   lw   hw Horiz.   Vert.       ρh       ρv VEd,max    VRd    DCR Status
-0                 cm    m    m                                       kN     kN              
-1  Level 1    M1  20  3.0  3.0  Ø6/27  Ø10/37  0.00105  0.00212   264.0  491.7  0.537      ✅
-2  Level 2    M2  20  2.0  3.0  Ø6/27  Ø10/37  0.00105  0.00212   163.0  327.8  0.497      ✅
+     Level Label     t   lw   hw Horiz. (each face) Vert. (each face)       ρh       ρv  Comb.    VEd   NEd    VRd    DCR Warnings Status
+0                   cm    m    m                                                                   kN    kN     kN                       
+1  Level 1    M1  20.0  3.0  3.0              Ø6/27            Ø10/37  0.00105  0.00212  ELU 1  264.0   0.0  491.7  0.537        -      ✅
+2  Level 2    M2  20.0  2.0  3.0              Ø6/27            Ø10/37  0.00105  0.00212  ELU 1  163.0  55.5  327.8  0.497        -      ✅
 
 ### shear_results
   Label  Comb. Ash,min Ash,req    Ash Asv,min    Asv    NEd    VEd   VRd,c   VRd,s     VRd  VRd,max VEd≤VRd,max VEd≤VRd    DCR
@@ -20,6 +27,7 @@
 ### results_detailed_doc: Shear_Wall_Summary_EN 1992-2004.docx
 Shear Wall Summary Analysis
 Made with mento <version>. Design code: EN 1992-2004
+This report presents the detailed results for the first wall of the summary, followed by summary tables for all walls.
 Wall Level 1 - M1 shear check
 Section Data
 Materials | Variable | Value | Unit
@@ -66,20 +74,28 @@ Maximum shear strength | VRd,max | 1340.7 | kN
 Total shear strength | VRd | 491.7 | kN
 Demand Capacity Ratio | DCR | 0.54 | 
 Summary - All Walls
-Wall Data
-Level | Label | Comb. | t | lw | hw | cc | Nx | Vz | My | dbh | sh | dbv | sv
- |  |  | cm | m | m | mm | kN | kN | kNm | mm | cm | mm | cm
-Level 1 | M1 | ELU 1 | 20 | 3.0 | 3.0 | 25 | 0 | 264 | -172 | 8 | 20 | 12 | 15
-Level 1 | M1 | ELU 2 | 20 | 3.0 | 3.0 | 25 | -301 | 152 | -234 | 8 | 20 | 12 | 15
-Level 2 | M2 | ELU 1 | 20 | 2.0 | 3.0 | 25 | 55.5 | 163 | -278 | 0 | 0 | 0 | 0
+Wall Sections
+Level | Label | t | lw | hw | cc | Horiz. (each face) | Vert. (each face)
+ |  | cm | m | m | mm |  | 
+Level 1 | M1 | 20 | 3 | 3 | 25 | Ø6/27 | Ø10/37
+Level 2 | M2 | 20 | 2 | 3 | 25 | Ø6/27 | Ø10/37
+Forces
+Level | Label | Comb. | Nx | Vz | My
+ |  |  | kN | kN | kNm
+Level 1 | M1 | ELU 1 | 0 | 264 | -172
+Level 1 | M1 | ELU 2 | -301 | 152 | -234
+Level 2 | M2 | ELU 1 | 55.5 | 163 | -278
+Nx > 0 is compression; Vz is the in-plane shear, taken in magnitude. My is not used: the summary checks the in-plane shear only.
 Shear Results
-Label | Comb. | Ash,min | Ash,req | Ash | Asv,min | Asv | NEd | VEd | VRd,c | VRd,s | VRd | VRd,max | DCR
- |  | cm²/m | cm²/m | cm²/m | cm²/m | cm²/m | kN | kN | kN | kN | kN | kN | 
-M1 | ELU 1 | 2.0 | 2.0 | 2.09 | 4.0 | 4.25 | 0.0 | 264.0 | 122.9 | 491.7 | 491.7 | 1340.7 | 0.54
-M1 | ELU 2 | 2.0 | 2.0 | 2.09 | 4.0 | 4.25 | -301.0 | 152.0 | 86.8 | 491.7 | 491.7 | 1340.7 | 0.31
-M2 | ELU 1 | 2.0 | 2.0 | 2.09 | 4.0 | 4.25 | 55.5 | 163.0 | 94.8 | 327.8 | 327.8 | 893.8 | 0.5
+Label | Comb. | Ash,min | Ash,req | Ash | Asv,min | Asv | NEd | VEd | VRd,c | VRd,s | VRd | VRd,max | VEd≤VRd,max | VEd≤VRd | DCR
+ |  | cm²/m | cm²/m | cm²/m | cm²/m | cm²/m | kN | kN | kN | kN | kN | kN |  |  | 
+M1 | ELU 1 | 2.0 | 2.0 | 2.09 | 4.0 | 4.25 | 0.0 | 264.0 | 122.9 | 491.7 | 491.7 | 1340.7 | True | True | 0.54
+M1 | ELU 2 | 2.0 | 2.0 | 2.09 | 4.0 | 4.25 | -301.0 | 152.0 | 86.8 | 491.7 | 491.7 | 1340.7 | True | True | 0.31
+M2 | ELU 1 | 2.0 | 2.0 | 2.09 | 4.0 | 4.25 | 55.5 | 163.0 | 94.8 | 327.8 | 327.8 | 893.8 | True | True | 0.5
 Design Check Summary
-Level | Label | t | lw | hw | Horiz. | Vert. | ρh | ρv | VEd,max | VRd | DCR | Status
- |  | cm | m | m |  |  |  |  | kN | kN |  | 
-Level 1 | M1 | 20 | 3.0 | 3.0 | Ø6/27 | Ø10/37 | 0.00105 | 0.00212 | 264.0 | 491.7 | 0.54 | ✅
-Level 2 | M2 | 20 | 2.0 | 3.0 | Ø6/27 | Ø10/37 | 0.00105 | 0.00212 | 163.0 | 327.8 | 0.5 | ✅
+Level | Label | t | lw | hw | Horiz. (each face) | Vert. (each face) | ρh | ρv | Comb. | VEd | NEd | VRd | DCR | Warnings | Status
+ |  | cm | m | m |  |  |  |  |  | kN | kN | kN |  |  | 
+Level 1 | M1 | 20.0 | 3.0 | 3.0 | Ø6/27 | Ø10/37 | 0.00105 | 0.00212 | ELU 1 | 264.0 | 0.0 | 491.7 | 0.54 | - | ✅
+Level 2 | M2 | 20.0 | 2.0 | 3.0 | Ø6/27 | Ø10/37 | 0.00105 | 0.00212 | ELU 1 | 163.0 | 55.5 | 327.8 | 0.5 | - | ✅
+Warnings
+No section misses a detailing limit.

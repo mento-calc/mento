@@ -219,7 +219,10 @@ mento/
 ├── settings.py     BeamSettings — metric and imperial design defaults
 ├── results.py      Formatting, tables and Word report building
 ├── beam_summary.py        BeamSummary — results across many beams
+├── slab_summary.py        OneWaySlabSummary — results across many one-way slab strips
 ├── shear_wall_summary.py  ShearWallSummary — results across many walls
+├── summary_tables.py      The sections and forces tables the summaries read and write
+├── summary_base.py        What the summaries share: one Node per section, frozen results
 ├── units.py        Shared pint unit registry
 └── codes/          Design code implementations (ACI 318-19, EN 1992-2004)
 ```

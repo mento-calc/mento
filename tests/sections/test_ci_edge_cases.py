@@ -165,18 +165,6 @@ def test_retained_second_layer_cannot_intersect_an_open_leg():
         cage._build_candidate(b, replace(g, bars=g.bars + extras))
 
 
-def test_legacy_export_converts_closed_stirrup_count_to_legs(tmp_path):
-    from mento.beam_summary import BeamSummary
-
-    data = pd.DataFrame({"Label": ["V1"], "ns": [3]})
-    summary = SimpleNamespace(design_data=data, units_row=["", ""], beam_list=data, _ELEMENT_COLUMN="Beam")
-    path = tmp_path / "legacy.xlsx"
-    BeamSummary.export_design(summary, str(path))
-    exported = pd.read_excel(path)
-    assert "ns" not in exported and "n_legs" not in exported
-    assert exported["legs"].iloc[1] == 6
-
-
 def test_plot_marks_unverified_en_compression_support():
     import matplotlib.pyplot as plt
 

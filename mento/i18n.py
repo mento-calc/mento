@@ -211,12 +211,31 @@ ES: Dict[str, str] = {
     "Wall {storey} - {label} shear check": "Verificación a corte del tabique {storey} - {label}",
     "Summary - All Beams": "Resumen - Todas las vigas",
     "Summary - All Walls": "Resumen - Todos los tabiques",
-    "Beam Data": "Datos de las vigas",
+    "This report presents the detailed results for the first wall of the summary, followed by summary tables for all walls.": "Este informe presenta los resultados detallados del primer tabique del resumen, seguidos de las tablas resumen de todos los tabiques.",
+    "Beam Sections": "Secciones de vigas",
     "Slab Summary Analysis": "Análisis del resumen de losas",
     "This report presents the detailed results for the first slab of the summary, followed by summary tables for all slabs.": "Este informe presenta los resultados detallados de la primera losa del resumen, seguidos de las tablas resumen de todas las losas.",
     "Summary - All Slabs": "Resumen - Todas las losas",
-    "Slab Data": "Datos de las losas",
-    "Wall Data": "Datos de los tabiques",
+    "Slab Sections": "Secciones de losas",
+    "Wall Sections": "Secciones de tabiques",
+    "Forces": "Solicitaciones",
+    "Face": "Cara",
+    "Message": "Mensaje",
+    "No section misses a detailing limit.": "Ninguna sección incumple un límite de detalle.",
+    (
+        "Nx > 0 is compression and enters the shear check only; My > 0 puts the bottom face in tension; "
+        "Vz is taken in magnitude."
+    ): (
+        "Nx > 0 es compresión y entra solo en la verificación al corte; My > 0 tracciona la cara inferior; "
+        "Vz se toma en valor absoluto."
+    ),
+    (
+        "Nx > 0 is compression; Vz is the in-plane shear, taken in magnitude. My is not used: the summary "
+        "checks the in-plane shear only."
+    ): (
+        "Nx > 0 es compresión; Vz es el corte en el plano, en valor absoluto. My no se usa: el resumen "
+        "verifica solo el corte en el plano."
+    ),
     "Flexure Results": "Resultados de flexión",
     "Shear Results": "Resultados de corte",
     "Design Check Summary": "Resumen de verificaciones",
@@ -335,6 +354,180 @@ ES.update(
             "La sección depende de barras comprimidas {d_b_comp} y no tiene estribos que las arriostren: "
             "hacen falta estribos cerrados de al menos {d_b_min} separados a lo sumo {s_max}."
         ),
+    }
+)
+
+# The summaries of many sections (mento.summary_tables, mento.summary_base):
+# the errors and warnings of reading their two tables, the headers of the
+# check table and what design() prints. "Solicitaciones" names the forces
+# table. The Warnings column holds mento's warning codes, which stay as they are.
+ES.update(
+    {
+        (
+            "{element} reads two tables, the sections and the forces, and the table given is the single table of "
+            'mento 1.4.0 (it has {columns}). Convert it with `sections, forces = mento.split_single_table(table, "{kind}")` '
+            "and pass both; each of its rows becomes a section of its own and that section's forces, which is what "
+            "1.4.0 computed."
+        ): (
+            "{element} lee dos tablas, la de secciones y la de solicitaciones, y la tabla dada es la tabla única de "
+            'mento 1.4.0 (tiene {columns}). Convertila con `sections, forces = mento.split_single_table(table, "{kind}")` '
+            "y pasá las dos; cada fila pasa a ser una sección propia con sus solicitaciones, que es lo que calculaba "
+            "1.4.0."
+        ),
+        (
+            "{element} reads two tables, the sections and the forces, and the table given has both in one (it has "
+            "{columns}). Give one row per slab in the sections table, with the layers of both faces, and one row per "
+            "combination in the forces table."
+        ): (
+            "{element} lee dos tablas, la de secciones y la de solicitaciones, y la tabla dada tiene las dos en una "
+            "(tiene {columns}). Poné una fila por losa en la tabla de secciones, con las capas de las dos caras, y una "
+            "fila por combinación en la de solicitaciones."
+        ),
+        (
+            "{element} reads two tables; the forces table is missing. A section with no combination is a row of "
+            "sections and no row of forces."
+        ): (
+            "{element} lee dos tablas y falta la de solicitaciones. Una sección sin combinaciones es una fila de "
+            "secciones sin filas de solicitaciones."
+        ),
+        (
+            "The sections table has the force columns ({columns}) and the forces table the geometry: pass sections "
+            "first, then forces."
+        ): (
+            "La tabla de secciones tiene las columnas de solicitaciones ({columns}) y la de solicitaciones la geometría: "
+            "pasá primero las secciones y después las solicitaciones."
+        ),
+        "The file {path} has no sheet {sheet}: a summary file holds two sheets, {sections} and {forces}.": (
+            "El archivo {path} no tiene la hoja {sheet}: un archivo de resumen tiene dos hojas, {sections} y {forces}."
+        ),
+        "The {table} table has no column {columns}. Its columns are {expected}.": (
+            "La tabla {table} no tiene la columna {columns}. Sus columnas son {expected}."
+        ),
+        (
+            "The {table} table has columns {element} does not read: {columns}{hint}. Its columns are {expected}; "
+            "free text goes in Notes."
+        ): (
+            "La tabla {table} tiene columnas que {element} no lee: {columns}{hint}. Sus columnas son {expected}; "
+            "el texto libre va en Notes."
+        ),
+        "The {table} table has the columns of a {other} ({columns}); {element} reads {expected}.": (
+            "La tabla {table} tiene las columnas de otro elemento, {other} ({columns}); {element} lee {expected}."
+        ),
+        "A one-way slab strip is detailed without stirrups, so its sections table has no {columns}.": (
+            "Una faja de losa en una dirección se arma sin estribos, así que su tabla de secciones no tiene {columns}."
+        ),
+        "Column {column} of the {table} table is a {kind}, and its unit row says {unit}. Use one of {allowed}.": (
+            "La columna {column} de la tabla {table} es de tipo {kind} y su fila de unidades dice {unit}. "
+            "Usá una de {allowed}."
+        ),
+        "Row {row} ({nth} data row) of the {table} table has no Label.": (
+            "La fila {row} ({nth} fila de datos) de la tabla {table} no tiene Label."
+        ),
+        (
+            "The sections table gives {label} more than once (rows {rows}). If they are different sections (e.g. a "
+            "support and a midspan with different bars), give each its own label; if one section takes several "
+            "combinations, give it one row here and its combinations in the forces table."
+        ): (
+            "La tabla de secciones da {label} más de una vez (filas {rows}). Si son secciones distintas (por ejemplo, "
+            "un apoyo y un tramo con barras distintas), dale a cada una su label; si es una sección con varias "
+            "combinaciones, dale una fila acá y sus combinaciones en la tabla de solicitaciones."
+        ),
+        "The forces table names {label} (rows {rows}), which is not in the sections table.": (
+            "La tabla de solicitaciones nombra {label} (filas {rows}), que no está en la tabla de secciones."
+        ),
+        "{column} of {label} is empty in the {table} table.": "{column} de {label} está vacía en la tabla {table}.",
+        "{column} of {label} is {value} in the {table} table, not a number.": (
+            "{column} de {label} es {value} en la tabla {table}, que no es un número."
+        ),
+        "{column} of {label} is {value}; it cannot be negative.": "{column} de {label} es {value}; no puede ser negativa.",
+        "{column} of {label} is {value}; it has to be greater than zero.": (
+            "{column} de {label} es {value}; tiene que ser mayor que cero."
+        ),
+        "{column} of {label} is {value}; a number of bars or stirrups is a whole number.": (
+            "{column} de {label} es {value}; una cantidad de barras o de estribos es un número entero."
+        ),
+        "{label}: {given} is given without {missing}.": "{label}: se da {given} sin {missing}.",
+        "Node {label} is of {its_material}; the summary is of {material}.": (
+            "El nodo {label} es de {its_material}; el resumen es de {material}."
+        ),
+        "Node {label} cannot be written as a table row: {reason}.": (
+            "El nodo {label} no se puede escribir como una fila de la tabla: {reason}."
+        ),
+        "{label} has no forces in the forces table, so it has no results to report.": (
+            "{label} no tiene solicitaciones en la tabla de solicitaciones, así que no tiene resultados."
+        ),
+        "The summary has no section {index}; its sections are {labels}.": (
+            "El resumen no tiene la sección {index}; sus secciones son {labels}."
+        ),
+        "{labels}: no forces in the forces table; kept as given and shown as not checked.": (
+            "{labels}: sin solicitaciones en la tabla de solicitaciones; se conservan tal cual y figuran como no "
+            "verificadas."
+        ),
+        (
+            "The forces table gives combination {combination} of {label} more than once (rows {rows}): a section "
+            "takes each combination once. Give each row its own name (an envelope's Max and Min, each station of a "
+            "member), or make them two sections."
+        ): (
+            "La tabla de solicitaciones da la combinación {combination} de {label} más de una vez (filas {rows}): "
+            "una sección toma cada combinación una sola vez. Dale a cada fila su nombre (el Máx y el Mín de una "
+            "envolvente, cada estación de una barra) o hacé de ellas dos secciones."
+        ),
+        (
+            "legs of {label} is 1: the perimeter stirrup is closed and has two legs. Give 0 for no stirrups, or 2 or "
+            "more (an odd count from 3 adds crossties or open legs to the closed stirrups)."
+        ): (
+            "legs de {label} es 1: el estribo perimetral es cerrado y tiene dos ramas. Poné 0 si no lleva estribos, "
+            "o 2 o más (una cantidad impar desde 3 agrega trabas o patas abiertas a los estribos cerrados)."
+        ),
+        (
+            "The forces table has no Nx column: N is taken as 0. A tension omitted makes the shear check unconservative."
+        ): (
+            "La tabla de solicitaciones no tiene la columna Nx: se toma N = 0. Una tracción omitida deja la "
+            "verificación al corte del lado inseguro."
+        ),
+        (
+            "{pairs}: Nx >= 0.10 f'c Ag in compression. ACI 318-19 / CIRSOC 201-25 §9.5.2.2 compute the moment "
+            "strength with the axial load (§22.4, P-M interaction); closed stirrups or spirals follow Table 22.4.2.1. "
+            "R/C9.5.2.2 does not require Chapter 10. mento checks bending alone (§22.3); this case needs separate verification."
+        ): (
+            "{pairs}: Nx >= 0,10 f'c Ag en compresión. ACI 318-19 / CIRSOC 201-25 §9.5.2.2 calculan la resistencia "
+            "a flexión con el axil (§22.4, interacción P-M); estribos cerrados o zunchos según la Tabla 22.4.2.1. "
+            "R/C9.5.2.2 no exige el Capítulo 10. mento verifica flexión sola (§22.3); este caso requiere verificación aparte."
+        ),
+        (
+            "{labels}: Vu > φVc with the bars designed; more longitudinal steel, more thickness, a higher f'c, or shear "
+            "reinforcement detailed as a beam (ACI 318-19 §7.6.3). check() gives them as failing."
+        ): (
+            "{labels}: Vu > φVc con las barras diseñadas; hace falta más armadura longitudinal, más espesor, un f'c "
+            "mayor o armadura de corte detallada como en una viga (ACI 318-19 §7.6.3). check() las da como no "
+            "verificadas."
+        ),
+        "{pairs}: repeated labels renamed; each row is a section of its own, as in 1.4.0.": (
+            "{pairs}: labels repetidos renombrados; cada fila es una sección propia, como en 1.4.0."
+        ),
+        (
+            "{labels}: 1.4.0 read n3/n4 as a second layer of the face in tension, not the opposite face; check them "
+            "against your drawings."
+        ): (
+            "{labels}: 1.4.0 leía n3/n4 como una segunda capa de la cara traccionada, no como la cara opuesta; "
+            "controlalas contra los planos."
+        ),
+        "{cells}: cells 1.4.0 ignored (a diameter with no bars, a stirrup with ns = 0) were dropped.": (
+            "{cells}: se borraron celdas que 1.4.0 ignoraba (un diámetro sin barras, un estribo con ns = 0)."
+        ),
+        # -- what design(), export_design() and import_design() print -----
+        "✅ Design completed for every section of the summary.": (
+            "✅ Diseño completo para todas las secciones del resumen."
+        ),
+        "Slabs designed.": "Losas diseñadas.",
+        "✅ Sections and forces written to {path}": "✅ Secciones y solicitaciones escritas en {path}",
+        "✅ Sections and forces read from {path}": "✅ Secciones y solicitaciones leídas de {path}",
+        # -- the check table ----------------------------------------------
+        "Warnings": "Advertencias",
+        "Horiz. (each face)": "Horiz. (c/cara)",
+        "Vert. (each face)": "Vert. (c/cara)",
+        "no forces": "sin esfuerzos",
+        "no reinforcement: run design()": "sin armadura: correr design()",
     }
 )
 

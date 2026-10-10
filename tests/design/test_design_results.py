@@ -15,7 +15,7 @@ from mento import (
     RectangularBeam,
     SteelBar,
 )
-from mento import MPa, cm, kN, kNm, m, mm
+from mento import MPa, cm, ft, inch, kip, kN, kNm, ksi, m, mm, psi
 from mento.design_results import (
     DesignNotRunError,
     FlexureCheck,
@@ -863,6 +863,73 @@ def test_changing_the_bars_by_hand_drops_the_results_until_the_next_check() -> N
     slab.set_slab_transverse_rebar(d_b=8 * mm, s_long=20 * cm, s_trans=20 * cm)
     with pytest.raises(DesignNotRunError):
         slab.shear_design
+
+
+# ============================================================================
+# The demand of each combination's result
+# ============================================================================
+
+
+@pytest.mark.parametrize(
+    "concrete, steel, shear_column",
+    [
+        (Concrete_ACI_318_19(name="H25", f_c=25 * MPa), SteelBar(name="ADN 420", f_y=420 * MPa), "Vu"),
+        (Concrete_EN_1992_2004(name="C25", f_c=25 * MPa), SteelBar(name="B500S", f_y=500 * MPa), "VEd,2"),
+    ],
+    ids=["ACI", "EN"],
+)
+def test_each_result_carries_the_demand_of_its_combination(concrete: Any, steel: Any, shear_column: str) -> None:
+    """``M_demand`` with its sign, ``V_demand`` the one the DCR was formed from, ``N_demand`` the axial load.
+
+    A table that shows the DCR of a combination next to its demand reads both
+    from the same result, rather than lining up rows of two DataFrames.
+    """
+    forces = [
+        Forces(label="C1", N_x=30 * kN, V_z=-90 * kN, M_y=-70 * kNm),
+        Forces(label="C2", N_x=-15 * kN, V_z=40 * kN, M_y=55 * kNm),
+    ]
+    beam = RectangularBeam(label="V1", concrete=concrete, steel_bar=steel, width=20 * cm, height=60 * cm, c_c=25 * mm)
+    beam.set_longitudinal_rebar_bot(n1=3, d_b1=16 * mm)
+    beam.set_longitudinal_rebar_top(n1=3, d_b1=16 * mm)
+    beam.set_transverse_rebar(n_stirrups=1, d_b=8 * mm, s_l=20 * cm)
+    shear_table = beam.check_shear(forces).iloc[1:]
+    beam.check_flexure(forces)
+
+    assert [c.M_demand for c in beam.flexure_checks] == [-70 * kNm, 55 * kNm]
+    assert [c.N_demand for c in beam.flexure_checks] == [30 * kN, -15 * kN]
+    assert [c.N_demand for c in beam.shear_checks] == [30 * kN, -15 * kN]
+    shown = [c.V_demand.to("kN").magnitude for c in beam.shear_checks]
+    assert shown == pytest.approx(list(shear_table[shear_column]))
+    assert all(c.DCR == pytest.approx((c.V_demand / c.V_capacity).to("").magnitude) for c in beam.shear_checks)
+
+    # The values-only path gives the same.
+    values = RectangularBeam(label="V1", concrete=concrete, steel_bar=steel, width=20 * cm, height=60 * cm, c_c=25 * mm)
+    values.set_longitudinal_rebar_bot(n1=3, d_b1=16 * mm)
+    values.set_longitudinal_rebar_top(n1=3, d_b1=16 * mm)
+    values.set_transverse_rebar(n_stirrups=1, d_b=8 * mm, s_l=20 * cm)
+    assert values.flexure_check_results(forces) == beam.flexure_checks
+    assert values.shear_check_results(forces) == beam.shear_checks
+
+
+def test_an_envelope_carries_no_demand(beam_two_combinations: RectangularBeam) -> None:
+    """An envelope is not one combination, so it has no demand of its own."""
+    assert envelope_shear(beam_two_combinations.shear_checks).V_demand is None
+    assert envelope_shear(beam_two_combinations.shear_checks).N_demand is None
+
+
+def test_a_us_customary_result_carries_its_demand_in_kip() -> None:
+    concrete = Concrete_ACI_318_19(name="C4000", f_c=4000 * psi)
+    steel = SteelBar(name="G60", f_y=60 * ksi)
+    beam = RectangularBeam(
+        label="B1", concrete=concrete, steel_bar=steel, width=12 * inch, height=24 * inch, c_c=1.5 * inch
+    )
+    beam.set_longitudinal_rebar_bot(n1=3, d_b1=0.75 * inch)
+    beam.check([Forces(label="C1", N_x=5 * kip, V_z=30 * kip, M_y=80 * kip * ft)])
+    check = beam.flexure_checks[0]
+    assert check.M_demand.to("kip*ft").magnitude == pytest.approx(80)
+    assert check.M_demand.units == (1 * kip * ft).units
+    assert beam.shear_checks[0].V_demand.to("kip").magnitude == pytest.approx(30)
+    assert beam.shear_checks[0].N_demand.units == (1 * kip).units
 
 
 # ============================================================================

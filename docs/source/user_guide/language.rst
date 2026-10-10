@@ -62,11 +62,15 @@ The language applies to the detailed reports of every element — ``RectangularB
 - ``flexure_results_detailed()`` and ``shear_results_detailed()``, printed to the console
 - ``flexure_results_detailed_doc()`` and ``shear_results_detailed_doc()``, written to Word
 
-and to the summaries, :doc:`beam_summary` and :doc:`shear_wall_summary`:
+and to the summaries, :doc:`beam_summary`, :doc:`slab_summary` and :doc:`shear_wall_summary`:
 
 - ``check()``, ``flexure_results()`` and ``shear_results()``, whose DataFrames come back
   with their headers translated
 - ``results_detailed_doc()``, written to Word
+- what ``design()``, ``export_design()`` and ``import_design()`` print
+- the ``message`` of the errors and warnings a summary raises reading its tables
+  (:class:`~mento.summary_tables.SummaryInputError`,
+  :class:`~mento.summary_tables.SummaryInputWarning`), whose ``str()`` stays in English
 
 It also applies to:
 
@@ -95,6 +99,9 @@ left as they are:
 - **The design code designation** — ``CIRSOC 201-25`` keeps its official name.
 - **Generated file names** — a project keeps one naming scheme regardless of the language
   its reports are written in.
+- **The tables a summary reads and writes** — the sheets ``Sections`` and ``Forces`` and
+  their headers, so a file reads back in any language — and the warning codes of the
+  ``Warnings`` column of ``check()`` (``As_below_min (bottom)``), which a program reads.
 - **The API itself** — arguments, attributes, ``str()`` of the reinforcement, design and
   check results (``mento.design_results``) and error messages remain English;
   ``notation()``, ``arrangement()`` and the warning messages follow the language. A

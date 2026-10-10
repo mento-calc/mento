@@ -1,0 +1,201 @@
+### sections
+  Label    b   h  cc db1_top s1_top db3_top s3_top db1_bot s1_bot db3_bot s3_bot
+0         cm  cm  mm      mm     cm      mm     cm      mm     cm      mm     cm
+1    L1  100  15  20       0      0       0      0      10     20       0      0
+2    L2  100  18  25       0      0       0      0       0      0       0      0
+3    L3  100  15  20       0      0       0      0       0      0       0      0
+
+### forces
+  Label  Comb.  Nx  Vz   My
+0               kN  kN  kNm
+1    L1  ELU 1   0  25   12
+2    L1  ELU 2   0  15    6
+3    L2  ELU 1   0  40  -45
+4    L3  ELU 1   0  30   18
+
+### check
+  Losa     b×h As,top  As,bot Comb.,top MEd,top DCRb,top Comb.,bot MEd,bot DCRb,bot Comb.,v   VEd  NEd   DCRv Advertencias                           ¿Ok?
+0           cm                              kNm                        kNm                     kN   kN                                                   
+1   L1  100×15      -  Ø10/20         -     NaN      0.0     ELU 1    12.0    0.591   ELU 1  25.0  0.0  0.404            -                              ✅
+2   L2  100×18      -       -         -     NaN      NaN         -     NaN      NaN       -   NaN  NaN    NaN            -  sin armadura: correr design()
+3   L3  100×15      -       -         -     NaN      NaN         -     NaN      NaN       -   NaN  NaN    NaN            -  sin armadura: correr design()
+
+### check capacity
+  Losa     b×h As,top  As,bot As,top,real As,bot,real MRd,top MRd,bot    VRd
+0           cm                        cm²         cm²     kNm     kNm     kN
+1   L1  100×15      -  Ø10/20         0.0         3.9     0.0    20.3  61.87
+2   L2  100×18      -       -         0.0         0.0     0.0     0.0  76.72
+3   L3  100×15      -       -         0.0         0.0     0.0     0.0  64.35
+
+### design
+  Label    b   h  cc db1_top s1_top db3_top s3_top db1_bot s1_bot db3_bot s3_bot
+0         cm  cm  mm      mm     cm      mm     cm      mm     cm      mm     cm
+1    L1  100  15  20       0      0       0      0      10     33       0      0
+2    L2  100  18  25      12     14       0      0      10     33       0      0
+3    L3  100  15  20       0      0       0      0      10     20       0      0
+
+### flexure_results
+  Etiqueta  Comb.  Posición As,min As,req top As,req bot    As   MEd    MRd MEd≤MRd    DCR
+0                              cm²        cm²        cm²   cm²   kNm    kNm               
+1       L1  ELU 1  Inferior   1.67        0.0       2.27  2.38  12.0  12.56    True  0.956
+2       L1  ELU 2  Inferior   1.67        0.0       1.67  2.38   6.0  12.56    True  0.478
+3       L2  ELU 1  Superior   1.99       7.53        0.0  8.08 -45.0  47.98    True  0.938
+4       L3  ELU 1  Inferior   1.67        0.0       3.46  3.93  18.0  20.31    True  0.886
+
+### shear_results
+  Etiqueta  Comb. Av,min Av,req     Av  NEd VEd,1 VEd,2  VRd,c VRd,s    VRd VRd,max VEd,1≤VRd,max VEd,2≤VRd    DCR
+0                  cm²/m  cm²/m  cm²/m   kN    kN    kN     kN    kN     kN      kN                               
+1       L1  ELU 1    0.0    0.0    0.0  0.0  25.0  25.0  61.87   0.0  61.87  506.25          True      True  0.404
+2       L1  ELU 2    0.0    0.0    0.0  0.0  15.0  15.0  61.87   0.0  61.87  506.25          True      True  0.242
+3       L2  ELU 1    0.0    0.0    0.0  0.0  40.0  40.0  85.26   0.0  85.26  603.45          True      True  0.469
+4       L3  ELU 1    0.0    0.0    0.0  0.0  30.0  30.0  61.87   0.0  61.87  506.25          True      True  0.485
+
+### flexure_results capacity
+  Etiqueta Comb.  Posición As,min As,req top As,req bot    As  MEd    MRd MEd≤MRd  DCR  MRd,top  MRd,bot
+0                             cm²        cm²        cm²   cm²  kNm    kNm                   NaN      NaN
+1       L1  None  Inferior   1.67        0.0       1.67  2.38  0.0  12.56    True  0.0      0.0     12.6
+2       L2  None  Inferior    2.0        0.0        2.0  2.38  0.0  15.14    True  0.0     48.0     15.1
+3       L3  None  Inferior   1.67        0.0       1.67  3.93  0.0  20.31    True  0.0      0.0     20.3
+
+### shear_results capacity
+  Etiqueta Comb. Av,min Av,req     Av  NEd VEd,1 VEd,2  VRd,c VRd,s    VRd VRd,max VEd,1≤VRd,max VEd,2≤VRd  DCR
+0                 cm²/m  cm²/m  cm²/m   kN    kN    kN     kN    kN     kN      kN                             
+1       L1  None    0.0    0.0    0.0  0.0   0.0   0.0  61.87   0.0  61.87  506.25          True      True  0.0
+2       L2  None    0.0    0.0    0.0  0.0   0.0   0.0  73.75   0.0  73.75  603.45          True      True  0.0
+3       L3  None    0.0    0.0    0.0  0.0   0.0   0.0  61.87   0.0  61.87  506.25          True      True  0.0
+
+### results_detailed_doc: Slab_Summary_EN 1992-2004.docx
+Análisis del resumen de losas
+Generado con mento <version>. Código de diseño: EN 1992-2004
+Este informe presenta los resultados detallados de la primera losa del resumen, seguidos de las tablas resumen de todas las losas.
+Verificación a flexión de losa L1
+Datos de la sección
+Materiales | Variable | Valor | Unidad
+Identificación de la sección |  | L1 | 
+Resistencia del hormigón | fck | 25 | MPa
+Tensión de fluencia del acero | fyk | 500 | MPa
+Geometría | Variable | Valor | Unidad
+Altura de la sección | h | 15.0 | cm
+Ancho de la sección | b | 100.0 | cm
+Recubrimiento geométrico | cc | 2.0 | cm
+Recubrimiento mecánico superior | cm,top | 2.0 | cm
+Recubrimiento mecánico inferior | cm,bot | 2.5 | cm
+Solicitaciones | Variable | Valor | Unidad
+Momento máximo superior | MEd,top | 0.0 | kNm
+Momento máximo inferior | MEd,bot | 12.0 | kNm
+Verificaciones de límites
+Verificación | Unidad | Valor | Mín. | Máx. | ¿Ok?
+As mín/máx de la armadura superior | cm² | 0.0 | 0.0 | 60.0 | ✅
+Bar spacing top | mm | 0.0 |  |  | ✅
+As mín/máx de la armadura inferior | cm² | 2.38 | 1.67 | 60.0 | ✅
+Bar spacing bottom | mm | 330.0 | 35 | 400 | ✅
+Capacidad a flexión superior
+Verificación de la armadura superior | Variable | Valor | Unidad
+Barras de la primera capa | Ø1/s1 | - | 
+Barras de la segunda capa | Ø3/s3 | - | 
+Altura útil | d | 13.0 | cm
+Relación de profundidad del bloque equivalente | c/d | 0 | 
+Armadura mínima | As,min | 0.0 | cm²
+Armadura superior requerida | As,req top | 0.0 | cm²
+Armadura inferior requerida | As,req bot | 1.67 | cm²
+Armadura superior adoptada | As | 0.0 | cm²
+Cuantía de armadura longitudinal | ρl | 0.0 | 
+Resistencia total a flexión | MRd | 0.0 | kNm
+Factor de Utilización | DCR | 0 | ✅
+Capacidad a flexión inferior
+Verificación de la armadura inferior | Variable | Valor | Unidad
+Barras de la primera capa | Ø1/s1 | Ø10 mm/33 cm | 
+Barras de la segunda capa | Ø3/s3 | - | 
+Altura útil | d | 12.5 | cm
+Relación de profundidad del bloque equivalente | c/d | 0.0 | 
+Armadura mínima | As,min | 1.67 | cm²
+Armadura superior requerida | As,req top | 0.0 | cm²
+Armadura inferior requerida | As,req bot | 2.27 | cm²
+Armadura inferior adoptada | As | 2.38 | cm²
+Cuantía de armadura longitudinal | ρl | 0.0019 | 
+Resistencia total a flexión | MRd | 12.6 | kNm
+Factor de Utilización | DCR | 0.96 | ✅
+Verificación a corte de losa L1
+Datos de la sección
+Materiales | Variable | Valor | Unidad
+Identificación de la sección |  | L1 | 
+Resistencia del hormigón | fck | 25 | MPa
+Tensión de fluencia del acero | fywk | 500 | MPa
+Coeficiente de seguridad del hormigón | γc | 1.5 | 
+Coeficiente de seguridad del acero | γs | 1.15 | 
+Coeficiente de efectos de larga duración y de aplicación de la carga | αcc | 0.85 | 
+Geometría | Variable | Valor | Unidad
+Altura de la sección | h | 15.0 | cm
+Ancho de la sección | b | 100.0 | cm
+Recubrimiento geométrico | cc | 2.0 | cm
+Armadura longitudinal traccionada | As | 2.38 | cm²
+Solicitaciones | Variable | Valor | Unidad
+Axil, positivo en compresión | NEd | 0.0 | kN
+Corte | VEd,2 | 25.0 | kN
+Verificaciones de límites
+Verificación | Unidad | Valor | Mín. | Máx. | ¿Ok?
+Separación de estribos en la dirección longitudinal | cm | 0.0 |  | 0.0 | ✅
+Separación de estribos en la dirección transversal | cm | 0.0 |  | 0.0 | ✅
+Armadura mínima de corte | cm²/m | 0.0 | 0.0 |  | ✅
+Verificaciones de resistencia
+Resistencia de la armadura de corte | Variable | Valor | Unidad
+Diámetro del estribo | db | 0.0 | mm
+Separación de estribos en la dirección longitudinal | sl | 0.0 | cm
+Separación de estribos en la dirección transversal | sw | 0.0 | cm
+Altura útil | d | 12.5 | cm
+Armadura mínima de corte | Asw,min | 0.0 | cm²/m
+Armadura de corte requerida | Asw,req | 0.0 | cm²/m
+Armadura de corte adoptada | Asw | 0.0 | cm²/m
+Resistencia de la armadura de corte | VRd,s | 0.0 | kN
+Resistencia al corte | Variable | Valor | Unidad
+Cuantía de armadura longitudinal | ρl | 0.0019 | 
+Valor de k | k | 2.0 | 
+Tensión axial | σcd | 0.0 | MPa
+Ángulo de la biela de hormigón | Θ | 0.0 | deg
+Resistencia del hormigón | VRd,c | 61.9 | kN
+Resistencia máxima al corte | VRd,max | 506.2 | kN
+Resistencia total al corte | VRd | 61.9 | kN
+Verificación de corte máximo |  | ✅ | 
+Factor de Utilización | DCR | 0.4 | ✅
+Resistencia y detallado
+Etiqueta | Resistencia | Detallado (chequeos modelados)
+L1 | Cumple (chequeos modelados) | Cumple (chequeos modelados)
+L2 | Cumple (chequeos modelados) | Cumple (chequeos modelados)
+L3 | Cumple (chequeos modelados) | Cumple (chequeos modelados)
+Resumen - Todas las losas
+Secciones de losas
+Etiqueta | b×h | cc | As,top | As,bot
+ | cm | mm |  | 
+L1 | 100×15 | 20 | - | Ø10/33
+L2 | 100×18 | 25 | Ø12/14 | Ø10/33
+L3 | 100×15 | 20 | - | Ø10/20
+Solicitaciones
+Etiqueta | Comb. | Nx | Vz | My
+ |  | kN | kN | kNm
+L1 | ELU 1 | 0 | 25 | 12
+L1 | ELU 2 | 0 | 15 | 6
+L2 | ELU 1 | 0 | 40 | -45
+L3 | ELU 1 | 0 | 30 | 18
+Nx > 0 es compresión y entra solo en la verificación al corte; My > 0 tracciona la cara inferior; Vz se toma en valor absoluto.
+Resultados de flexión
+Etiqueta | Comb. | Posición | As,min | As,req top | As,req bot | As | MEd | MRd | DCR
+ |  |  | cm² | cm² | cm² | cm² | kNm | kNm | 
+L1 | ELU 1 | Inferior | 1.67 | 0.0 | 2.27 | 2.38 | 12.0 | 12.6 | 0.96
+L1 | ELU 2 | Inferior | 1.67 | 0.0 | 1.67 | 2.38 | 6.0 | 12.6 | 0.48
+L2 | ELU 1 | Superior | 1.99 | 7.53 | 0.0 | 8.08 | -45.0 | 48.0 | 0.94
+L3 | ELU 1 | Inferior | 1.67 | 0.0 | 3.46 | 3.93 | 18.0 | 20.3 | 0.89
+Resultados de corte
+Etiqueta | Comb. | Av,min | Av,req | Av | NEd | VEd,2 | VRd,c | VRd,s | VRd | VRd,max | DCR
+ |  | cm²/m | cm²/m | cm²/m | kN | kN | kN | kN | kN | kN | 
+L1 | ELU 1 | 0.0 | 0.0 | 0.0 | 0.0 | 25.0 | 61.9 | 0.0 | 61.9 | 506.2 | 0.4
+L1 | ELU 2 | 0.0 | 0.0 | 0.0 | 0.0 | 15.0 | 61.9 | 0.0 | 61.9 | 506.2 | 0.24
+L2 | ELU 1 | 0.0 | 0.0 | 0.0 | 0.0 | 40.0 | 85.3 | 0.0 | 85.3 | 603.5 | 0.47
+L3 | ELU 1 | 0.0 | 0.0 | 0.0 | 0.0 | 30.0 | 61.9 | 0.0 | 61.9 | 506.2 | 0.48
+Resumen de verificaciones
+Losa | b×h | As,top | As,bot | Comb.,top | MEd,top | DCRb,top | Comb.,bot | MEd,bot | DCRb,bot | Comb.,v | VEd | NEd | DCRv | Advertencias | ¿Ok?
+ | cm |  |  |  | kNm |  |  | kNm |  |  | kN | kN |  |  | 
+L1 | 100×15 | - | Ø10/33 | - | - | 0.0 | ELU 1 | 12.0 | 0.96 | ELU 1 | 25.0 | 0.0 | 0.4 | - | ✅
+L2 | 100×18 | Ø12/14 | Ø10/33 | ELU 1 | -45.0 | 0.94 | - | - | 0.0 | ELU 1 | 40.0 | 0.0 | 0.47 | - | ✅
+L3 | 100×15 | - | Ø10/20 | - | - | 0.0 | ELU 1 | 18.0 | 0.89 | ELU 1 | 30.0 | 0.0 | 0.48 | - | ✅
+Advertencias
+Ninguna sección incumple un límite de detalle.

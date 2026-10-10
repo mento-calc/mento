@@ -93,6 +93,9 @@ __all__ = [
     "WallShearDesign",
     "DesignNotRunError",
     "NotABeamError",
+    "SummaryInputError",
+    "SummaryInputWarning",
+    "split_single_table",
     "SectionGeometry",
     "CageDetailingError",
     "CompressionDetailing",
@@ -135,6 +138,7 @@ if TYPE_CHECKING:
     from mento.skin_service import SkinServiceCase
     from mento.slab import Footing, OneWaySlab
     from mento.wall_results import MeshDirection, WallMesh, WallShearCheck, WallShearDesign
+    from mento.summary_tables import SummaryInputError, SummaryInputWarning, split_single_table
 
 
 def __getattr__(name: str) -> object:
@@ -181,6 +185,9 @@ def __getattr__(name: str) -> object:
         "WallShearDesign": "wall_results",
         "DesignNotRunError": "design_results",
         "NotABeamError": "shear_wall",
+        "SummaryInputError": "summary_tables",
+        "SummaryInputWarning": "summary_tables",
+        "split_single_table": "summary_tables",
         "SectionGeometry": "section_geometry",
         "CageDetailingError": "cage_detailing",
         "CompressionDetailing": "compression_detailing",

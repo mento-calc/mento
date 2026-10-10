@@ -1,22 +1,37 @@
+### sections
+  Label   b   h  cc legs dbs  sl n1_top db1_top n2_top db2_top n3_top db3_top n4_top db4_top n1_bot db1_bot n2_bot db2_bot n3_bot db3_bot n4_bot db4_bot
+0        cm  cm  mm       mm  cm             mm             mm             mm             mm             mm             mm             mm             mm
+1  V101  20  50  25    0   0   0      2       8      0       0      0       0      0       0      2      12      1      10      0       0      0       0
+2  V102  20  50  25    2   6  20      2      12      1      16      0       0      0       0      2       8      0       0      0       0      0       0
+3  V103  25  60  25    2   8  15      2       8      0       0      0       0      0       0      3      16      0       0      2      12      0       0
+
+### forces
+  Label  Comb.  Nx   Vz   My
+0               kN   kN  kNm
+1  V101  ELU 1   0   20    0
+2  V102  ELU 2   0  -50  -35
+3  V103  ELU 3  10  100   60
+
 ### check
-   Beam   b   h     As,top        As,bot            Av    Mu     Vu    Nu DCRb,top DCRb,bot   DCRv Ok?
-0        cm  cm                                          kNm     kN    kN                             
-1  V101  20  50        2Ø8     2Ø12+1Ø10             -   0.0   20.0   0.0      0.0      0.0  0.701   ✅
-2  V102  20  50  2Ø12+1Ø16           2Ø8  2 legs Ø6/20 -35.0   50.0   0.0    0.491      0.0    0.5   ✅
-3  V103  25  60        2Ø8  3Ø16 ++ 2Ø12  2 legs Ø8/15  60.0  100.0  10.0      0.0    0.371  0.489   ✅
+   Beam    b×h     As,top        As,bot            Av Comb.,top Mu,top DCRb,top Comb.,bot Mu,bot DCRb,bot Comb.,v     Vu    Nu   DCRv Warnings Ok?
+0           cm                                                     kNm                       kNm                      kN    kN                    
+1  V101  20×50        2Ø8     2Ø12+1Ø10             -         -    NaN      0.0         -    NaN      0.0   ELU 1   20.0   0.0  0.701        -   ✅
+2  V102  20×50  2Ø12+1Ø16           2Ø8  2 legs Ø6/20     ELU 2  -35.0    0.491         -    NaN      0.0   ELU 2   50.0   0.0    0.5        -   ✅
+3  V103  25×60        2Ø8  3Ø16 ++ 2Ø12  2 legs Ø8/15         -    NaN      0.0     ELU 3   60.0    0.371   ELU 3  100.0  10.0  0.489        -   ✅
 
 ### check capacity
-   Beam   b   h     As,top        As,bot            Av As,top,real As,bot,real Av,real ØMn,top ØMn,bot     ØVn
-0        cm  cm                                                cm²         cm²   cm²/m     kNm     kNm      kN
-1  V101  20  50        2Ø8     2Ø12+1Ø10             -         1.0         3.0     0.0    17.4    51.4   28.51
-2  V102  20  50  2Ø12+1Ø16           2Ø8  2 legs Ø6/20         4.3         1.0     2.8    71.2    17.5  100.07
-3  V103  25  60        2Ø8  3Ø16 ++ 2Ø12  2 legs Ø8/15         1.0         8.3     6.7    21.2   161.6  203.16
+   Beam    b×h     As,top        As,bot            Av As,top,real As,bot,real Av,real ØMn,top ØMn,bot     ØVn
+0           cm                                                cm²         cm²   cm²/m     kNm     kNm      kN
+1  V101  20×50        2Ø8     2Ø12+1Ø10             -         1.0         3.0     0.0    17.4    51.4   28.51
+2  V102  20×50  2Ø12+1Ø16           2Ø8  2 legs Ø6/20         4.3         1.0     2.8    71.2    17.5  100.07
+3  V103  25×60        2Ø8  3Ø16 ++ 2Ø12  2 legs Ø8/15         1.0         8.3     6.7    21.2   161.6  203.16
 
 ### design
-  Label  Comb.         b         h        cc        Nx         Vz           My  ns       dbs        sl  n1       db1  n2       db2  n3      db3  n4      db4 n1_bot   db1_bot n2_bot  db2_bot n3_bot  db3_bot n4_bot  db4_bot n1_top   db1_top n2_top   db2_top n3_top  db3_top n4_top  db4_top
-0  V101  ELU 1  20.00 cm  50.00 cm  25.00 mm   0.00 kN   20.00 kN    0.00 kN·m   1  10.00 mm  22.00 cm   2  12.00 mm   0   0.00 mm   0  0.00 mm   0  0.00 mm      2  12.00 mm      0  0.00 mm      0  0.00 mm      0  0.00 mm      0   0.00 mm      0   0.00 mm      0  0.00 mm      0  0.00 mm
-1  V102  ELU 2  20.00 cm  50.00 cm  25.00 mm   0.00 kN  -50.00 kN  -35.00 kN·m   1  10.00 mm  22.00 cm   2  12.00 mm   1  10.00 mm   0  0.00 mm   0  0.00 mm      2  12.00 mm      0  0.00 mm      0  0.00 mm      0  0.00 mm      2  12.00 mm      1  10.00 mm      0  0.00 mm      0  0.00 mm
-2  V103  ELU 3  25.00 cm  60.00 cm  25.00 mm  10.00 kN  100.00 kN   60.00 kN·m   1  10.00 mm  27.00 cm   2  16.00 mm   0   0.00 mm   0  0.00 mm   0  0.00 mm      2  16.00 mm      0  0.00 mm      0  0.00 mm      0  0.00 mm      0   0.00 mm      0   0.00 mm      0  0.00 mm      0  0.00 mm
+  Label   b   h  cc legs dbs  sl n1_top db1_top n2_top db2_top n3_top db3_top n4_top db4_top n1_bot db1_bot n2_bot db2_bot n3_bot db3_bot n4_bot db4_bot
+0        cm  cm  mm       mm  cm             mm             mm             mm             mm             mm             mm             mm             mm
+1  V101  20  50  25    2  10  22      0       0      0       0      0       0      0       0      2      12      0       0      0       0      0       0
+2  V102  20  50  25    2  10  22      2      12      1      10      0       0      0       0      2      12      0       0      0       0      0       0
+3  V103  25  60  25    2  10  27      0       0      0       0      0       0      0       0      2      16      0       0      0       0      0       0
 
 ### flexure_results
   Label  Comb. Position As,min As,req top As,req bot    As    Mu    ØMn Mu≤ØMn    DCR
@@ -71,6 +86,7 @@ Min/Max As rebar top | cm² | 0.0 | 0.0 | 16.96 | ✅
 Minimum spacing top | mm | 130.0 |  |  | ✅
 Min/Max As rebar bottom | cm² | 2.26 | 1.8 | 14.62 | ✅
 Minimum spacing bottom | mm | 97.8 | 25 |  | ✅
+Maximum spacing bottom | mm | 109.8 |  | 292.5 | ✅
 Flexural Capacity Top
 Top reinforcement check | Variable | Value | Unit
 First layer bars | n1+n2 | - | 
@@ -146,18 +162,25 @@ Maximum shear strength | ØVmax | 285.7 | kN
 Total shear strength | ØVn | 161.8 | kN
 Max shear check |  | ✅ | 
 Demand Capacity Ratio | DCR | 0.12 | ✅
-Summary - All Beams
 Resistance and detailing
-Label | Resistance | Detailing (modelled checks) | Detailing notes
-V101 | Pass (modelled checks) | Pass (modelled checks) | 
-V102 | Pass (modelled checks) | Pass (modelled checks) | 
-V103 | Pass (modelled checks) | Pass (modelled checks) | 
-Beam Data
-Label | b | h | cc | As,bot | As,top | Av
- | cm | cm | mm |  |  | 
-V101 | 20 | 50 | 25 | 2Ø12 mm | - | 2 legs Ø10 mm @ 22 cm
-V102 | 20 | 50 | 25 | 2Ø12 mm | 2Ø12 mm + 1Ø10 mm | 2 legs Ø10 mm @ 22 cm
-V103 | 25 | 60 | 25 | 2Ø16 mm | - | 2 legs Ø10 mm @ 27 cm
+Label | Resistance | Detailing (modelled checks)
+V101 | Pass (modelled checks) | Pass (modelled checks)
+V102 | Pass (modelled checks) | Pass (modelled checks)
+V103 | Pass (modelled checks) | Pass (modelled checks)
+Summary - All Beams
+Beam Sections
+Label | b×h | cc | As,top | As,bot | Av
+ | cm | mm |  |  | 
+V101 | 20×50 | 25 | - | 2Ø12 | 2 legs Ø10/22
+V102 | 20×50 | 25 | 2Ø12+1Ø10 | 2Ø12 | 2 legs Ø10/22
+V103 | 25×60 | 25 | - | 2Ø16 | 2 legs Ø10/27
+Forces
+Label | Comb. | Nx | Vz | My
+ |  | kN | kN | kNm
+V101 | ELU 1 | 0 | 20 | 0
+V102 | ELU 2 | 0 | -50 | -35
+V103 | ELU 3 | 10 | 100 | 60
+Nx > 0 is compression and enters the shear check only; My > 0 puts the bottom face in tension; Vz is taken in magnitude.
 Flexure Results
 Label | Comb. | Position | As,min | As,req top | As,req bot | As | Mu | ØMn | DCR
  |  |  | cm² | cm² | cm² | cm² | kNm | kNm | 
@@ -171,8 +194,10 @@ V101 | ELU 1 | 0.0 | 0.0 | 7.14 | 20.0 | 0.0 | 58.5 | 103.2 | 161.8 | 285.7 | 0.
 V102 | ELU 2 | 1.67 | 1.67 | 7.14 | 50.0 | 0.0 | 58.5 | 103.2 | 161.8 | 285.7 | 0.31
 V103 | ELU 3 | 2.08 | 2.08 | 5.82 | 100.0 | 10.0 | 89.9 | 102.1 | 192.0 | 434.6 | 0.52
 Design Check Summary
-Beam | b | h | As,top | As,bot | Av | Mu | Vu | Nu | DCRb,top | DCRb,bot | DCRv | Ok?
- | cm | cm |  |  |  | kNm | kN | kN |  |  |  | 
-V101 | 20 | 50 | - | 2Ø12 | 2 legs Ø10/22 | 0.0 | 20.0 | 0.0 | 0.0 | 0.0 | 0.12 | ✅
-V102 | 20 | 50 | 2Ø12+1Ø10 | 2Ø12 | 2 legs Ø10/22 | -35.0 | 50.0 | 0.0 | 0.68 | 0.0 | 0.31 | ✅
-V103 | 25 | 60 | - | 2Ø16 | 2 legs Ø10/27 | 60.0 | 100.0 | 10.0 | 0.0 | 0.73 | 0.52 | ✅
+Beam | b×h | As,top | As,bot | Av | Comb.,top | Mu,top | DCRb,top | Comb.,bot | Mu,bot | DCRb,bot | Comb.,v | Vu | Nu | DCRv | Warnings | Ok?
+ | cm |  |  |  |  | kNm |  |  | kNm |  |  | kN | kN |  |  | 
+V101 | 20×50 | - | 2Ø12 | 2 legs Ø10/22 | - | - | 0.0 | - | - | 0.0 | ELU 1 | 20.0 | 0.0 | 0.12 | - | ✅
+V102 | 20×50 | 2Ø12+1Ø10 | 2Ø12 | 2 legs Ø10/22 | ELU 2 | -35.0 | 0.68 | - | - | 0.0 | ELU 2 | 50.0 | 0.0 | 0.31 | - | ✅
+V103 | 25×60 | - | 2Ø16 | 2 legs Ø10/27 | - | - | 0.0 | ELU 3 | 60.0 | 0.73 | ELU 3 | 100.0 | 10.0 | 0.52 | - | ✅
+Warnings
+No section misses a detailing limit.

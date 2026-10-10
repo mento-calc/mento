@@ -39,8 +39,11 @@ from mento.node import Node
 from mento.results import DocumentBuilder, TablePrinter
 from mento.shear_wall import ShearWall
 from mento.shear_wall_summary import ShearWallSummary
+from mento.slab_summary import OneWaySlabSummary
+from mento.summary_tables import split_single_table
 from mento.slab import OneWaySlab
 from mento.units import MPa, cm, kN, kNm, m, mm
+from tests.reports.summary_data import forces, slabs
 
 
 @pytest.fixture(autouse=True)
@@ -515,9 +518,9 @@ def _beam_summary() -> BeamSummary:
         "db4": ["mm", 0, 0],
     }
     return BeamSummary(
-        concrete=Concrete_ACI_318_19(name="H25", f_c=25 * MPa),
-        steel_bar=SteelBar(name="ADN 420", f_y=420 * MPa),
-        beam_list=pd.DataFrame(data),
+        Concrete_ACI_318_19(name="H25", f_c=25 * MPa),
+        SteelBar(name="ADN 420", f_y=420 * MPa),
+        *split_single_table(pd.DataFrame(data), "beam"),
     )
 
 
@@ -539,11 +542,26 @@ def _wall_summary() -> ShearWallSummary:
         "sv": ["cm", 0, 0],
     }
     summary = ShearWallSummary(
-        concrete=Concrete_ACI_318_19(name="H25", f_c=25 * MPa),
-        steel_bar=SteelBar(name="ADN 420", f_y=420 * MPa),
-        wall_list=pd.DataFrame(data),
+        Concrete_ACI_318_19(name="H25", f_c=25 * MPa),
+        SteelBar(name="ADN 420", f_y=420 * MPa),
+        *split_single_table(pd.DataFrame(data), "wall"),
     )
     summary.design()
+    return summary
+
+
+def _slab_summary(with_warnings: bool) -> OneWaySlabSummary:
+    """Two strips, designed; ``with_warnings`` gives one a layer past its maximum spacing afterwards."""
+    sections = slabs([{"Label": "L1"}, {"Label": "L2"}], units={"Label": "", "b": "cm", "h": "cm", "cc": "mm"})
+    rows = forces(
+        [{"Label": "L1", "Comb.": "C", "Vz": 20, "My": 15}, {"Label": "L2", "Comb.": "C", "Vz": 20, "My": -12}]
+    )
+    summary = OneWaySlabSummary(
+        Concrete_ACI_318_19(name="H25", f_c=25 * MPa), SteelBar(name="ADN 420", f_y=420 * MPa), sections, rows
+    )
+    summary.design()
+    if with_warnings:
+        summary.nodes[0].section.set_slab_longitudinal_rebar_bot(d_b1=12 * mm, s_b1=40 * cm)
     return summary
 
 
@@ -559,7 +577,7 @@ class TestSummaryTables:
         """`Av` and `DCRv` name quantities, not prose: they read the same in both."""
         set_language("es")
         columns = list(_beam_summary().check().columns)
-        for symbol in ("b", "h", "As,top", "As,bot", "Av", "DCRv"):
+        for symbol in ("b×h", "As,top", "As,bot", "Av", "DCRv"):
             assert symbol in columns
 
     def test_flexure_results_translate_the_position_column(self) -> None:
@@ -631,6 +649,13 @@ class TestSummaryCatalogCoverage:
         summary = _beam_summary()
         prose = _rendered_prose(monkeypatch, lambda: summary.results_detailed_doc(index=1))
         assert "Beam Summary Analysis" in prose, "the harness saw no report"
+        assert sorted(s for s in prose if s not in ES) == []
+
+    @pytest.mark.parametrize("with_warnings", [True, False])
+    def test_slab_summary_doc(self, monkeypatch: pytest.MonkeyPatch, with_warnings: bool) -> None:
+        summary = _slab_summary(with_warnings)
+        prose = _rendered_prose(monkeypatch, lambda: summary.results_detailed_doc(index=1))
+        assert "Slab Summary Analysis" in prose, "the harness saw no report"
         assert sorted(s for s in prose if s not in ES) == []
 
     def test_wall_summary_doc(self, monkeypatch: pytest.MonkeyPatch) -> None:

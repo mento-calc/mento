@@ -1,14 +1,21 @@
+### forces
+     Level Label  Comb.    Nx   Vz    My
+0                          kN   kN   kNm
+1  Level 1    M1  ELU 1     0  264  -172
+2  Level 1    M1  ELU 2  -301  152  -234
+3  Level 2    M2  ELU 1  55.5  163  -278
+
 ### design
-     Level Label  Comb.         t      lw      hw        cc          Nx         Vz            My dbh  sh dbv  sv
-0  Level 1    M1  ELU 1  20.00 cm  3.00 m  3.00 m  25.00 mm     0.00 kN  264.00 kN  -172.00 kN·m   6  27  10  37
-1  Level 1    M1  ELU 2  20.00 cm  3.00 m  3.00 m  25.00 mm  -301.00 kN  152.00 kN  -234.00 kN·m   6  27  10  37
-2  Level 2    M2  ELU 1  20.00 cm  2.00 m  3.00 m  25.00 mm    55.50 kN  163.00 kN  -278.00 kN·m   6  27  10  37
+     Level Label   t lw hw  cc dbh  sh dbv  sv
+0                 cm  m  m  mm  mm  cm  mm  cm
+1  Level 1    M1  20  3  3  25   6  27  10  37
+2  Level 2    M2  20  2  3  25   6  27  10  37
 
 ### check
-     Nivel Etiqueta   t   lw   hw Horiz.   Vert.       ρh       ρv VEd,max    VRd    DCR Estado
-0                    cm    m    m                                       kN     kN              
-1  Level 1       M1  20  3.0  3.0  Ø6/27  Ø10/37  0.00105  0.00212   264.0  491.7  0.537      ✅
-2  Level 2       M2  20  2.0  3.0  Ø6/27  Ø10/37  0.00105  0.00212   163.0  327.8  0.497      ✅
+     Nivel Etiqueta     t   lw   hw Horiz. (c/cara) Vert. (c/cara)       ρh       ρv  Comb.    VEd   NEd    VRd    DCR Advertencias Estado
+0                      cm    m    m                                                             kN    kN     kN                           
+1  Level 1       M1  20.0  3.0  3.0           Ø6/27         Ø10/37  0.00105  0.00212  ELU 1  264.0   0.0  491.7  0.537            -      ✅
+2  Level 2       M2  20.0  2.0  3.0           Ø6/27         Ø10/37  0.00105  0.00212  ELU 1  163.0  55.5  327.8  0.497            -      ✅
 
 ### shear_results
   Etiqueta  Comb. Ash,min Ash,req    Ash Asv,min    Asv    NEd    VEd   VRd,c   VRd,s     VRd  VRd,max VEd≤VRd,max VEd≤VRd    DCR
@@ -20,6 +27,7 @@
 ### results_detailed_doc: Shear_Wall_Summary_EN 1992-2004.docx
 Análisis del resumen de tabiques
 Generado con mento <version>. Código de diseño: EN 1992-2004
+Este informe presenta los resultados detallados del primer tabique del resumen, seguidos de las tablas resumen de todos los tabiques.
 Verificación a corte del tabique Level 1 - M1
 Datos de la sección
 Materiales | Variable | Valor | Unidad
@@ -66,20 +74,28 @@ Resistencia máxima al corte | VRd,max | 1340.7 | kN
 Resistencia total al corte | VRd | 491.7 | kN
 Factor de Utilización | DCR | 0.54 | 
 Resumen - Todos los tabiques
-Datos de los tabiques
-Nivel | Etiqueta | Comb. | t | lw | hw | cc | Nx | Vz | My | dbh | sh | dbv | sv
- |  |  | cm | m | m | mm | kN | kN | kNm | mm | cm | mm | cm
-Level 1 | M1 | ELU 1 | 20 | 3.0 | 3.0 | 25 | 0 | 264 | -172 | 8 | 20 | 12 | 15
-Level 1 | M1 | ELU 2 | 20 | 3.0 | 3.0 | 25 | -301 | 152 | -234 | 8 | 20 | 12 | 15
-Level 2 | M2 | ELU 1 | 20 | 2.0 | 3.0 | 25 | 55.5 | 163 | -278 | 0 | 0 | 0 | 0
+Secciones de tabiques
+Nivel | Etiqueta | t | lw | hw | cc | Horiz. (c/cara) | Vert. (c/cara)
+ |  | cm | m | m | mm |  | 
+Level 1 | M1 | 20 | 3 | 3 | 25 | Ø6/27 | Ø10/37
+Level 2 | M2 | 20 | 2 | 3 | 25 | Ø6/27 | Ø10/37
+Solicitaciones
+Nivel | Etiqueta | Comb. | Nx | Vz | My
+ |  |  | kN | kN | kNm
+Level 1 | M1 | ELU 1 | 0 | 264 | -172
+Level 1 | M1 | ELU 2 | -301 | 152 | -234
+Level 2 | M2 | ELU 1 | 55.5 | 163 | -278
+Nx > 0 es compresión; Vz es el corte en el plano, en valor absoluto. My no se usa: el resumen verifica solo el corte en el plano.
 Resultados de corte
-Etiqueta | Comb. | Ash,min | Ash,req | Ash | Asv,min | Asv | NEd | VEd | VRd,c | VRd,s | VRd | VRd,max | DCR
- |  | cm²/m | cm²/m | cm²/m | cm²/m | cm²/m | kN | kN | kN | kN | kN | kN | 
-M1 | ELU 1 | 2.0 | 2.0 | 2.09 | 4.0 | 4.25 | 0.0 | 264.0 | 122.9 | 491.7 | 491.7 | 1340.7 | 0.54
-M1 | ELU 2 | 2.0 | 2.0 | 2.09 | 4.0 | 4.25 | -301.0 | 152.0 | 86.8 | 491.7 | 491.7 | 1340.7 | 0.31
-M2 | ELU 1 | 2.0 | 2.0 | 2.09 | 4.0 | 4.25 | 55.5 | 163.0 | 94.8 | 327.8 | 327.8 | 893.8 | 0.5
+Etiqueta | Comb. | Ash,min | Ash,req | Ash | Asv,min | Asv | NEd | VEd | VRd,c | VRd,s | VRd | VRd,max | VEd≤VRd,max | VEd≤VRd | DCR
+ |  | cm²/m | cm²/m | cm²/m | cm²/m | cm²/m | kN | kN | kN | kN | kN | kN |  |  | 
+M1 | ELU 1 | 2.0 | 2.0 | 2.09 | 4.0 | 4.25 | 0.0 | 264.0 | 122.9 | 491.7 | 491.7 | 1340.7 | True | True | 0.54
+M1 | ELU 2 | 2.0 | 2.0 | 2.09 | 4.0 | 4.25 | -301.0 | 152.0 | 86.8 | 491.7 | 491.7 | 1340.7 | True | True | 0.31
+M2 | ELU 1 | 2.0 | 2.0 | 2.09 | 4.0 | 4.25 | 55.5 | 163.0 | 94.8 | 327.8 | 327.8 | 893.8 | True | True | 0.5
 Resumen de verificaciones
-Nivel | Etiqueta | t | lw | hw | Horiz. | Vert. | ρh | ρv | VEd,max | VRd | DCR | Estado
- |  | cm | m | m |  |  |  |  | kN | kN |  | 
-Level 1 | M1 | 20 | 3.0 | 3.0 | Ø6/27 | Ø10/37 | 0.00105 | 0.00212 | 264.0 | 491.7 | 0.54 | ✅
-Level 2 | M2 | 20 | 2.0 | 3.0 | Ø6/27 | Ø10/37 | 0.00105 | 0.00212 | 163.0 | 327.8 | 0.5 | ✅
+Nivel | Etiqueta | t | lw | hw | Horiz. (c/cara) | Vert. (c/cara) | ρh | ρv | Comb. | VEd | NEd | VRd | DCR | Advertencias | Estado
+ |  | cm | m | m |  |  |  |  |  | kN | kN | kN |  |  | 
+Level 1 | M1 | 20.0 | 3.0 | 3.0 | Ø6/27 | Ø10/37 | 0.00105 | 0.00212 | ELU 1 | 264.0 | 0.0 | 491.7 | 0.54 | - | ✅
+Level 2 | M2 | 20.0 | 2.0 | 3.0 | Ø6/27 | Ø10/37 | 0.00105 | 0.00212 | ELU 1 | 163.0 | 55.5 | 327.8 | 0.5 | - | ✅
+Advertencias
+Ninguna sección incumple un límite de detalle.

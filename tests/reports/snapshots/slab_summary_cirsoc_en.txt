@@ -1,0 +1,207 @@
+### sections
+  Label    b   h  cc db1_top s1_top db3_top s3_top db1_bot s1_bot db3_bot s3_bot
+0         cm  cm  mm      mm     cm      mm     cm      mm     cm      mm     cm
+1    L1  100  15  20       0      0       0      0      10     20       0      0
+2    L2  100  18  25       0      0       0      0       0      0       0      0
+3    L3  100  15  20       0      0       0      0       0      0       0      0
+
+### forces
+  Label  Comb.  Nx  Vz   My
+0               kN  kN  kNm
+1    L1  ELU 1   0  25   12
+2    L1  ELU 2   0  15    6
+3    L2  ELU 1   0  40  -45
+4    L3  ELU 1   0  30   18
+
+### check
+  Slab     b×h As,top  As,bot Comb.,top Mu,top DCRb,top Comb.,bot Mu,bot DCRb,bot Comb.,v    Vu   Nu   DCRv Warnings                             Ok?
+0           cm                             kNm                       kNm                     kN   kN                                                
+1   L1  100×15      -  Ø10/20         -    NaN      0.0     ELU 1   12.0    0.667   ELU 1  25.0  0.0  0.552        -                               ✅
+2   L2  100×18      -       -         -    NaN      NaN         -    NaN      NaN       -   NaN  NaN    NaN        -  no reinforcement: run design()
+3   L3  100×15      -       -         -    NaN      NaN         -    NaN      NaN       -   NaN  NaN    NaN        -  no reinforcement: run design()
+
+### check capacity
+  Slab     b×h As,top  As,bot As,top,real As,bot,real ØMn,top ØMn,bot    ØVn
+0           cm                        cm²         cm²     kNm     kNm     kN
+1   L1  100×15      -  Ø10/20         0.0         3.9     0.0    18.0  45.31
+2   L2  100×18      -       -         0.0         0.0     0.0     0.0    0.0
+3   L3  100×15      -       -         0.0         0.0     0.0     0.0    0.0
+
+### design
+  Label    b   h  cc db1_top s1_top db3_top s3_top db1_bot s1_bot db3_bot s3_bot
+0         cm  cm  mm      mm     cm      mm     cm      mm     cm      mm     cm
+1    L1  100  15  20       0      0       0      0      10     25       0      0
+2    L2  100  18  25      12     12       0      0      10     20       0      0
+3    L3  100  15  20       0      0       0      0      12     25       0      0
+
+### flexure_results
+  Label  Comb. Position As,min As,req top As,req bot    As    Mu    ØMn Mu≤ØMn    DCR
+0                          cm²        cm²        cm²   cm²   kNm    kNm              
+1    L1  ELU 1   Bottom    2.7        0.0        2.7  3.14  12.0  14.48   True  0.829
+2    L1  ELU 2   Bottom    2.7        0.0        2.7  3.14   6.0  14.48   True  0.414
+3    L2  ELU 1      Top   3.24       8.47        0.0  9.42 -45.0  49.76   True  0.904
+4    L3  ELU 1   Bottom    2.7        0.0       3.97  4.52  18.0  20.44   True  0.881
+
+### shear_results
+  Label  Comb. Av,min Av,req     Av    Vu   Nu    ØVc  ØVs    ØVn   ØVmax Vu≤ØVmax Vu≤ØVn    DCR
+0               cm²/m  cm²/m  cm²/m    kN   kN     kN   kN     kN      kN                       
+1    L1  ELU 1    0.0    0.0    0.0  25.0  0.0  42.06  0.0  42.06  351.44     True   True  0.594
+2    L1  ELU 2    0.0    0.0    0.0  15.0  0.0  42.06  0.0  42.06  351.44     True   True  0.357
+3    L2  ELU 1    0.0    0.0    0.0  40.0  0.0   68.2  0.0   68.2  436.98     True   True  0.587
+4    L3  ELU 1    0.0    0.0    0.0  30.0  0.0  47.25  0.0  47.25  354.15     True   True  0.635
+
+### flexure_results capacity
+  Label Comb. Position As,min As,req top As,req bot    As   Mu    ØMn Mu≤ØMn  DCR  ØMn,top  ØMn,bot
+0                         cm²        cm²        cm²   cm²  kNm    kNm                  NaN      NaN
+1    L1  None   Bottom    2.7        0.0        2.7  3.14  0.0  14.48   True  0.0      0.0     14.5
+2    L2  None   Bottom   3.24        0.0       3.24  3.93  0.0  21.69   True  0.0     49.8     21.7
+3    L3  None   Bottom    2.7        0.0        2.7  4.52  0.0  20.44   True  0.0      0.0     20.4
+
+### shear_results capacity
+  Label Comb. Av,min Av,req     Av   Vu   Nu    ØVc  ØVs    ØVn   ØVmax Vu≤ØVmax Vu≤ØVn  DCR
+0              cm²/m  cm²/m  cm²/m   kN   kN     kN   kN     kN      kN                     
+1    L1  None    0.0    0.0    0.0  0.0  0.0  42.06  0.0  42.06  351.44     True   True  0.0
+2    L2  None    0.0    0.0    0.0  0.0  0.0  50.94  0.0  50.94  419.71     True   True  0.0
+3    L3  None    0.0    0.0    0.0  0.0  0.0  47.25  0.0  47.25  354.15     True   True  0.0
+
+### results_detailed_doc: Slab_Summary_CIRSOC 201-25.docx
+Slab Summary Analysis
+Made with mento <version>. Design code: CIRSOC 201-25
+This report presents the detailed results for the first slab of the summary, followed by summary tables for all slabs.
+Slab L1 flexure check
+Section Data
+Materials | Variable | Value | Unit
+Section Label |  | L1 | 
+Concrete strength | fc | 25 | MPa
+Steel reinforcement yield strength | fy | 420 | MPa
+Geometry | Variable | Value | Unit
+Section height | h | 15.0 | cm
+Section width | b | 100.0 | cm
+Clear cover | cc | 2.0 | cm
+Mechanical top cover | cm,top | 2.0 | cm
+Mechanical bottom cover | cm,bot | 2.5 | cm
+Design forces | Variable | Value | Unit
+Top max moment | Mu,top | 0.0 | kNm
+Bottom max moment | Mu,bot | 12.0 | kNm
+Limit checks
+Check | Unit | Value | Min. | Max. | Ok?
+Min/Max As rebar top | cm² | 0.0 | 0.0 | 22.71 | ✅
+Bar spacing top | mm | 0.0 |  |  | ✅
+Min/Max As rebar bottom | cm² | 3.14 | 2.7 | 19.91 | ✅
+Bar spacing bottom | mm | 250.0 | 35 | 300 | ✅
+Flexural Capacity Top
+Top reinforcement check | Variable | Value | Unit
+First layer bars | Ø1/s1 | - | 
+Second layer bars | Ø3/s3 | - | 
+Effective height | d | 13.0 | cm
+Depth of equivalent strength block ratio | c/d | 0 | 
+Minimum rebar reinforcing | As,min | 0.0 | cm²
+Required rebar reinforcing top | As,req top | 0.0 | cm²
+Required rebar reinforcing bottom | As,req bot | 2.7 | cm²
+Defined rebar reinforcing top | As | 0.0 | cm²
+Longitudinal reinforcement ratio | ρl | 0.0 | 
+Total flexural strength | ØMn | 0.0 | kNm
+Demand Capacity Ratio | DCR | 0 | ✅
+Flexural Capacity Bottom
+Bottom reinforcement check | Variable | Value | Unit
+First layer bars | Ø1/s1 | Ø10 mm/25 cm | 
+Second layer bars | Ø3/s3 | - | 
+Effective height | d | 12.5 | cm
+Depth of equivalent strength block ratio | c/d | 0.0482 | 
+Minimum rebar reinforcing | As,min | 2.7 | cm²
+Required rebar reinforcing top | As,req top | 0.0 | cm²
+Required rebar reinforcing bottom | As,req bot | 2.7 | cm²
+Defined rebar reinforcing bottom | As | 3.14 | cm²
+Longitudinal reinforcement ratio | ρl | 0.00251 | 
+Total flexural strength | ØMn | 14.5 | kNm
+Demand Capacity Ratio | DCR | 0.83 | ✅
+Slab L1 shear check
+Section Data
+Materials | Variable | Value | Unit
+Section Label |  | L1 | 
+Concrete strength | fc | 25 | MPa
+Steel reinforcement yield strength | fy | 420 | MPa
+Concrete density | wc | 2500.0 | kg/m³
+Normalweight concrete | λ | 1 | 
+Safety factor for shear | Øv | 0.75 | 
+Geometry | Variable | Value | Unit
+Section height | h | 15.0 | cm
+Section width | b | 100.0 | cm
+Clear cover | cc | 2.0 | cm
+Longitudinal tension rebar | As | 3.14 | cm²
+Design forces | Variable | Value | Unit
+Axial, positive for compression | Nu | 0.0 | kN
+Shear | Vu | 25.0 | kN
+Limit checks
+Check | Unit | Value | Min. | Max. | Ok?
+Stirrup spacing along length | cm | 0.0 |  | 6.25 | ✅
+Stirrup spacing along width (Table 9.7.6.2.2) | cm | 0.0 |  | 12.5 | ✅
+Minimum shear reinforcement | cm²/m | 0.0 | 0.0 |  | ✅
+Minimum rebar diameter | mm | 0.0 | 0 |  | ✅
+Strength Checks
+Shear reinforcement strength | Variable | Value | Unit
+Stirrup diameter | db | 0 | mm
+Stirrup spacing along length | sl | 0 | cm
+Stirrup spacing along width | sw | 0.0 | cm
+Effective height | d | 12.5 | cm
+Minimum shear reinforcing | Av,min | 0.0 | cm²/m
+Required shear reinforcing | Av,req | 0.0 | cm²/m
+Defined shear reinforcing | Av | 0.0 | cm²/m
+Shear rebar strength | ØVs | 0.0 | kN
+Nominal shear the stirrups must carry (Vu/φ − Vc) | Vs,req | 0.0 | kN
+Threshold of Table 9.7.6.2.2 (0.33√f'c·bw·d) | Vs,lim | 206.2 | kN
+Vs,req ≤ Vs,lim → Table 9.7.6.2.2: d/2 along, d across |  |  | 
+Absolute cap of Table 9.7.6.2.2 in this row | s,cap | 40.0 | cm
+Shear strength | Variable | Value | Unit
+Effective shear area | Acv | 1250.0 | cm²
+Longitudinal reinforcement ratio | ρw | 0.00251 | 
+Size modification factor | λs | 1.0 | 
+Axial stress | σNu | 0.0 | MPa
+Concrete effective shear stress | kc | 0.45 | MPa
+Concrete strength | ØVc | 42.1 | kN
+Maximum shear strength | ØVmax | 351.4 | kN
+Total shear strength | ØVn | 42.1 | kN
+Max shear check |  | ✅ | 
+Demand Capacity Ratio | DCR | 0.59 | ✅
+Resistance and detailing
+Label | Resistance | Detailing (modelled checks)
+L1 | Pass (modelled checks) | Pass (modelled checks)
+L2 | Pass (modelled checks) | Pass (modelled checks)
+L3 | Pass (modelled checks) | Pass (modelled checks)
+Summary - All Slabs
+Slab Sections
+Label | b×h | cc | As,top | As,bot
+ | cm | mm |  | 
+L1 | 100×15 | 20 | - | Ø10/25
+L2 | 100×18 | 25 | Ø12/12 | Ø10/20
+L3 | 100×15 | 20 | - | Ø12/25
+Forces
+Label | Comb. | Nx | Vz | My
+ |  | kN | kN | kNm
+L1 | ELU 1 | 0 | 25 | 12
+L1 | ELU 2 | 0 | 15 | 6
+L2 | ELU 1 | 0 | 40 | -45
+L3 | ELU 1 | 0 | 30 | 18
+Nx > 0 is compression and enters the shear check only; My > 0 puts the bottom face in tension; Vz is taken in magnitude.
+Flexure Results
+Label | Comb. | Position | As,min | As,req top | As,req bot | As | Mu | ØMn | DCR
+ |  |  | cm² | cm² | cm² | cm² | kNm | kNm | 
+L1 | ELU 1 | Bottom | 2.7 | 0.0 | 2.7 | 3.14 | 12.0 | 14.5 | 0.83
+L1 | ELU 2 | Bottom | 2.7 | 0.0 | 2.7 | 3.14 | 6.0 | 14.5 | 0.41
+L2 | ELU 1 | Top | 3.24 | 8.47 | 0.0 | 9.42 | -45.0 | 49.8 | 0.9
+L3 | ELU 1 | Bottom | 2.7 | 0.0 | 3.97 | 4.52 | 18.0 | 20.4 | 0.88
+Shear Results
+Label | Comb. | Av,min | Av,req | Av | Vu | Nu | ØVc | ØVs | ØVn | ØVmax | DCR
+ |  | cm²/m | cm²/m | cm²/m | kN | kN | kN | kN | kN | kN | 
+L1 | ELU 1 | 0.0 | 0.0 | 0.0 | 25.0 | 0.0 | 42.1 | 0.0 | 42.1 | 351.4 | 0.59
+L1 | ELU 2 | 0.0 | 0.0 | 0.0 | 15.0 | 0.0 | 42.1 | 0.0 | 42.1 | 351.4 | 0.36
+L2 | ELU 1 | 0.0 | 0.0 | 0.0 | 40.0 | 0.0 | 68.2 | 0.0 | 68.2 | 437.0 | 0.59
+L3 | ELU 1 | 0.0 | 0.0 | 0.0 | 30.0 | 0.0 | 47.2 | 0.0 | 47.2 | 354.1 | 0.64
+Design Check Summary
+Slab | b×h | As,top | As,bot | Comb.,top | Mu,top | DCRb,top | Comb.,bot | Mu,bot | DCRb,bot | Comb.,v | Vu | Nu | DCRv | Warnings | Ok?
+ | cm |  |  |  | kNm |  |  | kNm |  |  | kN | kN |  |  | 
+L1 | 100×15 | - | Ø10/25 | - | - | 0.0 | ELU 1 | 12.0 | 0.83 | ELU 1 | 25.0 | 0.0 | 0.59 | - | ✅
+L2 | 100×18 | Ø12/12 | Ø10/20 | ELU 1 | -45.0 | 0.9 | - | - | 0.0 | ELU 1 | 40.0 | 0.0 | 0.59 | - | ✅
+L3 | 100×15 | - | Ø12/25 | - | - | 0.0 | ELU 1 | 18.0 | 0.88 | ELU 1 | 30.0 | 0.0 | 0.64 | - | ✅
+Warnings
+No section misses a detailing limit.

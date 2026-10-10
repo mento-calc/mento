@@ -3,11 +3,9 @@
 from dataclasses import replace
 from types import SimpleNamespace
 
-import pandas as pd
 import pytest
 
 from mento import cage_detailing as cage
-from mento.beam_summary import BeamSummary
 from mento.design_warnings import compression_detailing_warnings
 from mento.units import mm
 from mento.verification import verification_status
@@ -30,16 +28,6 @@ def test_unchecked_flexure_does_not_emit_a_compression_failure():
     b = beam()
     assert b.compression_detailing.reason == "flexure_not_checked"
     assert compression_detailing_warnings(b) == []
-
-
-def test_legacy_export_preserves_closed_count_as_twice_as_many_legs(tmp_path):
-    data = pd.DataFrame({"Label": ["V1"], "ns": [3]})
-    summary = SimpleNamespace(design_data=data, units_row=["", ""], beam_list=data, _ELEMENT_COLUMN="Beam")
-    path = tmp_path / "legacy.xlsx"
-    BeamSummary.export_design(summary, str(path))
-    exported = pd.read_excel(path)
-    assert "ns" not in exported and "n_legs" not in exported
-    assert exported["legs"].iloc[1] == 6
 
 
 def test_arrangement_describes_multiple_internal_closed_stirrups():

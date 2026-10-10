@@ -3,7 +3,6 @@
 import math
 from dataclasses import replace
 import matplotlib.pyplot as plt
-import pandas as pd
 import pytest
 from mento import Concrete_ACI_318_19, RectangularBeam, SteelBar, Forces, BeamSummary
 from mento.compression_detailing import check_compression_detailing
@@ -102,22 +101,19 @@ def test_invalid_input_is_atomic(legs):
 
 
 def test_odd_summary_excel_roundtrip(tmp_path):
-    data = pd.DataFrame(
-        [
-            ["", "", "cm", "cm", "mm", "kN", "kN", "kNm", "", "mm", "cm", "", "mm"],
-            ["V1", "C1", 80, 60, 30, 0, 80, 100, 7, 10, 15, 7, 20],
-        ],
-        columns=["Label", "Comb.", "b", "h", "cc", "Nx", "Vz", "My", "legs", "dbs", "sl", "n1", "db1"],
-    )
-    for i in (2, 3, 4):
-        data[f"n{i}"] = ["", 0]
-        data[f"db{i}"] = ["mm", 0]
+    from tests.reports.summary_data import beams, forces
+
     template = beam()
-    summary = BeamSummary(template.concrete, template.steel_bar, data)
-    summary.design_data = summary.data.copy()
+    summary = BeamSummary(
+        template.concrete,
+        template.steel_bar,
+        beams([{"Label": "V1", "n1_bot": 7, "db1_bot": 20}], b=80, h=60, cc=30, legs=7, dbs=10, sl=15),
+        forces([{"Label": "V1", "Comb.": "C1", "Vz": 80, "My": 100}]),
+    )
+    assert summary.sections_table.iloc[1]["legs"] == 7
     path = tmp_path / "mixta.xlsx"
-    summary.export_design(str(path))
-    summary.import_design(str(path))
+    summary.export_design(path)
+    summary.import_design(path)
     assert summary.nodes[0].section.reinforcement.transverse.n_legs == 7
 
 

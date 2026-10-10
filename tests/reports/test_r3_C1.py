@@ -3,6 +3,7 @@ import pytest
 from mento import Concrete_ACI_318_19, SteelBar, MPa, set_language
 from mento.beam_summary import BeamSummary
 from mento.results import DocumentBuilder
+from mento.summary_tables import split_single_table
 from mento.units import mm
 
 
@@ -32,17 +33,19 @@ def test_word_rechecks_real_forces_after_capacity_check(monkeypatch, invalid_mou
         }
     )
     summary = BeamSummary(
-        concrete=Concrete_ACI_318_19(name="C25", f_c=25 * MPa),
-        steel_bar=SteelBar(name="420", f_y=420 * MPa),
-        beam_list=data,
+        Concrete_ACI_318_19(name="C25", f_c=25 * MPa),
+        SteelBar(name="420", f_y=420 * MPa),
+        *split_single_table(data, "beam"),
     )
     if invalid_mounting:
         for node in summary.nodes:
             node.section.settings.minimum_longitudinal_diameter = 12 * mm
     summary.check()
     assert summary.nodes[1].section.verification_status["resistance"] == "failed"
+    # The capacity check zeroes the forces of a copy: the sections keep the
+    # results of their real forces, which the Word report reads.
     summary.check(capacity_check=True)
-    assert summary.nodes[1].section.verification_status["resistance"] == "passed"
+    assert summary.nodes[1].section.verification_status["resistance"] == "failed"
     docs = []
     monkeypatch.setattr(DocumentBuilder, "save", lambda self, *_: docs.append(self.doc))
     try:
