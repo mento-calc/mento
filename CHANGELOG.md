@@ -405,15 +405,17 @@ from the release history and are summaries rather than complete lists.
   add the skin bars. On a 150 cm beam with 22 bars a face, a second read of
   `verification_status` went from 0.85 s to 0.2 s; the first is unchanged. A change in
   the skin requirement (manual skin, service cases) runs it again.
-- **The cage detailing no longer parses `"mm"` on every conversion.** Its helpers converted
-  with `value.to("mm")`, and pint 0.25 parses the string on each call: 67 µs against 10 µs
-  with the unit object of `mento.units`, for the same number. The first read of
-  `beam.verification_status` on a wide cage (150 cm × 60 cm, 22 bars per face, 6 legs,
-  ACI 318-19) made 17,000 of those conversions and goes from 1.67 s to 0.61 s; a 12-leg
-  candidate of the support search, from 0.58 s to 0.16 s. The clash checks at the end of the
-  cage builder and the cover check of the crosstie hooks also convert the section's sides,
-  the stirrup's and `clear_spacing` once, not per bar or per point. The cage is the same,
-  bit for bit, over 2,448 sections of the three codes; the search and its 2 s budget are
+- **The cage detailing converts to millimetres through the unit object, and less often.**
+  Its helpers converted with `value.to("mm")`, a string that pint 0.25 parses on every
+  call: about 60 µs against 10 µs with the `mm` of `mento.units`, for the same number
+  (pint 0.26 no longer pays for it: 11 µs). The first read of `beam.verification_status`
+  on a wide cage (150 cm × 60 cm, 22 bars per face, 6 legs, ACI 318-19) made 17,000 of
+  those conversions. The clash checks at the end of the cage builder and the cover check of
+  the crosstie hooks also convert the section's sides, the stirrup's and `clear_spacing`
+  once, not per bar or per point. That read goes from 1.67 s to 0.61 s with pint 0.25.3
+  and from 0.83 s to 0.64 s with pint 0.26.1; a 12-leg candidate of the support search,
+  from 0.58 s and 0.25 s to 0.16 s. The cage is the same, bit for bit, over 2,448
+  sections of the three codes with either pint; the search and its 2 s budget are
   untouched.
 
 ### Migration notes — jaula mixta
