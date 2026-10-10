@@ -477,7 +477,7 @@ def _build_candidate(beam: RectangularBeam, geometry: SectionGeometry, *, includ
     clear_spacing = _mm(settings.clear_spacing)
     diameters = [_mm(bar.d_b) for bar in all_bars]
     # The centre of each stirrup and its half sides, less the bend.
-    extents = [
+    extents: list[tuple[Quantity, Quantity, float, float]] = [
         (
             (stirrup.x_left + stirrup.x_right) / 2,
             (stirrup.y_bottom + stirrup.y_top) / 2,
