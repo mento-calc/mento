@@ -419,8 +419,8 @@ Skin-steel requirements and geometry
 ----------------------------------------
 
 ``beam.skin_reinforcement`` is a ``SkinReinforcementRequirement``. Its status
-is ``required``, ``pending`` a flexure verification, a tension case or EN service inputs, ``not_required`` under
-the supported clause, ``unsupported`` by the code implementation, or
+is ``required`` where the code asks for skin, ``proposed`` where mento's criterion adds it,
+``pending`` a flexure verification or a tension case, ``not_required`` below 60 cm, ``unsupported`` by the code implementation, or
 ``not_applicable`` to the element. Unsupported never means exempt.
 It supplies the diameter preference, clear side cover, spacing limit, uniform
 proposed spacing, tension faces and number per lateral face. The proposal is

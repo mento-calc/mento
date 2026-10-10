@@ -391,14 +391,11 @@ class TestWarningReasonCoverage:
 
     def test_every_detailing_error_text_is_in_the_catalog(self) -> None:
         literals = {m.value for m in _detailing_error_messages() if isinstance(m, ast.Constant)}
-        assert len(literals) > 30, "the scan saw no errors"
+        assert len(literals) >= 30, "the scan saw no errors"
         assert sorted(s for s in literals if s not in ES) == []
 
     def test_every_built_detailing_error_text_is_in_the_catalog(self) -> None:
-        """An f-string is in the catalog as the texts it can produce, so one of its
-        entries has to fit it. The exception quotes the label the user gave a
-        service case, which no catalog can hold, and stays English."""
-        quotes_user_text = {"Skin service case {}: steel stress exceeds f_yk."}
+        """An f-string is in the catalog as the texts it can produce, so one of its entries has to fit it."""
         built = [m for m in _detailing_error_messages() if isinstance(m, ast.JoinedStr)]
         assert built, "the scan saw no f-strings"
         missing = []
@@ -406,7 +403,7 @@ class TestWarningReasonCoverage:
             parts = [v.value if isinstance(v, ast.Constant) else None for v in message.values]
             shape = "".join("{}" if part is None else part for part in parts)
             pattern = "".join(".+" if part is None else re.escape(part) for part in parts)
-            if shape not in quotes_user_text and not any(re.fullmatch(pattern, key) for key in ES):
+            if not any(re.fullmatch(pattern, key) for key in ES):
                 missing.append(shape)
         assert missing == []
 

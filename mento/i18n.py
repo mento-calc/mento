@@ -604,7 +604,6 @@ ES.update(
     {
         "mounting": "montaje",
         "{bars} per side (skin)": "{bars} por lateral (piel)",
-        "EN skin checked with mento's service assumptions (sigma_s = 0.6 f_yk, x = 0.4 h); give SkinServiceCase for the project's values.": "Piel EN verificada con los supuestos de servicio de mento (sigma_s = 0,6 f_yk, x = 0,4 h); cargá SkinServiceCase con los valores del proyecto.",
         "Steel: {ratio}": "Cuantía: {ratio}",
         "Orange: mounting steel · excluded from resistance": "Montaje en naranja · sin aporte resistente",
         "Calculation model only · cage detailing not feasible": "Solo modelo de cálculo · jaula no detallable",
@@ -639,7 +638,7 @@ ES.update(
         "Review skin ({face}): {rows} rows · max interval {gap}": "Revisar piel ({face}): {rows} filas · intervalo máx. {gap}",
         "Informative review · crack width is not calculated": "Aviso informativo · no se calcula el ancho de fisura",
         "Skin not checked · unsupported design case": "Piel no comprobada · caso de diseño no implementado",
-        "Review skin-steel distribution, worst of {cases} service cases: {rows} rows per side in that zone, largest vertical interval {gap}, including zone boundaries. This is informative, not an additional code spacing limit; the diameter-route proposal does not verify crack width directly.": "Revisar la distribución de piel, peor de {cases} casos de servicio: {rows} filas por lateral en esa zona, mayor intervalo vertical {gap}, incluyendo los bordes de la zona. Es informativo, no un límite normativo adicional de separación; la propuesta por diámetro no comprueba directamente el ancho de fisura.",
+        "Review skin-steel distribution: {rows} rows per side in the tension zone, largest vertical interval {gap}, including zone boundaries. This is informative, not an additional code spacing limit; the diameter-route proposal does not verify crack width directly.": "Revisar la distribución de piel: {rows} filas por lateral en la zona traccionada, mayor intervalo vertical {gap}, incluyendo los bordes de la zona. Es informativo, no un límite normativo adicional de separación; la propuesta por diámetro no comprueba directamente el ancho de fisura.",
         "EN surface reinforcement outside the links requires separate review: Annex J covers bars >32 mm, equivalent bundles >32 mm (bundles are not modelled; check separately), or cover >70 mm. Section 8.8(8) specifies 0.01*A_ct,ext perpendicular and 0.02*A_ct,ext parallel to large bars. Longitudinal skin bars do not replace this mesh.": "La armadura superficial EN fuera de los estribos requiere revisión aparte: Anexo J para barras >32 mm, paquetes equivalentes >32 mm (mento no modela paquetes; revisarlos aparte) o recubrimiento >70 mm. El §8.8(8) especifica 0,01*A_ct,ext perpendicular y 0,02*A_ct,ext paralela a barras grandes. La piel longitudinal no sustituye esa malla.",
     }
 )
@@ -843,7 +842,6 @@ ES.update(
         "The skin cannot reach the minimum area of EN 1992-1-1 §7.3.3(3) in the web.": "La piel no alcanza el área mínima de EN 1992-1-1 §7.3.3(3) en el alma.",
         "EN skin reinforcement needs an outer tension layer.": "La armadura de piel EN necesita una capa exterior traccionada.",
         "The service neutral axis must lie above the tension layer toward compression.": "El eje neutro de servicio debe quedar más allá de la capa traccionada, hacia la compresión.",
-        "SkinServiceCase.neutral_axis must be inside the section, measured from compression.": "SkinServiceCase.neutral_axis debe quedar dentro de la sección, medido desde la cara comprimida.",
         "skin_bar_diameter must be a length quantity.": "skin_bar_diameter debe ser una longitud.",
         "skin_bar_diameter must be finite and positive.": "skin_bar_diameter debe ser finito y positivo.",
         "skin_bar_diameter must be finite, positive and meet minimum_longitudinal_diameter.": "skin_bar_diameter debe ser finito, positivo y no menor que minimum_longitudinal_diameter.",
@@ -857,7 +855,7 @@ ES.update(
 )
 
 
-# Singular del aviso global; conserva las etiquetas, sin atribuir una cara.
+# The manual skin: the notice of what it misses and its reasons.
 ES.update(
     {
         "Skin layout is not verified: the detailing geometry does not contain the specified skin bars.": "La piel no está verificada: la geometría de detallado no contiene las barras de piel especificadas.",
@@ -872,10 +870,5 @@ ES.update(
         "The supplied skin area is insufficient in the bottom tension zone.": "El área de piel es insuficiente en la zona inferior traccionada.",
         "The supplied skin area per lateral face is insufficient.": "El área de piel por cara lateral es insuficiente.",
         "The supplied skin area is insufficient in the top tension zone.": "El área de piel es insuficiente en la zona superior traccionada.",
-    }
-)
-ES.update(
-    {
-        "Review skin-steel distribution, worst of {cases} service case: {rows} rows per side in that zone, largest vertical interval {gap}, including zone boundaries. This is informative, not an additional code spacing limit; the diameter-route proposal does not verify crack width directly.": "Revisar la distribución de piel, peor de {cases} caso de servicio: {rows} filas por lateral en esa zona, mayor intervalo vertical {gap}, incluyendo los bordes de la zona. Es informativo, no un límite normativo adicional de separación; la propuesta por diámetro no comprueba directamente el ancho de fisura.",
     }
 )

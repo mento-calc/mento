@@ -56,7 +56,17 @@ You can define the longitudinal and transverse reinforcement for the beam using 
     - Skin rebar is not considered for the check or design of the beam.
 
 **Transverse reinforcement**
-This is set indicating amount of stirrups, the diameter of the stirrups and the spacing of the stirrups along the beam.
+This is set indicating the number of legs across the shear plane, the diameter of the stirrups and their
+spacing along the beam. One closed stirrup is two legs:
+
+.. code-block:: python
+
+    beam.set_transverse_rebar(n_legs=2, d_b=10*mm, s_l=20*cm)   # 1 stirrup
+    beam.set_transverse_rebar(n_legs=4, d_b=8*mm, s_l=20*cm)    # 1 stirrup + 2 legs
+
+Any whole number of legs from two is accepted, odd counts included; a single leg is an error.
+``n_stirrups=2``, the older keyword, still means four legs. Zero legs with zero diameter and spacing
+removes the stirrups. See `Stirrup cages with more than two legs`_ for how the legs are tied.
 
 **Longitudinal reinforcement**
 This is set indicating rebar for two layers, differentiating between border bars and inner bars.
@@ -114,17 +124,6 @@ When you run `node.results`, the output includes:
 - **Design capacity ratios (DCR)**.
 - **Warnings** (if any).
 
-Transverse reinforcement can be entered directly as an integer number of legs (at least two):
-
-.. code-block:: python
-
-    beam.set_transverse_rebar(n_legs=4, d_b=8*mm, s_l=20*cm)
-
-Legacy ``n_stirrups=2`` still means four legs, including positional calls.
-If both counts are provided they must satisfy ``n_legs = 2*n_stirrups``;
-conflicting, fractional, negative or odd leg counts raise an error. Zero
-legs with zero diameter and spacing clears the reinforcement.
-
 The output is formatted using LaTeX math notation for clarity and precision.
 
 
@@ -143,7 +142,7 @@ combinations, :math:`M_u = -80 \, \textsf{kNm}` with :math:`V_u = 80 \, \textsf{
 
     \textsf{Bottom longitudinal rebar: } 2\phi16 + 1\phi12 ++ 2\phi12 + 1\phi10, \, A_{s,\text{bot}} = 8.2 \, \textsf{cm}^2, \, M_u = 90 \, \textsf{kNm}, \, \phi M_n = 155.7 \, \textsf{kNm} \rightarrow \textsf{DCR} = 0.58
 
-    \textsf{Shear reinforcing: 2 legs } \phi10 \, \textsf{mm @ 20 cm} \cdot \textsf{14 cm between legs (max 54.29 cm)}, \, A_v = 7.85 \, \textsf{cm}^2/\textsf{m}, \, V_u = 80 \, \textsf{kN}, \, \phi V_n = 203.52 \, \textsf{kN} \rightarrow \textsf{DCR} = 0.39
+    \textsf{Shear reinforcing: 1 stirrup } \phi10 \, \textsf{mm @ 20 cm} \cdot \textsf{14 cm between legs (max 54.29 cm)}, \, A_v = 7.85 \, \textsf{cm}^2/\textsf{m}, \, V_u = 80 \, \textsf{kN}, \, \phi V_n = 203.52 \, \textsf{kN} \rightarrow \textsf{DCR} = 0.39
 
 
 Interpreting the Output
@@ -199,149 +198,73 @@ The first line provides the beam's geometry and material properties:
 See the `Node` section for more information on how to display and save detailed results of the analysis.
 
 8. Plot section
-*******************
+***************
 
-You can use the method `plot()` to visualize the beam's cross-section and reinforcement layout.
-
-.. code-block:: python
-
-  # Plot the beam section
-  beam.plot()
-
-The `plot()` method generates a graphical representation of the beam, including its geometry and reinforcement details.
-This can be useful for verifying the input data and for presentation purposes.
-
-The drawing reads ``beam.detailing_geometry`` (see :ref:`user_guide/design_results`):
-every stirrup of the cage at the legs the shear check spreads across the width, the
-legs between the perimeter stirrup drawn as ACI crossties -- a 90° leg around the bottom
-bar and a 135° hook around the top one -- and the longitudinal bars, resistant and
-mounting alike in dark gray. On the right of the section: the label of each layer, the
-skin per side when there is skin, and the stirrups as the section carries them
-(``1 stirrup Ø10 mm @ 22 cm``; ``1 stirrup + 2 legs`` for four legs). Under it, one line: the steel ratio of the section,
-in kg/m³ (lb/yd³ in US customary units) -- the longitudinal bars by their area and the
-stirrups by the length of each piece over their spacing. The words follow
-``mento.set_language``. The limits of the drawing are widened until every text fits,
-labels that would print over one another are moved apart, and the figure is cropped to
-the drawing.
-
-Where the bars of a face do not support every corner of the cage, mounting bars fill
-them, labelled ``(mounting)``. Their diameter is ``settings.mounting_bar_diameter``
-(8 mm or No. 3 by default). These bars are not credited in the calculated resistance.
-
-A design holds a bar at every stirrup leg: the first layer of each face a combination
-puts in tension carries at least as many bars as the section has legs, and the design
-takes more, smaller bars when it needs to. A face only ever in compression is held by
-mounting bars where it has none.
-
-The supported layout preserves the calculated bar counts and diameters. The bars at the
-corners of a closed stirrup are drawn seated in its bend, a few millimetres deeper in than
-the effective depth assumes, and the layer behind them follows; the other bars keep their
-calculated depth. The entered shear legs are a minimum; required compression
-support can add crossties with modelled hooks to the detailing geometry. The plot shows
-the actual count and spacing without crediting that extra steel in resistance. It checks clear spacing, the existing code's
-centre-distance cap, and intersections with the branches and rounded bends. If no
-supported layout is found, ``detailing_geometry`` raises ``CageDetailingError`` and
-``plot()`` draws the calculation model. Nothing pending is written on the drawing and the
-drawing warns nothing: that, and every other check of the cage and the skin, is read in
-``beam.warnings`` (``cage_detailing_infeasible``, ``skin_en_service_assumed``, ...).
-A narrow stirrup is not presented as a valid hairpin by squeezing its bends.
-Its rejected stirrups are omitted from the fallback drawing. Invalid mounting
-diameter preferences raise ``ValueError`` rather than being presented as a
-physically infeasible cage.
-
-The inside bend diameter comes from the code: ACI/CIRSOC Table 25.3.2 uses
-four bar diameters through 16 mm (No. 5 in US customary units), then six
-through 25 mm (No. 8); larger transverse bars are not supported by this
-table. EN Table 8.1N uses its recommended values of four diameters through
-16 mm and seven above. Using four diameters for CIRSOC 6/8 mm stirrups is
-a Mento extrapolation, since its bend table starts at 10 mm. These mandrel
-sizes do not verify concrete failure at bends (EN Eq. 8.1), hooks or anchorage.
-
-The tension-bar spacing limit is applied only to faces put in tension by the
-verified load combinations. If flexure has not been checked, the drawing checks
-physical fit and labels tension-bar spacing as pending; it does not infer tension
-on both faces. ``Node.check_flexure()`` / ``Node.check()`` already report excessive
-spacing on the tension face of each combination, and the detailing layout also
-checks the moved resistant bars. Mounting bars cannot satisfy that limit in place
-of resistant steel. For a single resistant bar, the face width is checked against
-the available limit.
-
-This is a cross-section layout, rather than a complete bending schedule: development
-lengths, hook details and seismic detailing are not added by this operation. The
-original, uniformly spaced calculation geometry remains ``beam.section_geometry``.
-
-For example, a 50 x 60 cm beam with seven bottom bars, three top bars and four
-stirrup legs receives one supplementary upper mounting bar. The default Ø10
-mounting bar is shown separately from the three Ø16 resistant bars. Positive
-and negative moments verify both tension faces:
+``beam.plot()`` draws the cross-section with the reinforcement the section carries:
 
 .. code-block:: python
 
-    from mento import (
-        Concrete_CIRSOC_201_25, RectangularBeam, SteelBar, Forces, Node,
-        MPa, cm, mm, kN, kNm,
-    )
+    beam.plot()
 
-    beam = RectangularBeam(
-        label="7 bottom + 3 top / 4 legs",
-        concrete=Concrete_CIRSOC_201_25(name="H25", f_c=25*MPa),
-        steel_bar=SteelBar(name="ADN420", f_y=420*MPa),
-        width=50*cm, height=60*cm, c_c=30*mm,
-    )
+.. image:: ../_static/beam/beam_plot.png
+   :alt: The 20 x 60 cm beam of this page: 2Ø16 on top, two bottom layers, one Ø8 skin bar per side and one Ø10 stirrup every 20 cm.
+   :width: 350px
+   :align: center
+
+- **On the right**: the bars of each layer, the skin per side where there is skin, and the
+  stirrups (``1 stirrup Ø10 mm @ 20 cm``).
+- **Below**: the steel ratio of the section, in kg/m³ (lb/yd³ in US customary units).
+- **Bars and stirrups** are drawn where the detailing puts them, ``beam.detailing_geometry``
+  (see :ref:`user_guide/design_results`): the corner bars seated in the bends of the stirrup,
+  the legs between its two as crossties.
+- **Language and units**: the words follow ``mento.set_language``; a US customary section is
+  drawn in inches, with ASTM bar sizes.
+
+Where the bars of a face do not reach every corner of the cage, mounting bars fill them,
+labelled ``(mounting)``. Their diameter is ``settings.mounting_bar_diameter`` (8 mm / No. 3 by
+default) and they are not credited to the resistance. A 50 x 60 cm beam with seven bottom
+bars, three top bars and four legs gets one:
+
+.. code-block:: python
+
+    beam = RectangularBeam(label="B2", concrete=concrete, steel_bar=steel, width=50*cm, height=60*cm, c_c=30*mm)
     beam.set_longitudinal_rebar_bot(n1=7, d_b1=20*mm)
     beam.set_longitudinal_rebar_top(n1=3, d_b1=16*mm)
-    beam.set_transverse_rebar(n_stirrups=2, d_b=8*mm, s_l=20*cm)
+    beam.set_transverse_rebar(n_legs=4, d_b=8*mm, s_l=20*cm)
     Node(section=beam, forces=[
         Forces(label="Positive", M_y=100*kNm, V_z=100*kN),
         Forces(label="Negative", M_y=-80*kNm, V_z=100*kN),
     ]).check()
     beam.plot()
-    # Optional preference before producing a new drawing:
-    # beam.settings.mounting_bar_diameter = 8*mm
 
 .. image:: /_static/beam_detailing_7_3_4.png
-   :alt: Seven Ø20 lower bars, three Ø16 upper bars, one orange Ø10 mounting bar and four stirrup legs.
+   :alt: Seven Ø20 bottom bars, three Ø16 top bars with one Ø8 mounting bar, one Ø10 skin bar per side, a perimeter stirrup and two inner legs.
+   :width: 450px
+   :align: center
 
-
-On a US customary section the dimensions and the stirrup text are in inches and the
-bar labels use ASTM sizes (for example ``3#6`` and ``2#3 (mounting)``).
+The drawing is a cross-section, not a bending schedule: anchorage, hooks and seismic
+detailing are not checked. If the bars and stirrups cannot be laid out -- a stirrup too
+narrow for its bends, bars that do not fit -- ``plot()`` draws the section as the calculation
+assumes it, and ``beam.warnings`` says why (``cage_detailing_infeasible``).
 
 Longitudinal skin reinforcement
 *******************************
 
 Every beam 60 cm (24 in.) deep or more gets skin bars on both side faces, spread over the
-whole height between the bottom and top layers, so the same bars serve the span and the
-supports of a continuous beam. They are laid out by mento's criterion, the same under every
-code:
+height between the bottom and top layers. mento lays them out with one criterion, the same
+under every code:
 
-- **How many per side**: as many as keep them at most the code's spacing apart -- ACI
-  318-19 / CIRSOC 201-25 §24.3.2 with the side cover (about 28 cm with ADN 420), 28 cm
-  under EN 1992-1-1 (``BeamSettings.skin_bar_spacing``).
-- **Which diameter**, below 1 m: Ø8 up to a 40 cm web, Ø10 for wider webs (No. 3 / No. 4).
-- **Which diameter**, from 1 m: the smallest that gives, in the tension zone, the minimum
-  area of EN 1992-1-1 §7.3.3(3) -- under every code -- with more bars if no diameter does.
-
-What it gives for C30/37 and B500 (bars per side, diameter, spacing in cm):
-
-.. csv-table::
-   :header: "h \\ b", "20", "30", "40", "50", "60", "100"
-
-   "< 60", "--", "--", "--", "--", "--", "--"
-   "60", "1Ø8 /25", "1Ø8 /25", "1Ø8 /25", "1Ø10 /25", "1Ø10 /25", "1Ø10 /25"
-   "70", "2Ø8 /20", "2Ø8 /20", "2Ø8 /20", "2Ø10 /20", "2Ø10 /20", "2Ø10 /20"
-   "80", "2Ø8 /23", "2Ø8 /23", "2Ø8 /23", "2Ø10 /23", "2Ø10 /23", "2Ø10 /23"
-   "90", "2Ø8 /27", "2Ø8 /27", "2Ø8 /27", "2Ø10 /27", "2Ø10 /27", "2Ø10 /27"
-   "100", "3Ø8 /23", "3Ø8 /23", "3Ø10 /23", "3Ø10 /23", "3Ø12 /23", "3Ø16 /23"
-   "120", "3Ø8 /28", "3Ø10 /28", "3Ø10 /28", "3Ø12 /28", "3Ø12 /28", "3Ø16 /28"
-   "150", "5Ø8 /23", "5Ø8 /23", "5Ø10 /23", "5Ø10 /23", "5Ø12 /23", "5Ø16 /23"
-
-The spacing follows the actual layers and cover of each beam, and under ACI / CIRSOC the
-area from 1 m is read with the beam's own f_y, so ADN 420 can take a size more than this
-table. The reasoning behind each rule is in :doc:`../theory/beam_aci_318_19` and
-:doc:`../theory/beam_en_1992_2004`.
+- **Bars per side**: as many as keep them at most the code's spacing apart -- ACI 318-19 /
+  CIRSOC 201-25 §24.3.2 with the side cover (about 28 cm with ADN 420), 28 cm under
+  EN 1992-1-1 (``BeamSettings.skin_bar_spacing``).
+- **Diameter below 1 m**: Ø8 up to a 40 cm web, Ø10 for wider webs (No. 3 / No. 4).
+- **Diameter from 1 m**: the smallest that gives, in the tension zone, the minimum area of
+  EN 1992-1-1 §7.3.3(3), with more bars if no diameter does.
 
 .. image:: /_static/beam_skin.png
-   :alt: CIRSOC 30x120 beam under +700 / -500 kN·m with three Ø10 skin bars per side over the whole height.
+   :alt: CIRSOC 30 x 120 cm beam designed for +700 / -500 kN·m, with three Ø10 skin bars per side over the whole height.
+   :width: 300px
+   :align: center
 
 Read it after a check or a design:
 
@@ -351,80 +274,49 @@ Read it after a check or a design:
     skin = beam.skin_reinforcement
     skin.status        # "required" where the code asks for skin, "proposed" where mento adds it
     skin.n_per_side, skin.d_b, skin.spacing
-    beam.detailing_geometry.skin_bars   # the bars, as drawn by beam.plot()
 
-``required`` is where the code itself requires skin (ACI / CIRSOC above 90 cm, EN from
-1 m); ``proposed`` is mento's criterion below that. Skin is never credited to the
-moment or shear capacity. ``BeamSettings.skin_bar_diameter`` (8 mm / No. 3) is the smallest
-diameter the criterion uses. A beam with no flexure check yet reports ``pending``.
+``required`` is where the code itself asks for skin (ACI / CIRSOC above 90 cm, EN from 1 m);
+``proposed`` is mento's criterion below that. Skin is never credited to the moment or shear
+capacity. The reasoning behind each rule, and a table of what it gives, is in
+:doc:`../theory/beam_aci_318_19` and :doc:`../theory/beam_en_1992_2004`.
 
-**Manual skin.** To place your own instead, symmetric on both sides:
+**Manual skin.** To place your own instead, the same on both sides:
 
 .. code-block:: python
 
-    beam.set_skin_rebar(db_piel=10*mm, cant_piel_cara=3, posicion="total")
+    beam.set_skin_rebar(d_b=10*mm, n_per_side=3, position="total")
     beam.skin_verification_status    # "passed", "failed" or "pending"
-    beam.clear_skin_rebar()          # back to the criterion
+    beam.clear_skin_rebar()          # back to mento's criterion
 
-``cant_piel_cara`` counts bars per side. ``"total"`` spreads them over the whole height,
-``"bottom"`` / ``"top"`` over the half next to that face. mento keeps the count you give
-and checks it -- spacing, area, fit in the cage -- and reports what it misses in
-``beam.warnings``. ``BeamSummary`` reads the same three optional columns, ``db_piel``,
-``cant_piel_cara`` and ``posicion``.
+``position`` is ``"total"`` for the whole height, ``"bottom"`` or ``"top"`` for the half
+next to that face. mento keeps the count you give, checks it and reports what it misses in
+``beam.warnings``. ``BeamSummary`` reads the same from three optional columns, ``db_skin``,
+``n_skin`` and ``pos_skin``.
 
-**EN service data.** From 1 m, EN also caps the skin diameter from the service steel
-stress, and the tension zone ends at the service neutral axis. Without your values mento
-assumes σ_s = 0.6 f_yk and x = 0.4 h, and says so with the warning ``skin_en_service_assumed``.
-To use the project's values, after the design:
+Not covered: torsion, imposed deformations, the EN Annex J surface mesh, anchorage and
+splices of the skin bars.
 
-.. code-block:: python
+Stirrup cages with more than two legs
+*************************************
 
-    from mento import SkinServiceCase
-    beam.set_skin_service_cases([SkinServiceCase("SLS", "bottom", 250*MPa, 39*cm)])
+The cage is one closed perimeter stirrup and the remaining legs as single pieces between
+its two, which is how the notation writes it: ``n_legs=7`` reads
+``1 stirrup + 5 legs Ø10 mm @ 15 cm``.
 
-Not covered: torsion, imposed deformations, the EN Annex J surface mesh (warned when bars
-exceed Ø32 or the cover 70 mm), anchorage and splices of the skin bars.
+- **A bar at every leg.** A design gives the face in tension at least as many bars as the
+  section has legs, taking more, smaller bars when it has to.
+- **Compression bars.** Where a face relies on compression steel (ACI 318-19 / CIRSOC
+  201-25 §9.7.6.4.4), the detailing turns inner legs into 135°/90° crossties that hold those
+  bars. If the legs you entered are not enough it proposes more and says so in
+  ``beam.warnings``; the extra legs are drawn but never added to :math:`A_v`.
+- **What is checked.** Covers, clear spacings and clashes between bars, stirrups and
+  crossties, with the bend diameters of ACI / CIRSOC Table 25.3.2 or EN Table 8.1N (four
+  diameters for CIRSOC Ø6 and Ø8 stirrups, which its table does not reach). When no layout
+  is found the result stays failed or pending; nothing passes by default.
+- **What is not.** Anchorage, the hooks of plain legs, splices, seismic detailing, and the
+  alternation of crosstie ends along the beam that §25.3.5 asks for (each crosstie carries
+  it as ``alternate_hooks``). Under EN the support of compression bars is not verified.
 
-Jaula mixta: cerrados y patas abiertas
---------------------------------------
-
-``beam.set_transverse_rebar(legs=7, d_b=10*mm, s_l=15*cm)`` admite
-cantidades pares e impares. Una rama sola se rechaza: no puede formar el
-estribo perimetral de dos ramas que encierra toda la sección.
-
-La geometría de cálculo presenta un perimetral y las restantes patas abiertas.
-El detallador conserva un solo estribo cerrado perimetral y propone trabas
-interiores de 135°/90° para sujetar las barras requeridas por compresión. Cada
-extremo debe abrazar una barra periférica real (resistente o de montaje). Los
-ángulos solos y las patas sin ganchos modelados no reciben crédito de sujeción. Si las
-ramas de corte ingresadas no alcanzan, el detalle puede disponer más ramas y
-el dibujo distingue la cantidad ingresada de la realmente dispuesta. Esto no
-modifica ni acredita acero adicional en el cálculo de resistencia.
-
-La búsqueda conserva los diámetros y alturas de las barras resistentes, y
-comprueba montaje, separaciones e intersecciones de las piezas. Busca el menor
-número de ramas adicionales dentro de las disposiciones modeladas; no certifica
-un óptimo global. La cota física de cabida y un presupuesto de dos segundos
-limitan la expansión lineal de candidatos. Si no encuentra una solución verificable, el resultado conserva
-su falla o pendiente; no se declara cumplimiento por agotar la búsqueda.
-
-Las trabas ACI/CIRSOC tienen mandril y cola de la Tabla 25.3.2; se verifican
-recubrimiento e intersecciones para los dos órdenes 135°/90° y 90°/135°. El
-§25.3.5 exige alternar los extremos de 90° en piezas sucesivas a lo largo de
-la viga: cada traba lo lleva en ``alternate_hooks`` de la geometría de
-detallado, sin aviso propio y sin verificar la ejecución longitudinal. Este
-detalle no constituye una comprobación sísmica. Los tamaños
-fuera de la tabla modelada conservan la sujeción pendiente.
-
-EN mantiene su verificación de sujeción comprimida pendiente; las segundas
-capas comprimidas conservan su alcance previo. El tramo de una pata abierta
-se dibuja sin inventar ganchos: estos datos seccionales no verifican anclajes,
-empalmes ni detallado sísmico. Piel y montaje siguen sin crédito resistente.
-
-``n_stirrups`` conserva la entrada histórica: cada unidad equivale a dos ramas.
-En las vistas compatibles ese campo puede ser semientero para una entrada
-impar; no representa una cantidad de piezas cerradas. Usar ``n_legs`` en las
-vistas y ``geometry.stirrups``/``geometry.crossties`` para las piezas reales.
-Las columnas nuevas usan ``legs``; para una entrada impar no combinarla con
-la columna histórica ``ns``. El archivo editable conserva una sola cantidad
-canónica para evitar un supuesto medio estribo en la entrada antigua.
+``n_stirrups`` is a two-leg equivalent kept for older code, not a count of closed pieces:
+read ``n_legs`` for the count, and ``beam.detailing_geometry.stirrups`` and ``.crossties``
+for the pieces.

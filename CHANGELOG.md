@@ -74,9 +74,9 @@ from the release history and are summaries rather than complete lists.
   separate from strength steel and mounting bars. Unsupported and pending
   cases are explicit, and infeasible detailing carries its cause.
 
-- `SkinServiceCase` inputs belong to each section, keep stress and neutral
-  axis paired for each SLS case and are invalidated by reinforcement edits.
-  EN checks minimum area in every applicable service zone. Its conservative
+- EN checks the minimum skin area in the tension zone of each face, with the service
+  steel stress and neutral axis mento assumes (σ_s = 0.6 f_yk, x = 0.4 h): they are
+  not inputs. Its conservative
   diameter interpretation is documented as a Mento project rule for review;
   sparse rows remain allowed with distribution warnings, not a w_k certificate.
   Annex J surface mesh is independently flagged and remains outside this proposal.
@@ -154,11 +154,9 @@ from the release history and are summaries rather than complete lists.
   to a 40 cm web and Ø10 above; from 1 m it is the smallest that gives, in the tension zone,
   the minimum area of EN §7.3.3(3), under every code, and under EN within the Table 7.2N
   cap. The status is `required` where the code requires skin and the new `proposed` below
-  that. EN no longer leaves skin pending without service data: it assumes
-  σ_s = 0.6 f_yk and x = 0.4 h for each face in tension that has no `SkinServiceCase`, and
-  says so (`skin_en_service_assumed`, which replaces `skin_en_service_pending`). Every
-  service case of a face is checked, each with its own zone and stress, not only the
-  first. `skin_bar_diameter` defaults to 8 mm and is the smallest diameter used. The skin
+  that. EN reads the Table 7.2N cap and the tension zone with σ_s = 0.6 f_yk and
+  x = 0.4 h, which mento assumes for every beam: there is no input for service data and
+  no warning about it. `skin_bar_diameter` defaults to 8 mm and is the smallest diameter used. The skin
   bars are drawn in dark gray, like the other bars. A CIRSOC 30x120 under +700 / -500 kN·m
   takes three Ø10 per side over the whole height.
 
@@ -168,7 +166,7 @@ from the release history and are summaries rather than complete lists.
   between legs, the arrangement of the cage and every caption about pending or failed
   checks are gone from the figure, and `plot()` no longer warns: those are read in
   `beam.warnings`, which already carried them (`cage_detailing_infeasible`,
-  `skin_en_service_pending`, ...). Legs between the perimeter stirrup are drawn as ACI
+  `skin_detailing_infeasible`, ...). Legs between the perimeter stirrup are drawn as ACI
   crossties, two lines with a 90° leg around the bottom bar and a 135° hook around the
   top one; mounting bars are drawn and labelled like the other bars, in dark gray, and
   fill any face of the cage that has no bars even when the drawing falls back to the
@@ -382,11 +380,14 @@ from the release history and are summaries rather than complete lists.
   compression-support warnings quote the text of the `CageDetailingError` that stopped the
   detailing, and under `set_language("es")` that text stayed English: "La jaula principal no
   puede detallarse: The stirrup is too narrow for its required bends." Every such text is
-  now in the Spanish catalog; `str()` of the error itself stays English. The one left in
-  English quotes the label the user gave a `SkinServiceCase`.
+  now in the Spanish catalog; `str()` of the error itself stays English.
 - **`skin_reinforcement_required` no longer names `detailing_geometry`.** A message is read
   by whoever reads the report, who has no `beam` to look into. It now ends "It is
   supplementary steel, excluded from resistance."
+- **The example notebooks of the documentation show their results again.** The eight
+  rectangular-beam notebooks had been left without outputs; all 21 are executed with this
+  release. The beams guide is in English throughout and shorter in its plot, skin and
+  stirrup-cage sections, with its figures and the README section redrawn.
 - **Open legs and crossties raise no warning of their own.** The informative
   `open_leg_anchorage_outside_model` came with every cage that has a leg without modelled
   hooks, which is the usual cage of more than two legs, and `crosstie_alternation_required`
@@ -559,17 +560,19 @@ What else changes for a program:
 - `export_design()` no longer requires `design()` first: it writes the two sheets of the
   summary as it stands.
 
-### Piel seccional: entrada manual y estado
+### Manual skin and its status
 
-- `set_skin_rebar(db_piel, cant_piel_cara, posicion)` define piel simétrica por
-  lateral en la zona `top`, `bottom` o `total`, respetando la cantidad ingresada.
-  Las tres columnas opcionales de BeamSummary se conservan en Excel.
-- `skin_verification_status` comprueba la piel diseñada o ingresada con los
-  criterios seccionales implementados. Necesitar piel deja de significar
-  «No cumple»: la propuesta válida cumple; datos faltantes o casos no soportados
-  quedan pendientes; incumplimientos concretos fallan. Piel sin crédito resistente.
-- Anclajes, empalmes y detalles longitudinales mantienen el alcance general
-  del programa; no agregan un pendiente automático a la verificación seccional.
+- `set_skin_rebar(d_b, n_per_side, position)` gives the skin by hand, the same on both
+  side faces: `n_per_side` bars of `d_b`, over the whole height (`"total"`) or in the
+  half next to one face (`"bottom"` / `"top"`). The count is kept as given.
+  `BeamSummary` reads it from three optional columns, `db_skin`, `n_skin` and
+  `pos_skin`, which the Excel export keeps.
+- `skin_verification_status` checks the skin, proposed or given by hand, against the
+  sectional criteria: a valid proposal passes, missing data or an unsupported case is
+  pending, a concrete miss fails. Needing skin is not a failure. Skin is never credited
+  to the resistance.
+- Anchorage, splices and longitudinal details keep the general scope of the program;
+  they add no pending item of their own to the sectional verification.
 
 ## [1.5.0] - 2026-10-05
 

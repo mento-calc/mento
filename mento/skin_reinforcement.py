@@ -39,33 +39,32 @@ if TYPE_CHECKING:
 @dataclass(frozen=True)
 class SkinDistributionReview:
     tension_face: str
-    combination: str
     rows_per_side: int
     maximum_interval: Quantity
 
 
 @dataclass(frozen=True)
 class ManualSkinRebar:
-    """Cantidad por cada lateral; posición referida a la altura del alma."""
+    """Skin bars given by hand: ``n_per_side`` bars of ``d_b`` on each side face.
 
-    db_piel: Quantity
-    cant_piel_cara: int
-    posicion: Literal["top", "bottom", "total"]
+    ``position`` is where they go over the height: ``"total"`` between the
+    bottom and top layers, ``"bottom"`` or ``"top"`` in the half next to that face.
+    """
+
+    d_b: Quantity
+    n_per_side: int
+    position: Literal["top", "bottom", "total"]
 
     def __post_init__(self) -> None:
-        if not isinstance(self.db_piel, Quantity) or not self.db_piel.check("[length]"):
-            raise ValueError("db_piel must be a length quantity.")
-        diameter = float(self.db_piel.to(mm).magnitude)
+        if not isinstance(self.d_b, Quantity) or not self.d_b.check("[length]"):
+            raise ValueError("d_b must be a length quantity.")
+        diameter = float(self.d_b.to(mm).magnitude)
         if not math.isfinite(diameter) or diameter <= 0:
-            raise ValueError("db_piel must be finite and positive.")
-        if (
-            isinstance(self.cant_piel_cara, bool)
-            or not isinstance(self.cant_piel_cara, Integral)
-            or self.cant_piel_cara < 0
-        ):
-            raise ValueError("cant_piel_cara must be a non-negative integer.")
-        if self.posicion not in ("top", "bottom", "total"):
-            raise ValueError("posicion must be top, bottom or total.")
+            raise ValueError("d_b must be finite and positive.")
+        if isinstance(self.n_per_side, bool) or not isinstance(self.n_per_side, Integral) or self.n_per_side < 0:
+            raise ValueError("n_per_side must be a non-negative integer.")
+        if self.position not in ("top", "bottom", "total"):
+            raise ValueError("position must be top, bottom or total.")
 
 
 @dataclass(frozen=True)
@@ -73,7 +72,6 @@ class SkinCheckZone:
     tension_face: str
     lower: Quantity
     upper: Quantity
-    combination: str = ""
 
 
 @dataclass(frozen=True)
@@ -131,7 +129,7 @@ def skin_requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
 #: Depth from which mento lays out skin, and from which its diameter follows the EN minimum area.
 SKIN_FROM = 600 * mm
 ENVELOPE_FROM = 1000 * mm
-#: Neutral axis depth over h assumed for the tension zone, when no service case gives it.
+#: Neutral axis depth over h mento assumes in service, which is where the tension zone ends.
 ASSUMED_NEUTRAL_AXIS = 0.4
 #: Widest web that takes the smaller diameter below ENVELOPE_FROM.
 NARROW_WEB = 400 * mm
@@ -171,19 +169,6 @@ def _anchors(beam: RectangularBeam) -> tuple[float, float]:
         return inset if face == "bottom" else height - inset
 
     return level("bottom"), level("top")
-
-
-def _neutral_axes(beam: RectangularBeam, face: str) -> tuple[tuple[str, float], ...]:
-    """(label, depth in mm from the compression face) of each service case with ``face`` in tension.
-
-    A face with no case takes the assumed axis, ASSUMED_NEUTRAL_AXIS * h, unlabelled.
-    """
-    axes = tuple(
-        (case.label, float(case.neutral_axis.to(mm).magnitude))
-        for case in beam.skin_service_cases
-        if case.tension_face == face
-    )
-    return axes or (("", ASSUMED_NEUTRAL_AXIS * float(beam.height.to(mm).magnitude)),)
 
 
 def _minimum_area_per_side(beam: RectangularBeam) -> float:
@@ -251,19 +236,14 @@ def _skin_requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
         raise CageDetailingError("The section has no height between its layers for skin bars.")
     count = max(1, math.ceil((high - low) / limit - 1e-12) - 1)
     height = float(beam.height.to(mm).magnitude)
+    # The tension zone of each face ends at the service neutral axis, which mento assumes.
+    x = ASSUMED_NEUTRAL_AXIS * height
     zones = []
     for face in faces:
-        for label, x in _neutral_axes(beam, face):
-            if not 0 < x < height:
-                raise CageDetailingError(
-                    "SkinServiceCase.neutral_axis must be inside the section, measured from compression."
-                )
-            anchor, neutral = (low, height - x) if face == "bottom" else (high, x)
-            if (face == "bottom" and neutral <= anchor) or (face == "top" and neutral >= anchor):
-                raise CageDetailingError(
-                    "The service neutral axis must lie above the tension layer toward compression."
-                )
-            zones.append(SkinCheckZone(face, min(anchor, neutral) * mm, max(anchor, neutral) * mm, label))
+        anchor, neutral = (low, height - x) if face == "bottom" else (high, x)
+        if (face == "bottom" and neutral <= anchor) or (face == "top" and neutral >= anchor):
+            raise CageDetailingError("The service neutral axis must lie above the tension layer toward compression.")
+        zones.append(SkinCheckZone(face, min(anchor, neutral) * mm, max(anchor, neutral) * mm))
 
     def rows_for(n: int) -> tuple[float, ...]:
         pitch = (high - low) / (n + 1)
@@ -327,13 +307,13 @@ def _skin_requirement(beam: RectangularBeam) -> SkinReinforcementRequirement:
 
 
 def _manual_skin_requirement(beam: RectangularBeam, req: SkinReinforcementRequirement) -> SkinReinforcementRequirement:
-    """Comprobar la cantidad ingresada sin aumentarla ni cambiar su zona."""
+    """Check the bars given by hand as they are: the count is not raised and their zone is not moved."""
     supplied = beam.skin_rebar
     assert supplied is not None
     if req.status == "not_applicable":
         return replace(req, manual=True)
     geometry = beam.section_geometry
-    diameter = supplied.db_piel
+    diameter = supplied.d_b
     cover = beam.c_c + beam._stirrup_d_b
     inset = float((cover + diameter / 2).to(mm).magnitude)
     height = float(beam.height.to(mm).magnitude)
@@ -346,11 +326,11 @@ def _manual_skin_requirement(beam: RectangularBeam, req: SkinReinforcementRequir
         return inset if face == "bottom" else height - inset
 
     low, high = anchor("bottom"), anchor("top")
-    count = int(supplied.cant_piel_cara)
+    count = int(supplied.n_per_side)
     midpoint = height / 2
-    if supplied.posicion == "bottom":
+    if supplied.position == "bottom":
         high = midpoint
-    elif supplied.posicion == "top":
+    elif supplied.position == "top":
         low = midpoint
     failures = []
     if high <= low:
@@ -374,14 +354,14 @@ def _manual_skin_requirement(beam: RectangularBeam, req: SkinReinforcementRequir
     if count == 0:
         rows = ()
         pitch = 0.0
-    elif supplied.posicion == "total":
+    elif supplied.position == "total":
         pitch = (high - low) / (count + 1)
         rows = tuple(low + pitch * i for i in range(1, count + 1))
     else:
         pitch = (high - low) / count
         rows = (
             tuple(low + pitch * i for i in range(1, count + 1))
-            if supplied.posicion == "bottom"
+            if supplied.position == "bottom"
             else tuple(high - pitch * i for i in range(1, count + 1))
         )
     rows = tuple(sorted(rows))
@@ -390,9 +370,9 @@ def _manual_skin_requirement(beam: RectangularBeam, req: SkinReinforcementRequir
         failures.append("The supplied skin area per lateral face is insufficient.")
     reviews = []
     if req.status == "required":
-        if supplied.posicion != "total":
+        if supplied.position != "total":
             for face in req.tension_faces:
-                if face != supplied.posicion:
+                if face != supplied.position:
                     failures.append(f"The supplied skin does not cover the {face} tension zone.")
         if req.diameter_max is not None and diameter > req.diameter_max:
             failures.append("The supplied skin diameter exceeds the supported EN diameter limit.")
@@ -409,7 +389,7 @@ def _manual_skin_requirement(beam: RectangularBeam, req: SkinReinforcementRequir
             if req.area_min_per_side is not None and zone_area < req.area_min_per_side - 1e-8 * mm**2:
                 failures.append(f"The supplied skin area is insufficient in the {zone.tension_face} tension zone.")
             if req.area_min_per_side is not None:
-                reviews.append(SkinDistributionReview(zone.tension_face, zone.combination, len(inside), gap))
+                reviews.append(SkinDistributionReview(zone.tension_face, len(inside), gap))
     return replace(
         req,
         d_b=diameter,

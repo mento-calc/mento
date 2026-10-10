@@ -269,7 +269,6 @@ def test_all_exports_in_all() -> None:
         "CompressionDetailing",
         "CompressionFaceDetail",
         "SkinReinforcementRequirement",
-        "SkinServiceCase",
         "SkinDistributionReview",
         "bar_designation",
         "bar_diameter",

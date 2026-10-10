@@ -101,7 +101,6 @@ __all__ = [
     "CompressionDetailing",
     "CompressionFaceDetail",
     "SkinReinforcementRequirement",
-    "SkinServiceCase",
     "SkinDistributionReview",
     "bar_designation",
     "bar_diameter",
@@ -135,7 +134,6 @@ if TYPE_CHECKING:
     from mento.shear_wall import NotABeamError, ShearWall
     from mento.shear_wall_summary import ShearWallSummary
     from mento.skin_reinforcement import SkinDistributionReview, SkinReinforcementRequirement
-    from mento.skin_service import SkinServiceCase
     from mento.slab import Footing, OneWaySlab
     from mento.wall_results import MeshDirection, WallMesh, WallShearCheck, WallShearDesign
     from mento.summary_tables import SummaryInputError, SummaryInputWarning, split_single_table
@@ -193,7 +191,6 @@ def __getattr__(name: str) -> object:
         "CompressionDetailing": "compression_detailing",
         "CompressionFaceDetail": "compression_detailing",
         "SkinReinforcementRequirement": "skin_reinforcement",
-        "SkinServiceCase": "skin_service",
         "SkinDistributionReview": "skin_reinforcement",
     }
 

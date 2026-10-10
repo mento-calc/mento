@@ -153,22 +153,8 @@ must meet ``minimum_longitudinal_diameter``.
 that prints no spacing for them (EN 1992-1-1). ACI / CIRSOC use their own §24.3.2 cap.
 See the beams guide for the criterion.
 
-EN skin service inputs
------------------------
-
-Service stress and neutral-axis depth are section results, not preferences.
-They are supplied with ``beam.set_skin_service_cases()`` and
-``SkinServiceCase`` after design, separately for each tension face and service
-combination. The beam copies the cases and invalidates them on reinforcement
-changes. ``BeamSettings`` remains shareable without sharing these SLS results.
-``skin_crack_width`` defaults to 0.3 mm; choose 0.2, 0.3 or 0.4 mm according
-to the project and National Annex. These settings do not change the resistant
-model or perform the global service analysis; see the beams guide.
-
-For asymmetric bending signs, for example::
-
-    from mento import SkinServiceCase
-    beam.set_skin_service_cases([
-        SkinServiceCase("SLS+", "bottom", 400*MPa, 240*mm),
-        SkinServiceCase("SLS-", "top", 300*MPa, 320*mm),
-    ])
+``skin_crack_width`` (0.3 mm) is the crack width EN 1992-1-1 Table 7.2N is read with for
+the diameter cap of the skin of a beam 1 m deep or more: 0.2, 0.3 or 0.4 mm, according to
+the project and the National Annex. The service steel stress and the neutral axis that
+reading needs are not settings: mento assumes :math:`\sigma_s = 0.6\,f_{yk}` and
+:math:`x = 0.4\,h`. None of these changes the resistant model.

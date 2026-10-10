@@ -1,15 +1,13 @@
 """Estados, avisos y tablas de piel conservan pendientes y rechazan entradas ambiguas."""
 
-from dataclasses import replace
-
 import pytest
 
 import mento.cage_detailing as cage
 import mento.skin_reinforcement as skin
-from mento import BeamSummary, OneWaySlab, SkinServiceCase
+from mento import BeamSummary, OneWaySlab
 from mento.cage_detailing import CageDetailingError
 from mento.design_warnings import skin_warnings
-from mento.units import MPa, cm, mm
+from mento.units import cm, mm
 from tests.sections.test_manual_skin_rebar import manual_tables
 from tests.sections.test_skin_reinforcement import beam
 
@@ -60,16 +58,6 @@ def test_cage_failure_is_distinguished_from_skin_failure(monkeypatch, reason, ex
     assert b.skin_verification_status == expected
 
 
-def test_duplicate_service_case_is_rejected_without_replacing_previous_input():
-    b = beam()
-    case = SkinServiceCase("SLS", "bottom", 200 * MPa, 200 * mm)
-    b.set_skin_service_cases([case])
-    previous = b.skin_service_cases
-    with pytest.raises(ValueError, match="Duplicate skin service case"):
-        b.set_skin_service_cases([case, replace(case)])
-    assert b.skin_service_cases == previous
-
-
 @pytest.mark.parametrize("status", ["required", "unsupported"])
 def test_missing_skin_rule_keeps_unsupported_warning(monkeypatch, status):
     b = beam()
@@ -79,7 +67,7 @@ def test_missing_skin_rule_keeps_unsupported_warning(monkeypatch, status):
     assert "skin_reinforcement_unsupported" in [w.code for w in skin_warnings(b)]
 
 
-@pytest.mark.parametrize("column", ["cant_piel_cara", "posicion"])
+@pytest.mark.parametrize("column", ["n_skin", "pos_skin"])
 def test_manual_counts_and_position_have_no_units(column):
     sections, rows = manual_tables()
     sections.loc[0, column] = "mm"
@@ -90,17 +78,10 @@ def test_manual_counts_and_position_have_no_units(column):
 
 def test_a_manual_diameter_without_unit_is_rejected_naming_the_column():
     sections, rows = manual_tables()
-    sections.loc[0, "db_piel"] = ""
+    sections.loc[0, "db_skin"] = ""
     b = beam()
-    with pytest.raises(ValueError, match="Column db_piel of the sections table is a length"):
+    with pytest.raises(ValueError, match="Column db_skin of the sections table is a length"):
         BeamSummary(b.concrete, b.steel_bar, sections, rows)
-
-
-def test_service_setter_rejects_non_case_objects():
-    b = beam()
-    with pytest.raises(ValueError, match="Every skin service case must be a SkinServiceCase"):
-        b.set_skin_service_cases([object()])
-    assert b.skin_service_cases == ()
 
 
 def test_summary_requires_a_dimensionless_leg_count():

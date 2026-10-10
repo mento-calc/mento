@@ -233,12 +233,11 @@ _MESSAGES: Dict[str, str] = {
     "skin_detailing_infeasible": "The supplementary skin proposal cannot be fitted in the cage: {reason}",
     "cage_detailing_infeasible": "The base cage cannot be detailed: {reason}",
     "skin_distribution_review": (
-        "Review skin-steel distribution, worst of {cases} service cases: {rows} rows per side in that zone, "
+        "Review skin-steel distribution: {rows} rows per side in the tension zone, "
         "largest vertical interval {gap}, including zone boundaries. This is informative, not an additional code "
         "spacing limit; the diameter-route proposal does not verify crack width directly."
     ),
     "skin_en_required": "EN §7.3.3(3): longitudinal skin steel is required; minimum {area} per side, adjusted maximum diameter {diameter}. Excluded from resistance.",
-    "skin_en_service_assumed": "EN skin checked with mento's service assumptions (sigma_s = 0.6 f_yk, x = 0.4 h); give SkinServiceCase for the project's values.",
     "skin_en_axial_unsupported": "EN skin detailing with axial force is not supported; the pure-bending skin proposal cannot be used.",
     "skin_en_surface_pending": "EN surface reinforcement outside the links requires separate review: Annex J covers bars >32 mm, equivalent bundles >32 mm (bundles are not modelled; check separately), or cover >70 mm. Section 8.8(8) specifies 0.01*A_ct,ext perpendicular and 0.02*A_ct,ext parallel to large bars. Longitudinal skin bars do not replace this mesh.",
     "As_below_min": (
@@ -841,11 +840,7 @@ def collect(raws: List[_Raw]) -> Tuple[DesignWarning, ...]:
         # The direction picks the template and stays in the values, where a
         # program reads it; it is a word, not a number to print.
         values = dict(worst.values)
-        if code == "skin_distribution_review":
-            values["cases"] = len(group)
         template = _MESSAGES[f"{code}_{direction}" if direction else code]
-        if code == "skin_distribution_review" and values["cases"] == 1:
-            template = template.replace("service cases", "service case")
         # A text value (the clause a limit comes from) is quoted as it is, in
         # the language of the day where it carries words.
         fields = _fields({n: v for n, v in values.items() if n != "direction" and not isinstance(v, str)})
@@ -914,7 +909,6 @@ def skin_warnings(beam: "RectangularBeam") -> List[_Raw]:
                 "skin_distribution_review",
                 {"rows": review.rows_per_side, "gap": review.maximum_interval},
                 face=review.tension_face,
-                combination=review.combination,
                 severity=float(review.maximum_interval.to(mm).magnitude),
             )
         )

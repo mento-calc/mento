@@ -46,15 +46,16 @@ def test_skin_review_is_informative_and_emitted_once():
     from mento import mm
 
     raws = [
-        _Raw("skin_distribution_review", {"rows": 1, "gap": 400 * mm}, face="bottom", combination="P", severity=400),
-        _Raw("skin_distribution_review", {"rows": 1, "gap": 450 * mm}, face="top", combination="N", severity=450),
+        _Raw("skin_distribution_review", {"rows": 1, "gap": 400 * mm}, face="bottom", severity=400),
+        _Raw("skin_distribution_review", {"rows": 1, "gap": 450 * mm}, face="top", severity=450),
     ]
     warnings = collect(raws)
     assert len(warnings) == 1
     assert warnings[0].face is None
-    assert "worst of 2 service cases" in warnings[0].message
+    # One notice for both tension zones, with the numbers of the worse one.
+    assert "1 rows per side in the tension zone, largest vertical interval 450 mm" in warnings[0].message
     assert "top" not in warnings[0].message and "bottom" not in warnings[0].message
-    assert warnings[0].combinations == ("P", "N")
+    assert warnings[0].combinations == ()
     assert warning_category(warnings[0].code) == "informative"
     assert warning_category("skin_detailing_invalid") == "pending"
     assert warning_category("skin_reinforcement_required") == "informative"
@@ -62,20 +63,19 @@ def test_skin_review_is_informative_and_emitted_once():
 
 
 @pytest.mark.parametrize(
-    "language, expected", [("en", "worst of 1 service case:"), ("es", "peor de 1 caso de servicio:")]
+    "language, expected",
+    [("en", "rows per side in the tension zone"), ("es", "filas por lateral en la zona traccionada")],
 )
-def test_single_skin_review_uses_singular_and_keeps_global_scope(language, expected):
+def test_single_skin_review_follows_the_language_and_keeps_global_scope(language, expected):
     from mento import mm, set_language
     from mento.design_warnings import _Raw, collect
 
     try:
         set_language(language)
-        warnings = collect(
-            [_Raw("skin_distribution_review", {"rows": 1, "gap": 400 * mm}, face="bottom", combination="S")]
-        )
+        warnings = collect([_Raw("skin_distribution_review", {"rows": 1, "gap": 400 * mm}, face="bottom")])
         assert len(warnings) == 1
         assert expected in warnings[0].message
         assert warnings[0].face is None
-        assert warnings[0].combinations == ("S",)
+        assert warnings[0].combinations == ()
     finally:
         set_language("en")

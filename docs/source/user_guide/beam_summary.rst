@@ -7,7 +7,7 @@ what **forces** each section carries, one row per load combination.
 
 Skin-steel proposals are currently available through the individual beam's
 ``skin_reinforcement``, ``warnings`` and ``plot()`` interfaces. The summary
-tables and Word annex do not yet include the skin layout or its SLS review.
+tables and Word annex do not yet include the skin layout.
 A strength result in those reports does not certify skin detailing or crack width.
 
 Creating Concrete and Steel Materials
@@ -350,21 +350,19 @@ The document is saved to the current working directory with the name
 detail to report and raises ``SummaryInputError``.
 
 
-Decisiones de entrega: resistencia, detallado y ramas
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Resistance, detailing and legs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``beam.verification_status`` muestra resistencia y detallado modelado por
-separado. Un DCR favorable no aprueba un detallado incumplido o pendiente.
-Los estados se muestran aparte en los anexos de cortante de consola y Word.
-Los indicadores heredados conservan su contrato para compatibilidad.
+``beam.verification_status`` gives the resistance and the modelled detailing apart: a DCR
+below 1 does not pass a detailing that fails or is pending. Both states are shown in the
+shear annex, on the console and in Word.
 
-La tabla Sections usa ``legs``; no admite ``n_legs`` ni ``ns``.
-``split_single_table()`` convierte el ``ns`` del formato antiguo, que cuenta
-estribos cerrados, en ramas, y conserva ``legs`` o ``n_legs`` si la tabla
-los trae. Una cantidad impar de ramas desde 3 es un estribo cerrado
-perimetral más trabas o patas abiertas (ver la jaula mixta en la guía de
-vigas); una sola rama es un error.
+The Sections table uses ``legs``; it takes neither ``n_legs`` nor ``ns``.
+``split_single_table()`` turns the ``ns`` of the old format, which counts closed stirrups,
+into legs, and keeps ``legs`` or ``n_legs`` where the table has them. An odd number of legs
+from 3 is one closed perimeter stirrup plus single legs (see the stirrup cages of the beams
+guide); a single leg is an error.
 
-El Word muestra ambas caras físicas y cc en las tablas Beam Sections / Slab Sections en mm (métrico) o pulgadas
-(imperial). Las zapatas EN con axil no nulo se rechazan como caso todavía
-no soportado por Mento; no es una prohibición del Eurocódigo.
+The Word report shows both faces and ``cc`` in the Beam Sections / Slab Sections tables, in
+mm (metric) or inches (US customary). An EN footing with an axial force is rejected as a
+case mento does not model yet; it is not a prohibition of the Eurocode.

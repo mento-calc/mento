@@ -571,12 +571,29 @@ mento's criterion (the same under every code, :ref:`aci-skin`):
   :math:`A_{s,min}` and stay within the Table 7.2N cap, with more bars if none does. Wide
   webs take larger bars: :math:`A_{s,min}` grows with :math:`b`.
 - **Service data.** The tension zone ends at the service neutral axis and the cap reads the
-  service stress. With a ``SkinServiceCase`` for the face in tension mento uses its values;
-  without one it assumes :math:`\sigma_s = 0.6\,f_{yk}`, the order of the quasi-permanent
-  stress of a beam designed at ULS, and :math:`x = 0.4\,h`, and reports
-  ``skin_en_service_assumed``. Neither is sensitive in practice: the cap stays above
-  Ø15 for :math:`\sigma_s \le 400` MPa, and 0.4 h lies on the safe side of the usual
+  service stress. mento assumes both, and takes no input for them:
+  :math:`\sigma_s = 0.6\,f_{yk}`, the order of the quasi-permanent stress of a beam
+  designed at ULS, and :math:`x = 0.4\,h`. Neither is sensitive in practice: the cap stays
+  above Ø15 for :math:`\sigma_s \le 400` MPa, and 0.4 h lies on the safe side of the usual
   0.35-0.45 h.
+
+What the criterion gives for C30/37 and B500 (bars per side, diameter, spacing in cm):
+
+.. csv-table::
+   :header: "h \\ b", "20", "30", "40", "50", "60", "100"
+
+   "< 60", "--", "--", "--", "--", "--", "--"
+   "60", "1Ø8 /25", "1Ø8 /25", "1Ø8 /25", "1Ø10 /25", "1Ø10 /25", "1Ø10 /25"
+   "70", "2Ø8 /20", "2Ø8 /20", "2Ø8 /20", "2Ø10 /20", "2Ø10 /20", "2Ø10 /20"
+   "80", "2Ø8 /23", "2Ø8 /23", "2Ø8 /23", "2Ø10 /23", "2Ø10 /23", "2Ø10 /23"
+   "90", "2Ø8 /27", "2Ø8 /27", "2Ø8 /27", "2Ø10 /27", "2Ø10 /27", "2Ø10 /27"
+   "100", "3Ø8 /23", "3Ø8 /23", "3Ø10 /23", "3Ø10 /23", "3Ø12 /23", "3Ø16 /23"
+   "120", "3Ø8 /28", "3Ø10 /28", "3Ø10 /28", "3Ø12 /28", "3Ø12 /28", "3Ø16 /28"
+   "150", "5Ø8 /23", "5Ø8 /23", "5Ø10 /23", "5Ø10 /23", "5Ø12 /23", "5Ø16 /23"
+
+The spacing follows the actual layers and cover of each beam, and under ACI / CIRSOC the
+area from 1 m is read with the beam's own f_y, so ADN 420 can take a size more than this
+table.
 
 The status is ``required`` from 1 m and ``proposed`` from 60 cm. With an axial force the
 pure-bending reading does not hold, and a beam from 1 m reports ``unsupported``. The Annex J
