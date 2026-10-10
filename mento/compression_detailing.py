@@ -43,7 +43,7 @@ class CompressionDetailing:
 
 
 def _mm(value: Quantity) -> float:
-    return float(value.to("mm").magnitude)
+    return float(value.to(mm).magnitude)
 
 
 def _corner_supported(bar: BarPosition, geometry: SectionGeometry) -> bool:
