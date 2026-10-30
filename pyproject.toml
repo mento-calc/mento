@@ -39,7 +39,6 @@ dependencies = [
     "numpy>=1.26",
     "pandas>=2.0",
     "matplotlib>=3.8",
-    "seaborn>=0.13",
     "tabulate>=0.9",
     "python-docx>=1.1",
     "openpyxl>=3.1",

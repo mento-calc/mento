@@ -77,6 +77,19 @@ def test_importing_the_code_layer_does_not_drag_in_presentation() -> None:
     assert result.stdout.strip() == "False False", f"mento.codes pulled in presentation: {result.stdout!r}"
 
 
+@pytest.mark.parametrize("statement", ["import mento.beam", "import mento.results"])
+def test_importing_an_element_does_not_load_seaborn_or_scipy_stats(statement: str) -> None:
+    """seaborn, and the ``scipy.stats`` it imports, once cost ``import mento.beam``
+    about a second for three lines of plot theming (#213). mento no longer
+    depends on seaborn; this keeps either from coming back by the import path.
+
+    Bare ``scipy`` is not checked: pint imports it whenever it is installed."""
+    probe = f"import sys; {statement}; print('seaborn' in sys.modules, 'scipy.stats' in sys.modules)"
+    result = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "False False", f"`{statement}` loaded seaborn or scipy.stats: {result.stdout!r}"
+
+
 MENTO_ROOT = EQUATIONS_ROOT.parent
 
 # Every element: the classes a user builds and calls a check on.

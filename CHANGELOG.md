@@ -71,6 +71,13 @@ from the release history and are summaries rather than complete lists.
   and so are the compression faces they read: those of the check, kept with it, even
   when a later flexure check replaces them. `check_shear` and the designs word their
   warnings as before.
+- **`import mento.beam` no longer loads seaborn and `scipy.stats`, about a second it spent
+  on nothing** (#213): from ~2.7 to ~1.75 s warm on Windows. seaborn was only used for the
+  three lines of theming in `configure_plot_settings()`, which now sets the same
+  Matplotlib settings itself, all but seaborn's `rocket` colormap, so seaborn is no longer
+  a dependency of mento (nor of its conda recipe). `CUSTOM_COLORS` moved to
+  `mento.plots.colors`, so the section and wall drawings stop importing `mento.results`
+  for it; `from mento.results import CUSTOM_COLORS` still works.
 
 ### Fixed
 
