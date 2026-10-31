@@ -397,10 +397,10 @@ def test_alpha_cw_takes_the_axial_compression_only_when_asked() -> None:
     assert _z(opted.shear_check_results(tension)).V_max == _z(default.shear_check_results(tension)).V_max
 
 
-def _en_circle() -> CircularColumn:
+def _en_circle(gamma_c: float = 1.5) -> CircularColumn:
     column = CircularColumn(
         label="C2",
-        concrete=Concrete_EN_1992_2004(name="C30", f_c=30 * MPa),
+        concrete=Concrete_EN_1992_2004(name="C30", f_c=30 * MPa, gamma_c=gamma_c),
         steel_bar=EN_STEEL,
         diameter=50 * cm,
         c_c=30 * mm,
@@ -429,6 +429,18 @@ def test_an_en_circle_uncracked_in_bending_takes_expression_6_4() -> None:
     expected = 3 * math.pi * _R**2 / 4 * math.sqrt(_F_CTD**2 + sigma * _F_CTD)
     assert check.V_concrete.to("kN").magnitude == pytest.approx(expected / 1e3)
     assert not check.reinforcement_required
+
+
+def test_an_uncased_pile_reads_the_gamma_c_of_its_concrete() -> None:
+    """A bored pile cast without a casing takes k_f·γ_c = 1.1·1.5 = 1.65
+    (§2.4.2.5(2), #214). The circle of the test above: f_ctd and so Expression
+    (6.4) read it, and V_Rd,max = ν1·f_cd·... falls by 1.5/1.65."""
+    force = [Forces(label="U", N_x=1000 * kN, V_z=250 * kN)]
+    cased, pile = _z(_en_circle().shear_check_results(force)), _z(_en_circle(1.65).shear_check_results(force))
+    sigma, f_ctd = 1000e3 / (math.pi * _R**2), _F_CTD * 1.5 / 1.65
+    expected = 3 * math.pi * _R**2 / 4 * math.sqrt(f_ctd**2 + sigma * f_ctd)
+    assert pile.V_concrete.to("kN").magnitude == pytest.approx(expected / 1e3)
+    assert (pile.V_max / cased.V_max).to("").magnitude == pytest.approx(1.5 / 1.65)
 
 
 def test_an_en_circle_cracked_in_bending_takes_the_truss_of_orr() -> None:

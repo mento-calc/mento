@@ -60,6 +60,11 @@ from the release history and are summaries rather than complete lists.
   (ACI §10.6.2.1, 0.5·ØVc; EN §6.2.1(3)), which mako read off a second check with no
   stirrups. `None` on an envelope. First step of the column shear roadmap
   (`docs/architecture/column-shear-roadmap.md`, phase A).
+- **`Concrete_EN_1992_2004(gamma_c=...)`: a partial factor for concrete other than 1.5
+  (#214).** Table 2.1N's 1.5 stays the default. Give 1.2 for an accidental situation, a
+  National Annex's value, or `1.1 * 1.5` for a pile cast without a permanent casing (k_f of
+  §2.4.2.5(2)). Every EN check reads it: `f_cd`, `f_ctd` and C_Rd,c = 0.18/γ_c, so the shear
+  of an uncased pile is no longer about 10 % on the unsafe side.
 
 ### Performance
 
