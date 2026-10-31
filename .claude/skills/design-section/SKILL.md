@@ -22,7 +22,7 @@ A one-liner with `-c` breaks on quoting as soon as the case has more than two fo
 
 ## 3. Build the case
 
-The full API walkthrough is in `.claude/rules/interactive-usage.md` — read it before
+The full API walkthrough is in `.claude/skills/design-section/interactive-usage.md` — read it before
 writing the script. The shape is always the same:
 
 1. Materials: a concrete class per design code, plus `SteelBar`.
