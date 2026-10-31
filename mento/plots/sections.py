@@ -37,7 +37,7 @@ from mento.design_results import (
 )
 from mento.i18n import translate
 from mento.precompute import DISPLAY
-from mento.results import CUSTOM_COLORS
+from mento.plots.colors import CUSTOM_COLORS
 from mento.section_geometry import BarPosition, Crosstie, SectionGeometry
 from mento.units import Quantity, ureg
 

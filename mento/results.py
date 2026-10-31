@@ -5,14 +5,15 @@ from typing import Optional, List, Any
 from tabulate import tabulate
 from docx import Document
 from docx.shared import Pt, Cm, Emu, RGBColor
-import seaborn as sns
 import matplotlib.pyplot as plt
+from matplotlib import cycler
 from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls, qn
 from io import BytesIO
 from pandas.io.formats.style import Styler
 
 from mento.i18n import DEFAULT_LANGUAGE, translate, translate_dataframe, translate_table
+from mento.plots.colors import CUSTOM_COLORS as CUSTOM_COLORS
 from mento.reports.headings import number_headings, style_headings
 from mento.reports.table_style import TableStyle, get_table_style
 
@@ -153,27 +154,63 @@ DETAIL_TABLE_WIDTHS = [Cm(6.1), Cm(2.2), Cm(3.0), Cm(1.4)]
 #: the verdict.
 LIMIT_TABLE_WIDTHS = [Cm(5.5), Cm(1.5), Cm(1.5), Cm(1.5), Cm(1.5), Cm(1.2)]
 
-CUSTOM_COLORS = {
-    "blue": "#1f77b4",  # Default Matplotlib blue
-    "red": "#d62728",  # Default Matplotlib red
-    "dark_gray": "#323232",
-    "light_gray": "#e3e3e3",
-    "dark_blue": "#073165",
-    "mounting": "#ad641b",
+#: What seaborn's ``whitegrid`` style at the ``paper`` context set, with a grey
+#: axes background and 1.8-point lines, written out as Matplotlib settings so
+#: that mento does not depend on seaborn (and the scipy it brings) for it. Only
+#: seaborn's ``rocket`` colormap is left out, since Matplotlib does not have it.
+_WHITEGRID_PAPER = {
+    "axes.axisbelow": True,
+    "axes.edgecolor": ".8",
+    "axes.facecolor": "#F8F8F8",
+    "axes.grid": True,
+    "axes.labelcolor": ".15",
+    "axes.linewidth": 1.0,
+    # seaborn's "deep" palette
+    "axes.prop_cycle": cycler(
+        color=[
+            "#4c72b0",
+            "#dd8452",
+            "#55a868",
+            "#c44e52",
+            "#8172b3",
+            "#937860",
+            "#da8bc3",
+            "#8c8c8c",
+            "#ccb974",
+            "#64b5cd",
+        ]
+    ),
+    "font.size": 9.6,
+    "grid.color": ".8",
+    "legend.title_fontsize": 9.6,
+    "lines.linewidth": 1.8,
+    "lines.markersize": 4.8,
+    "lines.solid_capstyle": "round",
+    "patch.edgecolor": "w",
+    "patch.force_edgecolor": True,
+    "patch.linewidth": 0.8,
+    "text.color": ".15",
+    "xtick.bottom": False,
+    "xtick.color": ".15",
+    "xtick.major.size": 4.8,
+    "xtick.major.width": 1.0,
+    "xtick.minor.size": 3.2,
+    "xtick.minor.width": 0.8,
+    "ytick.color": ".15",
+    "ytick.left": False,
+    "ytick.major.size": 4.8,
+    "ytick.major.width": 1.0,
+    "ytick.minor.size": 3.2,
+    "ytick.minor.width": 0.8,
 }
 
 
-# Default Matplotlib and Seaborn settings
+# Default Matplotlib settings
 def configure_plot_settings() -> None:
     """
-    Configures global settings for Matplotlib and Seaborn plots.
+    Configures global settings for Matplotlib plots.
     """
-    # Basic style for the plot
-    sns.set_theme(style="whitegrid")
-    sns.set_context("paper", rc={"lines.linewidth": 1.8})
-    sns.set_style(rc={"axes.facecolor": "#F8F8F8"})
-
-    # Matplotlib specific settings
+    plt.rcParams.update(_WHITEGRID_PAPER)
     plt.rcParams.update(
         {
             "text.usetex": True,

@@ -23,14 +23,12 @@ requirements:
   run:
     - python >={{ python_min }}
     # Keep in step with [project.dependencies] in pyproject.toml. The conda-forge
-    # names differ from the PyPI ones in three places: matplotlib-base and
-    # seaborn-base are the light variants (mento only uses seaborn for plot
-    # theming), and IPython is packaged as ipython.
+    # names differ from the PyPI ones in two places: matplotlib-base is the light
+    # variant, and IPython is packaged as ipython.
     - pint >=0.24
     - numpy >=1.26
     - pandas >=2.0
     - matplotlib-base >=3.8
-    - seaborn-base >=0.13
     - tabulate >=0.9
     - python-docx >=1.1
     - openpyxl >=3.1

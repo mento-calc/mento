@@ -1,6 +1,6 @@
 # Running mento interactively (design / check from the CLI)
 
-Loaded from CLAUDE.md. Read this before writing a script that designs or checks a section
+Read by the design-section skill. Read this before writing a script that designs or checks a section
 with mento, so the API is used the way the package actually exposes it.
 
 Reports print unicode (≤, ·, ✅, kN·m), so set `PYTHONIOENCODING=utf-8` before running or

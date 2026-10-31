@@ -16,8 +16,9 @@ What differs is what a column is asked for:
   transverse reinforcement is §9.5.3, a detailing rule this check does not
   read. So there is no A_v,min, and A_v,req is the truss's alone.
 * Where it is required, the spacings of §9.2.2(6) and (8), as for a beam.
-* α_cw is 1 unless the column opts into Expression (6.11aN) with its axial
-  compression (``alpha_cw_from_axial_load``; roadmap D4).
+* α_cw is Expression (6.11aN) with the combination's axial compression,
+  N_Ed/A_c, unless the column turns it off (``alpha_cw_from_axial_load``;
+  #210, roadmap D4). The beam keeps α_cw = 1.
 
 A circle has no clause in EN 1992-1-1. It is checked by Orr, Darby, Ibell,
 Denton and Shave, "Shear design of circular concrete sections using the

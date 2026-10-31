@@ -43,8 +43,9 @@ from the release history and are summaries rather than complete lists.
   the EN beam of the same section (V_Rd,c with σ_cp, the truss at the angle the demand
   fixes, V_Rd,max), giving its numbers where the clauses agree. A column needs shear
   reinforcement only past V_Rd,c (§6.2.1(3)) and is not held to the beam minimum of
-  §9.2.2(5): its ties are §9.5.3. α_cw is 1 unless `alpha_cw_from_axial_load=True`
-  takes Expression (6.11aN) with the axial compression. A circle, which EN 1992-1-1 does
+  §9.2.2(5): its ties are §9.5.3. α_cw follows Expression (6.11aN) with the axial
+  compression of each combination (#210): up to 1.25 under moderate compression, below 1
+  past 0.6·f_cd. `alpha_cw_from_axial_load=False` keeps α_cw = 1. A circle, which EN 1992-1-1 does
   not cover, is checked by Orr et al. (*The Structural Engineer* 88(23-24), 2010): the
   truss on the lever arm between the chords times the share of a circular link (λ1, no
   more than 0.85) or a spiral (λ2; `set_hoops(..., spiral=True)`), and V_Rd,max on the
@@ -60,6 +61,11 @@ from the release history and are summaries rather than complete lists.
   (ACI §10.6.2.1, 0.5·ØVc; EN §6.2.1(3)), which mako read off a second check with no
   stirrups. `None` on an envelope. First step of the column shear roadmap
   (`docs/architecture/column-shear-roadmap.md`, phase A).
+- **`Concrete_EN_1992_2004(gamma_c=...)`: a partial factor for concrete other than 1.5
+  (#214).** Table 2.1N's 1.5 stays the default. Give 1.2 for an accidental situation, a
+  National Annex's value, or `1.1 * 1.5` for a pile cast without a permanent casing (k_f of
+  §2.4.2.5(2)). Every EN check reads it: `f_cd`, `f_ctd` and C_Rd,c = 0.18/γ_c, so the shear
+  of an uncased pile is no longer about 10 % on the unsafe side.
 
 ### Performance
 
@@ -71,6 +77,13 @@ from the release history and are summaries rather than complete lists.
   and so are the compression faces they read: those of the check, kept with it, even
   when a later flexure check replaces them. `check_shear` and the designs word their
   warnings as before.
+- **`import mento.beam` no longer loads seaborn and `scipy.stats`, about a second it spent
+  on nothing** (#213): from ~2.7 to ~1.75 s warm on Windows. seaborn was only used for the
+  three lines of theming in `configure_plot_settings()`, which now sets the same
+  Matplotlib settings itself, all but seaborn's `rocket` colormap, so seaborn is no longer
+  a dependency of mento (nor of its conda recipe). `CUSTOM_COLORS` moved to
+  `mento.plots.colors`, so the section and wall drawings stop importing `mento.results`
+  for it; `from mento.results import CUSTOM_COLORS` still works.
 
 ### Fixed
 

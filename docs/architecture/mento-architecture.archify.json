@@ -552,7 +552,7 @@
    ],
    "sources": [
     {
-     "path": ".claude/rules/interactive-usage.md",
+     "path": ".claude/skills/design-section/interactive-usage.md",
      "line": 16,
      "end_line": 38,
      "label": "patrón de uso"

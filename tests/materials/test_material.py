@@ -449,6 +449,22 @@ def test_en_f_cd_follows_alpha_cc() -> None:
     assert "f_cd: 20.00 MPa" in str(recommended) or "f_cd: 20.0 MPa" in str(recommended)
 
 
+def test_en_gamma_c_defaults_to_table_2_1n_and_feeds_f_cd() -> None:
+    """γ_c is 1.5 unless given; f_cd = α_cc·f_ck/γ_c reads it (#214)."""
+    default = Concrete_EN_1992_2004(name="C30", f_c=30 * MPa)
+    pile = Concrete_EN_1992_2004(name="C30", f_c=30 * MPa, gamma_c=1.1 * 1.5)
+    assert default.gamma_c == 1.5
+    assert pile.gamma_c == pytest.approx(1.65)
+    assert_quantity_equal(pile.f_cd, 0.85 * 30 / 1.65 * MPa)
+    assert pile.get_properties()["gamma_c"] == pytest.approx(1.65)
+
+
+@pytest.mark.parametrize("gamma_c", [0.0, -1.5])
+def test_en_gamma_c_must_be_positive(gamma_c: float) -> None:
+    with pytest.raises(ValueError, match="gamma_c must be positive"):
+        Concrete_EN_1992_2004(name="C30", f_c=30 * MPa, gamma_c=gamma_c)
+
+
 @pytest.mark.parametrize("alpha_cc", [0.79, 1.01, 0.0])
 def test_en_alpha_cc_outside_the_range_of_3_1_6_is_refused(alpha_cc: float) -> None:
     """§3.1.6(1) lets a country choose α_cc between 0.8 and 1.0, nothing outside."""

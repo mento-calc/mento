@@ -294,9 +294,15 @@ class Concrete_EN_1992_2004(Concrete):
         name: Name of the concrete material.
         f_c: Characteristic compressive strength of concrete (f_ck for Eurocode).
         alpha_cc: Coefficient for long term effects on the compressive strength, §3.1.6(1).
+        gamma_c: Partial factor for concrete, §2.4.2.4.
 
     EN 1992-1-1 recommends α_cc = 1.0 and lets the National Annex choose between 0.8 and
     1.0. The default is 0.85, the UK National Annex value mento's EN beams were validated with.
+
+    γ_c is 1.5 by default, the persistent and transient value of Table 2.1N. Give 1.2 for an
+    accidental situation, a National Annex's value, or 1.1·1.5 = 1.65 for a pile cast without
+    a permanent casing (k_f of §2.4.2.5(2)). Every EN check reads it: f_cd, f_ctd and
+    C_Rd,c = 0.18/γ_c.
 
     Methods:
         get_properties() -> Dict[str, Any]: Returns a dictionary of all relevant material properties.
@@ -309,7 +315,7 @@ class Concrete_EN_1992_2004(Concrete):
         n_parabola (property): Exponent n of the parabola, Table 3.1 and eq. (3.17).
         epsilon_c3, epsilon_cu3 (properties): Strains of the bilinear diagram, Table 3.1.
         epsilon_cu1 (property): Ultimate strain of the diagram for structural analysis, Table 3.1.
-        gamma_c (property): Returns the partial safety factor for concrete.
+        gamma_c (field): Partial factor for concrete, 1.5 by default (Table 2.1N).
         Lambda_factor (property): Returns the λ factor.
         Eta_factor (property): Returns the η factor.
 
@@ -319,6 +325,7 @@ class Concrete_EN_1992_2004(Concrete):
     """
 
     alpha_cc: float = field(default=0.85)
+    gamma_c: float = field(default=1.5)
 
     def __post_init__(self) -> None:
         # Crucial: Call parent's __post_init__ first to set unit_system and density
@@ -329,6 +336,11 @@ class Concrete_EN_1992_2004(Concrete):
         # and 1,0." 1.0 is the recommended value; the UK National Annex takes 0.85.
         if not 0.8 <= self.alpha_cc <= 1.0:
             raise ValueError(f"alpha_cc must lie between 0.8 and 1.0 (EN 1992-1-1 §3.1.6(1)), got {self.alpha_cc}.")
+        # Table 2.1N's 1.5 is recommended: a National Annex may change it, the
+        # accidental situations take 1.2, and §2.4.2.5(2) multiplies it by k_f
+        # (1.1) for a pile cast without a permanent casing.
+        if not self.gamma_c > 0:
+            raise ValueError(f"gamma_c must be positive (EN 1992-1-1 §2.4.2.4), got {self.gamma_c}.")
 
         # The f_c passed to Concrete is the f_ck for Eurocode
         self._delta = 0.85
@@ -364,7 +376,6 @@ class Concrete_EN_1992_2004(Concrete):
         self._n_parabola = (
             1.4 + 23.4 * ((90 - self._f_ck.to("MPa").magnitude) / 100) ** 4 if self._f_ck >= 50 * MPa else 2.0
         )
-        self._gamma_c = 1.5
         # Kept only for the deprecated gamma_s property: gamma_s belongs to the steel.
         self._gamma_s = 1.15
         # Default values for k values EN_1992-1-1 - ART 5.5:
@@ -411,7 +422,7 @@ class Concrete_EN_1992_2004(Concrete):
                 "epsilon_cu2": self._epsilon_cu2,
                 "n_parabola": self._n_parabola,
                 "epsilon_cu3": self._epsilon_cu3,
-                "gamma_c": self._gamma_c,
+                "gamma_c": self.gamma_c,
                 # Deprecated: gamma_s is the steel's (Steel.gamma_s). Kept so a reader of
                 # this dictionary does not break.
                 "gamma_s": self._gamma_s,
@@ -441,7 +452,7 @@ class Concrete_EN_1992_2004(Concrete):
     @property
     def f_cd(self) -> Quantity:
         """Design compressive strength, f_cd = α_cc·f_ck/γ_c (§3.1.6(1), eq. (3.15))."""
-        return (self.alpha_cc * self._f_ck / self._gamma_c).to("MPa")
+        return (self.alpha_cc * self._f_ck / self.gamma_c).to("MPa")
 
     @property
     def epsilon_c1(self) -> float:
@@ -477,10 +488,6 @@ class Concrete_EN_1992_2004(Concrete):
     def epsilon_cu3(self) -> float:
         """Ultimate strain of the bilinear and rectangular diagrams, Table 3.1 (3.5 ‰ up to C50/60)."""
         return self._epsilon_cu3
-
-    @property
-    def gamma_c(self) -> float:
-        return self._gamma_c
 
     @property
     def gamma_s(self) -> float:

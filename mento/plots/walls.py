@@ -14,7 +14,7 @@ from matplotlib.patches import Rectangle
 from mento.units import Quantity
 
 from mento.precompute import DISPLAY
-from mento.results import CUSTOM_COLORS
+from mento.plots.colors import CUSTOM_COLORS
 from mento.wall_results import mesh_callout
 
 if TYPE_CHECKING:

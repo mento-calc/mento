@@ -8,6 +8,12 @@
 # on a Python that satisfies requires-python (>=3.12) and install mento into it.
 set -euo pipefail
 
+# Git Bash's `python` is not rame-env, and a venv there has Scripts/, not bin/, so
+# probing it would fail and the install below would abort on `.venv/bin/python`.
+case "${OSTYPE:-}" in
+  msys* | cygwin* | win32*) exit 0 ;;
+esac
+
 cd "$(dirname "$0")/../.."
 
 if python -c "import mento" >/dev/null 2>&1; then
