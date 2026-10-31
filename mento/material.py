@@ -294,13 +294,15 @@ class Concrete_EN_1992_2004(Concrete):
         name: Name of the concrete material.
         f_c: Characteristic compressive strength of concrete (f_ck for Eurocode).
         alpha_cc: Coefficient for long term effects on the compressive strength, §3.1.6(1).
-        gamma_c: Partial factor for concrete, §2.4.2.4. 1.5 by default, the persistent and
-            transient value of Table 2.1N. Give 1.2 for an accidental situation, a National
-            Annex's value, or 1.1·1.5 = 1.65 for a pile cast without a permanent casing
-            (k_f of §2.4.2.5(2)). Every EN check reads it: f_cd, f_ctd and C_Rd,c = 0.18/γ_c.
+        gamma_c: Partial factor for concrete, §2.4.2.4.
 
     EN 1992-1-1 recommends α_cc = 1.0 and lets the National Annex choose between 0.8 and
     1.0. The default is 0.85, the UK National Annex value mento's EN beams were validated with.
+
+    γ_c is 1.5 by default, the persistent and transient value of Table 2.1N. Give 1.2 for an
+    accidental situation, a National Annex's value, or 1.1·1.5 = 1.65 for a pile cast without
+    a permanent casing (k_f of §2.4.2.5(2)). Every EN check reads it: f_cd, f_ctd and
+    C_Rd,c = 0.18/γ_c.
 
     Methods:
         get_properties() -> Dict[str, Any]: Returns a dictionary of all relevant material properties.
