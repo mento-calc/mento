@@ -308,8 +308,9 @@ def test_the_en_z_direction_is_the_beam_of_the_same_rectangle(N_kN: float, V_kN:
     with σ_cp, the truss at the angle the demand fixes, V_Rd,max, the DCR, and
     the spacings of §9.2.2(6), (8) where shear reinforcement is required. The
     area asked for is compared past V_Rd,c and the §9.2.2(5) minimum the beam
-    keeps (2.63 cm²/m on this one), which a column does not."""
-    column = _en_column()
+    keeps (2.63 cm²/m on this one), which a column does not. α_cw = 1 on both:
+    the beam does not read Expression (6.11aN)."""
+    column = _en_column(alpha_cw_from_axial_load=False)
     beam = RectangularBeam(
         label="B", concrete=column.concrete, steel_bar=EN_STEEL, width=30 * cm, height=50 * cm, c_c=25 * mm
     )
@@ -350,6 +351,7 @@ def test_an_en_rectangle_by_hand() -> None:
     V_Rd,max at cot θ = 2.5: 300·409.9·0.528·20/2.9 = 447.8 kN, so θ = 21.8°.
     A_sw/s,req = 150000/(409.9·434.8·2.5) = 0.337 mm²/mm, with no §9.2.2(5)
     minimum. V_Rd,s = 0.785·409.9·434.8·2.5 = 349.9 kN, under V_Rd,max.
+    α_cw = 1 + 3.33/20 = 1.167 by Expression (6.11aN), on V_Rd,max.
     """
     column = _en_column()
     column.set_ties(d_b=10 * mm, s=20 * cm)
@@ -367,7 +369,8 @@ def test_an_en_rectangle_by_hand() -> None:
     assert check.A_v_min.magnitude == 0
     assert check.A_v_req.to("cm**2/m").magnitude == pytest.approx(150e3 / (z * f_ywd * cot) * 10)
     assert check.V_capacity.to("kN").magnitude == pytest.approx(A_v * z * f_ywd * cot / 1e3)
-    assert check.V_max.to("kN").magnitude == pytest.approx(300 * z * 0.528 * 20 / 2 / 1e3)
+    alpha_cw = 1 + 500e3 / 150e3 / 20
+    assert check.V_max.to("kN").magnitude == pytest.approx(alpha_cw * 300 * z * 0.528 * 20 / 2 / 1e3)
     assert check.s_max_l.to("mm").magnitude == pytest.approx(0.75 * d)
 
 
@@ -382,19 +385,28 @@ def test_an_en_column_under_v_rd_c_asks_for_no_minimum() -> None:
     assert column.warnings == ()
 
 
-def test_alpha_cw_takes_the_axial_compression_only_when_asked() -> None:
-    """Expression (6.11aN): σ_cp = 500000/150000 = 3.33 MPa, under 0.25·f_cd = 5,
-    so α_cw = 1 + 3.33/20 = 1.167 and V_Rd,max grows by as much. By default, and
-    in tension, α_cw stays 1 (D4)."""
-    force = [Forces(label="U", N_x=500 * kN, V_z=150 * kN)]
-    default, opted = _en_column(), _en_column(alpha_cw_from_axial_load=True)
-    for column in (default, opted):
+@pytest.mark.parametrize(
+    ("N_kN", "alpha_cw"),
+    [
+        (500.0, 1 + 500e3 / 150e3 / 20),  # σ_cp = 3.33 MPa, under 0.25·f_cd = 5: 1 + σ_cp/f_cd
+        (1200.0, 1.25),  # σ_cp = 8 MPa, between 0.25·f_cd and 0.5·f_cd
+        (1650.0, 2.5 * (1 - 11 / 20)),  # σ_cp = 11 MPa, past 0.5·f_cd: 1.125, still above 1
+        (2100.0, 2.5 * (1 - 14 / 20)),  # σ_cp = 14 MPa, past 0.6·f_cd: 0.75
+        (-300.0, 1.0),  # tension
+    ],
+    ids=["first-branch", "plateau", "above-1", "below-1", "tension"],
+)
+def test_alpha_cw_follows_expression_6_11an_unless_turned_off(N_kN: float, alpha_cw: float) -> None:
+    """Expression (6.11aN) by default (#210), with σ_cp = N_Ed/A_c on the
+    150000 mm² of the column and f_cd = 20 MPa: V_Rd,max is α_cw times the one
+    of ``alpha_cw_from_axial_load=False``, which keeps α_cw = 1. ``V_max`` is
+    V_Rd,max at θ = 45°, so the ratio is α_cw alone."""
+    force = [Forces(label="U", N_x=N_kN * kN, V_z=600 * kN)]
+    default, off = _en_column(), _en_column(alpha_cw_from_axial_load=False)
+    for column in (default, off):
         column.set_ties(d_b=10 * mm, s=20 * cm)
-    ratio = _z(opted.shear_check_results(force)).V_max / _z(default.shear_check_results(force)).V_max
-    assert ratio.to("").magnitude == pytest.approx(1 + 500e3 / 150e3 / 20)
-
-    tension = [Forces(label="T", N_x=-300 * kN, V_z=150 * kN)]
-    assert _z(opted.shear_check_results(tension)).V_max == _z(default.shear_check_results(tension)).V_max
+    ratio = _z(default.shear_check_results(force)).V_max / _z(off.shear_check_results(force)).V_max
+    assert ratio.to("").magnitude == pytest.approx(alpha_cw)
 
 
 def _en_circle(gamma_c: float = 1.5) -> CircularColumn:

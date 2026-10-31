@@ -123,15 +123,19 @@ for instead of what a beam is:
   it a column is not held to the beam minimum of §9.2.2(5): its ties are those
   of §9.5.3, which this check does not read. ``A_v_min`` is zero.
 - **How far apart**: there, §9.2.2(6) along the column and §9.2.2(8) across it.
-- **α_cw** is 1 by default, the value §6.2.3(3) Note 3 recommends "for
-  non-prestressed structures". ``alpha_cw_from_axial_load=True`` takes
-  Expression (6.11aN) with the compression of each combination instead:
+- **α_cw** follows Expression (6.11aN) with the compression of each
+  combination, σ_cp = N_Ed/A_c: ``1 + σ_cp/f_cd`` up to 0.25·f_cd, 1.25 up to
+  0.5·f_cd, ``2.5·(1 - σ_cp/f_cd)`` up to f_cd. It raises V_Rd,max by up to
+  25 % under moderate compression and lowers it past 0.6·f_cd. In tension it
+  is 1. ``alpha_cw_from_axial_load=False`` keeps α_cw = 1, the value
+  §6.2.3(3) Note 3 gives "for non-prestressed structures", at every
+  compression -- unsafe past 0.6·f_cd:
 
   .. code-block:: python
 
       column = RectangularColumn(label="C1", concrete=concrete, steel_bar=steel,
                                  width=30 * cm, height=50 * cm, c_c=25 * mm,
-                                 alpha_cw_from_axial_load=True)
+                                 alpha_cw_from_axial_load=False)
 
 **A circle.** EN 1992-1-1 has no clause for one. mento checks it by Orr,
 Darby, Ibell, Denton and Shave, *Shear design of circular concrete sections

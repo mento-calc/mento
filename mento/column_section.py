@@ -119,15 +119,16 @@ class ColumnSection(Section):
     Any change to the bars or the ties drops the results of the last check,
     which described the section as it was.
 
-    ``alpha_cw_from_axial_load`` is read under EN 1992-1-1 only. ``False``,
-    the default, keeps α_cw = 1 in V_Rd,max, the value §6.2.3(3) Note 3
-    recommends "for non-prestressed structures" and the safe side. ``True``
-    takes Expression (6.11aN) with the compression of each combination,
-    N_Ed/A_c -- a reading of the Note that still waits for a source
-    (``docs/architecture/column-shear-roadmap.md``, D4).
+    ``alpha_cw_from_axial_load`` is read under EN 1992-1-1 only. ``True``,
+    the default, takes α_cw of Expression (6.11aN) in V_Rd,max with the
+    compression of each combination, N_Ed/A_c: up to 1.25 under moderate
+    compression, below 1 past 0.6·f_cd, where the axial load alone has used
+    up most of the strut (#210, roadmap D4). ``False`` keeps α_cw = 1, the
+    value §6.2.3(3) Note 3 gives "for non-prestressed structures", at every
+    compression.
     """
 
-    alpha_cw_from_axial_load: bool = field(default=False, kw_only=True)
+    alpha_cw_from_axial_load: bool = field(default=True, kw_only=True)
 
     def __post_init__(self) -> None:
         super().__post_init__()

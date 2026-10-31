@@ -43,8 +43,9 @@ from the release history and are summaries rather than complete lists.
   the EN beam of the same section (V_Rd,c with σ_cp, the truss at the angle the demand
   fixes, V_Rd,max), giving its numbers where the clauses agree. A column needs shear
   reinforcement only past V_Rd,c (§6.2.1(3)) and is not held to the beam minimum of
-  §9.2.2(5): its ties are §9.5.3. α_cw is 1 unless `alpha_cw_from_axial_load=True`
-  takes Expression (6.11aN) with the axial compression. A circle, which EN 1992-1-1 does
+  §9.2.2(5): its ties are §9.5.3. α_cw follows Expression (6.11aN) with the axial
+  compression of each combination (#210): up to 1.25 under moderate compression, below 1
+  past 0.6·f_cd. `alpha_cw_from_axial_load=False` keeps α_cw = 1. A circle, which EN 1992-1-1 does
   not cover, is checked by Orr et al. (*The Structural Engineer* 88(23-24), 2010): the
   truss on the lever arm between the chords times the share of a circular link (λ1, no
   more than 0.85) or a spiral (λ2; `set_hoops(..., spiral=True)`), and V_Rd,max on the

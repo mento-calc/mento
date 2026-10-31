@@ -194,8 +194,8 @@ def compression_chord_coefficient(sigma_cp: float, f_cd: float) -> float:
 
     The recommended values: 1 + sigma_cp/f_cd up to 0.25·f_cd, 1.25 up to
     0.5·f_cd, 2.5·(1 - sigma_cp/f_cd) up to f_cd. The Note gives 1 "for
-    non-prestressed structures" before these, so applying them to the axial
-    load of a reinforced column is a reading the caller opts into.
+    non-prestressed structures" before these; mento's column applies them to
+    its axial load by default, and the beam does not (#210).
 
     Args:
         sigma_cp: Mean compressive stress in the concrete due to the design
