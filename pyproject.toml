@@ -57,7 +57,7 @@ test = [
 ]
 dev = [
     "mento[test]",
-    "ruff>=0.15.22,<0.17",
+    "ruff>=0.15.22,<0.18",
     "mypy>=1.15",
     "pandas-stubs",
     "types-tabulate",
