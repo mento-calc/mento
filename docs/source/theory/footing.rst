@@ -569,6 +569,10 @@ Validation
    * - Nothing resists: one layer, the closest, and asking for depth
      - ``test_with_no_solution_it_leaves_one_layer_and_asks_for_depth``,
        ``test_with_no_solution_it_carries_the_most_a_layer_can``,
+       ``test_with_no_solution_the_bars_keep_the_clear_distance_the_settings_ask_for``,
+       ``test_setting_the_bars_by_hand_drops_the_call_for_more_depth``,
+       ``test_a_footing_too_narrow_for_any_module_still_keeps_to_one_layer``,
+       ``test_a_code_that_caps_nothing_leaves_what_the_search_arrived_at``,
        ``test_designing_twice_gives_the_same_mat``
      - Internal consistency
    * - The budget does not get in the way

@@ -1410,6 +1410,60 @@ def test_with_no_solution_it_carries_the_most_a_layer_can() -> None:
     assert closest.flexure_design.bottom.d_b_above_max is None
 
 
+def test_setting_the_bars_by_hand_drops_the_call_for_more_depth() -> None:
+    footing = _designed(_bars(10, 32, width=100 * cm, height=30 * cm), 800 * kNm)
+    assert "depth_too_small_for_one_layer" in {w.code for w in footing.warnings}
+
+    footing.set_slab_longitudinal_rebar_bot(d_b1=32 * mm, s_b1=20 * cm)
+
+    assert "depth_too_small_for_one_layer" not in {w.code for w in footing.warnings}
+
+
+def test_with_no_solution_the_bars_keep_the_clear_distance_the_settings_ask_for() -> None:
+    """A clear distance of 8 cm rules Ø32 out at 10 cm: 68 mm between the bars is not enough."""
+    footing = Footing(
+        label="Z1",
+        concrete=Concrete_EN_1992_2004(name="C25", f_c=25 * MPa),
+        steel_bar=SteelBar(name="B500", f_y=500 * MPa),
+        width=100 * cm,
+        height=30 * cm,
+        c_c=6 * cm,
+        edge_cover=5 * cm,
+        settings=BeamSettings(clear_spacing=8 * cm),
+    )
+    design = _designed(footing, 800 * kNm, -500 * kNm).flexure_design
+
+    assert design.DCR > 1
+    for face in (design.bottom, design.top):
+        layer = face.layers[0]
+        assert layer.s - layer.d_b >= 8 * cm
+
+
+def test_a_footing_too_narrow_for_any_module_still_keeps_to_one_layer() -> None:
+    """A span of 7 cm is below the 100 mm floor: no mat exists, and what the search left stays, in one layer."""
+    footing = _designed(_bars(10, 32, width=25 * cm, height=30 * cm), 500 * kNm)
+
+    assert footing._s_b3_b.magnitude == 0 and footing._s_b3_t.magnitude == 0
+    assert len(footing.flexure_design.bottom.layers) == 1
+    assert footing.flexure_design.DCR > 1
+    # The width is what falls short here, so it does not ask for depth.
+    assert "depth_too_small_for_one_layer" not in {w.code for w in footing.warnings}
+    assert "As_below_required" in {w.code for w in footing.warnings}
+
+
+def test_a_code_that_caps_nothing_leaves_what_the_search_arrived_at() -> None:
+    """No spacing limit, no space to search a mat in: the layout stays, and the search's verdict with it."""
+    footing = _bars(10, 25)
+    footing._max_bar_spacing = lambda: None  # type: ignore[method-assign]
+    footing.set_slab_longitudinal_rebar_bot(d_b1=16 * mm, s_b1=20 * cm)
+
+    footing._finalize_longitudinal_design(20 * cm**2, 0 * cm**2, lambda: False, lambda: (1.0,))
+
+    assert footing._d_b1_b == 16 * mm
+    assert footing._s_b1_b == 20 * cm
+    assert footing._search_verdict_stands()
+
+
 def test_the_budget_does_not_keep_a_mat_within_the_maximum_from_being_found() -> None:
     """The thirteenth mat is tried before any bar past the maximum."""
     footing = _bars(10, 25, width=300 * cm)
