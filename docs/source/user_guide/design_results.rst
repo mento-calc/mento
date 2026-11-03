@@ -94,7 +94,8 @@ slice of a slab that goes on past its edges, and its steel -- what its strength 
 computed with -- is the bar area times the bars per metre, ``layer.A_s == layer.n * π
 d_b² / 4`` on a slab as on a beam. ``n_placed`` is the whole number of bars that lay the
 layer out at that spacing, the last one a little past the strip. On a beam the two are
-the same number.
+the same number, and on a ``Footing`` too: it ends at its edges, so ``layer.n`` is an
+``int``, the whole bars that fit (see :doc:`footings`).
 
 Shear
 -----
@@ -303,8 +304,8 @@ of resistant steel. For a single resistant bar, the face width is checked agains
 the available limit.
 
 A slab strip (``OneWaySlab``, ``Footing``) publishes the section, its cover and ``s_w``, with
-no bars and no legs: it is detailed by spacings, its bars per strip need not be whole, and
-bars placed by the beam's rule would contradict its ``Ø10/14`` label.
+no bars and no legs: it is detailed by spacings, and bars placed by the beam's rule would
+contradict its ``Ø10/14`` label.
 
 Design alternatives
 -------------------

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Any, Callable, ClassVar, TYPE_CHECKING, cast
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import math
 import warnings
 
@@ -31,12 +31,24 @@ def _bars_at_spacing(spacing: Quantity, width: Quantity) -> float:
     isolated metre holds: nine bars at 12 cm span 96 cm centre to centre,
     and a metre has 95 between its covers.)
 
-    The one place the count-from-spacing rule lives, so that a spacing chosen
-    for a given number of bars can be checked against the count it produces.
+    The one place the count-from-spacing rule of a strip lives, so that a
+    spacing chosen for a given number of bars can be checked against the count
+    it produces. A :class:`Footing` is not a strip -- it ends at its edges and
+    is built with whole bars -- and counts with :func:`_whole_bars_in_span`.
     """
     if spacing == 0 * mm:
         return 0.0  # no spacing, no bars
     return float((width / spacing).to("dimensionless").magnitude)
+
+
+def _whole_bars_in_span(span: float, spacing: float) -> int:
+    """How many bars fit in ``span`` at a centre-to-centre ``spacing``, in the same unit.
+
+    One at the start of the span and one more every ``spacing`` that fits, and
+    never fewer than two. The tolerance keeps a whole division whole: the
+    lengths arrive through unit conversions, and 4 can come out a hair under 4.
+    """
+    return max(math.floor(span / spacing + 1e-9) + 1, 2)
 
 
 @dataclass
@@ -170,8 +182,16 @@ class OneWaySlab(RectangularBeam):
         for first, second in ((1, 2), (3, 4)):
             d_b, spacing = self._layer_from_design(design, first, second)
             if d_b.magnitude > 0 and spacing.magnitude > 0:
-                layers.append(RebarLayer(n=_bars_at_spacing(spacing, self.width), d_b=d_b, s=spacing))
+                layers.append(RebarLayer(n=self._bars_in_layer(spacing), d_b=d_b, s=spacing))
         return tuple(layers)
+
+    def _bars_in_layer(self, spacing: Quantity) -> float:
+        """How many bars a layer at ``spacing`` puts on this section, as the steel is counted."""
+        return _bars_at_spacing(spacing, self.width)
+
+    def _exact_spacing_for_bars(self, n: int) -> Quantity:
+        """The widest spacing that still puts ``n`` bars on this section."""
+        return self.width / n
 
     def _leg_spacing_across_width(self) -> Quantity:
         """The transverse spacing the strip was detailed with.
@@ -260,7 +280,7 @@ class OneWaySlab(RectangularBeam):
         if n <= 0:
             return 0 * cm
         unit = cm if self.concrete.unit_system == "metric" else inch
-        exact = (self.width / n).to(unit).magnitude
+        exact = self._exact_spacing_for_bars(n).to(unit).magnitude
         # A whole answer is kept whole: the division arrives through unit
         # conversions, and 25 can come out a hair under 25. The floor is only
         # ever below one unit at a spacing where the bars would overlap, which
@@ -377,21 +397,22 @@ class OneWaySlab(RectangularBeam):
         self._drop_results()
 
     def _calculate_longitudinal_rebars(self) -> None:
-        """The bars each layer puts on the strip, from its spacing and the width.
+        """The bars each layer puts on the section, from its spacing.
 
-        Bars per strip, ``width / s``, not a whole number -- see
+        On a strip, bars per strip, ``width / s``, not a whole number -- see
         :func:`_bars_at_spacing`. The beam's area and centroid then follow from
         these counts as they do from a beam's, so the steel of the strip is
-        the bar area times the bars per metre, which is what a slab carries.
+        the bar area times the bars per metre, which is what a slab carries. A
+        footing counts whole bars instead: :meth:`Footing._bars_in_layer`.
         """
 
         # --- BOTTOM REBAR ---
-        self._n1_b = _bars_at_spacing(self._s_b1_b, self.width)
-        self._n3_b = _bars_at_spacing(self._s_b3_b, self.width)
+        self._n1_b = self._bars_in_layer(self._s_b1_b)
+        self._n3_b = self._bars_in_layer(self._s_b3_b)
 
         # --- TOP REBAR ---
-        self._n1_t = _bars_at_spacing(self._s_b1_t, self.width)
-        self._n3_t = _bars_at_spacing(self._s_b3_t, self.width)
+        self._n1_t = self._bars_in_layer(self._s_b1_t)
+        self._n3_t = self._bars_in_layer(self._s_b3_t)
 
 
 @dataclass
@@ -447,6 +468,28 @@ class Footing(OneWaySlab):
     as two independently detailed faces, a design ends with both faces set out
     at one spacing -- see :meth:`_finalize_longitudinal_design`.
 
+    And it counts its bars differently from a strip, because it does not go on
+    past its edges: ``width`` is the whole footing, and the steel is the whole
+    bars that fit in it. They lie in
+
+        ``span = width - 2 * edge_cover - 2 * bend_clearance``
+
+    so at a spacing ``s`` a layer has ``n = max(floor(span / s) + 1, 2)`` bars,
+    and ``A_s = n * A_b`` is what the capacity and the ``DCR`` are computed with
+    and what ``layer.n`` reads. A footing 130 cm wide with 5 cm of side cover
+    has a span of 112 cm, so Ø12/28 is 5 bars, 5.65 cm². The moment is the one
+    of that whole width.
+
+    Args:
+        edge_cover: The real cover at the sides of the footing, which the bars
+            have to stay inside. Defaults to ``c_c``. Give it apart when ``c_c``
+            is not a cover but a way of reaching a depth: with the top layer
+            resting on the bottom one, ``c_c = cover + Ø`` gives
+            ``d = h - cover - 1.5 Ø`` and says nothing about the sides.
+        bend_clearance: What the first bar of a layer keeps from that cover, per
+            side, to stay clear of the bend of the bars running across it.
+            Defaults to 4 cm, 1.5 in. in imperial units.
+
     Note:
         A `Footing` designs the section, not the foundation. It says nothing
         about the soil below it -- bearing pressure, punching (see
@@ -457,6 +500,10 @@ class Footing(OneWaySlab):
     #: What makes it a footing, and the only thing the design codes read.
     support: ClassVar[str] = "soil"
 
+    # Both resolved in __post_init__, so they read as lengths from then on.
+    edge_cover: Quantity = field(default=cast("Quantity", None), kw_only=True)
+    bend_clearance: Quantity = field(default=cast("Quantity", None), kw_only=True)
+
     #: The thinnest bar a footing mat is detailed with, whatever the catalogue
     #: holds below it. Practice rather than code: a mesh finer than this is not
     #: what goes down over the ground, and the search below would otherwise
@@ -464,12 +511,35 @@ class Footing(OneWaySlab):
     _MIN_MAT_DIAMETER = 10 * mm
 
     def __post_init__(self) -> None:
+        if self.edge_cover is None:
+            self.edge_cover = self.c_c
+        if self.bend_clearance is None:
+            self.bend_clearance = 4 * cm if self.concrete.unit_system == "metric" else 1.5 * inch
         super().__post_init__()
+        # The slab caps the count the search may ask for at width / s_min, its
+        # own count at that spacing. A footing counts in its span.
+        minimum = self._min_bar_spacing()
+        if minimum is not None:
+            self.settings.max_bars_per_layer = self._bars_in_layer(minimum)
         if self.concrete.unit_system == "metric":
             self.settings.minimum_longitudinal_diameter = max(
                 self.settings.minimum_longitudinal_diameter, self._MIN_MAT_DIAMETER
             )
         self._warn_if_thinner_than_the_code_allows()
+
+    def _bar_span(self) -> Quantity:
+        """The width the bars of a layer lie in, first bar to last."""
+        return self.width - 2 * self.edge_cover - 2 * self.bend_clearance
+
+    def _bars_in_layer(self, spacing: Quantity) -> int:
+        """The whole bars a layer at ``spacing`` has: see :func:`_whole_bars_in_span`."""
+        if spacing.magnitude == 0:
+            return 0  # no spacing, no bars
+        return _whole_bars_in_span(self._bar_span().to(mm).magnitude, spacing.to(mm).magnitude)
+
+    def _exact_spacing_for_bars(self, n: int) -> Quantity:
+        """``n`` bars lie in the span with ``n - 1`` spacings between them, and never fewer than two bars."""
+        return self._bar_span() / (max(n, 2) - 1)
 
     #: The layers a mat is placed in, as (diameter attribute, spacing attribute).
     _MAT_LAYERS = (("_d_b1_b", "_s_b1_b"), ("_d_b3_b", "_s_b3_b"), ("_d_b1_t", "_s_b1_t"), ("_d_b3_t", "_s_b3_t"))
@@ -511,15 +581,15 @@ class Footing(OneWaySlab):
         face governed by the minimum is detailed as many thin bars, which comes
         out closer than the few thick bars the loaded face needs, so simply
         taking the smaller of the two often closes the *loaded* face up and buys
-        steel nobody asked for -- about 20% more than the two faces actually
-        need, measured across a range of typical footings.
+        steel nobody asked for -- about 18% (EN) and 12% (ACI) more than the two
+        faces actually need, measured across footings 1 to 4 m wide.
 
         So the mat is chosen rather than reconciled: over the spacings the code
         allows and the bars the catalogue holds, the lightest combination of
         module and two diameters -- with the top at ``s`` or ``2s`` -- that
-        covers what each face requires. That lands within about 7% (EN) to 11%
-        (ACI) of the two faces' own requirement, against the 20% of taking the
-        smaller.
+        covers what each face requires, counted in the whole bars the section
+        will have (:meth:`_bars_in_layer`). That lands about 7% (EN) and 6%
+        (ACI) over the two faces' own requirement.
 
         Every candidate is verified before it is kept, because the choice feeds
         back into itself: a thicker bar sits deeper, which lowers the effective
@@ -558,12 +628,14 @@ class Footing(OneWaySlab):
             return  # a code that caps nothing gives the search no space to work in
         limit_min = self._min_bar_spacing()
 
-        width = self.width.to(mm).magnitude
+        span = self._bar_span().to(mm).magnitude
         clear = self.settings.clear_spacing.to(mm).magnitude
         # The unit a spacing is drawn in, so the module is one a detailer writes.
         step = 10.0 if self.concrete.unit_system == "metric" else 25.4
         s_lo = step if limit_min is None else limit_min.to(mm).magnitude
-        s_hi = limit_max.to(mm).magnitude
+        # Past the span two bars no longer lie that far apart, however far the
+        # code would let them.
+        s_hi = min(limit_max.to(mm).magnitude, span)
 
         rebar = self._create_rebar_designer()
         bars = [
@@ -576,15 +648,13 @@ class Footing(OneWaySlab):
             """The lightest bar that covers ``needed`` at ``spacing``, or None."""
             if needed <= 0:
                 return (0.0, 0.0)
-            # The bars per strip the spacing gives, as the strip is counted
-            # (see _bars_at_spacing): a mat counted in whole bars covered a
-            # face its spacing did not.
-            n = width / spacing
+            # The bars the section will count at this spacing (_bars_in_layer).
+            n = _whole_bars_in_span(span, spacing)
             covering = [(n * area, d) for d, area in bars if spacing - d >= clear and n * area >= needed]
             return min(covering) if covering else None
 
         found = []
-        for k in range(math.ceil(s_lo / step), math.floor(s_hi / step) + 1):
+        for k in range(math.ceil(s_lo / step), math.floor(s_hi / step + 1e-9) + 1):
             s_bot = k * step
             bottom = grid(s_bot, needed_bot)
             if bottom is None:
@@ -623,9 +693,10 @@ class Footing(OneWaySlab):
         """Fallback: reconcile the spacings the design arrived at, taking the
         smaller of the two.
 
-        Safe by construction -- it only ever adds bars to the face that had the
-        wider spacing -- and needs no verification for that reason, which is
-        what makes it the thing to fall back to when no searched mat verifies.
+        Safe by construction -- a closer spacing never counts fewer whole bars,
+        so it only ever adds them to the face that had the wider spacing -- and
+        needs no verification for that reason, which is what makes it the thing
+        to fall back to when no searched mat verifies.
         """
         placed = [
             (diameter, spacing)

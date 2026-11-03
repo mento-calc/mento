@@ -72,7 +72,8 @@ on past both of its edges, so what it carries is the bars per metre its spacing 
 a metre of Ø10/12 carries 8.33 bars, 6.54 cm²/m, which is what every metre of that slab
 carries. Counting the whole bars that would cover the strip (9, 7.07 cm²) credited it
 with 8 % more steel than it has, and let a face designed to its minimum fall short of
-it unnoticed.
+it unnoticed. A footing does not go on past its edges, and counts whole bars: see
+:doc:`footing`.
 
 Maximum bar spacing
 ^^^^^^^^^^^^^^^^^^^

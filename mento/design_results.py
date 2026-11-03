@@ -116,11 +116,13 @@ class RebarLayer:
     ``width / s``, the bars per strip the spacing gives, and need not be
     whole: a metre of Ø10/15 carries 6.67 of them, 5.24 cm², which is what
     every metre of that slab carries, and what its strength is computed with.
-    The area is ``n`` bar areas either way.
+    On a footing, which ends at its edges, it is an ``int`` again: the whole
+    bars that fit at that spacing (:class:`~mento.slab.Footing`). The area is
+    ``n`` bar areas in every case.
 
     ``n_placed`` is the whole number of bars that lay the layer out across
     the strip: 7 for that Ø10/15 in a metre, placed at 15 cm, the last bar a
-    little past the metre. On a beam it is ``n``.
+    little past the metre. On a beam or a footing it is ``n``.
     """
 
     n: float
@@ -186,7 +188,7 @@ class RebarOption:
     def n_bars(self) -> float:
         """Total number of bars across every layer of this layout.
 
-        Whole on a beam; on a slab strip the bars per strip its spacings give,
+        Whole on a beam or a footing; on a slab strip the bars per strip its spacings give,
         which need not be (see :class:`RebarLayer`).
         """
         return sum(layer.n for layer in self.layers)
@@ -538,7 +540,7 @@ class FaceReinforcement:
     def n_bars(self) -> float:
         """Total number of bars across every layer of this face.
 
-        Whole on a beam; on a slab strip the bars per strip its spacings give,
+        Whole on a beam or a footing; on a slab strip the bars per strip its spacings give,
         which need not be (see :class:`RebarLayer`).
         """
         return sum(layer.n for layer in self.layers)
@@ -914,7 +916,7 @@ class FlexureFaceDesign:
     def n_bars(self) -> float:
         """Total number of bars across every layer of this face.
 
-        Whole on a beam; on a slab strip the bars per strip its spacings give,
+        Whole on a beam or a footing; on a slab strip the bars per strip its spacings give,
         which need not be (see :class:`RebarLayer`).
         """
         return sum(layer.n for layer in self.layers)
@@ -1149,7 +1151,7 @@ def _layers(beam: RectangularBeam, face: str) -> Tuple[RebarLayer, ...]:
         if s is not None and s.magnitude == 0:
             s = None
         if n and d_b is not None and d_b.magnitude > 0:
-            # As the section counts them: whole on a beam, width / s on a slab.
+            # As the section counts them: whole on a beam or a footing, width / s on a slab.
             # A beam's setters store the count as given, so a 2.0 from a
             # spreadsheet is made the 2 bars it is.
             layers.append(RebarLayer(n=n if s is not None else int(n), d_b=d_b, s=s))

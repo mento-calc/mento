@@ -116,11 +116,11 @@ def _strain_compatibility(p: dict, A_s: float, d: float, A_s_prime: float, d_pri
 def test_compression_bars_below_the_neutral_axis_add_nothing() -> None:
     """d' = 60 mm, x_u,lim = 0.328*87.5 = 28.7 mm: the top bars are in tension at the limit.
 
-    M_Rd used to be M_lim plus the top bars at f_yd, 62.29 kN·m, and passed
-    60 kN·m at DCR 0.963. Strain compatibility, with no ductility limit at
-    all, gives this layout 53.1 kN·m at x/d = 0.77: the old value was above
-    anything the section can carry. Now the section saturates at M_lim,
-    exactly as it does with no top bars.
+    M_Rd used to be M_lim plus the top bars at f_yd, 62.29 kN·m with ten bars
+    a face, and passed 60 kN·m at DCR 0.963. Strain compatibility, with no
+    ductility limit at all, gives this layout its 9 whole bars a face at
+    51.6 kN·m: the old value was above anything the section can carry. Now the
+    section saturates at M_lim, exactly as it does with no top bars.
     """
     footing = _footing()
     sec = section_floats(footing)
@@ -135,7 +135,7 @@ def test_compression_bars_below_the_neutral_axis_add_nothing() -> None:
     assert _M_Rd_bot(footing) == pytest.approx(no_top, rel=1e-12)
 
     upper = _strain_compatibility(p, sec.A_s_bot, sec.d_bot, sec.A_s_top, sec.c_mec_top) / 1e6
-    assert upper == pytest.approx(53.1, abs=0.1)
+    assert upper == pytest.approx(51.6, abs=0.1)
 
     node = Node(section=footing, forces=[Forces(label="M", M_y=60 * kNm, V_z=0 * kN)])
     node.check_flexure()

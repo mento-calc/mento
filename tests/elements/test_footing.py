@@ -23,6 +23,7 @@ from mento.material import (
 )
 from mento.node import Node
 from mento.codes.EN_1992_2004_beam import _minimum_flexural_reinforcement_area_EN_1992_2004
+from mento.settings import BeamSettings
 from mento.slab import Footing, OneWaySlab
 from mento.units import cm, inch, kNm, kip, m, mm, MPa, psi
 
@@ -672,16 +673,13 @@ def test_matching_the_mat_never_undoes_the_design(steel_b500s: SteelBar) -> None
     assert footing._A_s_top >= footing._A_s_min_top
 
 
-def test_the_mat_covers_each_face_in_every_metre(steel_b500s: SteelBar) -> None:
-    """The mat search reads a candidate as the strip does: width / s bars.
+def test_the_mat_is_credited_with_the_whole_bars_it_has(steel_b500s: SteelBar) -> None:
+    """The mat search reads a candidate as the footing counts it, and that covers each face.
 
-    An EN 1 m x 0.40 m footing with c_c 50 mm under +100 / -20 kN·m used to
-    come out as Ø12/150 mm, counted as ceil(1000/150) = 7 bars, 7.92 cm²,
-    against 6.90 cm² required. In a metre Ø12/150 is 6.67 bars, 7.54 cm²,
-    which still covers it -- but the count the search chose the mat by was
-    not the steel the mat has. Whatever mat it chooses now, the steel it is
-    credited with is the bar area times the bars per metre, and it covers
-    what each face requires.
+    The count the search chooses by has to be the steel the mat is credited
+    with: an EN 1 m x 0.40 m footing with c_c 50 mm under +100 / -20 kN·m has
+    bars lying in 82 cm, so whatever spacing it ends on, the area is that many
+    whole bars and it covers what each face requires.
     """
     concrete = Concrete_EN_1992_2004(name="C25", f_c=25 * MPa)
     footing, _ = _design_envelope(_strip(Footing, concrete, steel_b500s, "Z1", height=40 * cm), 100 * kNm, 20 * kNm)
@@ -690,8 +688,8 @@ def test_the_mat_covers_each_face_in_every_metre(steel_b500s: SteelBar) -> None:
         (footing.reinforcement.bottom, footing._s_b1_b, footing._d_b1_b),
         (footing.reinforcement.top, footing._s_b1_t, footing._d_b1_t),
     ):
-        per_metre = (math.pi * d_b**2 / 4) * (footing.width / spacing)
-        assert face.A_s.to("cm**2").magnitude == pytest.approx(per_metre.to("cm**2").magnitude)
+        whole = math.floor(82 * cm / spacing + 1e-9) + 1
+        assert face.A_s.to("cm**2").magnitude == pytest.approx((whole * math.pi * d_b**2 / 4).to("cm**2").magnitude)
     assert footing.reinforcement.bottom.A_s >= footing.flexure_design.bottom.A_s_req
     assert footing.reinforcement.top.A_s >= footing.flexure_design.top.A_s_req
 
@@ -939,3 +937,241 @@ def test_both_faces_in_tension_both_get_the_crack_minimum(steel_b500s: SteelBar)
     for face in ("bottom", "top"):
         governing = max(getattr(r, face).A_s_min for r in results)
         assert (governing / gross).to("dimensionless").magnitude * 1000 == pytest.approx(1.097, abs=0.001)
+
+
+# ---------------------------------------------------------------------------
+# Whole bars: a footing ends at its edges
+# ---------------------------------------------------------------------------
+
+
+def _mat(width, height, c_c, d_min=12, d_max=12, **kwargs):  # type: ignore[no-untyped-def]
+    """An EN C25 / B500 footing with 5 cm of real side cover, unless told otherwise."""
+    kwargs.setdefault("edge_cover", 5 * cm)
+    return Footing(
+        label="Z1",
+        concrete=Concrete_EN_1992_2004(name="C25", f_c=25 * MPa),
+        steel_bar=SteelBar(name="B500", f_y=500 * MPa),
+        width=width,
+        height=height,
+        c_c=c_c,
+        settings=BeamSettings(minimum_longitudinal_diameter=d_min * mm, max_longitudinal_diameter=d_max * mm),
+        **kwargs,
+    )
+
+
+def _designed(section, *moments):  # type: ignore[no-untyped-def]
+    forces = [Forces(label=f"C{i}", M_y=moment) for i, moment in enumerate(moments)]
+    Node(section=section, forces=forces).design()
+    return section
+
+
+@pytest.mark.parametrize(
+    "width, span, A_req, n, s, A_s",
+    [
+        (130, 112, 5.18, 5, 28, 5.65),
+        (160, 142, 6.38, 6, 28, 6.79),  # 142 / 5 = 28.4, at a whole centimetre
+    ],
+)
+def test_a_footing_counts_the_whole_bars_that_fit_in_its_span(width, span, A_req, n, s, A_s) -> None:  # type: ignore[no-untyped-def]
+    """EN, h = 35 cm, c = 5 cm, c_c = 6.2 cm, Ø12, at the minimum: span = width - 2c - 2h."""
+    footing = _designed(_mat(width * cm, 35 * cm, 6.2 * cm), 20 * kNm)
+    bottom = footing.flexure_design.bottom
+    layer = bottom.layers[0]
+
+    assert footing._bar_span().to("cm").magnitude == pytest.approx(span)
+    assert bottom.A_s_req.to("cm**2").magnitude == pytest.approx(A_req, abs=0.01)
+    assert layer.n == n
+    assert layer.s.to("cm").magnitude == pytest.approx(s)
+    assert layer.d_b.to("mm").magnitude == pytest.approx(12)
+    assert bottom.A_s.to("cm**2").magnitude == pytest.approx(A_s, abs=0.01)
+
+
+def test_with_a_free_diameter_the_lightest_whole_mat_wins() -> None:
+    """Ø10 to Ø12 at 130 cm: 7Ø10 is 5.50 cm², against the 5.65 cm² of 5Ø12; 18 cm is its widest module."""
+    footing = _designed(_mat(130 * cm, 35 * cm, 6.2 * cm, d_min=10), 20 * kNm)
+    bottom = footing.flexure_design.bottom
+    layer = bottom.layers[0]
+
+    assert (layer.n, layer.d_b.to("mm").magnitude) == (7, pytest.approx(10))
+    assert layer.s.to("cm").magnitude == pytest.approx(18)
+    assert bottom.A_s.to("cm**2").magnitude == pytest.approx(5.50, abs=0.01)
+
+
+def test_the_top_at_twice_the_module_counts_its_own_whole_bars() -> None:
+    """h = 45 cm, c_c = 6.6 cm, Ø16, 120 cm, span 102 cm: 7 bars at 15 cm below, 4 at 30 cm above."""
+    footing = _designed(_mat(120 * cm, 45 * cm, 6.6 * cm, d_min=16, d_max=16), 200 * kNm, -110 * kNm)
+    bottom, top = footing.flexure_design.bottom.layers[0], footing.flexure_design.top.layers[0]
+
+    assert (bottom.n, bottom.s.to("cm").magnitude) == (7, pytest.approx(15))
+    assert (top.n, top.s.to("cm").magnitude) == (4, pytest.approx(30))
+
+
+@pytest.mark.parametrize("extra", [{}, {"edge_cover": 5 * cm}])
+def test_the_aci_spacing_cap_does_not_read_the_side_cover(extra) -> None:  # type: ignore[no-untyped-def]
+    """Table 24.3.2 keeps reading c_c: 380 - 2.5 * 66 = 215 mm, whatever the side cover is."""
+    footing = Footing(
+        label="Z1",
+        concrete=Concrete_ACI_318_19(name="H25", f_c=25 * MPa),
+        steel_bar=SteelBar(name="ADN 420", f_y=420 * MPa),
+        width=120 * cm,
+        height=45 * cm,
+        c_c=6.6 * cm,
+        **extra,
+    )
+    assert footing._max_bar_spacing().to("mm").magnitude == pytest.approx(215)
+
+
+@pytest.mark.parametrize(
+    "concrete, steel",
+    [
+        (Concrete_EN_1992_2004(name="C25", f_c=25 * MPa), SteelBar(name="B500", f_y=500 * MPa)),
+        (Concrete_ACI_318_19(name="H25", f_c=25 * MPa), SteelBar(name="ADN 420", f_y=420 * MPa)),
+        (Concrete_CIRSOC_201_25(name="H25", f_c=25 * MPa), SteelBar(name="ADN 420", f_y=420 * MPa)),
+    ],
+    ids=["EN", "ACI", "CIRSOC"],
+)
+@pytest.mark.parametrize("width", [100, 130, 175, 250, 400])
+@pytest.mark.parametrize("moment", [30, 150])
+def test_a_designed_mat_is_whole_bars_that_fit(concrete, steel, width, moment) -> None:  # type: ignore[no-untyped-def]
+    """n is an int, A_s = n * A_b, (n - 1) * s <= span, and the face covers what it was asked for."""
+    footing = Footing(
+        label="Z1", concrete=concrete, steel_bar=steel, width=width * cm, height=50 * cm, c_c=6 * cm, edge_cover=5 * cm
+    )
+    _designed(footing, moment * kNm * width / 100, -0.3 * moment * kNm * width / 100)
+    span = footing._bar_span().to("cm").magnitude
+
+    for face in (footing.flexure_design.bottom, footing.flexure_design.top):
+        assert face.layers
+        for layer in face.layers:
+            assert isinstance(layer.n, int)
+            assert layer.n >= 2
+            A_b = math.pi * layer.d_b**2 / 4
+            assert layer.A_s.to("cm**2").magnitude == pytest.approx((layer.n * A_b).to("cm**2").magnitude)
+            assert (layer.n - 1) * layer.s.to("cm").magnitude <= span + 1e-9
+        assert face.A_s.to("cm**2").magnitude == pytest.approx(sum(x.A_s.to("cm**2").magnitude for x in face.layers))
+        assert face.A_s >= face.A_s_req
+
+
+def test_the_capacity_is_the_capacity_of_the_whole_bars() -> None:
+    """5Ø12/28 in a 130 cm footing carries what a strip of exactly 5 bars carries, 130 / 26."""
+    concrete = Concrete_EN_1992_2004(name="C25", f_c=25 * MPa)
+    steel = SteelBar(name="B500", f_y=500 * MPa)
+    geometry = {"width": 130 * cm, "height": 35 * cm, "c_c": 6.2 * cm}
+    footing = Footing(label="Z", concrete=concrete, steel_bar=steel, edge_cover=5 * cm, **geometry)
+    slab = OneWaySlab(label="L", concrete=concrete, steel_bar=steel, **geometry)
+    footing.set_slab_longitudinal_rebar_bot(d_b1=12 * mm, s_b1=28 * cm)
+    slab.set_slab_longitudinal_rebar_bot(d_b1=12 * mm, s_b1=26 * cm)
+
+    checks = []
+    for section in (footing, slab):
+        Node(section=section, forces=[Forces(label="C", M_y=40 * kNm)]).check_flexure()
+        checks.append(section.flexure_checks[0].bottom)
+    assert checks[0].M_capacity.to("kN*m").magnitude == pytest.approx(checks[1].M_capacity.to("kN*m").magnitude)
+    assert checks[0].DCR == pytest.approx(checks[1].DCR)
+
+
+def test_a_spacing_set_by_hand_is_counted_in_the_span_with_two_bars_at_least() -> None:
+    footing = _mat(130 * cm, 35 * cm, 6.2 * cm)
+    footing.set_slab_longitudinal_rebar_bot(d_b1=12 * mm, s_b1=28 * cm)
+    layer = footing.reinforcement.bottom.layers[0]
+    assert layer.n == 5 and isinstance(layer.n, int)
+    assert layer.n_placed == 5
+    assert footing.reinforcement.bottom.A_s.to("cm**2").magnitude == pytest.approx(5.65, abs=0.01)
+
+    narrow = _mat(40 * cm, 35 * cm, 6.2 * cm)  # span 22 cm
+    narrow.set_slab_longitudinal_rebar_bot(d_b1=12 * mm, s_b1=30 * cm)
+    assert narrow.reinforcement.bottom.layers[0].n == 2
+
+
+def test_the_side_cover_and_the_clearance_set_the_span() -> None:
+    """A c_c that stands in for a depth is no side cover: at 6.2 cm, Ø12/28 would count 4 bars, not 5."""
+    footing = _mat(130 * cm, 35 * cm, 6.2 * cm, edge_cover=None)
+    assert footing.edge_cover == 6.2 * cm  # defaults to c_c
+    assert footing.bend_clearance == 4 * cm
+    assert footing._bar_span().to("cm").magnitude == pytest.approx(109.6)
+    assert footing._bars_in_layer(28 * cm) == 4
+
+    given = _mat(130 * cm, 35 * cm, 6.2 * cm, edge_cover=7.5 * cm, bend_clearance=5 * cm)
+    assert given.c_c == 6.2 * cm  # c_c keeps setting the depth
+    assert given._bar_span().to("cm").magnitude == pytest.approx(105)
+
+
+def test_the_imperial_clearance_is_an_inch_and_a_half() -> None:
+    footing = Footing(
+        label="Z1",
+        concrete=Concrete_ACI_318_19(name="4 ksi", f_c=4000 * psi),
+        steel_bar=SteelBar(name="Gr 60", f_y=60000 * psi),
+        width=60 * inch,
+        height=18 * inch,
+        c_c=3 * inch,
+    )
+    assert footing.bend_clearance == 1.5 * inch
+    assert footing._bar_span().to("inch").magnitude == pytest.approx(51)
+
+    _designed(footing, 100 * kip * inch * 12)
+    layer = footing.flexure_design.bottom.layers[0]
+    assert isinstance(layer.n, int)
+    assert (layer.n - 1) * layer.s.to("inch").magnitude <= 51 + 1e-9
+
+
+def test_the_spacing_for_a_count_gives_at_least_that_many_bars() -> None:
+    """floor(span / (n - 1)), and the search may not ask for more bars than fit at s_min."""
+    footing = _mat(100 * cm, 40 * cm, 6 * cm)  # span 82 cm
+    assert footing._spacing_for_bars(0).magnitude == 0
+    for n in range(1, 10):
+        spacing = footing._spacing_for_bars(n)
+        assert footing._bars_in_layer(spacing) >= max(n, 2)
+        assert (footing._bars_in_layer(spacing) - 1) * spacing.to("cm").magnitude <= 82
+
+    assert footing.settings.max_bars_per_layer == 9  # floor(82 / 10) + 1
+    assert footing._spacing_for_bars(9) >= footing._min_bar_spacing()
+
+
+def test_no_mat_is_offered_past_the_span() -> None:
+    """Two bars never lie further apart than the span, however far the code lets them."""
+    footing = _mat(40 * cm, 35 * cm, 6.2 * cm)  # span 22 cm
+    candidates = list(footing._mat_candidates(2 * cm**2, 0 * cm**2))
+
+    assert candidates
+    assert max(spacing[0] for spacing, _ in candidates) <= 220
+
+
+def test_the_fallback_counts_whole_bars_and_never_loses_one() -> None:
+    footing = _mat(130 * cm, 35 * cm, 6.2 * cm)
+    footing.set_slab_longitudinal_rebar_bot(d_b1=12 * mm, s_b1=28 * cm)
+    footing.set_slab_longitudinal_rebar_top(d_b1=10 * mm, s_b1=14 * cm)
+    bars_before = footing._n1_b, footing._n1_t
+
+    footing._match_spacings_downward()
+
+    assert footing._s_b1_b == footing._s_b1_t == 14 * cm
+    assert footing._n1_b == footing._n1_t == 9
+    assert isinstance(footing._n1_b, int)
+    assert footing._n1_b >= bars_before[0] and footing._n1_t >= bars_before[1]
+
+
+def test_what_a_design_reports_is_whole_bars() -> None:
+    """layer.n, the option it came from and the totals read the same count."""
+    bottom = _designed(_mat(130 * cm, 35 * cm, 6.2 * cm), 20 * kNm).flexure_design.bottom
+
+    assert bottom.layers[0].n == bottom.layers[0].n_placed == bottom.n_bars == bottom.n_bars_placed == 5
+    assert bottom.options[0].layers[0].n == 5
+    assert bottom.options[0].n_bars == 5
+
+
+def test_a_slab_still_counts_bars_per_strip() -> None:
+    """The strip goes on past its edges: width / s, not a whole number, and no side cover to read."""
+    slab = OneWaySlab(
+        label="L",
+        concrete=Concrete_EN_1992_2004(name="C25", f_c=25 * MPa),
+        steel_bar=SteelBar(name="B500", f_y=500 * MPa),
+        width=130 * cm,
+        height=35 * cm,
+        c_c=6.2 * cm,
+    )
+    slab.set_slab_longitudinal_rebar_bot(d_b1=12 * mm, s_b1=28 * cm)
+
+    assert slab.reinforcement.bottom.layers[0].n == pytest.approx(130 / 28)
+    assert slab.reinforcement.bottom.A_s.to("cm**2").magnitude == pytest.approx(5.25, abs=0.01)
+    assert slab._spacing_for_bars(5).to("cm").magnitude == pytest.approx(26)
+    assert not hasattr(slab, "edge_cover")

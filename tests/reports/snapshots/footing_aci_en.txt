@@ -1,12 +1,12 @@
 ### check_flexure
   Label Comb. Position As,min As,req top As,req bot    As     Mu     ØMn Mu≤ØMn    DCR
 0                         cm²        cm²        cm²   cm²    kNm     kNm              
-1    Z1     u   Bottom    9.0        0.0        9.0  9.14  100.0  146.12   True  0.684
+1    Z1     u   Bottom    9.0        0.0        9.0  9.05  100.0  145.37   True  0.688
 
 ### check_shear
-  Label Comb. Av,min Av,req     Av     Vu   Nu    ØVc     ØVs     ØVn   ØVmax Vu≤ØVmax Vu≤ØVn    DCR
-0              cm²/m  cm²/m  cm²/m     kN   kN     kN      kN      kN      kN                       
-1    Z1     u    0.0    0.0    8.7  150.0  0.0  275.4  118.36  393.76  1344.6     True   True  0.381
+  Label Comb. Av,min Av,req     Av     Vu   Nu     ØVc     ØVs     ØVn    ØVmax Vu≤ØVmax Vu≤ØVn    DCR
+0              cm²/m  cm²/m  cm²/m     kN   kN      kN      kN      kN       kN                       
+1    Z1     u    0.0    0.0    8.7  150.0  0.0  276.68  118.91  395.58  1350.83     True   True  0.379
 
 ### flexure_results_detailed
 ===== SLAB FLEXURE DETAILED RESULTS =====
@@ -22,7 +22,7 @@ Section height               h            50  cm
 Section width                b           100  cm
 Clear cover                  cc            5  cm
 Mechanical top cover       cm,top          6  cm
-Mechanical bottom cover    cm,bot        6.8  cm 
+Mechanical bottom cover    cm,bot        6.6  cm 
 
 Design forces       Variable     Value  Unit
 -----------------  ----------  -------  ------
@@ -31,10 +31,10 @@ Bottom max moment    Mu,bot        100  kNm
 
 Check                     Unit     Value  Min.      Max.  Ok?
 -----------------------  ------  -------  ------  ------  -----
-Min/Max As rebar top      cm²          0  0        77.23  ✅
+Min/Max As rebar top      cm²          0  0        77.32  ✅
 Minimum spacing top        mm          0                  ✅
-Min/Max As rebar bottom   cm²       9.14  9        68.81  ✅
-Minimum spacing bottom     mm        220  100             ✅ 
+Min/Max As rebar bottom   cm²       9.05  9        69.13  ✅
+Minimum spacing bottom     mm        110  100             ✅ 
 
 Top reinforcement check                    Variable     Value  Unit
 ----------------------------------------  ----------  -------  ------
@@ -52,17 +52,17 @@ Demand Capacity Ratio                        DCR            0  ✅
 
 Bottom reinforcement check                 Variable           Value  Unit
 ----------------------------------------  ----------  -------------  ------
-First layer bars                            Ø1/s1     Ø16 mm/220 mm
+First layer bars                            Ø1/s1     Ø12 mm/110 mm
 Second layer bars                           Ø3/s3                 -
-Effective height                              d                43.2  cm
-Depth of equivalent strength block ratio     c/d             0.0334
+Effective height                              d                43.4  cm
+Depth of equivalent strength block ratio     c/d             0.0331
 Minimum rebar reinforcing                   As,min              9.0  cm²
 Required rebar reinforcing top            As,req top            0.0  cm²
 Required rebar reinforcing bottom         As,req bot            9.0  cm²
-Defined rebar reinforcing bottom              As               9.14  cm²
-Longitudinal reinforcement ratio              ρl            0.00212
-Total flexural strength                      ØMn             146.12  kNm
-Demand Capacity Ratio                        DCR               0.68  ✅ 
+Defined rebar reinforcing bottom              As               9.05  cm²
+Longitudinal reinforcement ratio              ρl            0.00208
+Total flexural strength                      ØMn             145.37  kNm
+Demand Capacity Ratio                        DCR               0.69  ✅ 
 
 
 
@@ -82,7 +82,7 @@ Geometry                     Variable     Value  Unit
 Section height                  h            50  cm
 Section width                   b           100  cm
 Clear cover                     cc            5  cm
-Longitudinal tension rebar      As         9.14  cm² 
+Longitudinal tension rebar      As         9.05  cm² 
 
 Design forces                     Variable     Value  Unit
 -------------------------------  ----------  -------  ------
@@ -94,33 +94,33 @@ Shear reinforcement strength                             Variable     Value  Uni
 Stirrup diameter                                            db           10  mm
 Stirrup spacing along length                                sl           21  cm
 Stirrup spacing along width                                 sw           43  cm
-Effective height                                            d          43.2  cm
+Effective height                                            d          43.4  cm
 Minimum shear reinforcing                                 Av,min          0  cm²/m
 Required shear reinforcing                                Av,req          0  cm²/m
 Defined shear reinforcing                                   Av          8.7  cm²/m
-Shear rebar strength                                       ØVs       118.36  kN
+Shear rebar strength                                       ØVs       118.91  kN
 Nominal shear the stirrups must carry (Vu/φ − Vc)         Vs,req          0  kN
-Threshold of Table 9.7.6.2.2 (0.33√f'c·bw·d)              Vs,lim      712.8  kN
+Threshold of Table 9.7.6.2.2 (0.33√f'c·bw·d)              Vs,lim      716.1  kN
 Vs,req ≤ Vs,lim → Table 9.7.6.2.2: d/2 along, d across
 Absolute cap of Table 9.7.6.2.2 in this row               s,cap          60  cm 
 
 Check                                           Unit     Value  Min.      Max.  Ok?
 ---------------------------------------------  ------  -------  ------  ------  -----
-Stirrup spacing along length                     cm         21            21.6  ✅
-Stirrup spacing along width (Table 9.7.6.2.2)    cm         43            43.2  ✅
+Stirrup spacing along length                     cm         21            21.7  ✅
+Stirrup spacing along width (Table 9.7.6.2.2)    cm         43            43.4  ✅
 Minimum shear reinforcement                    cm²/m       8.7  0               ✅
 Minimum rebar diameter                           mm         10                  ✅ 
 
 Shear strength                     Variable     Value  Unit
 --------------------------------  ----------  -------  ------
-Effective shear area                 Acv       4320.0  cm²
-Longitudinal reinforcement ratio      ρw      0.00212
-Size modification factor              λs        0.856
+Effective shear area                 Acv       4340.0  cm²
+Longitudinal reinforcement ratio      ρw      0.00208
+Size modification factor              λs        0.855
 Axial stress                         σNu          0.0  MPa
 Concrete effective shear stress       kc         0.85  MPa
-Concrete strength                    ØVc        275.4  kN
-Maximum shear strength              ØVmax      1344.6  kN
-Total shear strength                 ØVn       393.76  kN
+Concrete strength                    ØVc       276.68  kN
+Maximum shear strength              ØVmax     1350.83  kN
+Total shear strength                 ØVn       395.58  kN
 Max shear check                                    ✅
 Demand Capacity Ratio                DCR         0.38  ✅ 
 
@@ -144,16 +144,16 @@ Section height | h | 50.0 | cm
 Section width | b | 100.0 | cm
 Clear cover | cc | 5.0 | cm
 Mechanical top cover | cm,top | 6.0 | cm
-Mechanical bottom cover | cm,bot | 6.8 | cm
+Mechanical bottom cover | cm,bot | 6.6 | cm
 Design forces | Variable | Value | Unit
 Top max moment | Mu,top | 0.0 | kNm
 Bottom max moment | Mu,bot | 100.0 | kNm
 Limit checks
 Check | Unit | Value | Min. | Max. | Ok?
-Min/Max As rebar top | cm² | 0.0 | 0.0 | 77.23 | ✅
+Min/Max As rebar top | cm² | 0.0 | 0.0 | 77.32 | ✅
 Minimum spacing top | mm | 0.0 |  |  | ✅
-Min/Max As rebar bottom | cm² | 9.14 | 9.0 | 68.81 | ✅
-Minimum spacing bottom | mm | 220.0 | 100 |  | ✅
+Min/Max As rebar bottom | cm² | 9.05 | 9.0 | 69.13 | ✅
+Minimum spacing bottom | mm | 110.0 | 100 |  | ✅
 Flexural Capacity Top
 Top reinforcement check | Variable | Value | Unit
 First layer bars | Ø1/s1 | - | 
@@ -169,17 +169,17 @@ Total flexural strength | ØMn | 0.0 | kNm
 Demand Capacity Ratio | DCR | 0 | ✅
 Flexural Capacity Bottom
 Bottom reinforcement check | Variable | Value | Unit
-First layer bars | Ø1/s1 | Ø16 mm/220 mm | 
+First layer bars | Ø1/s1 | Ø12 mm/110 mm | 
 Second layer bars | Ø3/s3 | - | 
-Effective height | d | 43.2 | cm
-Depth of equivalent strength block ratio | c/d | 0.0334 | 
+Effective height | d | 43.4 | cm
+Depth of equivalent strength block ratio | c/d | 0.0331 | 
 Minimum rebar reinforcing | As,min | 9.0 | cm²
 Required rebar reinforcing top | As,req top | 0.0 | cm²
 Required rebar reinforcing bottom | As,req bot | 9.0 | cm²
-Defined rebar reinforcing bottom | As | 9.14 | cm²
-Longitudinal reinforcement ratio | ρl | 0.00212 | 
-Total flexural strength | ØMn | 146.1 | kNm
-Demand Capacity Ratio | DCR | 0.68 | ✅
+Defined rebar reinforcing bottom | As | 9.05 | cm²
+Longitudinal reinforcement ratio | ρl | 0.00208 | 
+Total flexural strength | ØMn | 145.4 | kNm
+Demand Capacity Ratio | DCR | 0.69 | ✅
 
 ### shear_results_detailed_doc: Slab Z1 shear check ACI 318-19.docx
 Slab Z1 shear check
@@ -196,14 +196,14 @@ Geometry | Variable | Value | Unit
 Section height | h | 50.0 | cm
 Section width | b | 100.0 | cm
 Clear cover | cc | 5.0 | cm
-Longitudinal tension rebar | As | 9.14 | cm²
+Longitudinal tension rebar | As | 9.05 | cm²
 Design forces | Variable | Value | Unit
 Axial, positive for compression | Nu | 0.0 | kN
 Shear | Vu | 150.0 | kN
 Limit checks
 Check | Unit | Value | Min. | Max. | Ok?
-Stirrup spacing along length | cm | 21.0 |  | 21.6 | ✅
-Stirrup spacing along width (Table 9.7.6.2.2) | cm | 43.0 |  | 43.2 | ✅
+Stirrup spacing along length | cm | 21.0 |  | 21.7 | ✅
+Stirrup spacing along width (Table 9.7.6.2.2) | cm | 43.0 |  | 43.4 | ✅
 Minimum shear reinforcement | cm²/m | 8.7 | 0.0 |  | ✅
 Minimum rebar diameter | mm | 10.0 |  |  | ✅
 Strength Checks
@@ -211,24 +211,24 @@ Shear reinforcement strength | Variable | Value | Unit
 Stirrup diameter | db | 10 | mm
 Stirrup spacing along length | sl | 21 | cm
 Stirrup spacing along width | sw | 43.0 | cm
-Effective height | d | 43.2 | cm
+Effective height | d | 43.4 | cm
 Minimum shear reinforcing | Av,min | 0.0 | cm²/m
 Required shear reinforcing | Av,req | 0.0 | cm²/m
 Defined shear reinforcing | Av | 8.7 | cm²/m
-Shear rebar strength | ØVs | 118.4 | kN
+Shear rebar strength | ØVs | 118.9 | kN
 Nominal shear the stirrups must carry (Vu/φ − Vc) | Vs,req | 0.0 | kN
-Threshold of Table 9.7.6.2.2 (0.33√f'c·bw·d) | Vs,lim | 712.8 | kN
+Threshold of Table 9.7.6.2.2 (0.33√f'c·bw·d) | Vs,lim | 716.1 | kN
 Vs,req ≤ Vs,lim → Table 9.7.6.2.2: d/2 along, d across |  |  | 
 Absolute cap of Table 9.7.6.2.2 in this row | s,cap | 60.0 | cm
 Shear strength | Variable | Value | Unit
-Effective shear area | Acv | 4320.0 | cm²
-Longitudinal reinforcement ratio | ρw | 0.00212 | 
-Size modification factor | λs | 0.856 | 
+Effective shear area | Acv | 4340.0 | cm²
+Longitudinal reinforcement ratio | ρw | 0.00208 | 
+Size modification factor | λs | 0.855 | 
 Axial stress | σNu | 0.0 | MPa
 Concrete effective shear stress | kc | 0.85 | MPa
-Concrete strength | ØVc | 275.4 | kN
-Maximum shear strength | ØVmax | 1344.6 | kN
-Total shear strength | ØVn | 393.8 | kN
+Concrete strength | ØVc | 276.7 | kN
+Maximum shear strength | ØVmax | 1350.8 | kN
+Total shear strength | ØVn | 395.6 | kN
 Max shear check |  | ✅ | 
 Demand Capacity Ratio | DCR | 0.38 | ✅
 Resistance and detailing
@@ -240,11 +240,11 @@ Detailing (modelled checks) | Pass (modelled checks) |
 Slab Z1, $b$=100.00 cm, $h$=50.00 cm, $c_{c}$=5.00 cm,                         Concrete H25, Rebar ADN 420.
 Top longitudinal rebar: -, $A_{s,top}$ = 0.0 cm², $M_u$ = 0.0 kNm, $\phi M_n$ = 0.0 kNm → $\color{#439b00}{\text{DCR}=0}$ 
 
-Bottom longitudinal rebar: Ø16 mm/220 mm, $A_{s,bot}$ = 9.14 cm², $M_u$ = 100.0 kNm, $\phi M_n$ = 146.12 kNm → $\color{#439b00}{\text{DCR}=0.68}$ 
-Shear reinforcing Ø10/21×43 cm, $A_v$=8.7 cm²/m, $V_u$=150.0 kN, $\phi V_n$=393.76 kN → $\color{#439b00}{\text{DCR}=0.38}$ 
+Bottom longitudinal rebar: Ø12 mm/110 mm, $A_{s,bot}$ = 9.05 cm², $M_u$ = 100.0 kNm, $\phi M_n$ = 145.37 kNm → $\color{#439b00}{\text{DCR}=0.69}$ 
+Shear reinforcing Ø10/21×43 cm, $A_v$=8.7 cm²/m, $V_u$=150.0 kN, $\phi V_n$=395.58 kN → $\color{#439b00}{\text{DCR}=0.38}$ 
 
 ### flexure_design
-Ø16 mm/220 mm
+Ø12 mm/110 mm
 
 ### shear_design
 Ø10 mm/21 cm×43 cm
@@ -258,5 +258,5 @@ Shear reinforcing Ø10/21×43 cm, $A_v$=8.7 cm²/m, $V_u$=150.0 kN, $\phi V_n$=3
 ### plot
 100 cm
 50 cm
-5Ø16
+8Ø12
 Ø10/21×43

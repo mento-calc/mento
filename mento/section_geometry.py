@@ -41,10 +41,10 @@ The legs are not tied to the bars: the check does not do that either, so an
 inner leg may sit where no bar is. That is the model, shown honestly.
 
 A slab strip (``OneWaySlab``, ``Footing``) is detailed by spacings, not by a
-count of bars in a cage: its bars per strip are ``width / s`` and need not be
-whole, and it has no cage. Its geometry publishes the section, the cover, the
-stirrup diameter and ``s_w``, with no bars and no legs, rather than positions
-that would contradict its own ``Ø10/14`` label.
+count of bars in a cage: it has no cage, and the bars per strip of a
+``OneWaySlab`` are ``width / s`` and need not be whole. Its geometry publishes
+the section, the cover, the stirrup diameter and ``s_w``, with no bars and no
+legs, rather than positions that would contradict its own ``Ø10/14`` label.
 
 Calculation layer: no drawing library is imported here. The section is read
 once through its float view (ADR-0005) and the lengths are wrapped into pint
