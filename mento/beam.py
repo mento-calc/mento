@@ -46,6 +46,7 @@ from mento.design_results import (
 )
 from mento.design_warnings import (
     DesignWarning,
+    bar_limit_warnings,
     collect,
     combination_label,
     flexure_warnings,
@@ -454,6 +455,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         A_req_bot: Quantity,
         A_req_top: Quantity,
         resists: Callable[[], bool],
+        closeness: Optional[Callable[[], Tuple[float, ...]]] = None,
     ) -> None:
         """Last word on the layout, once both faces have been designed.
 
@@ -469,7 +471,22 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
                 moments. An element that re-selects bars has to ask, since a
                 thicker bar sits deeper and lowers the effective depth it was
                 chosen against.
+            closeness: How close the layout on the section comes to resisting,
+                lower being closer, for an element left to choose among layouts
+                none of which do.
         """
+
+    def _search_verdict_stands(self) -> bool:
+        """Whether a face the search of each face could not fit is still one that does not fit, once it is settled."""
+        return True
+
+    def _bar_above_max(self, face: str) -> Optional[Quantity]:
+        """The bar a design put on ``face`` past ``max_longitudinal_diameter``. A beam's never goes past it."""
+        return None
+
+    def _bar_short_of_depth(self) -> Optional[Quantity]:
+        """The largest bar there is, if a design found the section too shallow even for it. Not a beam's verdict."""
+        return None
 
     def _option_layers(self, design: Any) -> Tuple[RebarLayer, ...]:
         """The layers a row of the longitudinal search would put on a face.
@@ -2147,6 +2164,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         raws += transverse_proposal_warnings(self)
         raws += skin_warnings(self)
         raws += shortfall_warnings(self)
+        raws += bar_limit_warnings(self)
         raws += list(self._shear_warning_raws()) if self._shear_checked else []
         return collect(raws)
 

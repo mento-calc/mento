@@ -108,6 +108,8 @@ class Rebar:
         """
 
         self.mode = getattr(beam, "mode", "beam")  # "beam" or "slab"
+        # Only a footing asks for fewer than the search's two layers; see Footing.max_layers.
+        self._layers_allowed: int = getattr(beam, "max_layers", 2)
 
         self.beam = beam
         self._long_combos_df: DataFrame = pd.DataFrame()
@@ -942,7 +944,7 @@ class Rebar:
                                 #       (2) second layer identical to the first (mirror)
                                 #  - n3 = n1, n4 = n2 when a second layer exists
                                 # ---------------------------------------------------------
-                                for has_second_layer in [False, True]:
+                                for has_second_layer in [False, True][: self._layers_allowed]:
                                     if not has_second_layer:
                                         n3, n4 = 0, 0
                                     else:

@@ -322,13 +322,43 @@ average, than mento's own per-face design, which is not even buildable as a sing
 Every candidate is verified before it is kept, because the choice feeds back into
 itself: a thicker bar sits deeper, lowering the effective depth the required area was
 computed against. Candidates are tried lightest first and applied to the section, and
-the first that resists both design moments is the answer. If none within the budget
-verifies — a section too small for its demand — the design falls back to reconciling the
-two spacings it had already proved, which needs no verification because it only ever
-adds bars.
+the first that resists both design moments is the answer. If none verifies, the design
+falls back to reconciling the two spacings it had already proved.
 
 A face carrying no reinforcement is left with none: a footing reinforced on the bottom
 only has no second grid to place, and one is not invented for it.
+
+One layer, unless a second is asked for
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A demand that does not fit in one layer is answered with a thicker bar. This is a decision
+about how a footing is built, not a clause. ``max_layers`` is 1 by default:
+
+#. The search of each face is held to one layer, and so is the depth the required areas
+   are read at. Then the mat search above runs over the bars of the settings, with every
+   candidate tried rather than the first 12, so that a bar past the maximum is never
+   adopted while one within it would do.
+#. The two spacings the faces arrived at are reconciled. They are single layers now, so
+   this is one more mat, and unlike with two layers it has to resist to be kept: this is
+   the route of a layout that relies on compression steel the required area overstates.
+#. Otherwise the search runs again with the next bar of the catalogue allowed, one at a
+   time and smallest first, trying only the mats that use the new bar. The first that
+   resists is kept, and the warning ``bar_diameter_above_max`` and
+   ``FlexureFaceDesign.d_b_above_max`` say which bar it took on each face.
+#. If the largest bar does not resist, the section is short of depth. The design leaves
+   the single layer per face that comes closest, as the design reads closeness everywhere
+   else: within the code's limits on the reinforcement before past them, then the lowest
+   ratio; among equals a bar within the maximum, then the lightest. Past the limit of the
+   compression zone more steel adds nothing and a thinner bar sits deeper, so this need not
+   be the most steel that fits. The DCR stays above 1 and it warns
+   ``depth_too_small_for_one_layer``.
+
+The last step tries up to about 400 mats, 1 to 2 s, and it only runs on a section that
+cannot close.
+
+``max_layers = 2`` keeps the search as it was before this field: a second layer for each
+face, 12 candidates, no bar past the maximum, and the reconciled spacings kept without
+asking them to resist.
 
 Practical bar size
 ^^^^^^^^^^^^^^^^^^
@@ -520,6 +550,40 @@ Validation
    * - A slab keeps counting bars per strip
      - ``test_a_slab_still_counts_bars_per_strip``
      - ACI 318-19 §7.7.2.3; see :doc:`one_way_slab`
+   * - One layer on both faces, whole bars, closing or not
+     - ``test_no_design_leaves_a_second_layer``,
+       ``test_a_top_face_with_no_moment_never_gets_two_layers``,
+       ``test_a_footing_keeps_to_one_layer_by_default``,
+       ``test_max_layers_is_one_or_two``
+     - Project decision; the rule above
+   * - A thicker bar, and saying so
+     - ``test_a_mat_that_does_not_fit_goes_up_to_the_first_bar_that_resists``,
+       ``test_it_skips_the_bars_that_do_not_resist_either``,
+       ``test_when_the_maximum_is_enough_nothing_is_said``,
+       ``test_imperial_bars_go_up_the_astm_sizes``,
+       ``test_the_warning_on_the_bar_above_the_maximum_is_in_spanish_too``,
+       ``test_setting_the_bars_by_hand_drops_what_the_design_had_to_say``,
+       ``test_the_mats_of_the_reference_cases``,
+       ``test_a_mat_that_fits_is_not_reported_as_bars_that_do_not_fit``
+     - Internal consistency
+   * - Nothing resists: one layer, the closest, and asking for depth
+     - ``test_with_no_solution_it_leaves_one_layer_and_asks_for_depth``,
+       ``test_with_no_solution_it_carries_the_most_a_layer_can``,
+       ``test_with_no_solution_the_bars_keep_the_clear_distance_the_settings_ask_for``,
+       ``test_setting_the_bars_by_hand_drops_the_call_for_more_depth``,
+       ``test_a_footing_too_narrow_for_any_module_still_keeps_to_one_layer``,
+       ``test_a_code_that_caps_nothing_leaves_what_the_search_arrived_at``,
+       ``test_designing_twice_gives_the_same_mat``
+     - Internal consistency
+   * - The budget does not get in the way
+     - ``test_the_budget_does_not_keep_a_mat_within_the_maximum_from_being_found``,
+       ``test_the_budget_does_not_keep_the_design_from_going_up_the_catalogue``
+     - Internal consistency
+   * - Two layers when asked; slabs and beams untouched
+     - ``test_two_layers_when_asked_keep_the_design_as_it_was``,
+       ``test_two_layers_when_asked_keep_the_budget``,
+       ``test_a_slab_and_a_beam_are_not_limited_to_one_layer``
+     - Internal consistency
    * - One module across both faces, the top at ``s`` or ``2s``
      - ``test_a_designed_footing_is_one_mat``,
        ``test_the_top_may_be_set_out_at_twice_the_bottom``,

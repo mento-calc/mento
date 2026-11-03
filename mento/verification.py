@@ -99,6 +99,8 @@ WARNING_CATEGORY: dict[str, str] = {
     "bars_do_not_fit": "failed",
     "As_below_required": "resistance",
     "section_too_small_for_moment": "resistance",
+    "bar_diameter_above_max": "informative",
+    "depth_too_small_for_one_layer": "resistance",
     "stirrups_required": "resistance",
     "force_component_not_checked": "resistance",
     "Av_below_min": "resistance",

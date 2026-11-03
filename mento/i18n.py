@@ -293,6 +293,20 @@ ES.update(
             "Hay que agrandar la sección."
         ),
         (
+            "Bar on the {face}: {d_b} is above the maximum {d_b_max} asked for, because no mat of bars "
+            "up to that size carries the moment in one layer."
+        ): (
+            "Barra de la {face}: {d_b} supera el máximo pedido de {d_b_max}, porque ninguna parrilla de barras "
+            "hasta ese tamaño resiste el momento en una capa."
+        ),
+        (
+            "Not even one layer of {d_b}, the largest bar in the catalogue, carries the moment within the "
+            "code's limits at h = {h}: the footing needs more depth."
+        ): (
+            "Ni una capa de {d_b}, la mayor barra del catálogo, resiste el momento dentro de los límites de "
+            "la norma con h = {h}: la zapata necesita más canto."
+        ),
+        (
             "Clear spacing between the bars on the {face}: {s} leaves no room for the vibrator, {s_min}. "
             "The concrete cannot be consolidated."
         ): (

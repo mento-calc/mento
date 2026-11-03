@@ -5,7 +5,7 @@ import math
 import warnings
 
 from mento.beam import RectangularBeam
-from mento.design_results import RebarLayer
+from mento.design_results import RebarLayer, _current_flexure_options
 from mento.codes.registry import design_code
 from mento.units import m, mm, cm, inch
 
@@ -480,7 +480,21 @@ class Footing(OneWaySlab):
     has a span of 112 cm, so Ø12/28 is 5 bars, 5.65 cm². The moment is the one
     of that whole width.
 
+    A design keeps to one layer unless told otherwise (``max_layers``). When no
+    mat of the bars the settings allow carries the moment, it goes up the
+    catalogue past ``max_longitudinal_diameter``, one bar at a time, and adopts
+    the first that does: the warning ``bar_diameter_above_max`` names it, and
+    ``flexure_design.bottom.d_b_above_max`` / ``.top.d_b_above_max`` read it.
+    When not even the largest bar carries it, the section needs more depth, not
+    a second layer: the design leaves the one layer that comes closest, with the
+    code's limits read first and the DCR past 1, and warns
+    ``depth_too_small_for_one_layer``.
+
     Args:
+        max_layers: How many layers a design may put on a face: 1, or 2 to let
+            the mat fall back on a second layer as it did before this field, in
+            which case it never goes past ``max_longitudinal_diameter``. Any
+            other value raises ``ValueError``. Bars set by hand are not limited.
         edge_cover: The real cover at the sides of the footing, which the bars
             have to stay inside. Defaults to ``c_c``. Give it apart when ``c_c``
             is not a cover but a way of reaching a depth: with the top layer
@@ -503,6 +517,7 @@ class Footing(OneWaySlab):
     # Both resolved in __post_init__, so they read as lengths from then on.
     edge_cover: Quantity = field(default=cast("Quantity", None), kw_only=True)
     bend_clearance: Quantity = field(default=cast("Quantity", None), kw_only=True)
+    max_layers: int = field(default=1, kw_only=True)
 
     #: The thinnest bar a footing mat is detailed with, whatever the catalogue
     #: holds below it. Practice rather than code: a mesh finer than this is not
@@ -511,6 +526,8 @@ class Footing(OneWaySlab):
     _MIN_MAT_DIAMETER = 10 * mm
 
     def __post_init__(self) -> None:
+        if self.max_layers not in (1, 2):
+            raise ValueError(f"max_layers must be 1 or 2, not {self.max_layers!r}.")
         if self.edge_cover is None:
             self.edge_cover = self.c_c
         if self.bend_clearance is None:
@@ -544,10 +561,16 @@ class Footing(OneWaySlab):
     #: The layers a mat is placed in, as (diameter attribute, spacing attribute).
     _MAT_LAYERS = (("_d_b1_b", "_s_b1_b"), ("_d_b3_b", "_s_b3_b"), ("_d_b1_t", "_s_b1_t"), ("_d_b3_t", "_s_b3_t"))
 
-    #: How many candidate mats are verified before falling back. They are tried
-    #: lightest first, so the first is almost always the answer; the budget only
-    #: bounds the cost when the lightest ones do not verify.
+    #: How many candidate mats are verified before falling back on a second
+    #: layer. They are tried lightest first, so the first is almost always the
+    #: answer; the budget only bounds the cost when the lightest ones do not
+    #: verify. A footing kept to one layer has no such fallback, and tries them
+    #: all before it reaches for a bar it was not allowed.
     _MAT_CANDIDATES = 12
+
+    #: The largest bar of the catalogue, if the last design found one layer of it
+    #: too little for this depth.
+    _short_of_depth_with: Quantity | None = None
 
     def _record_longitudinal_options(self, face: str, design: Any, table: Any) -> None:
         """A footing offers no alternatives: its mat is chosen as a whole.
@@ -568,6 +591,7 @@ class Footing(OneWaySlab):
         A_req_bot: Quantity,
         A_req_top: Quantity,
         resists: Callable[[], bool],
+        closeness: Callable[[], tuple[float, ...]] | None = None,
     ) -> None:
         """Detail both faces as one mat, at the least steel that still covers them.
 
@@ -594,16 +618,21 @@ class Footing(OneWaySlab):
         Every candidate is verified before it is kept, because the choice feeds
         back into itself: a thicker bar sits deeper, which lowers the effective
         depth and raises the area the face needed in the first place. Anything
-        that fails to resist the moments is passed over, and if nothing within
-        the budget verifies, the design falls back to reconciling the two
-        spacings it had already proved.
+        that fails to resist the moments is passed over, and if nothing
+        verifies, the design falls back to reconciling the two spacings it had
+        already proved. Under ``max_layers = 1`` those are single layers too,
+        since the search of each face was held to one, and they have to resist
+        as well: if they do not, see :meth:`_finalize_past_the_max_diameter`.
 
         Args:
             A_req_bot: Steel the bottom face has to carry, minimum included.
             A_req_top: The same for the top; zero when it carries none.
             resists: Whether the layout now on the section resists both design
                 moments.
+            closeness: How close the layout on the section comes to resisting,
+                lower being closer.
         """
+        self._short_of_depth_with = None
         snapshot = [(name, getattr(self, name)) for pair in self._MAT_LAYERS for name in pair]
         for spacing, diameter in self._mat_candidates(A_req_bot, A_req_top):
             self._apply_mat(spacing, diameter)
@@ -615,33 +644,182 @@ class Footing(OneWaySlab):
         self._calculate_longitudinal_rebars()
         self._update_longitudinal_rebar_attributes()
         self._match_spacings_downward()
+        if self.max_layers == 1 and not resists():
+            self._finalize_past_the_max_diameter(A_req_bot, A_req_top, resists, closeness)
 
-    def _mat_candidates(self, A_req_bot: Quantity, A_req_top: Quantity) -> Any:
-        """The mats worth trying, lightest first, as (spacings, diameters)."""
-        needed_bot = A_req_bot.to(_MM2).magnitude if A_req_bot is not None else 0.0
-        needed_top = A_req_top.to(_MM2).magnitude if A_req_top is not None else 0.0
-        if needed_bot <= 0 and needed_top <= 0:
-            return
+    def _finalize_past_the_max_diameter(
+        self,
+        A_req_bot: Quantity,
+        A_req_top: Quantity,
+        resists: Callable[[], bool],
+        closeness: Callable[[], tuple[float, ...]] | None,
+    ) -> None:
+        """One layer, when no mat of the bars the settings allow resists: a thicker bar, or the closest there is.
 
-        limit_max = self._max_bar_spacing()
-        if limit_max is None:
+        The same search, with the next bar of the catalogue allowed each time,
+        lightest first, and the first mat that resists is kept. Only the mats
+        that use the newly allowed bar are tried: the rest have just failed.
+
+        If the largest bar does not resist either, the section is short of
+        depth and a second layer is not the answer. It is left with the single
+        layer on each face that comes closest, and says so.
+        """
+        catalogue = self._create_rebar_designer().rebar_diameters
+        allowed = self.settings.max_longitudinal_diameter
+        for bar in (d for d in catalogue if d > allowed):
+            for spacing, diameter in self._mat_candidates(A_req_bot, A_req_top, bar):
+                if max(diameter) > allowed.to(mm).magnitude:
+                    self._apply_mat(spacing, diameter)
+                    if resists():
+                        return
+            allowed = bar
+        if closeness is not None:
+            self._apply_closest_mat(A_req_bot, A_req_top, resists, closeness, max(catalogue))
+
+    def _apply_closest_mat(
+        self,
+        A_req_bot: Quantity,
+        A_req_top: Quantity,
+        resists: Callable[[], bool],
+        closeness: Callable[[], tuple[float, ...]],
+        largest: Quantity,
+    ) -> None:
+        """Leave the single-layer mat that comes closest to resisting, within the spacing limits.
+
+        Closest as the design reads it everywhere else (``closeness``): within
+        the code's limits on the reinforcement before past them, then the lowest
+        ratio. Past a point more steel adds nothing, or takes the section past
+        those limits, so this is not simply the most steel that fits. Among mats
+        that come equally close, a bar the settings allow before one they do
+        not, and then the lightest. A face asked for nothing stays bare, and a
+        face asked for only as compression steel is bare too if the steel earns
+        nothing. The module and the bottom bar are chosen against the thickest
+        top, then the top against them, and once more if that changed the top:
+        far cheaper than every pair, since each mat tried costs a few ms, though
+        this only runs on a section that cannot close. The rounds of a design
+        that land on the same areas are answered from ``_closest_pair_memo``.
+        """
+        limits = self._mat_spacing_limits()
+        if limits is None:
             return  # a code that caps nothing gives the search no space to work in
-        limit_min = self._min_bar_spacing()
+        memo = getattr(self, "_closest_pair_memo", None)
+        memo_key = ("mat", A_req_bot.m_as(_MM2), A_req_top.m_as(_MM2), self._stirrup_d_b.m_as(mm))
+        if memo is not None and memo_key in memo:
+            spacing, d_bot, d_top = memo[memo_key]
+            self._apply_mat(spacing, (d_bot, d_top))
+            if not resists():
+                self._short_of_depth_with = largest
+            return
+        s_lo, s_hi, step = limits
+        clear = self.settings.clear_spacing.to(mm).magnitude
+        needed_top = A_req_top.to(_MM2).magnitude > 0
+        modules = [
+            (k * step, k * step * factor)
+            for k in range(math.ceil(s_lo / step), math.floor(s_hi / step + 1e-9) + 1)
+            for factor in ((1, 2) if needed_top else (1,))
+            if k * step * factor <= s_hi
+        ]
+        if not modules:
+            return  # no spacing fits this width: what the design arrived at stays
+        rebar = self._create_rebar_designer()
+        floor = self.settings.minimum_longitudinal_diameter
+        bars = [d.to(mm).magnitude for d in rebar.rebar_diameters if d >= floor]
+        allowed = self.settings.max_longitudinal_diameter.to(mm).magnitude
+        bottoms = [0.0, *bars] if A_req_bot.to(_MM2).magnitude > 0 else [0.0]
+        tops = [0.0, *bars] if needed_top else [0.0]
 
         span = self._bar_span().to(mm).magnitude
-        clear = self.settings.clear_spacing.to(mm).magnitude
+        best_rank: Any = None
+        best = (modules[0], max(bottoms), max(tops))
+
+        def consider(spacing: tuple[float, float], d_bot: float, d_top: float) -> None:
+            """Keep this mat if its bars fit the spacing and it ranks above the best so far."""
+            nonlocal best_rank, best
+            if (d_bot and spacing[0] - d_bot < clear) or (d_top and spacing[1] - d_top < clear):
+                return
+            self._apply_mat(spacing, (d_bot, d_top))
+            key = tuple(round(value, 6) for value in closeness())
+            steel = _whole_bars_in_span(span, spacing[0]) * d_bot**2 + _whole_bars_in_span(span, spacing[1]) * d_top**2
+            rank = (key, max(d_bot, d_top) > allowed, steel)
+            if best_rank is None or rank < best_rank:
+                best_rank, best = rank, (spacing, d_bot, d_top)
+
+        for _ in range(2):
+            against = best[2]
+            for spacing in modules:
+                for d_bot in bottoms:
+                    consider(spacing, d_bot, against)
+            for d_top in tops:
+                consider(best[0], best[1], d_top)
+            if best[2] == against:
+                break
+
+        if memo is not None:
+            memo[memo_key] = best
+        self._apply_mat(best[0], (best[1], best[2]))
+        if not resists():
+            self._short_of_depth_with = largest
+
+    def _search_verdict_stands(self) -> bool:
+        """Kept to one layer, the mat replaces what that search found, and fits at a spacing it chose itself."""
+        return self.max_layers == 2 or self._mat_spacing_limits() is None
+
+    def _bar_above_max(self, face: str) -> Quantity | None:
+        """The bar the last design put on ``face`` past the maximum, while it is on the section. ``face`` is ``"b"`` or ``"t"``."""
+        options = _current_flexure_options(self, face)
+        if not options or not options[0].layers:
+            return None
+        bar: Quantity = max(layer.d_b for layer in options[0].layers)
+        limit = self.settings.max_longitudinal_diameter.to(mm).magnitude
+        return bar if bar.to(mm).magnitude > limit + 1e-6 else None
+
+    def _bar_short_of_depth(self) -> Quantity | None:
+        """The verdict of the last design, while what it left is on both faces."""
+        if self._short_of_depth_with is None:
+            return None
+        if not (_current_flexure_options(self, "b") and _current_flexure_options(self, "t")):
+            return None
+        return self._short_of_depth_with
+
+    def _mat_spacing_limits(self) -> tuple[float, float, float] | None:
+        """The spacings a mat may use and the step between them, in mm; ``None`` if the code caps nothing."""
+        limit_max = self._max_bar_spacing()
+        if limit_max is None:
+            return None
+        limit_min = self._min_bar_spacing()
         # The unit a spacing is drawn in, so the module is one a detailer writes.
         step = 10.0 if self.concrete.unit_system == "metric" else 25.4
         s_lo = step if limit_min is None else limit_min.to(mm).magnitude
         # Past the span two bars no longer lie that far apart, however far the
         # code would let them.
-        s_hi = min(limit_max.to(mm).magnitude, span)
+        s_hi = min(limit_max.to(mm).magnitude, self._bar_span().to(mm).magnitude)
+        return s_lo, s_hi, step
+
+    def _mat_candidates(self, A_req_bot: Quantity, A_req_top: Quantity, largest: Quantity | None = None) -> Any:
+        """The mats worth trying, lightest first, as (spacings, diameters).
+
+        ``largest`` is the thickest bar allowed: the maximum of the settings
+        unless the design is looking past it.
+        """
+        needed_bot = A_req_bot.to(_MM2).magnitude if A_req_bot is not None else 0.0
+        needed_top = A_req_top.to(_MM2).magnitude if A_req_top is not None else 0.0
+        if needed_bot <= 0 and needed_top <= 0:
+            return
+
+        limits = self._mat_spacing_limits()
+        if limits is None:
+            return  # a code that caps nothing gives the search no space to work in
+        s_lo, s_hi, step = limits
+
+        span = self._bar_span().to(mm).magnitude
+        clear = self.settings.clear_spacing.to(mm).magnitude
+        thickest = self.settings.max_longitudinal_diameter if largest is None else largest
 
         rebar = self._create_rebar_designer()
         bars = [
             (d.to(mm).magnitude, rebar.rebar_areas[d].to(_MM2).magnitude)
             for d in rebar.rebar_diameters
-            if self.settings.minimum_longitudinal_diameter <= d <= self.settings.max_longitudinal_diameter
+            if self.settings.minimum_longitudinal_diameter <= d <= thickest
         ]
 
         def grid(spacing: float, needed: float) -> Any:
@@ -670,7 +848,8 @@ class Footing(OneWaySlab):
                 # cheaper mat to place for the same steel.
                 found.append((bottom[0] + top[0], -s_bot, (s_bot, s_top), (bottom[1], top[1])))
 
-        for _, _, spacing, diameter in sorted(found)[: self._MAT_CANDIDATES]:
+        budget = self._MAT_CANDIDATES if self.max_layers == 2 else None
+        for _, _, spacing, diameter in sorted(found)[:budget]:
             yield spacing, diameter
 
     def _apply_mat(self, spacing: Any, diameter: Any) -> None:
