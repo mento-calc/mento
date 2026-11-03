@@ -77,6 +77,19 @@ Codes
     of the combination and face furthest past DCR 1, and ``M_capacity``, what
     the layout the design kept carries there. No face or combination label;
     it goes with ``As_below_required`` and lasts as long.
+``bar_diameter_above_max``
+    A footing kept to one layer (``Footing.max_layers``) found no mat of bars
+    up to ``max_longitudinal_diameter`` that carries the moment, and adopted
+    the first larger bar of the catalogue that does. ``values`` carries
+    ``d_b``, the bar on that face, and ``d_b_max``, the maximum asked for;
+    ``flexure_design.bottom.d_b_above_max`` reads the same. It lasts while the
+    design's layout is on the section: bars set by hand drop it.
+``depth_too_small_for_one_layer``
+    The same footing, when not even the largest bar of the catalogue carries
+    the moment in one layer. The design leaves the single layer that comes
+    closest and the DCR past 1, with ``As_below_required`` and
+    ``section_too_small_for_moment`` where they apply. ``values`` carries
+    ``d_b``, that bar, and ``h``, the depth. No face or combination label.
 ``stirrups_required``
     The section has no stirrups, and a combination asks for shear
     reinforcement -- beyond what the concrete carries, or the code minimum.
@@ -281,6 +294,14 @@ _MESSAGES: Dict[str, str] = {
         "No layout that fits the section, with room for the vibrator between the top bars, and keeps within "
         "the code's limits on the reinforcement carries M = {M}: the closest one carries {M_capacity}. "
         "Enlarge the section."
+    ),
+    "bar_diameter_above_max": (
+        "Bar on the {face}: {d_b} is above the maximum {d_b_max} asked for, because no mat of bars "
+        "up to that size carries the moment in one layer."
+    ),
+    "depth_too_small_for_one_layer": (
+        "Not even one layer of {d_b}, the largest bar in the catalogue, carries the moment within the "
+        "code's limits at h = {h}: the footing needs more depth."
     ),
     "clear_spacing_below_vibrator": (
         "Clear spacing between the bars on the {face}: {s} leaves no room for the vibrator, {s_min}. "
@@ -661,6 +682,26 @@ def shortfall_warnings(beam: "RectangularBeam") -> List[_Raw]:
         M_capacity: Quantity = worst.M_capacity
         values = {"M": worst.DCR * M_capacity, "M_capacity": M_capacity}
         found.append(_Raw("section_too_small_for_moment", values, None, severity=worst.DCR))
+    return [_with_units(raw, beam) for raw in found]
+
+
+def bar_limit_warnings(beam: "RectangularBeam") -> List[_Raw]:
+    """What a design kept to one layer had to do: a thicker bar than asked for, or admit it needs more depth.
+
+    Verdicts of the design, read off the section for as long as the layout it
+    left is what the section carries. Only a footing has them to give.
+    """
+    settings = beam.settings
+    assert settings is not None
+    found: List[_Raw] = []
+    for letter in ("b", "t"):
+        d_b = beam._bar_above_max(letter)
+        if d_b is not None:
+            values = {"d_b": d_b, "d_b_max": settings.max_longitudinal_diameter}
+            found.append(_Raw("bar_diameter_above_max", values, _face_name(letter)))
+    largest = beam._bar_short_of_depth()
+    if largest is not None:
+        found.append(_Raw("depth_too_small_for_one_layer", {"d_b": largest, "h": beam.height}))
     return [_with_units(raw, beam) for raw in found]
 
 

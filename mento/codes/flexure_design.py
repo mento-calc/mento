@@ -845,7 +845,7 @@ def _run_flexure_design(
     # never before it, so that what it starts from is a layout already known to
     # work. It may re-select the bars rather than only the spacing, so it is
     # handed the means to verify its own choice.
-    self._finalize_longitudinal_design(A_req_bot, A_req_top, _layout_resists)
+    self._finalize_longitudinal_design(A_req_bot, A_req_top, _layout_resists, _pair_key)
 
     # A layout that still fails is the most that fits, not a design: no bars
     # that fit the width carry the moment, or keep it tension-controlled. The
@@ -872,7 +872,7 @@ def _run_flexure_design(
     ):
         table = tables[face].get(_rebar_design_fingerprint(row)) if row is not None else None
         self._record_longitudinal_options(suffix, row, table)
-        if infeasible[face]:
+        if infeasible[face] and self._search_verdict_stands():
             self._infeasible_faces.add(face)
         else:
             self._infeasible_faces.discard(face)

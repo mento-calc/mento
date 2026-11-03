@@ -892,6 +892,12 @@ class FlexureFaceDesign:
     maximum steel, and ``complies`` reads it with ``DCR`` -- see
     :class:`FlexureFaceCheck`. A design never accepts a face that does not
     comply; it ends on one only when no layout does, and warns.
+
+    ``d_b_above_max`` is the bar a design put on this face past
+    ``settings.max_longitudinal_diameter``, and ``None`` where it kept within
+    it. Only a footing kept to one layer goes past it, to the first bar of the
+    catalogue that carries the moment (:class:`~mento.slab.Footing`), and says
+    so with the warning ``bar_diameter_above_max``.
     """
 
     layers: Tuple[RebarLayer, ...]
@@ -906,6 +912,7 @@ class FlexureFaceDesign:
     M_capacity: Quantity
     options: Tuple[RebarOption, ...] = ()
     admissible: bool = True
+    d_b_above_max: Optional[Quantity] = None
 
     @property
     def complies(self) -> bool:
@@ -1187,6 +1194,7 @@ def _face(beam: RectangularBeam, face: str) -> FlexureFaceDesign:
         M_capacity=no_capacity if worst.M_capacity is None else worst.M_capacity,
         options=_current_flexure_options(beam, face),
         admissible=worst.admissible,
+        d_b_above_max=beam._bar_above_max(face),
     )
 
 

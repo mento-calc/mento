@@ -124,6 +124,25 @@ The design applies all of these for you:
   picks the module and both diameters that give the least steel covering what each face
   needs — e.g. ``Ø20 c/15`` at the bottom with ``Ø20 c/30`` on top. A footing reinforced on one
   face only keeps its single grid.
+- **One layer.** A design puts one layer on each face, and a demand that does not fit in
+  one is answered with a thicker bar, not a second layer. First it searches the bars your
+  settings allow. If no mat of those resists, it repeats the search with the next bars of
+  the catalogue above `max_longitudinal_diameter`, one at a time and smallest first, and
+  keeps the first mat that resists. It tells you so, and you can read the bar on each face:
+
+  .. code-block:: python
+
+      footing.flexure_design.bottom.d_b_above_max   # 16 mm; None where it kept within the maximum
+      [w.code for w in node.warnings]               # ['bar_diameter_above_max']
+
+  The warning's `values` carry `d_b`, the bar adopted, and `d_b_max`, the maximum you asked
+  for. If even the largest bar in the catalogue does not resist, the section needs more
+  depth: the design leaves the one layer on each face that comes closest within the spacing
+  limits, the DCR stays above 1, and it warns `depth_too_small_for_one_layer` beside
+  `As_below_required` and `section_too_small_for_moment`. "Closest" reads the code's limits
+  on the reinforcement first and the capacity second, so it is not simply the most steel.
+  To let a design use a second layer and hold it to your maximum, pass `max_layers=2`; any
+  other value raises `ValueError`. Bars you set by hand are not limited.
 - **Ø10 minimum.** A footing mesh is not detailed with the thinnest bar in the
   catalogue, so the search does not reach below Ø10 to shave the lightly loaded face.
 - **Depth.** A section shallower than the code asks of a footing on soil warns when it

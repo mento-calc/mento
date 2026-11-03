@@ -12,9 +12,11 @@ import warnings
 
 import pytest
 
+from mento.beam import RectangularBeam
 from mento.codes.aci_318_19.equations import flexure as aci_flexure
 from mento.codes.en_1992_2004.equations import flexure as en_flexure
 from mento.forces import Forces
+from mento.i18n import set_language
 from mento.material import (
     Concrete_ACI_318_19,
     Concrete_CIRSOC_201_25,
@@ -822,6 +824,7 @@ def test_a_mat_that_does_not_verify_is_passed_over(steel_b500s: SteelBar) -> Non
     """
     concrete = Concrete_EN_1992_2004(name="C25", f_c=25 * MPa)
     footing = _strip(Footing, concrete, steel_b500s, "Z1")
+    footing.max_layers = 2
     footing.set_slab_longitudinal_rebar_bot(d_b1=16 * mm, s_b1=120 * mm)
     footing.set_slab_longitudinal_rebar_top(d_b1=12 * mm, s_b1=250 * mm)
 
@@ -1175,3 +1178,319 @@ def test_a_slab_still_counts_bars_per_strip() -> None:
     assert slab.reinforcement.bottom.A_s.to("cm**2").magnitude == pytest.approx(5.25, abs=0.01)
     assert slab._spacing_for_bars(5).to("cm").magnitude == pytest.approx(26)
     assert not hasattr(slab, "edge_cover")
+
+
+# ---------------------------------------------------------------------------
+# One layer, unless a second is asked for
+# ---------------------------------------------------------------------------
+
+
+def _codes():  # type: ignore[no-untyped-def]
+    return [
+        (Concrete_EN_1992_2004(name="C25", f_c=25 * MPa), SteelBar(name="B500", f_y=500 * MPa)),
+        (Concrete_CIRSOC_201_25(name="H25", f_c=25 * MPa), SteelBar(name="ADN 420", f_y=420 * MPa)),
+    ]
+
+
+def _bars(d_min, d_max, concrete=None, steel=None, width=260 * cm, height=50 * cm, **kwargs):  # type: ignore[no-untyped-def]
+    """A footing with the bars limited, 2.6 x 0.5 m in EN C25 / B500 unless told otherwise."""
+    return Footing(
+        label="Z1",
+        concrete=concrete or Concrete_EN_1992_2004(name="C25", f_c=25 * MPa),
+        steel_bar=steel or SteelBar(name="B500", f_y=500 * MPa),
+        width=width,
+        height=height,
+        c_c=6 * cm,
+        edge_cover=5 * cm,
+        settings=BeamSettings(minimum_longitudinal_diameter=d_min * mm, max_longitudinal_diameter=d_max * mm),
+        **kwargs,
+    )
+
+
+def _warning(section, code):  # type: ignore[no-untyped-def]
+    return next(warning for warning in section.warnings if warning.code == code)
+
+
+@pytest.mark.parametrize("value", [0, 3, -1])
+def test_max_layers_is_one_or_two(value) -> None:  # type: ignore[no-untyped-def]
+    with pytest.raises(ValueError, match="max_layers"):
+        _bars(10, 25, max_layers=value)
+
+
+def test_a_footing_keeps_to_one_layer_by_default() -> None:
+    assert _bars(10, 25).max_layers == 1
+
+
+@pytest.mark.parametrize("code", [0, 1], ids=["EN", "CIRSOC"])
+@pytest.mark.parametrize("width", [130, 260, 500])
+@pytest.mark.parametrize("height", [35, 50])
+@pytest.mark.parametrize("ratio", [0.5, 1.5, 4.0])
+def test_no_design_leaves_a_second_layer(code, width, height, ratio) -> None:  # type: ignore[no-untyped-def]
+    """High moments on both faces, closing or not: one layer each, whole bars, n * A_b."""
+    concrete, steel = _codes()[code]
+    footing = _bars(10, 25, concrete, steel, width=width * cm, height=height * cm)
+    d = height - 8
+    moment = ratio * 0.005 * width * d * 42 * 0.9 * d / 100
+    _designed(footing, moment * kNm, -0.5 * moment * kNm)
+    span = footing._bar_span().to("cm").magnitude
+
+    for suffix in ("b", "t"):
+        assert getattr(footing, f"_d_b3_{suffix}").magnitude == 0
+        assert getattr(footing, f"_s_b3_{suffix}").magnitude == 0
+        assert getattr(footing, f"_n3_{suffix}") == 0
+    for face in (footing.flexure_design.bottom, footing.flexure_design.top):
+        assert len(face.layers) == 1
+        layer = face.layers[0]
+        assert isinstance(layer.n, int)
+        assert (layer.n - 1) * layer.s.to("cm").magnitude <= span + 1e-9
+        assert face.A_s.to("cm**2").magnitude == pytest.approx(
+            (layer.n * math.pi * layer.d_b**2 / 4).to("cm**2").magnitude
+        )
+
+
+def test_a_top_face_with_no_moment_never_gets_two_layers() -> None:
+    """CIRSOC 5 m x 0.35 m, one way: the top is only ever compression steel, and in one layer."""
+    concrete, steel = _codes()[1]
+    footing = _designed(_bars(10, 32, concrete, steel, width=500 * cm, height=35 * cm), 2500 * kNm)
+
+    assert len(footing.flexure_design.top.layers) <= 1
+    assert footing._s_b3_t.magnitude == 0
+    assert len(footing.flexure_design.bottom.layers) == 1
+    assert footing.flexure_design.top.A_s.to("cm**2").magnitude < 400
+
+
+def test_when_the_maximum_is_enough_nothing_is_said() -> None:
+    bottom = _designed(_bars(16, 16, steel=SteelBar(name="420", f_y=420 * MPa)), 700 * kNm).flexure_design.bottom
+
+    assert bottom.d_b_above_max is None
+    assert bottom.layers[0].d_b.to("mm").magnitude == pytest.approx(16)
+
+
+def test_a_mat_that_does_not_fit_goes_up_to_the_first_bar_that_resists() -> None:
+    """Ø12 fixed gets to the Ø16 mat Ø16 fixed gives: same bar, same spacing, and it says so."""
+    steel = SteelBar(name="420", f_y=420 * MPa)
+    asked = _designed(_bars(12, 12, steel=steel), 700 * kNm)
+    allowed = _designed(_bars(16, 16, steel=steel), 700 * kNm)
+    bottom, reference = asked.flexure_design.bottom, allowed.flexure_design.bottom
+
+    assert len(bottom.layers) == 1
+    assert bottom.layers[0].d_b == reference.layers[0].d_b
+    assert bottom.layers[0].s == reference.layers[0].s
+    assert bottom.layers[0].n == reference.layers[0].n
+    assert bottom.DCR <= 1
+    assert bottom.d_b_above_max.to("mm").magnitude == pytest.approx(16)
+    assert asked.flexure_design.top.d_b_above_max is None
+
+    warning = _warning(asked, "bar_diameter_above_max")
+    assert warning.face == "bottom"
+    assert warning.values["d_b"].to("mm").magnitude == pytest.approx(16)
+    assert warning.values["d_b_max"].to("mm").magnitude == pytest.approx(12)
+    assert "16" in warning.message and "12" in warning.message
+    assert "depth_too_small_for_one_layer" not in {w.code for w in asked.warnings}
+
+
+@pytest.mark.parametrize(
+    "code, f_y, width, moment, d_min, d_max, s, n, A_s, above",
+    [
+        (0, 500, 260, 2100, 10, 32, 15, 17, 136.7, None),
+        (1, 420, 500, 3700, 10, 32, 15, 33, 265.4, None),
+        (0, 420, 260, 660, 16, 16, 11, 23, 46.2, None),
+        (0, 420, 260, 540, 16, 16, 14, 18, 36.2, None),
+        (0, 420, 260, 660, 12, 12, 11, 23, 46.2, 16),
+        (0, 420, 260, 540, 12, 12, 14, 18, 36.2, 16),
+    ],
+)
+def test_the_mats_of_the_reference_cases(code, f_y, width, moment, d_min, d_max, s, n, A_s, above) -> None:  # type: ignore[no-untyped-def]
+    """Moments chosen to land on them at section level: 5 cm of side cover, h = 50 cm, one layer below."""
+    footing = _bars(
+        d_min, d_max, _codes()[code][0], SteelBar(name="S", f_y=f_y * MPa), width=width * cm, height=50 * cm
+    )
+    bottom = _designed(footing, moment * kNm).flexure_design.bottom
+
+    assert len(bottom.layers) == 1
+    layer = bottom.layers[0]
+    assert (layer.s.to("cm").magnitude, layer.n) == (pytest.approx(s), n)
+    assert bottom.A_s.to("cm**2").magnitude == pytest.approx(A_s, abs=0.05)
+    assert bottom.DCR <= 1
+    if above is None:
+        assert bottom.d_b_above_max is None
+    else:
+        assert bottom.d_b_above_max.to("mm").magnitude == pytest.approx(above)
+
+
+def test_a_mat_that_fits_is_not_reported_as_bars_that_do_not_fit() -> None:
+    """The search of a face held to Ø16 in one layer finds nothing; the mat that replaces it fits."""
+    closed = _designed(_bars(10, 16, width=130 * cm, height=50 * cm), 1000 * kNm)
+    short = _designed(_bars(10, 16, width=130 * cm, height=50 * cm), 3000 * kNm)
+
+    assert closed.flexure_design.DCR <= 1
+    assert short.flexure_design.DCR > 1
+    for footing in (closed, short):
+        assert "bars_do_not_fit" not in {w.code for w in footing.warnings}
+
+
+def test_it_skips_the_bars_that_do_not_resist_either() -> None:
+    """Ø12 at 900 kN·m: every Ø16 mat falls short, so the first that resists is a Ø20."""
+    footing = _designed(_bars(12, 12, steel=SteelBar(name="420", f_y=420 * MPa)), 900 * kNm)
+
+    assert footing.flexure_design.bottom.d_b_above_max.to("mm").magnitude == pytest.approx(20)
+    assert footing.flexure_design.bottom.DCR <= 1
+
+
+def test_the_warning_on_the_bar_above_the_maximum_is_in_spanish_too() -> None:
+    footing = _designed(_bars(12, 12, steel=SteelBar(name="420", f_y=420 * MPa)), 700 * kNm)
+    set_language("es")
+    try:
+        assert "supera el máximo pedido" in _warning(footing, "bar_diameter_above_max").message
+    finally:
+        set_language("en")
+
+
+def test_imperial_bars_go_up_the_astm_sizes() -> None:
+    footing = Footing(
+        label="Z1",
+        concrete=Concrete_ACI_318_19(name="4 ksi", f_c=4000 * psi),
+        steel_bar=SteelBar(name="Gr 60", f_y=60000 * psi),
+        width=100 * inch,
+        height=20 * inch,
+        c_c=3 * inch,
+        settings=BeamSettings(minimum_longitudinal_diameter=0.5 * inch, max_longitudinal_diameter=0.5 * inch),
+    )
+    _designed(footing, 1000 * kip * 12 * inch)
+    bottom = footing.flexure_design.bottom
+
+    assert len(bottom.layers) == 1
+    assert bottom.DCR <= 1
+    assert bottom.d_b_above_max.to("inch").magnitude > 0.5
+    assert _warning(footing, "bar_diameter_above_max").values["d_b_max"].units == inch
+
+
+def test_setting_the_bars_by_hand_drops_what_the_design_had_to_say() -> None:
+    footing = _designed(_bars(12, 12, steel=SteelBar(name="420", f_y=420 * MPa)), 700 * kNm)
+    assert "bar_diameter_above_max" in {w.code for w in footing.warnings}
+
+    footing.set_slab_longitudinal_rebar_bot(d_b1=12 * mm, s_b1=10 * cm)
+
+    assert "bar_diameter_above_max" not in {w.code for w in footing.warnings}
+    Node(section=footing, forces=[Forces(label="C", M_y=700 * kNm)]).check_flexure()
+    assert footing.flexure_design.bottom.d_b_above_max is None
+
+
+def test_with_no_solution_it_leaves_one_layer_and_asks_for_depth() -> None:
+    """Far past what Ø32 can do: one layer of the best there is, DCR > 1, and a warning about depth."""
+    footing = _designed(_bars(10, 32, width=100 * cm, height=30 * cm), 800 * kNm, -500 * kNm)
+    design = footing.flexure_design
+
+    assert len(design.bottom.layers) == 1 and len(design.top.layers) == 1
+    assert footing._s_b3_b.magnitude == 0 and footing._s_b3_t.magnitude == 0
+    assert design.DCR > 1
+    for face in (design.bottom, design.top):
+        layer = face.layers[0]
+        assert isinstance(layer.n, int)
+        assert face.A_s.to("cm**2").magnitude == pytest.approx(
+            (layer.n * math.pi * layer.d_b**2 / 4).to("cm**2").magnitude
+        )
+        assert footing._min_bar_spacing() <= layer.s <= footing._max_bar_spacing()
+
+    warning = _warning(footing, "depth_too_small_for_one_layer")
+    assert warning.values["d_b"].to("mm").magnitude == pytest.approx(32)
+    assert warning.values["h"].to("cm").magnitude == pytest.approx(30)
+    assert "more depth" in warning.message
+    assert {"As_below_required", "section_too_small_for_moment"} <= {w.code for w in footing.warnings}
+
+
+def test_with_no_solution_it_carries_the_most_a_layer_can() -> None:
+    """Under EN the capacity saturates at M_lim: what it leaves comes no less close than the largest bars."""
+    closest = _designed(_bars(10, 32, width=100 * cm, height=30 * cm), 800 * kNm)
+    heaviest = _bars(10, 32, width=100 * cm, height=30 * cm)
+    heaviest.set_slab_longitudinal_rebar_bot(d_b1=32 * mm, s_b1=10 * cm)
+    Node(section=heaviest, forces=[Forces(label="C", M_y=800 * kNm)]).check_flexure()
+
+    assert closest.flexure_design.bottom.DCR <= heaviest.flexure_checks[0].bottom.DCR + 1e-9
+    assert closest.flexure_design.bottom.d_b_above_max is None
+
+
+def test_the_budget_does_not_keep_a_mat_within_the_maximum_from_being_found() -> None:
+    """The thirteenth mat is tried before any bar past the maximum."""
+    footing = _bars(10, 25, width=300 * cm)
+    tried = []
+
+    def resists() -> bool:
+        tried.append(footing._d_b1_b)
+        return len(tried) > Footing._MAT_CANDIDATES
+
+    footing._finalize_longitudinal_design(20 * cm**2, 0 * cm**2, resists)
+
+    assert len(tried) == Footing._MAT_CANDIDATES + 1
+    assert footing._d_b1_b <= 25 * mm
+
+
+def test_the_budget_does_not_keep_the_design_from_going_up_the_catalogue() -> None:
+    """More mats within the maximum than the budget, all failing, and the next bar is still reached."""
+    footing = _bars(10, 25, width=300 * cm)
+    assert len(list(footing._mat_candidates(60 * cm**2, 0 * cm**2))) > Footing._MAT_CANDIDATES
+
+    footing._finalize_longitudinal_design(60 * cm**2, 0 * cm**2, lambda: footing._d_b1_b > 25 * mm)
+
+    assert footing._d_b1_b.to("mm").magnitude == pytest.approx(32)
+
+
+def test_designing_twice_gives_the_same_mat() -> None:
+    footing = _bars(10, 25)
+    node = Node(section=footing, forces=[Forces(label="C", M_y=3200 * kNm)])
+    node.design()
+    first = str(footing.flexure_design), footing.flexure_design.DCR
+    node.design()
+
+    assert (str(footing.flexure_design), footing.flexure_design.DCR) == first
+    assert "depth_too_small_for_one_layer" in {w.code for w in footing.warnings}
+
+
+def test_two_layers_when_asked_keep_the_design_as_it_was() -> None:
+    """max_layers = 2: the second layer is back, the maximum holds, and nothing is said about either."""
+    footing = _designed(_bars(10, 25, max_layers=2), 2400 * kNm)
+    bottom = footing.flexure_design.bottom
+
+    assert len(bottom.layers) == 2
+    assert all(layer.d_b.to("mm").magnitude == pytest.approx(25) for layer in bottom.layers)
+    assert bottom.d_b_above_max is None
+    assert bottom.DCR <= 1
+    assert not {"bar_diameter_above_max", "depth_too_small_for_one_layer"} & {w.code for w in footing.warnings}
+
+
+def test_two_layers_when_asked_keep_the_budget() -> None:
+    footing = _bars(10, 25, width=300 * cm, max_layers=2)
+
+    assert len(list(footing._mat_candidates(20 * cm**2, 0 * cm**2))) == Footing._MAT_CANDIDATES
+
+
+def test_a_slab_and_a_beam_are_not_limited_to_one_layer() -> None:
+    """A slab stops at its maximum and takes a second layer; a beam fills its layers as ever."""
+    slab = OneWaySlab(
+        label="L",
+        concrete=Concrete_EN_1992_2004(name="C25", f_c=25 * MPa),
+        steel_bar=SteelBar(name="B500", f_y=500 * MPa),
+        width=100 * cm,
+        height=30 * cm,
+        c_c=3 * cm,
+        settings=BeamSettings(minimum_longitudinal_diameter=10 * mm, max_longitudinal_diameter=12 * mm),
+    )
+    _designed(slab, 400 * kNm)
+    bottom = slab.flexure_design.bottom
+
+    assert len(bottom.layers) == 2
+    assert bottom.d_b_above_max is None
+    assert not hasattr(slab, "max_layers")
+    assert not {"bar_diameter_above_max", "depth_too_small_for_one_layer"} & {w.code for w in slab.warnings}
+
+    beam = RectangularBeam(
+        label="V",
+        concrete=Concrete_EN_1992_2004(name="C25", f_c=25 * MPa),
+        steel_bar=SteelBar(name="B500", f_y=500 * MPa),
+        width=20 * cm,
+        height=50 * cm,
+        c_c=3 * cm,
+    )
+    _designed(beam, 300 * kNm)
+    assert beam.flexure_design.bottom.d_b_above_max is None
+    assert len(beam.flexure_design.bottom.layers) > 2

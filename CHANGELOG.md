@@ -71,9 +71,29 @@ from the release history and are summaries rather than complete lists.
   it apart when `c_c` is there to reach a depth, as `cover + Ø` is with the top layer
   resting on the bottom one. `bend_clearance` is what the first bar keeps from that cover,
   per side, to stay clear of the bend of the bars crossing it: 4 cm, or 1.5 in.
+- **`Footing(max_layers=1)` and `FlexureFaceDesign.d_b_above_max`.** How many layers a
+  design may put on a face, 1 by default; 2 keeps the second layer, any other value raises
+  `ValueError`. `d_b_above_max` is the bar a design adopted past
+  `max_longitudinal_diameter`, `None` where it kept within it. Two new warnings:
+  `bar_diameter_above_max` (`values`: `d_b`, `d_b_max`) and `depth_too_small_for_one_layer`
+  (`values`: `d_b`, `h`).
 
 ### Changed
 
+- **A `Footing` no longer takes a second layer unless asked; `OneWaySlab` and beams do not
+  change.** When no mat resisted, the design went back to the per-face search, which could
+  leave two layers on either face, the top included with no moment on it. A 2.6 m x 0.5 m
+  EN footing at 2400 kN·m with Ø10 to Ø25 was Ø25/12 twice, 206 cm²; it is now Ø32/13,
+  153 cm², and warns that Ø32 is above the maximum. Now the search of each face is held to
+  one layer, every mat within the maximum is tried before leaving it (the budget of 12 stays
+  only under `max_layers=2`), and past that the next bars of the catalogue are tried one at
+  a time. If the largest does not resist, the footing keeps the single layer that comes
+  closest, the DCR stays above 1, and it warns that it needs more depth.
+
+  **Migration.** A footing that used two layers comes out with other bars, possibly above
+  the `max_longitudinal_diameter` you set: read `d_b_above_max` or the warning, or pass
+  `max_layers=2` to keep the previous behaviour. A section that cannot close takes 1 to 2 s
+  longer to design, from about 0.5 s; one that closes does not.
 - **A `Footing` works in whole bars; `OneWaySlab` does not change.** A strip goes on past
   its edges and counts `width / s` bars. A footing ends at its edges and is built with
   whole bars, and mento was crediting it with steel that does not exist or not crediting

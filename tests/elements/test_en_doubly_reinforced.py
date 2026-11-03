@@ -31,7 +31,11 @@ from mento.units import cm, kN, kNm, mm, MPa
 
 
 def _footing(c_c, height=25 * cm):  # type: ignore[no-untyped-def]
-    """The footing of the issue: 100 cm wide, C25, B500S, Ø20 only."""
+    """The footing of the issue: 100 cm wide, C25, B500S, Ø20 only.
+
+    Allowed two layers, which is what holds it to Ø20: kept to one, a design
+    goes up the catalogue instead.
+    """
     settings = BeamSettings(unit_system="metric")
     settings.minimum_longitudinal_diameter = 20 * mm
     settings.max_longitudinal_diameter = 20 * mm
@@ -42,6 +46,7 @@ def _footing(c_c, height=25 * cm):  # type: ignore[no-untyped-def]
         width=100 * cm,
         height=height,
         settings=settings,
+        max_layers=2,
     )
 
 
