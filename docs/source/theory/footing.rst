@@ -240,11 +240,43 @@ it is enforced as a cap on ``max_bars_per_layer``:
 
 .. math::
 
-   n_{max} = \left\lfloor \frac{b}{s_{min}} \right\rfloor
+   n_{max} = n(s_{min})
 
-A heavier demand is therefore answered with a larger bar rather than with bars closer
-together. Both bounds are reported in the flexure check table, so a footing detailed
-outside the range fails the check rather than passing quietly.
+with :math:`n(s)` the count below. A heavier demand is therefore answered with a larger
+bar rather than with bars closer together. Both bounds are reported in the flexure check
+table, so a footing detailed outside the range fails the check rather than passing
+quietly.
+
+Whole bars
+^^^^^^^^^^
+
+A slab strip goes on past both of its edges, so it counts :math:`b/s` bars, a number that
+need not be whole (see :doc:`one_way_slab`). A footing ends at its edges and is built with
+whole bars. Its count at a spacing :math:`s` is
+
+.. math::
+
+   n(s) = \max\left(\left\lfloor \frac{span}{s} \right\rfloor + 1,\ 2\right), \qquad
+   span = b - 2\,c - 2\,h, \qquad
+   A_s = n(s)\,A_b
+
+:math:`c` is the real cover at the sides of the footing (``edge_cover``, by default
+:math:`c_c`) and :math:`h` a clearance per side (``bend_clearance``, by default 4 cm or
+1.5 in.): the bar cannot lie right against the cover of the edge parallel to it, where it
+would run into the bend of the bars crossing it. This is detailing practice, not a clause.
+
+:math:`c` is kept apart from :math:`c_c` because the two can be different numbers. With the
+top layer resting on the bottom one, :math:`c_c = c + \varnothing` is what gives the depth
+:math:`d = h_{total} - c - 1.5\,\varnothing`, and it does not describe the sides. The cover
+the codes read for the depth and for the crack-control cap of Table 24.3.2 stays
+:math:`c_c`.
+
+The count is the same everywhere: in the capacity, the DCR, ``layer.n`` and the search
+below. Going the other way, the widest whole spacing that gives :math:`n` bars is
+:math:`\lfloor span/(n-1) \rfloor`, never wider than the span itself, where two bars no
+longer lie that far apart. On a footing 130 cm wide with 5 cm of side cover, the span is
+112 cm and Ø12/28 is 5 bars, 5.65 cm², where the strip's count would give 4.64 bars,
+5.25 cm².
 
 One mat, chosen rather than reconciled
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -258,8 +290,9 @@ Reconciling the two spacings the per-face design arrived at — taking the small
 — is safe but expensive. The face governed by the minimum is detailed as many thin bars,
 which comes out closer than the few thick bars the loaded face needs, so the smaller of
 the two is often the *lightly loaded* face's spacing, and adopting it closes the loaded
-face up and buys steel nobody asked for. Measured over twenty typical footings, that
-costs about 20% more longitudinal steel than the two faces actually require.
+face up and buys steel nobody asked for. Measured over 72 footings for each code, 1 to 4 m
+wide and 35 to 80 cm thick, bending both ways, that costs about 18% (EN) and 12% (ACI)
+more longitudinal steel than the two faces actually require.
 
 So the mat is chosen, not reconciled. Over the modules the code allows and the bars the
 catalogue holds, mento takes the lightest combination that covers both faces:
@@ -274,17 +307,17 @@ subject to
 .. math::
 
    s_{top} \in \{s,\ 2s\}, \qquad
-   s_{min} \le s \le s_{top} \le s_{max}, \qquad
-   n(s) = \left\lceil \frac{b}{s} \right\rceil
+   s_{min} \le s \le s_{top} \le \min(s_{max},\ span)
 
-with each face covering its own required area and each bar leaving the clear distance
-the settings ask for. The module is searched in whole centimetres (inches in imperial),
-so it is a number a detailer writes. Allowing a triple module as well was tried and
-changes nothing: ``s`` and ``2s`` already carry it.
+with :math:`n(s)` the whole bars above, each face covering its own required area and each
+bar leaving the clear distance the settings ask for. The module is searched in whole
+centimetres (inches in imperial), so it is a number a detailer writes. Among mats of the
+same weight the wider module wins. Allowing a triple module as well was tried and changes
+nothing: ``s`` and ``2s`` already carry it.
 
-That lands within about **7% (EN) to 11% (ACI)** of what the two faces require, against
-the 20% of taking the smaller spacing — and within 1% (EN) to 4% (ACI) of what mento's
-own per-face design produces, which is not even buildable as a single mat.
+Over the same footings that lands about **7% (EN) and 6% (ACI)** over what the two faces
+require, against the 18% and 12% of taking the smaller spacing — and no heavier, on
+average, than mento's own per-face design, which is not even buildable as a single mat.
 
 Every candidate is verified before it is kept, because the choice feeds back into
 itself: a thicker bar sits deeper, lowering the effective depth the required area was
@@ -465,6 +498,28 @@ Validation
    * - Both bounds reported in the check table
      - ``test_the_spacing_row_of_a_footing_reports_both_bounds``
      - Internal consistency
+   * - Whole bars in the span: the count, the area and the capacity
+     - ``test_a_footing_counts_the_whole_bars_that_fit_in_its_span``,
+       ``test_with_a_free_diameter_the_lightest_whole_mat_wins``,
+       ``test_the_top_at_twice_the_module_counts_its_own_whole_bars``,
+       ``test_a_designed_mat_is_whole_bars_that_fit``,
+       ``test_the_capacity_is_the_capacity_of_the_whole_bars``,
+       ``test_what_a_design_reports_is_whole_bars``
+     - The rule above; the values agree with an independent Calcpad sheet
+   * - The side cover and the clearance
+     - ``test_the_side_cover_and_the_clearance_set_the_span``,
+       ``test_the_imperial_clearance_is_an_inch_and_a_half``,
+       ``test_the_aci_spacing_cap_does_not_read_the_side_cover``
+     - Detailing practice; ACI 318-19 Table 24.3.2
+   * - The other paths that count bars
+     - ``test_a_spacing_set_by_hand_is_counted_in_the_span_with_two_bars_at_least``,
+       ``test_the_spacing_for_a_count_gives_at_least_that_many_bars``,
+       ``test_no_mat_is_offered_past_the_span``,
+       ``test_the_fallback_counts_whole_bars_and_never_loses_one``
+     - Internal consistency
+   * - A slab keeps counting bars per strip
+     - ``test_a_slab_still_counts_bars_per_strip``
+     - ACI 318-19 §7.7.2.3; see :doc:`one_way_slab`
    * - One module across both faces, the top at ``s`` or ``2s``
      - ``test_a_designed_footing_is_one_mat``,
        ``test_the_top_may_be_set_out_at_twice_the_bottom``,
@@ -478,7 +533,7 @@ Validation
      - Detailing practice
    * - The mat never undoes the design
      - ``test_matching_the_mat_never_undoes_the_design``,
-       ``test_the_mat_covers_each_face_in_every_metre``,
+       ``test_the_mat_is_credited_with_the_whole_bars_it_has``,
        ``test_the_mat_keeps_each_face_within_the_spacing_range``,
        ``test_a_footing_reinforced_on_one_face_gets_no_second_grid``,
        ``test_a_slab_still_details_its_faces_independently``

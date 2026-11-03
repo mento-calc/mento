@@ -66,6 +66,33 @@ from the release history and are summaries rather than complete lists.
   National Annex's value, or `1.1 * 1.5` for a pile cast without a permanent casing (k_f of
   §2.4.2.5(2)). Every EN check reads it: `f_cd`, `f_ctd` and C_Rd,c = 0.18/γ_c, so the shear
   of an uncased pile is no longer about 10 % on the unsafe side.
+- **`Footing(edge_cover=..., bend_clearance=...)`: the two lengths its bars are counted
+  in.** `edge_cover` is the real cover at the sides of the footing, `c_c` by default; give
+  it apart when `c_c` is there to reach a depth, as `cover + Ø` is with the top layer
+  resting on the bottom one. `bend_clearance` is what the first bar keeps from that cover,
+  per side, to stay clear of the bend of the bars crossing it: 4 cm, or 1.5 in.
+
+### Changed
+
+- **A `Footing` works in whole bars; `OneWaySlab` does not change.** A strip goes on past
+  its edges and counts `width / s` bars. A footing ends at its edges and is built with
+  whole bars, and mento was crediting it with steel that does not exist or not crediting
+  what is placed: 130 cm at 28 cm was 4.64 bars, 5.25 cm². The bars now lie in
+  `span = width - 2·edge_cover - 2·bend_clearance`, a layer has
+  `n = max(floor(span/s) + 1, 2)` of them and `A_s = n·A_b`: 5 bars and 5.65 cm² with 5 cm
+  of side cover. That count is what goes into the capacity, the DCR and `layer.n`, which is
+  an `int` on a footing, in a design and in a layer set by hand. The mat search keeps its
+  rules (whole-centimetre modules within the code's limits, the top at `s` or `2s`, the
+  lightest mat, the wider module among equals) and counts this way, so it may choose
+  another bar; it offers no spacing wider than the span. `max_bars_per_layer` is
+  `n(s_min)`. The spacing caps of the codes, Table 24.3.2 included, still read `c_c`.
+
+  **Migration.** `width` is now the whole footing: a `Footing` 1 m wide is not a metre of a
+  wider one, so a design that used a 1 m strip to read per-metre values should pass the real
+  width and the moment across it, or use `OneWaySlab`. Existing footings can come out with
+  other bars. Over 288 designs 1 to 4 m wide and 35 to 80 cm thick, with `edge_cover` at
+  5 cm, the steel of a design moves between −5 % and +12 % (mean +2.0 % EN, −0.2 % ACI);
+  it is the narrow ones that go up, about +5 % at 1 m.
 
 ### Performance
 

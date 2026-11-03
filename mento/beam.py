@@ -380,7 +380,8 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         """Initialize all rebar-related attributes with default values."""
         # The bar counts are typed as floats: a beam's is a whole number of
         # bars, a slab strip's is width / s, the bars per strip its spacing
-        # gives, which need not be (see mento.slab._bars_at_spacing).
+        # gives, which need not be (see mento.slab._bars_at_spacing). A footing
+        # is built with whole bars again (mento.slab._whole_bars_in_span).
         self._n1_b: float
         self._n2_b: float
         self._n3_b: float

@@ -27,12 +27,13 @@ checks through a `Node` — is the slab's, unchanged.
 Key Concepts
 ------------
 
-- **Geometry**: a strip of the footing, given as a `width` and a `height` (the total
-  thickness). Results are the totals across that width, so a 1 m strip reads directly
-  as per-metre values.
+- **Geometry**: the footing across the direction it spans, given as a `width` and a
+  `height` (the total thickness). `width` is the whole footing, edge to edge, because
+  its bars are counted in it: results are the totals across that width, in whole bars.
+  A 1 m `width` is a footing 1 m wide, not a metre of a wider one.
 - **Forces**: the sectional forces at the face being designed — the moment and shear
-  the soil pressure produces in the strip. Mento does not derive them from the soil;
-  they are an input.
+  the soil pressure produces across that width. Mento does not derive them from the
+  soil; they are an input.
 - **Reinforcement**: bar diameter and spacing, one direction at a time. A footing spans
   both ways, so it is designed as two strips, one per direction.
 - **Design code**: taken from the `Concrete` object, as everywhere else in mento.
@@ -51,9 +52,12 @@ Usage
     concrete = Concrete_ACI_318_19(name="H25", f_c=25 * MPa)
     steel = SteelBar(name="ADN 420", f_y=420 * MPa)
 
-    # A 1 m strip of a footing 60 cm thick
+    # A footing 1 m wide and 60 cm thick
     footing = Footing(label="Z1", concrete=concrete, steel_bar=steel,
                       width=1 * m, height=60 * cm, c_c=50 * mm)
+
+`c_c` sets the depth of the bars. Where the cover at the sides of the footing is not that
+same number, give it as `edge_cover` (see *Whole bars* below).
 
 2. Checking and Designing
 *************************
@@ -78,7 +82,30 @@ Reinforcement can also be assigned by hand with `set_slab_longitudinal_rebar_bot
 What differs from a slab
 ------------------------
 
-Three rules, and the design applies all of them for you:
+The design applies all of these for you:
+
+- **Whole bars.** A slab strip goes on past its edges and counts ``width / s`` bars. A
+  footing ends at its edges and is built with whole bars, so that is what its steel is.
+  They lie in
+
+  .. code-block:: text
+
+      span = width - 2 * edge_cover - 2 * bend_clearance
+      n(s) = max(floor(span / s) + 1, 2)
+      A_s  = n * A_b
+
+  `edge_cover` is the cover at the sides, `c_c` unless you give it. `bend_clearance` is what
+  the first bar keeps from that cover, so that it does not run into the bend of the bars
+  crossing it: 4 cm by default, 1.5 in. in US customary units. At 130 cm wide with 5 cm of
+  side cover the span is 112 cm, so ``Ø12/28`` is 5 bars, 5.65 cm². `layer.n` reads that
+  integer, and the capacity and the DCR are computed with that area.
+
+  .. code-block:: python
+
+      # The top layer rests on the bottom one: c_c = cover + Ø reaches its depth,
+      # and the real cover goes to the sides.
+      Footing(label="Z1", concrete=concrete, steel_bar=steel,
+              width=130 * cm, height=35 * cm, c_c=6.2 * cm, edge_cover=5 * cm)
 
 - **Minimum reinforcement.** A member on the ground is exempt from the flexural
   minimum written for a member spanning between supports, and each code puts a

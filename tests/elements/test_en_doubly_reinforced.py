@@ -141,14 +141,14 @@ def test_the_design_of_the_issue_says_the_section_is_short() -> None:
     """c_c 30 mm at 300 kN·m: one layer a face, d' = 40 mm < x_u,lim, and still short.
 
     The two-layer layout the design used to pass on has no compression steel
-    the resistance credits; the best it finds carries 300/1.24 kN·m, and it
-    says so.
+    the resistance credits; the best it finds, the 9 Ø20 that fit in the span,
+    carries 300/1.37 kN·m, and it says so.
     """
     footing = _footing(30 * mm)
     check = _design_and_check(footing, 300 * kNm)
     _, d_prime, x_u_lim = _limits(footing)
     assert d_prime < x_u_lim
-    assert check.bottom.DCR == pytest.approx(1.240, abs=1e-3)
+    assert check.bottom.DCR == pytest.approx(1.372, abs=1e-3)
     assert {"As_below_required", "section_too_small_for_moment"} <= {w.code for w in footing.warnings}
 
 
