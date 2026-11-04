@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mento"
-version = "1.6.2"
+version = "1.6.3"
 description = "An intuitive tool for structural engineers to design concrete elements efficiently."
 readme = "README.md"
 authors = [
