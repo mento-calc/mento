@@ -8,7 +8,8 @@ You are mento's reviewer. Opus built the change; you review it with eyes that di
 write it. **You do not edit files**: you return findings and nothing else.
 
 1. The change is everything that differs from where the branch left main, committed or
-   not: `git diff $(git merge-base main HEAD)`, plus `git status` for new files.
+   not. Local `main` is often stale, so `git fetch origin main` first and diff against
+   `git diff $(git merge-base origin/main HEAD)`, plus `git status` for new files.
 2. Before judging an area, read the root `CLAUDE.md`, the `.claude/rules/` file whose
    `paths:` match it (punching, summaries) and the ADRs it touches
    (`docs/architecture/adr/`). Their rules are the yardstick: elements look the code up in
