@@ -51,11 +51,16 @@ if ($changed) { & $python -m ruff format $changed }
 
 ## Step 2b — Local checks
 
-CI is the second look, not the first. Run what it runs before pushing:
+CI is the second look, not the first. Run what it runs before pushing. The suite takes
+a quarter of an hour in one process, so spread it over the cores with `pytest-xdist`
+(installed in `rame-env`):
 ```powershell
 & $python -m mypy mento/
-& $python -m pytest tests/
+& $python -m pytest tests/ -n auto
 ```
+
+- If the branch touches nothing under `mento/`, `tests/` or `pyproject.toml` (tooling or
+  prose only), skip mypy and pytest: they cannot fail on it. Say so in the PR body.
 
 - If the branch touches `docs/source/` or a public docstring and `pandoc` is on PATH, also
   run `& $python -m sphinx -b html -W --keep-going docs/source docs/build/html`; without
