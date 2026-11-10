@@ -130,6 +130,12 @@ Keep this file under ~2000 words. Anything longer, or only needed for one kind o
 belongs in `.claude/rules/` (with `paths:` frontmatter, so it loads only for matching files)
 or in a skill.
 
+**`/ship`** (`.claude/commands/ship.md`) takes a branch to a green PR and never merges.
+**Opus builds, Fable checks** (owner, November 2026): every finished change goes through the
+`revisor` agent (`.claude/agents/revisor.md`, `model: fable`) before it is committed for a
+PR. It is `/ship` step 2c and is not skipped; outside `/ship`, run it when a change is done,
+before saying it is.
+
 ---
 
 ## CI
