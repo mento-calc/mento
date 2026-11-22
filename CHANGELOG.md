@@ -14,6 +14,22 @@ from the release history and are summaries rather than complete lists.
 
 ### Added
 
+- **What the limits on moment redistribution read, on every flexure result.**
+  `FlexureFaceCheck` and `beam.flexure_design.bottom` / `.top` carry `epsilon_t`, the
+  net tensile strain of the face's tension steel at nominal strength (ACI 318-19 /
+  CIRSOC 201-25 Table 21.2.2, read by §6.6.5: redistribution only from 0.0075, and at
+  most 1000·εt %, capped at 20 %), and `x_u_d`, the neutral axis over the effective
+  depth at the ULS with the steel the face carries (EN 1992-1-1 §5.5(4),
+  δ ≥ k₁ + k₂·x_u/d). Both come from the equilibrium of the section as reinforced, every
+  bar at the stress its strain gives it, the opposite face's included. Each is `None`
+  under the codes that do not use it and on a face without steel; the design result
+  gives the governing combination's.
+- **`Concrete_EN_1992_2004(..., delta=0.85)`: the redistribution ratio δ the EN beams
+  are designed for.** It was fixed at 0.85. The flexure design and check take the
+  concrete to x_u/d = (δ − k₁)/k₂ (eq. (5.10a); (5.10b) above C50/60, still capped at
+  0.45) and add compression steel past it; δ must lie between k₅ = 0.7 (Class B and C
+  reinforcement) and 1.0.
+
 - **`RectangularColumn` and `CircularColumn`: the shear of a column section in both
   directions, under ACI 318-19 and CIRSOC 201-25.** The column carries its bars (corners
   and the bars between them on each face, or `n` round a circle) and its ties: a
@@ -133,6 +149,22 @@ from the release history and are summaries rather than complete lists.
   for it; `from mento.results import CUSTOM_COLORS` still works.
 
 ### Fixed
+
+- **An EN design no longer leaves the bars it places past the neutral axis its δ allows.**
+  The design sized the steel for the moment with x_u/d at (δ − k₁)/k₂, then rounded the
+  tension bars up past what the compression steel balanced: M_Rd gained nothing from the
+  excess, but the neutral axis went past the limit, so the section did not allow the
+  redistribution it was designed for (C25 25×50 under 180 kN·m: 0.368 against 0.328). The
+  design now asks the opposite face for the compression steel the bars it places need, and
+  prefers a layout within x_u/d ≤ (δ − k₁)/k₂ to one past it. Over 672 EN beams the share
+  that ends past the limit went from 243 to 79. Those 79 cannot be brought within it by
+  bars that fit -- a shallow section whose stirrup legs each want a bar is past it with the
+  fewest it can take, and bars opposite below x_u,lim pull -- or are too small for the
+  moment. They keep the design they had and say so with the new warning
+  `x_u_above_redistribution_limit`, which names the face, its x_u/d and the least δ its
+  bars allow (k₁ + k₂·x_u/d). δ = 1.0 redistributes nothing and is designed as before,
+  with no such warning. A check reports `x_u_d` without holding a section to it. ACI
+  318-19 and CIRSOC 201-25 designs are unchanged.
 
 - **No warnings from pandas 3.1 in the bar searches.** pandas 3.1 deprecates the
   `inplace` keyword of `sort_values` and `reset_index` (PDEP-8), and the stirrup and

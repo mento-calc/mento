@@ -284,6 +284,15 @@ ES.update(
             "(A_s,req = {A_s_req}); el diseño dejó A_s = {A_s}. Hay que agrandar la sección."
         ),
         (
+            "Steel on the {face}: x_u/d = {x_u_d} is past the {x_u_d_max} that delta = {delta} allows "
+            "(EN 1992-1-1 §5.5(4)), and the design found no layout that fits within it. Its bars allow "
+            "delta >= {delta_min}: redistribute less, or enlarge the section."
+        ): (
+            "Armadura en la {face}: x_u/d = {x_u_d} supera el {x_u_d_max} que permite delta = {delta} "
+            "(EN 1992-1-1 §5.5(4)), y el diseño no encontró un armado que entre dentro de ese límite. "
+            "Sus barras permiten delta >= {delta_min}: hay que redistribuir menos o agrandar la sección."
+        ),
+        (
             "No layout that fits the section, with room for the vibrator between the top bars, and keeps within "
             "the code's limits on the reinforcement carries M = {M}: the closest one carries {M_capacity}. "
             "Enlarge the section."

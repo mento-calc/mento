@@ -295,6 +295,7 @@ class Concrete_EN_1992_2004(Concrete):
         f_c: Characteristic compressive strength of concrete (f_ck for Eurocode).
         alpha_cc: Coefficient for long term effects on the compressive strength, §3.1.6(1).
         gamma_c: Partial factor for concrete, §2.4.2.4.
+        delta: Ratio of the redistributed moment to the elastic moment, §5.5(4).
 
     EN 1992-1-1 recommends α_cc = 1.0 and lets the National Annex choose between 0.8 and
     1.0. The default is 0.85, the UK National Annex value mento's EN beams were validated with.
@@ -303,6 +304,22 @@ class Concrete_EN_1992_2004(Concrete):
     accidental situation, a National Annex's value, or 1.1·1.5 = 1.65 for a pile cast without
     a permanent casing (k_f of §2.4.2.5(2)). Every EN check reads it: f_cd, f_ctd and
     C_Rd,c = 0.18/γ_c.
+
+    δ is the redistribution the beams are designed for, 0.85 by default. §5.5(4) bounds the
+    neutral axis for it, x_u/d <= (δ - k_1)/k_2 up to C50/60 and (δ - k_3)/k_4 above (eqs.
+    (5.10a) and (5.10b)), never past mento's cap of 0.45. The flexure design and check take
+    the concrete to that limit and no further: past it the moment needs compression steel
+    (M_lim). A design also keeps the bars it places within it, the tension steel it rounds
+    up to included, with compression steel opposite, wherever bars that fit can: the
+    ``x_u_d`` of a designed face then allows the δ it was designed for. Where they cannot --
+    a shallow section whose stirrup legs each want a bar, a section too small for the
+    moment -- it keeps the design it would have had and warns
+    ``x_u_above_redistribution_limit`` with the least δ its bars allow. δ = 1.0 asks for no
+    redistribution: the design does not hold the bars to it, and never warns. A check reports
+    ``x_u_d`` and does not hold a section reinforced by hand to it. 1.0 is no
+    redistribution; the lowest is k_5 = 0.7, the bound for Class B and C reinforcement.
+    Class A steel stops at k_6 = 0.8, which the steel would have to say and is not checked
+    here.
 
     Methods:
         get_properties() -> Dict[str, Any]: Returns a dictionary of all relevant material properties.
@@ -316,6 +333,7 @@ class Concrete_EN_1992_2004(Concrete):
         epsilon_c3, epsilon_cu3 (properties): Strains of the bilinear diagram, Table 3.1.
         epsilon_cu1 (property): Ultimate strain of the diagram for structural analysis, Table 3.1.
         gamma_c (field): Partial factor for concrete, 1.5 by default (Table 2.1N).
+        delta (field): Redistribution ratio of §5.5(4), 0.85 by default, between k_5 and 1.0.
         Lambda_factor (property): Returns the λ factor.
         Eta_factor (property): Returns the η factor.
 
@@ -326,6 +344,7 @@ class Concrete_EN_1992_2004(Concrete):
 
     alpha_cc: float = field(default=0.85)
     gamma_c: float = field(default=1.5)
+    delta: float = field(default=0.85)
 
     def __post_init__(self) -> None:
         # Crucial: Call parent's __post_init__ first to set unit_system and density
@@ -343,7 +362,6 @@ class Concrete_EN_1992_2004(Concrete):
             raise ValueError(f"gamma_c must be positive (EN 1992-1-1 §2.4.2.4), got {self.gamma_c}.")
 
         # The f_c passed to Concrete is the f_ck for Eurocode
-        self._delta = 0.85
         self._f_ck = self.f_c
         # Converted once: lambda and eta are asked for it several times per
         # check, and f_ck does not change after construction.
@@ -388,6 +406,12 @@ class Concrete_EN_1992_2004(Concrete):
         self._k_4 = 1.25 * (0.6 + 0.0014 / self._epsilon_cu2)
         self._k_5 = 0.7
         self._k_6 = 0.8
+        # §5.5(4): delta >= k_5 for Class B and C reinforcement (k_6 for Class
+        # A, the steel's to say), and 1.0 is no redistribution at all.
+        if not self._k_5 <= self.delta <= 1.0:
+            raise ValueError(
+                f"delta must lie between k_5 = {self._k_5} and 1.0 (EN 1992-1-1 §5.5(4)), got {self.delta}."
+            )
 
     def _lambda_factor(self) -> float:
         """

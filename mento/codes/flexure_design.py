@@ -69,6 +69,11 @@ _MAX_SHORT_CANDIDATES = 12
 _CLOSER = 0.002
 # Layouts per face that search tries, spread over the range it reads.
 _MAX_CLOSEST_CANDIDATES = 16
+# The paired search of a design that misses a preferred limit: tension layouts
+# near the requirement, and the compression layouts tried for each.
+_PAIRED_TENSION_CANDIDATES = 8
+_PAIRED_COMPRESSION_CANDIDATES = 12
+_PAIRED_SHORT_CANDIDATES = 4
 
 
 @dataclass
@@ -98,6 +103,16 @@ class _FaceDemand:
         ``A_s_max`` is not a ductility limit that compression steel extends
         (EN 1992-2004, where it is the 4 % of 9.2.1.1(3)), and then the selector
         never goes past it.
+    A_s_lim, compression_per_lim_excess:
+        A ductility limit that is not ``A_s_max``: the tension steel the
+        concrete balances at it, and the compression steel opposite that each
+        unit past it calls for. EN 1992-1-1 §5.5(4) bounds the neutral axis by
+        the redistribution ratio delta, which the 4 % of ``A_s_max`` says
+        nothing about: ``A_s_lim = eta*f_cd*b*lambda*x_u,lim/f_yd`` and
+        ``f_yd/f_sd'``, ``f_sd'`` at ``x_u,lim``. ``None`` where the code has
+        no such limit (ACI 318-19 / CIRSOC 201-25, whose ``A_s_max`` is the
+        ductility limit), or where the opposite bars are not compressed at it
+        and hold nothing back.
     """
 
     A_s_min: Quantity
@@ -105,6 +120,8 @@ class _FaceDemand:
     A_s_tension: Quantity
     A_s_compression: Quantity
     compression_per_excess: Optional[float] = None
+    A_s_lim: Optional[Quantity] = None
+    compression_per_lim_excess: Optional[float] = None
 
 
 # Ask the design code for the areas required on ``face`` ("bot"/"top") by a
@@ -126,6 +143,28 @@ _Capacity = Callable[..., Quantity]
 # moment. Under EN 1992-1-1 §9.2.1.1(3) no face may carry more than its
 # maximum, and bars past it add resistance the design must not rely on.
 _Admissible = Callable[[str], bool]
+
+# A limit the design meets where the bars that fit allow it, and gives up
+# before strength or ``admissible``: EN 1992-1-1 §5.5(4) bounds the neutral
+# axis by the redistribution the concrete is designed for, and the bars a
+# shallow section has to carry -- one per stirrup leg -- can be past it with
+# no compression steel able to bring it back. Same signature as
+# ``_Admissible``.
+_Preferred = Callable[[str], bool]
+
+
+def _rank(within: bool, preferred: bool, worst: float) -> int:
+    """How a layout stands: 0 it closes, every limit met; 1 it closes but misses a preferred one;
+    2 it falls short of the moment within the code's limits; 3 it is past them.
+
+    A preferred limit only orders layouts that close: of two that fall short,
+    the one closer to the moment is the better, whatever the preferred limit
+    says. With no preferred limit, rank 1 never occurs and the order is the
+    one the design had before: closing, then within the limits, then past.
+    """
+    if within and worst <= 1.0:
+        return 0 if preferred else 1
+    return 2 if within else 3
 
 
 def _rebar_design_fingerprint(rebar_design: Any) -> tuple:
@@ -157,7 +196,7 @@ def _best_visited_pair(
     self: "RectangularBeam",
     bot_visited: Dict[tuple, dict],
     top_visited: Dict[tuple, dict],
-    assess: Callable[[], tuple[bool, float]],
+    assess: Callable[[], tuple[bool, float, bool]],
 ) -> tuple[Any, Any]:
     """Apply, and return, the best pair of the layouts visited on each face.
 
@@ -165,11 +204,12 @@ def _best_visited_pair(
     the top -- including none, if the top never carried one -- because a face
     is only right or wrong together with the other: the compression steel of
     one sets what the other can take. ``assess`` reads the pair on the section
-    as ``(admissible, worst demand/capacity)``.
+    as ``(admissible, worst demand/capacity, preferred)``.
 
     Of the pairs that are admissible and carry both moments, the one with the
-    least steel. If none does, the admissible pair that comes closest, and only
-    failing that the closest of all; the check then reports what is missing.
+    least steel -- meeting the preferred limit before missing it. If none
+    does, the admissible pair that comes closest, and only failing that the
+    closest of all; the check then reports what is missing.
     """
     bots: list = list(bot_visited.values()) or [None]
     tops: list = list(top_visited.values()) or [None]
@@ -179,12 +219,12 @@ def _best_visited_pair(
     for bot in bots:
         for top in tops:
             _apply_pair(self, bot, top)
-            within, worst = assess()
+            within, worst, preferred = assess()
             steel: Quantity = (bot.get("total_as", zero) if bot is not None else zero) + (
                 top.get("total_as", zero) if top is not None else zero
             )
-            passes = within and worst <= 1.0
-            key = (0, float(steel.to("cm**2").magnitude)) if passes else (1 if within else 2, worst)
+            rank = _rank(within, preferred, worst)
+            key = (rank, float(steel.to("cm**2").magnitude)) if rank <= 1 else (rank, worst)
             if best_key is None or key < best_key:
                 best_key, best_pair = key, (bot, top)
     _apply_pair(self, *best_pair)
@@ -208,11 +248,14 @@ def _run_flexure_design(
     required_areas: _RequiredAreas,
     capacity: _Capacity,
     admissible: Optional[_Admissible] = None,
-) -> None:
+    preferred: Optional[_Preferred] = None,
+) -> int:
     """Design the longitudinal reinforcement of ``self`` for the two limiting
     moments, using ``required_areas``, ``capacity`` and ``admissible`` as the
     design-code hooks. A code with no limit to hold the layout to passes no
-    ``admissible``, and every layout is admissible.
+    ``admissible``, and every layout is admissible. ``preferred`` is a limit
+    the design meets where it can and gives up before the moment or
+    ``admissible`` (see :func:`_rank`); without it every layout meets it.
 
     Implements 'governing-face + reconciliation' so that each face's final
     layout covers tension on that face OR compression from the opposite face,
@@ -225,7 +268,8 @@ def _run_flexure_design(
     and if it fails, every pair of the layouts visited on each face is tried
     and the best one kept (see :func:`_best_visited_pair`).
 
-    Leaves the chosen layout applied to the section; returns nothing.
+    Leaves the chosen layout applied to the section and returns how it stands,
+    as :func:`_rank` reads it.
     """
 
     # --- helpers -----------------------------------------------------------------
@@ -299,18 +343,30 @@ def _run_flexure_design(
         A_s_max the section stays tension-controlled only while
         A_s <= A_s_max + A_s' * f_s' / f_y.
 
+        Under EN 1992-1-1 the same holds past ``A_s_lim``, the tension steel
+        the concrete balances with the neutral axis at the x_u/d of §5.5(4):
+        A_s <= A_s_lim + A_s' * f_sd' / f_yd.
+
         Sized for the steel ``row`` places, not for the area the moment asked
         for. The two differ by whatever the bars round up by, and the hook's
         own compression steel only covers the second: a face given more than
         it asked for was left past the limit, and a check that capped it at
         phi = 0.90 credited it with a strength it does not have.
         """
-        if row is None or demand.compression_per_excess is None:
-            return 0 * (cm**2)
-        excess = row.get("total_as", 0 * (cm**2)) - demand.A_s_max
-        if excess <= 0 * (cm**2):
-            return 0 * (cm**2)
-        return (excess * demand.compression_per_excess).to(demand.A_s_max.units)
+        zero: Quantity = 0 * demand.A_s_max.units
+        if row is None:
+            return zero
+        placed: Quantity = row.get("total_as", zero)
+        need = zero
+        # The same rule for EN 1992-1-1 §5.5(4), whose ductility limit is not A_s_max.
+        for limit, per_excess in (
+            (demand.A_s_max, demand.compression_per_excess),
+            (demand.A_s_lim, demand.compression_per_lim_excess),
+        ):
+            if limit is None or per_excess is None or placed <= limit:
+                continue
+            need = max(need, ((placed - limit) * per_excess).to(demand.A_s_max.units))
+        return need
 
     M_top_demand: Quantity = abs(max_M_y_top.to("kN*m"))
     settings = self.settings
@@ -346,6 +402,8 @@ def _run_flexure_design(
         centroid = sum(n * db**2 * y for n, db, y in groups) / area
         return (float(self.c_c.m_as(mm)) + float(self._stirrup_d_b.m_as(mm)) + centroid) * mm
 
+    need_memo: Dict[tuple, Quantity] = {}
+
     def _compression_need(tension_face: str, tension_row: Any, d_prime: Quantity) -> Quantity:
         """Compression steel the tension steel of ``tension_row`` needs opposite
         it, with the compression bars at depth ``d_prime``.
@@ -354,16 +412,32 @@ def _run_flexure_design(
         for, both at that depth: the deeper the compression bars, the less
         stress they reach at the ductility limit and the more of them it
         takes.
+
+        Kept per tension layout and depth for the length of this design: the
+        searches below ask it of every row they read, and the rows of a table
+        share few depths.
         """
+        key = (tension_face, _rebar_design_fingerprint(tension_row), round(float(d_prime.m_as(mm)), 6))
+        if key in need_memo:
+            return need_memo[key]
         cover = _mech_cover(tension_row)
         d_t: Quantity = self.height - (cover if cover is not None else self._c_mec_bot)
         if tension_face == "bot":
             demand = required_areas("bot", max_M_y_bot, d_t, d_prime)
         else:
             demand = required_areas("top", M_top_demand, d_t, d_prime)
-        return max(demand.A_s_compression, _compression_for(tension_row, demand))
+        need_memo[key] = max(demand.A_s_compression, _compression_for(tension_row, demand))
+        return need_memo[key]
 
-    def _design_compression_face(face: str, own_req: Quantity, tension_face: str, tension_row: Any) -> Any:
+    def _design_compression_face(
+        face: str,
+        own_req: Quantity,
+        tension_face: str,
+        tension_row: Any,
+        covering_cap: int = _MAX_COMPRESSION_CANDIDATES,
+        short_cap: int = _MAX_SHORT_CANDIDATES,
+        scan_cap: Optional[int] = None,
+    ) -> Any:
         """Lay out ``face`` as the compression steel of ``tension_row``.
 
         An area is not enough to choose compression steel by: two layers of
@@ -395,19 +469,21 @@ def _run_flexure_design(
         M_t = max_M_y_bot if tension_face == "bot" else M_top_demand
         apply = self._apply_longitudinal_design_top if face == "top" else self._apply_longitudinal_design_bot
 
-        def verdict(row: Any) -> tuple[bool, float]:
-            """(admissible, demand/capacity) of the tension face with ``row`` opposite."""
+        def verdict(row: Any) -> tuple[int, float]:
+            """(:func:`_rank`, demand/capacity) of the tension face with ``row`` opposite."""
             apply(row)
             M_R = capacity(tension_face, M_t)
             within = admissible is None or admissible(tension_face)
+            met = preferred is None or preferred(tension_face)
             ratio = float((M_t / M_R).to("dimensionless").magnitude) if M_R.magnitude > 0 else float("inf")
-            return within, ratio
+            return _rank(within, met, ratio), ratio
 
         covering: list = []
         short: list = []
         closest: Optional[Any] = None
         closest_margin: Optional[Quantity] = None
-        for index, row in table.iterrows():
+        # The rows are ranked; a search that only wants a few reads the head.
+        for index, row in (table if scan_cap is None else table.head(scan_cap)).iterrows():
             cover = _mech_cover(row)
             need = own_req if cover is None else max(own_req, _compression_need(tension_face, tension_row, cover))
             margin: Quantity = row.get("total_as") - need
@@ -424,12 +500,12 @@ def _run_flexure_design(
         resisting: Optional[Any] = None
         nearest: Optional[Any] = None
         nearest_key: Optional[tuple] = None
-        for index in covering[:_MAX_COMPRESSION_CANDIDATES] + short[:_MAX_SHORT_CANDIDATES]:
-            within, ratio = verdict(table.loc[index])
-            if within and ratio <= 1.0:
+        for index in covering[:covering_cap] + short[:short_cap]:
+            rank, ratio = verdict(table.loc[index])
+            if rank == 0:
                 resisting = index
                 break
-            key = (0 if within else 1, ratio)
+            key = (rank, ratio)
             if nearest_key is None or key < nearest_key:
                 nearest, nearest_key = index, key
         candidates = (resisting, nearest, covering[0] if covering else None, closest, table.index[0])
@@ -634,22 +710,30 @@ def _run_flexure_design(
     if max_M_y_top < 0 * kNm:
         demands.append(("top", M_top_demand))
 
-    def _assess() -> tuple[bool, float]:
-        """(admissible, worst demand/capacity) of the layout on the section."""
+    def _assess() -> tuple[bool, float, bool]:
+        """(admissible, worst demand/capacity, preferred) of the layout on the section."""
         worst = 0.0
         within = True
+        met = True
         for face, M in demands:
             M_R = capacity(face, M)
             ratio = float((M / M_R).to("dimensionless").magnitude) if M_R.magnitude > 0 else float("inf")
             worst = max(worst, ratio)
             if admissible is not None and not admissible(face):
                 within = False
-        return within, worst
+            if preferred is not None and not preferred(face):
+                met = False
+        return within, worst, met
 
     def _layout_resists() -> bool:
-        """Does the layout on the section carry both moments, as the code allows?"""
-        within, worst = _assess()
-        return within and worst <= 1.0
+        """Does the layout on the section carry both moments, as the code allows, every limit met?"""
+        within, worst, met = _assess()
+        return _rank(within, met, worst) == 0
+
+    def _layout_closes() -> bool:
+        """Does it carry both moments within the code's limits, a preferred limit met or not?"""
+        within, worst, met = _assess()
+        return _rank(within, met, worst) <= 1
 
     def _pair_key() -> tuple:
         """How close the layout on the section comes: faces past the limits, the worst ratio, the sum of ratios.
@@ -658,18 +742,28 @@ def _run_flexure_design(
         its own counts as progress while the other face still sets the worst.
         """
         outside = 0
+        missed = 0
         ratios = []
         for face, M in demands:
             M_R = capacity(face, M)
             ratios.append(float((M / M_R).to("dimensionless").magnitude) if M_R.magnitude > 0 else float("inf"))
             if admissible is not None and not admissible(face):
                 outside += 1
+            if preferred is not None and not preferred(face):
+                missed += 1
         worst = max(ratios, default=0.0)
         if not outside and worst <= 1.0:
-            return (0, 0.0, 0.0)
+            # Closing, every limit met, ranks first; closing past a preferred
+            # limit next, the lightest first: steel that does not bring the
+            # section within that limit is steel for nothing.
+            if not missed:
+                return (0, 0.0, 0.0)
+            steel = float((self._A_s_bot + self._A_s_top).to("cm**2").magnitude)
+            return (1, steel, worst)
         # The faces past the code's limit, counted: one face brought within
-        # it is progress while the other is still past it.
-        return (1 + outside, worst, sum(ratios))
+        # it is progress while the other is still past it. Behind every
+        # layout that closes, whatever it misses of a preferred limit.
+        return (2 + outside, worst, sum(ratios))
 
     def _depth_front(face: str, placed: Quantity) -> list:
         """The layouts of ``face`` worth trying when nothing closes: none deeper with as much steel.
@@ -721,6 +815,20 @@ def _run_flexure_design(
             front = [front[i] for i in picks]
         return front
 
+    def _near_requirement(face: str, asked: Quantity) -> list:
+        """The layouts of ``face`` within 15 % of ``asked``, closest first; at most ``_PAIRED_TENSION_CANDIDATES``.
+
+        Read at the depth the selector sees them; the capacity decides, so a
+        layout a little under the area asked for can still carry the moment.
+        """
+        if asked.magnitude <= 0:
+            return []
+        rebar = self._create_rebar_designer()
+        rebar.longitudinal_rebar(0.85 * asked, 1.15 * asked, None, face, tension=pulled[face])
+        rows = [row for _, row in rebar._long_combos_df.iterrows() if _mech_cover(row) is not None]
+        rows.sort(key=lambda row: abs(float((row["total_as"] - asked).to("cm**2").magnitude)))
+        return rows[:_PAIRED_TENSION_CANDIDATES]
+
     def _closest_admissible_pair() -> None:
         """When no pair visited closes, the closest the layouts that fit can come, within the limits.
 
@@ -753,6 +861,9 @@ def _run_flexure_design(
             float(max_M_y_top.m_as(kNm)),
             None if current["bot"] is None else _rebar_design_fingerprint(current["bot"]),
             None if current["top"] is None else _rebar_design_fingerprint(current["top"]),
+            # A design that prefers a limit searches differently from one
+            # that does not, from the same pair.
+            preferred is not None,
         )
         if memo is not None and memo_key in memo:
             current, candidates = memo[memo_key]
@@ -810,7 +921,10 @@ def _run_flexure_design(
         moves: list = []
         if len(candidates) == 2:
             moves = [{"bot": row, "top": row} for row in candidates["top"]]
-        for _ in range(3):
+        # Only a layout that falls short of a moment, or is past the code's
+        # limits, is searched this way: one that closes and misses only a
+        # preferred limit is left to the paired search below.
+        for _ in range(3 if best_key[0] >= 2 else 0):
             changed = False
             for trial_faces in [moves] + [[{face: row} for row in rows] for face, rows in candidates.items()]:
                 for move in trial_faces:
@@ -822,6 +936,54 @@ def _run_flexure_design(
                 put(current)
             if not changed:
                 break
+        # A tension layout past a ductility limit that compression steel
+        # extends works only with the compression steel laid out for it, and
+        # one face moved alone never reaches that pair: the first move leaves
+        # the section past the limit, so it is not kept. Under EN 1992-1-1
+        # §5.5(4) a C25 slab strip, 100x30, under 400 kN·m, rounded its bottom
+        # up to 47.5 cm², which no top that fits balances, and stopped at
+        # DCR 1.065 while Ø12/5 + Ø12/5 under Ø12/4 carries it at 0.963 with
+        # x_u/d within the limit. So each tension layout is tried with the
+        # compression face designed for it, as the loop designs one: those of
+        # the front, and those close to what the moment asks for, which the
+        # front leaves out -- less steel at the same depth is no loss there,
+        # and it is what keeps the neutral axis up.
+        if preferred is not None and best_key != (0, 0.0, 0.0):
+            for tension_face, _moment in demands:
+                opposite = "top" if tension_face == "bot" else "bot"
+                own_req = A_s_final_top_Negative_M if opposite == "top" else A_s_final_bot_Positive_M
+                asked = A_s_final_bot_Positive_M if tension_face == "bot" else A_s_final_top_Negative_M
+                rows = _near_requirement(tension_face, asked)
+                seen: set = set()
+                for row in rows:
+                    fingerprint = _rebar_design_fingerprint(row)
+                    # The first pair that closes is taken, as the loop takes its first.
+                    if best_key == (0, 0.0, 0.0):
+                        break
+                    if fingerprint in seen:
+                        continue
+                    seen.add(fingerprint)
+                    put(dict(current, **{tension_face: row}))
+                    compression = _design_compression_face(
+                        opposite,
+                        own_req,
+                        tension_face,
+                        row,
+                        _PAIRED_COMPRESSION_CANDIDATES,
+                        _PAIRED_SHORT_CANDIDATES,
+                        2 * (_PAIRED_COMPRESSION_CANDIDATES + _PAIRED_SHORT_CANDIDATES),
+                    )
+                    # The search applied its own trials to the opposite face.
+                    on_section.clear()
+                    if compression is None:
+                        put(current)
+                        continue
+                    trial = dict(current, **{tension_face: row, opposite: compression})
+                    put(trial)
+                    key = _pair_key()
+                    if closer(key, best_key):
+                        best_key, current = key, trial
+                    put(current)
         if memo is not None:
             memo[memo_key] = (current, candidates)
         _register(current, candidates)
@@ -845,7 +1007,9 @@ def _run_flexure_design(
     # never before it, so that what it starts from is a layout already known to
     # work. It may re-select the bars rather than only the spacing, so it is
     # handed the means to verify its own choice.
-    self._finalize_longitudinal_design(A_req_bot, A_req_top, _layout_resists, _pair_key)
+    # A mat is chosen whole, lightest first, and a preferred limit is not a
+    # reason to make it heavier: it keeps the first that closes.
+    self._finalize_longitudinal_design(A_req_bot, A_req_top, _layout_closes, _pair_key)
 
     # A layout that still fails is the most that fits, not a design: no bars
     # that fit the width carry the moment, or keep it tension-controlled. The
@@ -855,7 +1019,7 @@ def _run_flexure_design(
     # the shortfall is the tension face's, whose requirement is then the most
     # it can take and stay tension-controlled.
     self._short_faces = {}
-    if not _layout_resists():
+    if not _layout_closes():
         needed = {"bot": max(A_req_bot, A_s_comp_bot), "top": max(A_req_top, A_s_comp_top)}
         placed = {"bot": self._A_s_bot, "top": self._A_s_top}
         for face in ("bot", "top"):
@@ -876,3 +1040,6 @@ def _run_flexure_design(
             self._infeasible_faces.add(face)
         else:
             self._infeasible_faces.discard(face)
+
+    within, worst, met = _assess()
+    return _rank(within, met, worst)

@@ -29,6 +29,8 @@ __all__ = [
     "compression_block_depth_for_steel",
     "moment_resistance_singly_reinforced",
     "moment_resistance_doubly_reinforced",
+    "neutral_axis_depth",
+    "force_balance_excess",
 ]
 
 
@@ -285,6 +287,96 @@ def compression_block_depth_for_steel(A_s: float, f_yd: float, eta: float, f_cd:
         x_eff (mm).
     """
     return A_s * f_yd / (eta * f_cd * b)
+
+
+def force_balance_excess(
+    x_u: float,
+    A_s: float,
+    A_s_prime: float,
+    d: float,
+    d_prime: float,
+    b: float,
+    eta: float,
+    f_cd: float,
+    lambda_: float,
+    epsilon_cu2: float,
+    E_s: float,
+    f_yd: float,
+) -> float:
+    """Compression less tension of a section with its neutral axis at ``x_u`` — EN 1992-1-1 §6.1.
+
+    ``eta*f_cd*b*lambda*x_u + A_s'*sigma_s' - A_s*sigma_s``, every bar at the
+    stress the bilinear diagram of §3.2.7(2) gives the strain plane sections
+    (§6.1(2)) put on it with ``eps_cu2`` at the compression face, capped at
+    ``f_yd`` either way. It grows with ``x_u``, and its root is the neutral
+    axis of :func:`neutral_axis_depth`: so it is zero or positive at a depth
+    exactly when the section's neutral axis is no deeper than that. The
+    arguments are those of :func:`neutral_axis_depth`, after ``x_u`` (mm).
+
+    Returns:
+        The force (N); positive where the compression exceeds the tension.
+    """
+    sigma_s2 = max(-f_yd, min(f_yd, E_s * epsilon_cu2 * (x_u - d_prime) / x_u))
+    sigma_s = max(-f_yd, min(f_yd, E_s * epsilon_cu2 * (d - x_u) / x_u))
+    return eta * f_cd * b * lambda_ * x_u + A_s_prime * sigma_s2 - A_s * sigma_s
+
+
+def neutral_axis_depth(
+    A_s: float,
+    A_s_prime: float,
+    d: float,
+    d_prime: float,
+    b: float,
+    eta: float,
+    f_cd: float,
+    lambda_: float,
+    epsilon_cu2: float,
+    E_s: float,
+    f_yd: float,
+) -> float:
+    """Neutral axis depth of a reinforced section at the ULS — EN 1992-1-1 §6.1, §3.1.7(3), §3.2.7(2).
+
+    The ``x_u`` of §5.5(4) for a section as it is reinforced: the root of the
+    horizontal equilibrium
+
+        eta*f_cd*b*lambda*x_u + A_s'*sigma_s' = A_s*sigma_s
+
+    with the rectangular block of §3.1.7(3), ``eps_cu2`` at the compression
+    face, plane sections (§6.1(2)), and every bar at the stress the bilinear
+    diagram of §3.2.7(2) gives its strain, capped at ``f_yd`` either way. So
+    the tension steel need not yield, and a bar of the opposite face below the
+    neutral axis pulls instead of pushing. The concrete the opposite bars
+    displace is not deducted, as in the rest of this module. Each term moves
+    one way with ``x_u`` -- the concrete and the opposite bars carry more, the
+    tension bars less -- so the root is unique and lies between 0 and ``d``.
+    It is found by bisection.
+
+    Args:
+        A_s: Tension reinforcement area (mm²).
+        A_s_prime: Reinforcement area of the opposite face (mm²); 0 for none.
+        d: Depth of the tension reinforcement (mm).
+        d_prime: Depth of the opposite reinforcement from the compression face (mm).
+        b: Section width (mm).
+        eta: Effective strength factor of §3.1.7(3).
+        f_cd: Design compressive strength of the concrete (MPa).
+        lambda_: Block depth factor of §3.1.7(3).
+        epsilon_cu2: Ultimate concrete strain of Table 3.1.
+        E_s: Modulus of elasticity of the reinforcement (MPa).
+        f_yd: Design yield strength of the reinforcement (MPa).
+
+    Returns:
+        x_u (mm), the NEUTRAL AXIS depth, not the block depth.
+    """
+
+    args = (A_s, A_s_prime, d, d_prime, b, eta, f_cd, lambda_, epsilon_cu2, E_s, f_yd)
+    lo, hi = d * 1e-9, d
+    for _ in range(100):
+        x_u = 0.5 * (lo + hi)
+        if force_balance_excess(x_u, *args) > 0:
+            hi = x_u
+        else:
+            lo = x_u
+    return 0.5 * (lo + hi)
 
 
 def moment_resistance_singly_reinforced(A_s: float, f_yd: float, d: float, x_eff: float) -> float:

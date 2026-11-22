@@ -719,6 +719,11 @@ class FlexureCheckState:
     A_s_bool_bot: bool
     A_s_bool_top: bool
     doubly_reinforced: bool
+    #: Net tensile strain of each face's tension steel at nominal strength
+    #: (Table 21.2.2), the face taken in tension as for phi_M_n; None for a
+    #: face without steel. What §6.6.5 reads to redistribute moments.
+    epsilon_t_bot: float | None = None
+    epsilon_t_top: float | None = None
 
     def face_quantities(self, face: str, imperial: bool) -> tuple[Any, Any, Any, Any, Any, Any, Any]:
         """``(A_s_req, A_s_min, A_s_max, phi_M_n, A_s_calc, A_s_min_eff, A_s_max_eff)`` of one face.
@@ -841,6 +846,10 @@ class ENFlexureCheckState:
     DCR_top: float
     # Cara cuya armadura comprimida acredita la resistencia EN.
     compression_face: str | None = None
+    #: x_u/d of each face in tension at the ULS, with the steel it carries
+    #: (EN 1992-1-1 §5.5(4)); None for a face without steel.
+    x_u_d_bot: float | None = None
+    x_u_d_top: float | None = None
 
     def face_quantities(self, face: str, imperial: bool) -> tuple[Any, Any, Any, Any, Any, Any, Any]:
         """``(A_s_req, A_s_min, A_s_max, M_Rd, A_s_calc, A_s_min_eff, A_s_max_eff)`` of one face.

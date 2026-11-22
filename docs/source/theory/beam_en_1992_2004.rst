@@ -50,7 +50,11 @@ annex implementation:
      - Persistent and transient design situations
    * - :math:`\delta`
      - 0.85
-     - Redistribution ratio, i.e. 15% moment redistribution assumed
+     - Redistribution ratio, i.e. 15% moment redistribution assumed. Given with
+       ``Concrete_EN_1992_2004(..., delta=...)``, between :math:`k_5 = 0.7`
+       (Class B and C reinforcement) and 1.0 (no redistribution). A design keeps the
+       bars it places within the limit it sets wherever bars that fit can, and warns
+       ``x_u_above_redistribution_limit`` where they cannot
    * - :math:`k_1,\ k_3`
      - 0.44, 0.54
      - Eq. (5.10a)/(5.10b) recommended values

@@ -53,6 +53,7 @@ from mento.design_warnings import (
     compression_detailing_warnings,
     shear_warnings,
     shortfall_warnings,
+    redistribution_warnings,
     skin_warnings,
     spacing_warnings,
     unread_force_warnings,
@@ -317,6 +318,10 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         # The faces the last design could not bring up to what they need, as
         # (area asked for, area left), by face ("bot"/"top"). See design_warnings.
         self._short_faces: Dict[str, Tuple[Quantity, Quantity]] = {}
+        # What the last EN design asks of the faces it was told to keep within
+        # the x_u/d of §5.5(4): beam -> {face: (x_u/d, its limit, the least
+        # delta it allows)} of those past it. See design_warnings.
+        self._redistribution_check: Optional[Callable[[Any], Dict[str, Tuple[float, float, float]]]] = None
         # The detailing limits each combination of the last checks missed,
         # before they are worded; `warnings` collapses and words them.
         self._flexure_warnings: list[Any] = []
@@ -817,6 +822,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         self._flexure_option_pool_t = ()
         self._infeasible_faces = set()
         self._short_faces = {}
+        self._redistribution_check = None
         self._initialize_longitudinal_rebar_attributes()
 
     def _clear_top_longitudinal(self) -> None:
@@ -867,6 +873,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         self._pending_shear_warnings = None
         # What the last design could not reach is a result of that design too.
         self._short_faces = {}
+        self._redistribution_check = None
         self._infeasible_faces = set()
 
     def set_transverse_rebar(
@@ -2164,6 +2171,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         raws += transverse_proposal_warnings(self)
         raws += skin_warnings(self)
         raws += shortfall_warnings(self)
+        raws += redistribution_warnings(self)
         raws += bar_limit_warnings(self)
         raws += list(self._shear_warning_raws()) if self._shear_checked else []
         return collect(raws)

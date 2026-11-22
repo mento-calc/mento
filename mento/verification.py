@@ -98,6 +98,7 @@ WARNING_CATEGORY: dict[str, str] = {
     "bar_spacing_exceeds_max": "failed",
     "bars_do_not_fit": "failed",
     "As_below_required": "resistance",
+    "x_u_above_redistribution_limit": "failed",
     "section_too_small_for_moment": "resistance",
     "bar_diameter_above_max": "informative",
     "depth_too_small_for_one_layer": "resistance",

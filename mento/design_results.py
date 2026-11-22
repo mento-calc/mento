@@ -20,7 +20,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from numbers import Integral
-from typing import TYPE_CHECKING, Any, Optional, Sequence, Tuple, cast
+from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, Tuple, cast
 
 from mento.bar_sizes import bar_designation, is_us_customary
 from mento.codes.check_state import to_display
@@ -247,6 +247,20 @@ class FlexureFaceCheck:
     ``not_tension_controlled`` (ACI 318-19 / CIRSOC 201-25) or
     ``As_above_max`` (EN 1992-1-1).
 
+    ``epsilon_t`` and ``x_u_d`` say how ductile the face is, as the limits on
+    moment redistribution read it. Each describes the face in tension with
+    the steel it carries, as ``M_capacity`` does, whichever face the
+    combination pulls. ``epsilon_t`` is the net tensile strain of the tension
+    steel at nominal strength, ACI 318-19 / CIRSOC 201-25 Table 21.2.2, which
+    §6.6.5 of both reads: no redistribution below 0.0075, and at most
+    ``1000*epsilon_t`` percent, capped at 20. It is read at the centroid of
+    the face's steel, the extreme layer's own for a face in one layer and the
+    safe side for more. ``x_u_d`` is the neutral axis depth over the
+    effective depth at the ULS, which EN 1992-1-1 §5.5(4) bounds the
+    redistribution ratio by: ``delta >= k_1 + k_2*x_u_d`` (Eqs. (5.10a) and
+    (5.10b)). Each is ``None`` under the codes that do not use it, and on a
+    face without tension steel.
+
     A field is ``None`` when the design code did not set it for this
     combination; enveloping skips those rather than treating them as zero.
     """
@@ -260,6 +274,8 @@ class FlexureFaceCheck:
     A_s_min_eff: Optional[Quantity] = None
     A_s_max_eff: Optional[Quantity] = None
     admissible: bool = True
+    epsilon_t: Optional[float] = None
+    x_u_d: Optional[float] = None
 
     @property
     def complies(self) -> bool:
@@ -381,6 +397,22 @@ def _governing(pairs: Sequence[Tuple[float, Optional[Quantity]]]) -> Optional[Qu
     return min(present, key=lambda pair: (-pair[0], pair[1]))[1]
 
 
+def _governing_ratio(
+    pairs: Sequence[Tuple[float, Optional[float]]], safe: Callable[[Sequence[float]], float]
+) -> Optional[float]:
+    """The ratio of the combination that governs, as :func:`_governing` picks a capacity.
+
+    ``pairs`` are ``(DCR, value)``. Among combinations tied on the largest DCR,
+    ``safe`` picks the one to report: ``min`` for a strain the limit wants
+    large, ``max`` for a depth it wants small. None if none reported one.
+    """
+    present = [(dcr, value) for dcr, value in pairs if value is not None]
+    if not present:
+        return None
+    top = max(dcr for dcr, _ in present)
+    return safe([value for dcr, value in present if dcr == top])
+
+
 def envelope_flexure_face(checks: Sequence[FlexureCheck], face: str) -> FlexureFaceCheck:
     """Worst demand on one face across every combination checked.
 
@@ -400,6 +432,8 @@ def envelope_flexure_face(checks: Sequence[FlexureCheck], face: str) -> FlexureF
         A_s_min_eff=_worst([f.A_s_min_eff for f in faces]),
         A_s_max_eff=_least([f.A_s_max_eff for f in faces]),
         admissible=all(f.admissible for f in faces),
+        epsilon_t=_governing_ratio([(f.DCR, f.epsilon_t) for f in faces], safe=min),
+        x_u_d=_governing_ratio([(f.DCR, f.x_u_d) for f in faces], safe=max),
     )
 
 
@@ -476,6 +510,8 @@ def capture_flexure_check(
             A_s_min_eff=A_s_min_eff,
             A_s_max_eff=A_s_max_eff,
             admissible=suffix not in over,
+            epsilon_t=getattr(state, f"epsilon_t_{suffix}", None),
+            x_u_d=getattr(state, f"x_u_d_{suffix}", None),
         )
 
     return FlexureCheck(
@@ -898,6 +934,12 @@ class FlexureFaceDesign:
     it. Only a footing kept to one layer goes past it, to the first bar of the
     catalogue that carries the moment (:class:`~mento.slab.Footing`), and says
     so with the warning ``bar_diameter_above_max``.
+
+    ``epsilon_t`` (ACI 318-19, CIRSOC 201-25) and ``x_u_d`` (EN 1992-1-1)
+    are the ductility of the face as reinforced, as the governing
+    combination saw it, which the limits on moment redistribution read --
+    see :class:`FlexureFaceCheck`. ``None`` under the other codes and on a
+    face without steel.
     """
 
     layers: Tuple[RebarLayer, ...]
@@ -913,6 +955,8 @@ class FlexureFaceDesign:
     options: Tuple[RebarOption, ...] = ()
     admissible: bool = True
     d_b_above_max: Optional[Quantity] = None
+    epsilon_t: Optional[float] = None
+    x_u_d: Optional[float] = None
 
     @property
     def complies(self) -> bool:
@@ -1195,6 +1239,8 @@ def _face(beam: RectangularBeam, face: str) -> FlexureFaceDesign:
         options=_current_flexure_options(beam, face),
         admissible=worst.admissible,
         d_b_above_max=beam._bar_above_max(face),
+        epsilon_t=worst.epsilon_t,
+        x_u_d=worst.x_u_d,
     )
 
 
