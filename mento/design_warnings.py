@@ -67,6 +67,21 @@ Codes
     past 1 carries it; one that
     carries its moment but is not tension-controlled gets
     ``not_tension_controlled`` instead.
+``x_u_above_redistribution_limit``
+    EN 1992-1-1 §5.5(4): a design found no layout that fits the section and
+    keeps the neutral axis of a face it pulls within the x_u/d that the
+    concrete's ``delta`` allows, (delta - k_1)/k_2, so it kept one that carries
+    the moment past it. A shallow section whose stirrup legs each want a bar
+    can be past it with the fewest bars it can take, and compression bars
+    below x_u,lim cannot bring it back. ``values`` carries ``x_u_d``, the
+    ratio of the face, ``x_u_d_max``, its limit, ``delta``, and
+    ``delta_min``, the least delta the bars it kept allow, k_1 + k_2*x_u/d
+    (k_3, k_4 above C50/60): redistribute no more than that. A design for a
+    delta a little above the one asked can find a layout that allows it, so
+    ``delta_min`` is on the safe side. A concrete with delta = 1.0
+    redistributes nothing, and never raises it. It lasts while the design's layout is on
+    the section: bars set by hand drop it, and a check reports ``x_u_d``
+    without holding a section to it.
 ``section_too_small_for_moment``
     The same verdict for the section as a whole, with the numbers that
     decide it: no layout that fits the width -- the vibrator's gap between
@@ -289,6 +304,11 @@ _MESSAGES: Dict[str, str] = {
     "As_below_required": (
         "Steel on the {face}: no layout that fits the section carries the moment "
         "(A_s,req = {A_s_req}); the design left A_s = {A_s}. Enlarge the section."
+    ),
+    "x_u_above_redistribution_limit": (
+        "Steel on the {face}: x_u/d = {x_u_d} is past the {x_u_d_max} that delta = {delta} allows "
+        "(EN 1992-1-1 §5.5(4)), and the design found no layout that fits within it. Its bars allow "
+        "delta >= {delta_min}: redistribute less, or enlarge the section."
     ),
     "section_too_small_for_moment": (
         "No layout that fits the section, with room for the vibrator between the top bars, and keeps within "
@@ -683,6 +703,23 @@ def shortfall_warnings(beam: "RectangularBeam") -> List[_Raw]:
         values = {"M": worst.DCR * M_capacity, "M_capacity": M_capacity}
         found.append(_Raw("section_too_small_for_moment", values, None, severity=worst.DCR))
     return [_with_units(raw, beam) for raw in found]
+
+
+def redistribution_warnings(beam: "RectangularBeam") -> List[_Raw]:
+    """The faces the last EN design could not keep within the x_u/d its delta allows.
+
+    The design leaves the test (``_redistribution_check``), run here on the
+    section as it stands, for as long as the layout it left is what the
+    section carries; see ``x_u_above_redistribution_limit``.
+    """
+    check = getattr(beam, "_redistribution_check", None)
+    missed: Dict[str, Tuple[float, float, float]] = check(beam) if check is not None else {}
+    delta = getattr(beam.concrete, "delta", None)
+    found: List[_Raw] = []
+    for suffix, (x_u_d, x_u_d_max, delta_min) in sorted(missed.items()):
+        values = {"x_u_d": x_u_d, "x_u_d_max": x_u_d_max, "delta": delta, "delta_min": delta_min}
+        found.append(_Raw("x_u_above_redistribution_limit", values, _face_name(suffix), severity=x_u_d / x_u_d_max))
+    return found
 
 
 def bar_limit_warnings(beam: "RectangularBeam") -> List[_Raw]:

@@ -653,8 +653,8 @@ def _extended_tension_cap_ACI_318_19(
 
 def _nominal_moment_face_ACI_318_19(
     self: "RectangularBeam", A_s: float, A_s_max: float, d: float, A_s_prime: float, d_prime: float
-) -> tuple[float, float]:
-    """``(M_n, phi)`` of one face, with ``A_s`` in tension and ``A_s_prime`` opposite.
+) -> tuple[float, float, Optional[float]]:
+    """``(M_n, phi, epsilon_t)`` of one face, with ``A_s`` in tension and ``A_s_prime`` opposite.
 
     Up to A_s_max the section is tension-controlled on its tension steel alone
     and the closed form stands, with phi = 0.90 -- ACI 318-19 Table 21.2.2 /
@@ -670,12 +670,28 @@ def _nominal_moment_face_ACI_318_19(
     A_s_max + A_s'*f_s'/f_y and kept at phi = 0.90, which credited an
     over-reinforced section with more than it carries: 213.4 kN·m for a
     25x40 section whose strain compatibility gives 196.2.
+
+    ``epsilon_t`` is the net tensile strain of Table 21.2.2 at nominal
+    strength, which ACI 318-19 §6.6.5 / CIRSOC 201-25 §6.6.5 read to allow
+    moment redistribution (eps_t >= 0.0075) and to size it (1000*eps_t
+    percent, at most 20). It always comes from the strain-compatibility
+    neutral axis, with the opposite steel at the stress its strain gives it,
+    not from the closed form below A_s_max, which leaves that steel out: in a
+    shallow section opposite bars below the neutral axis pull and deepen it.
+    The moment and phi of that branch still come from the closed form, which
+    can then read a strain larger than ``epsilon_t`` and so a higher phi and
+    moment than strain compatibility gives (a 100x12 strip with 10Ø12 under
+    10Ø25: phi 0.90 against 0.70); that is older than ``epsilon_t`` and not
+    changed here. It is read at the centroid
+    ``d``, as :func:`flexure_eq.net_tensile_strain` explains: the same
+    ``d_t`` for a face in one layer, the safe side for more. ``None`` for a
+    face without tension steel.
     """
     sec = section_floats(self)
     concrete_aci = cast("Concrete_ACI_318_19", self.concrete)
-    if A_s <= A_s_max:
-        return _determine_nominal_moment_simple_reinf_ACI_318_19(self, A_s, d), concrete_aci._phi_t
-    M_n, c = flexure_eq.nominal_moment_strain_compatibility(
+    if A_s <= 0:
+        return _determine_nominal_moment_simple_reinf_ACI_318_19(self, A_s, d), concrete_aci._phi_t, None
+    M_n_compatibility, c = flexure_eq.nominal_moment_strain_compatibility(
         A_s,
         A_s_prime,
         sec.f_y,
@@ -688,8 +704,10 @@ def _nominal_moment_face_ACI_318_19(
         sec.E_s,
     )
     epsilon_t = flexure_eq.net_tensile_strain(c, d, concrete_aci._epsilon_c)
+    if A_s <= A_s_max:
+        return _determine_nominal_moment_simple_reinf_ACI_318_19(self, A_s, d), concrete_aci._phi_t, epsilon_t
     phi = flexure_eq.flexure_strength_reduction_factor(epsilon_t, self.steel_bar.epsilon_y)
-    return M_n, min(phi, concrete_aci._phi_t)
+    return M_n_compatibility, min(phi, concrete_aci._phi_t), epsilon_t
 
 
 def _minimum_flexural_reinforcement_ratio_ACI_318_19(self: "RectangularBeam", M_u: float) -> float:
@@ -1141,7 +1159,7 @@ def _determine_nominal_moment_ACI_318_19(self: "RectangularBeam", st: FlexureChe
     st.A_s_max_bot = rho_max * sec.d_bot * sec.width
 
     # Positive moment: the bottom steel in tension, the top steel opposite.
-    M_n_positive, phi_positive = _nominal_moment_face_ACI_318_19(
+    M_n_positive, phi_positive, st.epsilon_t_bot = _nominal_moment_face_ACI_318_19(
         self, sec.A_s_bot, st.A_s_max_bot, sec.d_bot, sec.A_s_top, sec.c_mec_top
     )
 
@@ -1151,9 +1169,9 @@ def _determine_nominal_moment_ACI_318_19(self: "RectangularBeam", st: FlexureChe
 
     # Negative moment: the mirror, with no top steel carrying nothing.
     if sec.A_s_top == 0:
-        M_n_negative, phi_negative = 0.0, 0.0
+        M_n_negative, phi_negative, st.epsilon_t_top = 0.0, 0.0, None
     else:
-        M_n_negative, phi_negative = _nominal_moment_face_ACI_318_19(
+        M_n_negative, phi_negative, st.epsilon_t_top = _nominal_moment_face_ACI_318_19(
             self, sec.A_s_top, st.A_s_max_top, sec.d_top, sec.A_s_bot, sec.c_mec_bot
         )
 

@@ -908,7 +908,7 @@ def test_compression_zone_limits_EN_1992_2004_are_expressed_on_the_neutral_axis(
     d = 560.0  # mm -- the EN equations layer works in floats
     x_u_lim, x_eff_lim = _compression_zone_limits_EN_1992_2004(beam, d)
 
-    xi_expected = min((concrete._delta - concrete._k_1) / concrete._k_2, 0.45)
+    xi_expected = min((concrete.delta - concrete._k_1) / concrete._k_2, 0.45)
     assert xi_expected == pytest.approx(0.328, rel=1e-3)
     assert x_u_lim / d == pytest.approx(xi_expected, rel=1e-9)
     assert x_eff_lim / x_u_lim == pytest.approx(concrete._lambda_factor(), rel=1e-9)
@@ -1668,9 +1668,10 @@ def test_best_visited_pair_prefers_the_lightest_admissible_pair() -> None:
     small, large, heavy = layout(2, 20 * mm), layout(2, 25 * mm), layout(3, 25 * mm, 3)
 
     def assess_for(M: Quantity):  # type: ignore[no-untyped-def]
-        def assess() -> tuple[bool, float]:
+        def assess() -> tuple[bool, float, bool]:
+            # (admissible, worst ratio, preferred limit met): ACI prefers none.
             M_R = _flexure_capacity_ACI_318_19(beam, "bot", M)
-            return _flexure_ductile_ACI_318_19(beam, "bot"), float((M / M_R).to("dimensionless").magnitude)
+            return _flexure_ductile_ACI_318_19(beam, "bot"), float((M / M_R).to("dimensionless").magnitude), True
 
         return assess
 
@@ -2070,7 +2071,10 @@ def test_design_flexure_EN_1992_2004_waits_for_both_faces_to_settle() -> None:
     que ya convergio mientras la otra sigue ajustando --, y en esta viga dejaba
     la cara traccionada con un armado pensado para otra profundidad:
     EN 1992-2004, 20x40, C20, fy = 420 MPa, M_Ed = 204.59 kN·m. Con el corte por
-    cara el diseño terminaba en DCR 1.011; esperando al par, 0.907.
+    cara el diseño terminaba en DCR 1.011; esperando al par, 0.907. Ese 0.907
+    dejaba x_u/d en 0.509 con 2Ø32 arriba, lejos del 0.328 que permite el
+    delta = 0.85 de EN 1992-1-1 §5.5(4); con el límite sostenido sobre las barras
+    colocadas, el par cierra en 0.912 con x_u/d = 0.299.
     """
     beam = RectangularBeam(
         label="L",
@@ -2083,7 +2087,8 @@ def test_design_flexure_EN_1992_2004_waits_for_both_faces_to_settle() -> None:
     node = Node(section=beam, forces=[Forces(label="M", M_y=204.59 * kNm)])
     node.design_flexure()
     node.check_flexure()
-    assert beam.flexure_checks[0].bottom.DCR == pytest.approx(0.907, abs=1e-3)
+    assert beam.flexure_checks[0].bottom.DCR == pytest.approx(0.912, abs=1e-3)
+    assert beam.flexure_checks[0].bottom.x_u_d <= (0.85 - 0.44) / 1.25
     assert [warning.code for warning in node.warnings] == ["compression_detailing_en_pending"]
 
 
