@@ -354,9 +354,7 @@ def _run_flexure_design(
         phi = 0.90 credited it with a strength it does not have.
         """
         zero: Quantity = 0 * demand.A_s_max.units
-        if row is None:
-            return zero
-        placed: Quantity = row.get("total_as", zero)
+        placed: Quantity = row.get("total_as", zero) if row is not None else zero
         need = zero
         # The same rule for EN 1992-1-1 §5.5(4), whose ductility limit is not A_s_max.
         for limit, per_excess in (
@@ -820,9 +818,8 @@ def _run_flexure_design(
 
         Read at the depth the selector sees them; the capacity decides, so a
         layout a little under the area asked for can still carry the moment.
+        ``asked`` is the tension steel of a face a moment pulls, never zero.
         """
-        if asked.magnitude <= 0:
-            return []
         rebar = self._create_rebar_designer()
         rebar.longitudinal_rebar(0.85 * asked, 1.15 * asked, None, face, tension=pulled[face])
         rows = [row for _, row in rebar._long_combos_df.iterrows() if _mech_cover(row) is not None]
@@ -953,16 +950,10 @@ def _run_flexure_design(
                 opposite = "top" if tension_face == "bot" else "bot"
                 own_req = A_s_final_top_Negative_M if opposite == "top" else A_s_final_bot_Positive_M
                 asked = A_s_final_bot_Positive_M if tension_face == "bot" else A_s_final_top_Negative_M
-                rows = _near_requirement(tension_face, asked)
-                seen: set = set()
-                for row in rows:
-                    fingerprint = _rebar_design_fingerprint(row)
+                for row in _near_requirement(tension_face, asked):
                     # The first pair that closes is taken, as the loop takes its first.
                     if best_key == (0, 0.0, 0.0):
                         break
-                    if fingerprint in seen:
-                        continue
-                    seen.add(fingerprint)
                     put(dict(current, **{tension_face: row}))
                     compression = _design_compression_face(
                         opposite,
