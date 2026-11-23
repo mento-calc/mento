@@ -28,6 +28,7 @@ from mento.codes.registry import design_code
 from mento.design_warnings import steel_above_maximum
 from mento.i18n import checked_language, translate
 from mento.precompute import DISPLAY
+from mento.settings import BAR_GROUPS
 from mento.units import Quantity, ureg
 
 if TYPE_CHECKING:
@@ -153,8 +154,9 @@ class RebarOption:
     """One longitudinal layout a flexure design found for a face.
 
     ``layers`` holds the bar groups that carry bars, in the order of the
-    search's ``n_1``..``n_4`` / ``d_b1``..``d_b4``: the first two are the layer
-    nearest the face, the other two the layer behind it -- the same
+    search's ``n_1``..``n_8`` / ``d_b1``..``d_b8``: the first two are the layer
+    nearest the face, the next two the layer behind it, and so on up to a
+    fourth layer -- the same
     :class:`RebarLayer` the applied reinforcement is read as.
 
     ``functional`` is the score the search ranks layouts by, lower being
@@ -1193,7 +1195,7 @@ def transverse_layout(beam: RectangularBeam) -> str:
 def _layers(beam: RectangularBeam, face: str) -> Tuple[RebarLayer, ...]:
     """Collect the non-empty rebar layers of one face ("b" for bottom, "t" for top)."""
     layers = []
-    for index in (1, 2, 3, 4):
+    for index in BAR_GROUPS:
         n = getattr(beam, f"_n{index}_{face}", 0)
         d_b: Optional[Quantity] = getattr(beam, f"_d_b{index}_{face}", None)
         # Only a section detailed by a spacing carries one; a beam has no such

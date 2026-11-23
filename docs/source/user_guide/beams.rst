@@ -89,8 +89,22 @@ For example, if a positive moment is so large that the section must be reinforce
     # Set top longitudinal reinforcement
     beam.set_longitudinal_rebar_top(n1=2, d_b1=16*mm)
 
+    # A heavily loaded beam (a transfer beam) can carry up to four layers:
+    # n5/d_b5 + n6/d_b6 is the third layer, n7/d_b7 + n8/d_b8 the fourth.
+    beam.set_longitudinal_rebar_bot(
+        n1=2, d_b1=25*mm, n2=2, d_b2=25*mm,  # layer 1
+        n3=2, d_b3=25*mm, n4=2, d_b4=25*mm,  # layer 2
+        n5=2, d_b5=25*mm, n6=1, d_b6=25*mm,  # layer 3
+    )
+
     # Set transverse reinforcement (stirrups)
     beam.set_transverse_rebar(n_legs=2, d_b=10*mm, s_l=20*cm)
+
+Each layer sits ``settings.layers_spacing`` behind the thickest bar of the layer in front
+of it. The design only reaches a third or a fourth layer when no layout in two layers
+carries the steel the moment needs; every further layer follows the rule of the second
+(two corner bars, no more bars than the layer in front and none thicker).
+``BeamSettings(max_layers=2)`` keeps the design to two layers (the default is 4).
 
 3. Assigning Forces to the Beam
 *******************************

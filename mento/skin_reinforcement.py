@@ -25,11 +25,12 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, replace
 from numbers import Integral
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from mento.codes.registry import design_code
 from mento.design_results import GRID, transverse_layout
 from mento.section_geometry import BarPosition, SectionGeometry
+from mento.settings import MAX_LAYERS
 from mento.units import Quantity, inch, mm
 
 if TYPE_CHECKING:
@@ -155,6 +156,15 @@ def _catalogue(beam: RectangularBeam) -> tuple[Quantity, ...]:
     return tuple(d for d in bars if d >= settings.skin_bar_diameter - 1e-9 * mm) or (settings.skin_bar_diameter,)
 
 
+def _innermost_layer(geometry: Any, face: str) -> tuple[Any, ...]:
+    """The bars of the layer of ``face`` furthest from it that holds two, else those of the first."""
+    for layer in range(MAX_LAYERS, 1, -1):
+        bars = geometry.bars_on(face, layer=layer)
+        if len(bars) >= 2:
+            return tuple(bars)
+    return tuple(geometry.bars_on(face, layer=1))
+
+
 def _anchors(beam: RectangularBeam) -> tuple[float, float]:
     """The levels (mm) the skin spans between: the inner bottom layer and the inner top layer."""
     geometry = beam.section_geometry
@@ -162,8 +172,7 @@ def _anchors(beam: RectangularBeam) -> tuple[float, float]:
     height = float(beam.height.to(mm).magnitude)
 
     def level(face: str) -> float:
-        second = geometry.bars_on(face, layer=2)
-        bars = second if len(second) >= 2 else geometry.bars_on(face, layer=1)
+        bars = _innermost_layer(geometry, face)
         if bars:
             return (max if face == "bottom" else min)(float(bar.y.to(mm).magnitude) for bar in bars)
         return inset if face == "bottom" else height - inset
@@ -319,8 +328,7 @@ def _manual_skin_requirement(beam: RectangularBeam, req: SkinReinforcementRequir
     height = float(beam.height.to(mm).magnitude)
 
     def anchor(face: str) -> float:
-        second = geometry.bars_on(face, layer=2)
-        bars = second if len(second) >= 2 else geometry.bars_on(face, layer=1)
+        bars = _innermost_layer(geometry, face)
         if bars:
             return (max if face == "bottom" else min)(float(bar.y.to(mm).magnitude) for bar in bars)
         return inset if face == "bottom" else height - inset

@@ -163,6 +163,8 @@ ES: Dict[str, str] = {
     # -- row labels: flexural capacity -------------------------------------
     "First layer bars": "Barras de la primera capa",
     "Second layer bars": "Barras de la segunda capa",
+    "Third layer bars": "Barras de la tercera capa",
+    "Fourth layer bars": "Barras de la cuarta capa",
     "Minimum rebar reinforcing": "Armadura mínima",
     "Required rebar reinforcing top": "Armadura superior requerida",
     "Required rebar reinforcing bottom": "Armadura inferior requerida",

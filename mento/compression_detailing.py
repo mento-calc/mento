@@ -159,7 +159,7 @@ def check_compression_detailing(
             failures.append("clear_distance_exceeded")
         elif not all(within):
             pending.append("cirsoc_limit_interpretation")
-        if geometry.bars_on(face, 2):
+        if any(bar.layer > 1 for bar in geometry.bars_on(face)):
             pending.append("second_row_support_not_modelled")
         status = "failed" if failures else "pending" if pending else "passed"
         results.append(

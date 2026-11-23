@@ -735,7 +735,7 @@ def test_bars_that_do_not_fit_are_warned_after_a_design() -> None:
 
 
 def test_a_design_short_of_the_moment_is_warned_until_the_bars_reach_it() -> None:
-    """A 12x30 web, beside the 1eØ6 it ends with, under 60 kNm, which asks for 7.91 cm² below.
+    """A 12x30 web, beside the 1eØ6 it ends with, under 60 kNm, which asks for 7.67 cm² below.
 
     58 mm between the legs, and a corner bar seated in the 24 mm bend of the
     Ø6 sits (12 - d_b/2)(1 - 1/√2) past its radius: two Ø16 leave 58 - 2*1.17
@@ -743,7 +743,8 @@ def test_a_design_short_of_the_moment_is_warned_until_the_bars_reach_it() -> Non
     fits (issue #169). Only the face short of
     its moment, the bottom, is warned -- the top carries no moment of its
     own, DCR 0 -- and for as long as it carries what the design left, with
-    ``section_too_small_for_moment`` for the section.
+    ``section_too_small_for_moment`` for the section. The requirement is read
+    at the depth of the bars the design leaves, with the 2Ø10 above them.
     """
     beam = RectangularBeam(
         label="101",
@@ -759,7 +760,7 @@ def test_a_design_short_of_the_moment_is_warned_until_the_bars_reach_it() -> Non
     short = {w.face: w for w in node.warnings if w.code == "As_below_required"}
     assert set(short) == {"bottom"}
     assert short["bottom"].values["A_s"].to("cm**2").magnitude == pytest.approx(4.52, rel=1e-3)
-    assert short["bottom"].values["A_s_req"].to("cm**2").magnitude == pytest.approx(7.91, rel=1e-2)
+    assert short["bottom"].values["A_s_req"].to("cm**2").magnitude == pytest.approx(7.67, rel=1e-2)
     small = _by_code(node.warnings)["section_too_small_for_moment"]
     assert small.face is None
     assert small.values["M"].to("kN*m").magnitude == pytest.approx(60.0)

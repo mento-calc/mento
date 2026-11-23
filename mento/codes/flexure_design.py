@@ -51,6 +51,8 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 from mento.units import Quantity
 
 from mento.rebar import RebarDesignInfeasibleError
+from mento.section_geometry import layer_offsets
+from mento.settings import BAR_GROUPS
 from mento.units import cm, kNm, mm
 
 if TYPE_CHECKING:
@@ -180,15 +182,10 @@ def _rebar_design_fingerprint(rebar_design: Any) -> tuple:
         q = rebar_design.get(key)
         return float(q.m_as(mm)) if q is not None else 0.0
 
-    return (
-        int(rebar_design.get("n_1", 0)),
-        _diam_mm("d_b1"),
-        int(rebar_design.get("n_2", 0)),
-        _diam_mm("d_b2"),
-        int(rebar_design.get("n_3", 0)),
-        _diam_mm("d_b3"),
-        int(rebar_design.get("n_4", 0)),
-        _diam_mm("d_b4"),
+    return tuple(
+        value
+        for group in BAR_GROUPS
+        for value in (int(rebar_design.get(f"n_{group}", 0) or 0), _diam_mm(f"d_b{group}"))
     )
 
 
@@ -376,9 +373,10 @@ def _run_flexure_design(
         """Cover to the centroid of the bars of ``row``, as the section computes it.
 
         Read off the row without applying it: the bars of each layer sit at
-        half their diameter from the stirrup, and the second layer
-        ``layers_spacing`` past the thicker bar of the first. ``None`` for a
-        row with no bars.
+        half their diameter from where the layer starts, the first on the
+        stirrup and each further one ``layers_spacing`` past the thicker bar
+        of the one in front (:func:`~mento.section_geometry.layer_offsets`).
+        ``None`` for a row with no bars.
 
         In floats, mm, and back to a quantity at the end (ADR-0005): the
         searches read it off every row they rank, thousands of times in a
@@ -390,10 +388,10 @@ def _run_flexure_design(
             value = row.get(key)
             return 0.0 if value is None else float(value.m_as(mm))
 
-        d1, d2, d3, d4 = (diameter(k) for k in ("d_b1", "d_b2", "d_b3", "d_b4"))
-        n1, n2, n3, n4 = (int(row.get(k, 0)) for k in ("n_1", "n_2", "n_3", "n_4"))
-        second = max(d1, d2) + layers_spacing_mm
-        groups = ((n1, d1, d1 / 2), (n2, d2, d2 / 2), (n3, d3, second + d3 / 2), (n4, d4, second + d4 / 2))
+        diameters = [diameter(f"d_b{group}") for group in BAR_GROUPS]
+        counts = [int(row.get(f"n_{group}", 0) or 0) for group in BAR_GROUPS]
+        offsets = layer_offsets(diameters, layers_spacing_mm)
+        groups = [(n, db, offsets[index // 2] + db / 2) for index, (n, db) in enumerate(zip(counts, diameters))]
         area = sum(n * db**2 for n, db, _ in groups)
         if area == 0:
             return None
@@ -652,11 +650,7 @@ def _run_flexure_design(
         c_mec_calc = self.c_c + self._stirrup_d_b + self._bot_rebar_centroid
         # If there is any top steel, use its centroid; otherwise keep previous d_prima
         has_top = (self.flexure_design_results_top is not None) and (
-            int(self.flexure_design_results_top.get("n_1", 0))
-            + int(self.flexure_design_results_top.get("n_2", 0))
-            + int(self.flexure_design_results_top.get("n_3", 0))
-            + int(self.flexure_design_results_top.get("n_4", 0))
-            > 0
+            sum(int(self.flexure_design_results_top.get(f"n_{group}", 0) or 0) for group in BAR_GROUPS) > 0
         )
         d_prima_calc = self.c_c + self._stirrup_d_b + self._top_rebar_centroid if has_top else d_prima
 
@@ -859,8 +853,9 @@ def _run_flexure_design(
             None if current["bot"] is None else _rebar_design_fingerprint(current["bot"]),
             None if current["top"] is None else _rebar_design_fingerprint(current["top"]),
             # A design that prefers a limit searches differently from one
-            # that does not, from the same pair.
+            # that does not, from the same pair; so does one held to fewer layers.
             preferred is not None,
+            getattr(settings, "max_layers", 2),
         )
         if memo is not None and memo_key in memo:
             current, candidates = memo[memo_key]
@@ -975,6 +970,29 @@ def _run_flexure_design(
                     if closer(key, best_key):
                         best_key, current = key, trial
                     put(current)
+        # Steel that brings the pair no closer is steel for nothing. The loop
+        # can leave a face heavier than the pair needs -- the compression
+        # steel of a deeper tension layout it tried and put aside, a third or
+        # fourth layer -- and no move above takes it off, since a lighter
+        # face is not closer. Each face takes the lightest of its layouts that
+        # leaves the pair no further from closing: as many faces past the
+        # limits and no higher ratio.
+        if best_key[0] >= 2:
+
+            def area(row: Any) -> float:
+                return 0.0 if row is None else float(row.get("total_as", 0 * (cm**2)).m_as(cm**2))
+
+            for face, rows in candidates.items():
+                for row in sorted(rows, key=area):
+                    if area(row) >= area(current[face]):
+                        break
+                    trial = dict(current, **{face: row})
+                    put(trial)
+                    key = _pair_key()
+                    if key[0] <= best_key[0] and key[1] <= best_key[1] * (1 + 1e-9):
+                        best_key, current = key, trial
+                        break
+                put(current)
         if memo is not None:
             memo[memo_key] = (current, candidates)
         _register(current, candidates)
@@ -1011,6 +1029,20 @@ def _run_flexure_design(
     # it can take and stay tension-controlled.
     self._short_faces = {}
     if not _layout_closes():
+        # What the faces need at the depth of the bars they were left with,
+        # which the check finds too: the loop's last iteration may have been
+        # run at the depth of another layout -- one in three or four layers
+        # the design tried and put aside.
+        has_top = self._A_s_top.magnitude > 0
+        d_prime_now = self._c_mec_top if has_top else d_prima
+        settled_bot = required_areas("bot", max_M_y_bot, self._d_bot, d_prime_now)
+        A_req_bot, A_s_comp_top = settled_bot.A_s_tension, settled_bot.A_s_compression
+        A_s_comp_bot = 0 * (cm**2)
+        A_req_top = A_s_comp_top
+        if max_M_y_top < 0:
+            settled_top = required_areas("top", abs(max_M_y_top.to("kN*m")), self._d_top, self._c_mec_bot)
+            A_req_top = max(A_s_comp_top, settled_top.A_s_tension)
+            A_s_comp_bot = settled_top.A_s_compression
         needed = {"bot": max(A_req_bot, A_s_comp_bot), "top": max(A_req_top, A_s_comp_top)}
         placed = {"bot": self._A_s_bot, "top": self._A_s_top}
         for face in ("bot", "top"):

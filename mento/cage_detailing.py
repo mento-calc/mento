@@ -36,6 +36,7 @@ from mento.section_geometry import (
     corner_setback,
     seated_corner,
 )
+from mento.settings import MAX_LAYERS
 from mento.units import Quantity, mm
 
 if TYPE_CHECKING:
@@ -567,22 +568,25 @@ def _build_candidate(beam: RectangularBeam, geometry: SectionGeometry, *, includ
                 "The resistant bars exceed their maximum centre spacing; mounting steel cannot replace them."
             )
         bars.extend(resistant)
-        second = geometry.bars_on(face, 2)
-        # La capa 2 conserva cota y acero; alinear con la capa 1 evita atravesar
-        # una rama vertical en el modelo de cálculo uniformemente espaciado.
-        crosses = any(abs(_mm(bar.x - x)) < (_mm(bar.d_b) + d_st) / 2 - 1e-8 for bar in second for x in geometry.leg_x)
-        if crosses and len(second) <= len(resistant):
-            indices = [round(i * (len(resistant) - 1) / max(1, len(second) - 1)) for i in range(len(second))]
-            second = tuple(replace(bar, x=resistant[index].x) for bar, index in zip(second, indices))
-        # The layer behind hangs from the corner bars, so it sinks with them
-        # and keeps the clear distance between layers.
-        if abs(sink - max(seated, 0.0)) > 1e-9:
-            shift: Quantity = inward * (sink - max(seated, 0.0)) * _geometry_unit(mounting.x)
-            second = tuple(replace(bar, y=bar.y + shift) for bar in second)
-        bars.extend(second)
+        # Las capas 2 a 4 conservan cota y acero; alinear con la capa 1 evita
+        # atravesar una rama vertical en el modelo de cálculo uniformemente espaciado.
+        for layer in range(2, MAX_LAYERS + 1):
+            behind = geometry.bars_on(face, layer)
+            crosses = any(
+                abs(_mm(bar.x - x)) < (_mm(bar.d_b) + d_st) / 2 - 1e-8 for bar in behind for x in geometry.leg_x
+            )
+            if crosses and len(behind) <= len(resistant):
+                indices = [round(i * (len(resistant) - 1) / max(1, len(behind) - 1)) for i in range(len(behind))]
+                behind = tuple(replace(bar, x=resistant[index].x) for bar, index in zip(behind, indices))
+            # The layers behind hang from the corner bars, so they sink with
+            # them and keep the clear distance between layers.
+            if abs(sink - max(seated, 0.0)) > 1e-9:
+                shift: Quantity = inward * (sink - max(seated, 0.0)) * _geometry_unit(mounting.x)
+                behind = tuple(replace(bar, y=bar.y + shift) for bar in behind)
+            bars.extend(behind)
         mounting_bars.extend(added)
 
-    # Retained second layers must also fit; added mounting bars may not clash
+    # Retained layers behind the first must also fit; added mounting bars may not clash
     # with bars of the opposite face or a second layer.
     geometry = replace(geometry, bars=tuple(bars), mounting_bars=tuple(mounting_bars))
     if include_skin:

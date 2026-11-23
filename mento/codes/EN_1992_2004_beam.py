@@ -1016,8 +1016,8 @@ def _check_flexure_EN_1992_2004(self: "RectangularBeam", force: Forces) -> ENFle
         st.DCR_bot = 0
 
     # Determine the maximum detailing cover dimensions for top and bottom.
-    st.d_b_max_top = max(self._d_b1_t, self._d_b2_t, self._d_b3_t, self._d_b4_t).to(mm).magnitude
-    st.d_b_max_bot = max(self._d_b1_b, self._d_b2_b, self._d_b3_b, self._d_b4_b).to(mm).magnitude
+    st.d_b_max_top = max(d_b for _, d_b in self._bar_groups("top")).to(mm).magnitude
+    st.d_b_max_bot = max(d_b for _, d_b in self._bar_groups("bot")).to(mm).magnitude
 
     # Calculate the longitudinal reinforcement ratios for both sides.
     # rho_l = A_sl/(b_w*d) of EN 1992-1-1 §6.2.2(1), reported per face: each one

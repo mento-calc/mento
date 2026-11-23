@@ -206,6 +206,7 @@ from mento.codes.check_state import to_display
 from mento.codes.registry import design_code
 from mento.i18n import translate
 from mento.precompute import DISPLAY
+from mento.settings import BAR_GROUPS
 from mento.units import Quantity, inch, mm
 
 if TYPE_CHECKING:
@@ -645,12 +646,11 @@ def bars_side_by_side(beam: "RectangularBeam", face: str) -> bool:
     """Whether some layer of the face holds two bars, so a clear spacing exists.
 
     Groups 1 and 2 share the layer nearest the face, groups 3 and 4 the one
-    behind it; one bar in each layer sits above the other, not beside it.
-    ``face`` is ``"b"`` or ``"t"``.
+    behind it, and 5 to 8 a third and a fourth; one bar in each layer sits
+    above the other, not beside it. ``face`` is ``"b"`` or ``"t"``.
     """
-    nearest = getattr(beam, f"_n1_{face}") + getattr(beam, f"_n2_{face}")
-    behind = getattr(beam, f"_n3_{face}") + getattr(beam, f"_n4_{face}")
-    return max(nearest, behind) >= 2
+    counts = [getattr(beam, f"_n{group}_{face}", 0) for group in BAR_GROUPS]
+    return max(a + b for a, b in zip(counts[0::2], counts[1::2])) >= 2
 
 
 def shortfall_warnings(beam: "RectangularBeam") -> List[_Raw]:

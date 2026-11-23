@@ -34,8 +34,10 @@ Each position is the check's own model, and a test ties each one to it:
   groups of a layer (``n1``/``n2``, ``n3``/``n4``) alternate symmetrically:
   the ``n1`` bars at the ends, the ``n2`` bars in between. Layer 1 sits at
   ``c_c + d_st + d/2`` from its face, layer 2 at
-  ``c_c + d_st + max(d_b1, d_b2) + layers_spacing + d/2``, the offsets the
-  effective depth is computed with.
+  ``c_c + d_st + max(d_b1, d_b2) + layers_spacing + d/2``, and each layer
+  behind it (up to four, groups ``n5``..``n8``) the thicker bar of the one in
+  front and ``layers_spacing`` further in (:func:`layer_offsets`), the
+  offsets the effective depth is computed with.
 
 The legs are not tied to the bars: the check does not do that either, so an
 inner leg may sit where no bar is. That is the model, shown honestly.
@@ -61,6 +63,7 @@ from mento.codes.registry import design_code
 from mento.design_results import GRID, cage_legs, describe_stirrup_cage, transverse_layout
 from mento.i18n import checked_language
 from mento.precompute import CANONICAL, DISPLAY, section_floats
+from mento.settings import BAR_GROUPS
 from mento.units import Quantity, ureg
 
 if TYPE_CHECKING:
@@ -74,8 +77,8 @@ class BarPosition:
     Skin bars use face="left"/"right" and layer=group=0.
     ``x`` is measured from the left face of the section and ``y`` from its
     bottom face. ``face`` is ``"bottom"`` or ``"top"``; ``layer`` is 1 for the
-    layer nearest that face and 2 for the one behind it; ``group`` is the
-    ``n1``..``n4`` / ``d_b1``..``d_b4`` the bar was set with.
+    layer nearest that face, 2 for the one behind it, and so on up to 4;
+    ``group`` is the ``n1``..``n8`` / ``d_b1``..``d_b8`` the bar was set with.
     """
 
     x: Quantity
@@ -154,8 +157,8 @@ class SectionGeometry:
     and ``len(leg_x)`` is the number of legs drawn; the shear model's count is
     ``beam.reinforcement.transverse.n_legs`` -- calculation geometry matches that count; detailing can propose extra closed legs, while a
     slab strip, which has no cage, publishes none (see the module docstring).
-    ``stirrups`` come perimeter first, and ``bars`` bottom layer 1, bottom
-    layer 2, top layer 1, top layer 2, each left to right.
+    ``stirrups`` come perimeter first, and ``bars`` the bottom layers from
+    the face inward, then the top ones, each left to right.
 
     ``mounting_bars`` is empty in calculation geometry. ``detailing_geometry``
     supplies supplementary corner supports there, separate from ``bars`` and
@@ -215,7 +218,7 @@ class SectionGeometry:
         return " + ".join(parts)
 
     def bars_on(self, face: str, layer: Optional[int] = None) -> Tuple[BarPosition, ...]:
-        """The bars on ``face`` (``"bottom"`` or ``"top"``), of one ``layer`` or of both."""
+        """The bars on ``face`` (``"bottom"`` or ``"top"``), of one ``layer`` or of all of them."""
         return tuple(bar for bar in self.bars if bar.face == face and (layer is None or bar.layer == layer))
 
     def to_dict(self, unit: Optional[str] = None) -> Dict[str, Any]:
@@ -371,6 +374,24 @@ def stirrup_bend_inner_diameter(beam: RectangularBeam) -> Tuple[Optional[Quantit
         return 4 * d_st, False
 
 
+def layer_offsets(diameters: Sequence[float], layers_spacing: float) -> List[float]:
+    """How far behind the inner face of the stirrup's horizontal branch each layer starts.
+
+    ``diameters`` are the ``d_b1``..``d_bN`` of a face, two per layer (0 for
+    a group with no bar); the result has one offset per layer, in the same
+    unit. Layer 1 starts on the branch; each further layer starts behind the
+    thicker bar of the layer in front of it and ``layers_spacing``, the clear
+    distance ACI 318-19 / CIRSOC 201-25 §25.2.2 ask between layers:
+    ``max(d_b1, d_b2) + layers_spacing`` for layer 2, that plus
+    ``max(d_b3, d_b4) + layers_spacing`` for layer 3, and so on. The effective
+    depth, the drawing and the rebar search all place the layers by it.
+    """
+    offsets = [0.0]
+    for layer in range(1, len(diameters) // 2):
+        offsets.append(offsets[-1] + max(diameters[2 * layer - 2], diameters[2 * layer - 1]) + layers_spacing)
+    return offsets
+
+
 def corner_setback(bend_inner: float, d_bar: float, depth: float) -> float:
     """How much further from the side branch the stirrup's bend pushes a bar, in the unit given.
 
@@ -435,8 +456,8 @@ def layer_end_setbacks(
     """:func:`end_setback` of the left and right end bars of one layer.
 
     ``offset`` is how far behind the inner face of the horizontal branch the
-    layer starts: zero for the layer nearest the face, ``max(d_b1, d_b2) +
-    layers_spacing`` for the one behind it. The end bars are the ones
+    layer starts: zero for the layer nearest the face, :func:`layer_offsets`
+    for the ones behind it. The end bars are the ones
     :func:`_group_order` puts there. A layer of fewer than two bars sits at
     mid-width and has no corner bar; nor has a section with no bend.
     """
@@ -533,7 +554,7 @@ def build_section_geometry(beam: RectangularBeam) -> SectionGeometry:
 def _beam_bars(
     beam: RectangularBeam, b: float, h: float, inner: float, bend: float, canonical: Any, q: Any
 ) -> List[BarPosition]:
-    """Every bar of a beam, bottom then top, layer 1 then layer 2, left to right."""
+    """Every bar of a beam, bottom then top, from the face inward layer by layer, left to right."""
 
     def diameter(value: Any) -> float:
         return 0.0 if value is None else float(value.to(canonical).magnitude)
@@ -541,17 +562,18 @@ def _beam_bars(
     layers_spacing = diameter(beam.settings.layers_spacing)  # type: ignore[union-attr]
     bars: List[BarPosition] = []
     for face, suffix in (("bottom", "b"), ("top", "t")):
-        n = [int(getattr(beam, f"_n{g}_{suffix}")) for g in (1, 2, 3, 4)]
-        d = [diameter(getattr(beam, f"_d_b{g}_{suffix}")) for g in (1, 2, 3, 4)]
-        # The offsets of the effective depth: layer 2 sits behind the larger
-        # bar of layer 1 and the spacing between layers.
-        offsets = (inner, inner + max(d[0], d[1]) + layers_spacing)
-        for layer, (a, c) in ((1, (0, 1)), (2, (2, 3))):
-            setbacks = layer_end_setbacks(bend, n[a], d[a], n[c], d[c], offsets[layer - 1] - inner)
+        n = [int(getattr(beam, f"_n{g}_{suffix}", 0)) for g in BAR_GROUPS]
+        d = [diameter(getattr(beam, f"_d_b{g}_{suffix}", None)) for g in BAR_GROUPS]
+        # The offsets of the effective depth: each layer sits behind the
+        # larger bar of the one in front of it and the spacing between layers.
+        offsets = layer_offsets(d, layers_spacing)
+        for layer, offset in enumerate(offsets, start=1):
+            a, c = 2 * layer - 2, 2 * layer - 1
+            setbacks = layer_end_setbacks(bend, n[a], d[a], n[c], d[c], offset)
             for group, x, d_bar in _layer_x(b, inner, n[a], d[a], n[c], d[c], setbacks):
                 if d_bar <= 0:
                     continue
-                y = offsets[layer - 1] + d_bar / 2
+                y = inner + offset + d_bar / 2
                 bars.append(
                     BarPosition(
                         x=q(x),

@@ -1304,8 +1304,8 @@ def _check_flexure_ACI_318_19(self: "RectangularBeam", force: Forces) -> Flexure
 
     # Determine the maximum detailing cover dimensions for top and bottom.
     length_unit = CANONICAL[sec.is_imperial]["length"]
-    st.d_b_max_top = max(self._d_b1_t, self._d_b2_t, self._d_b3_t, self._d_b4_t).to(length_unit).magnitude
-    st.d_b_max_bot = max(self._d_b1_b, self._d_b2_b, self._d_b3_b, self._d_b4_b).to(length_unit).magnitude
+    st.d_b_max_top = max(d_b for _, d_b in self._bar_groups("top")).to(length_unit).magnitude
+    st.d_b_max_bot = max(d_b for _, d_b in self._bar_groups("bot")).to(length_unit).magnitude
 
     # Calculate the longitudinal reinforcement ratios for both sides.
     # rho = A_s / (b*d): ACI 318-19 Ch. 2, 2.2 ("ratio of A_s to bd") and
