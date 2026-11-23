@@ -11,6 +11,7 @@ from mento.cage_detailing import LegSeats, leg_seats
 from mento.codes.registry import design_code
 from mento.precompute import CANONICAL, DISPLAY, section_floats
 from mento.section_geometry import end_setback, stirrup_bend_inner_diameter
+from mento.settings import BAR_GROUPS
 from mento.units import mm, cm, inch
 from mento.bar_sizes import ASTM_BAR_DIAMETERS, bar_designation, bar_diameter
 
@@ -84,6 +85,11 @@ def max_stirrup_spacing_EN_1992_2004(beam: RectangularBeam, alpha: float) -> Tup
     return en_shear_eq.max_stirrup_spacing(section_floats(beam).d_shear, alpha)
 
 
+def _empty_group(group: int) -> Tuple[Tuple[str, Any], ...]:
+    """The keys of a bar group with no bars, as a row of the search writes it."""
+    return ((f"n_{group}", 0), (f"d_b{group}", None))
+
+
 def leg_count(beam: Any) -> int:
     """The stirrup legs of a section across its width: 0 when it carries none."""
     if getattr(beam, "_stirrups_optional", False) or not beam._stirrup_n:
@@ -108,8 +114,13 @@ class Rebar:
         """
 
         self.mode = getattr(beam, "mode", "beam")  # "beam" or "slab"
-        # Only a footing asks for fewer than the search's two layers; see Footing.max_layers.
-        self._layers_allowed: int = getattr(beam, "max_layers", 2)
+        # How many layers a face may take. A footing says so itself
+        # (Footing.max_layers); a beam through its settings, up to MAX_LAYERS.
+        # Anything but a beam keeps to the search's two: a slab strip's second
+        # layer mirrors its first, and nothing past it is modelled.
+        own_layers = getattr(beam, "max_layers", None)
+        layers = own_layers if own_layers is not None else getattr(beam.settings, "max_layers", 2)
+        self._layers_allowed: int = layers if self.mode == "beam" else min(layers, 2)
 
         self.beam = beam
         self._long_combos_df: DataFrame = pd.DataFrame()
@@ -762,6 +773,7 @@ class Rebar:
                         "d_b3": None,
                         "n_4": 0,
                         "d_b4": None,
+                        **{key: value for group in BAR_GROUPS[4:] for key, value in _empty_group(group)},
                         "total_as": 0 * cm**2,
                         "total_bars": 0,
                         "clear_spacing": self.beam.settings.clear_spacing.to("mm"),
@@ -969,7 +981,7 @@ class Rebar:
                                 # ---------------------------------------------------------
                                 # Normal beam logic (original)
                                 # ---------------------------------------------------------
-                                for n3 in [0, 2]:
+                                for n3 in [0, 2][: self._layers_allowed]:
                                     for n4 in range(0, self.beam.settings.max_bars_per_layer + 1):
                                         # Ensure layer 2 bars are not more than layer 1 bars
                                         if n3 + n4 > n1 + n2:
@@ -995,6 +1007,38 @@ class Rebar:
                                                 best_fallback_combination = self._long_combo(
                                                     n1, d_b1, n2, d_b2, n3, d_b3, n4, d_b4, total_as, clear_mm
                                                 )
+
+        # --- Layers 3 and 4 --------------------------------------------------
+        # Only when no layout in two layers carries A_s_req: a deeper layer
+        # lowers the lever arm, so it is the last resort of a heavily loaded
+        # beam -- a transfer beam -- not an alternative to two. Three layers
+        # are tried before four. Each further layer follows the rule of the
+        # second: two corner bars and at most as many bars as the layer in
+        # front, none thicker, behind its thickest bar and layers_spacing.
+        if not valid_combinations and not unseated and self._layers_allowed > 2:
+            for n_layers in range(3, self._layers_allowed + 1):
+                deep = self._deep_layouts(
+                    n_layers,
+                    valid_rebar_diameters,
+                    areas_cm2,
+                    diams_mm,
+                    A_s_req_cm2,
+                    max_limit_cm2,
+                    max_diam_diff_mm,
+                    max_bars,
+                    layers_spacing_mm,
+                    layer_width_mm,
+                    sits_on_legs,
+                )
+                if deep:
+                    valid_combinations = deep
+                    break
+            else:
+                fallback = self._deepen_fallback(
+                    best_fallback_combination, max_limit_cm2, layers_spacing_mm, layer_width_mm
+                )
+                if fallback is not None:
+                    best_fallback_combination = fallback
 
         # No layout that carries A_s_req sits on the legs: the ones that carry
         # it are still a design, and its cage says what it could not detail.
@@ -1031,6 +1075,208 @@ class Rebar:
         # provisions, so EN reuses the ACI selector. Only the areas fed into it
         # come from EN 1992-2004.
         self.longitudinal_rebar_ACI_318_19(A_s_req, A_s_max, mech_cover)
+
+    def _deep_layouts(
+        self,
+        n_layers: int,
+        diameters: List[Any],
+        areas_cm2: List[float],
+        diams_mm: List[float],
+        A_s_req_cm2: float,
+        max_limit_cm2: float,
+        max_diam_diff_mm: float,
+        max_bars: int,
+        layers_spacing_mm: float,
+        layer_width_mm: Callable[[float, float], float],
+        sits_on_legs: Callable[[int, int, int], bool],
+    ) -> List[Dict[str, Any]]:
+        """The layouts in exactly ``n_layers`` layers (3 or 4) that carry ``A_s_req``, as rows.
+
+        Layer 1 is laid out as in the two-layer search: two ``d_b1`` at the
+        ends, ``n2`` ``d_b2`` between them, at a clear spacing the code allows
+        and, on a tension face, a bar at every stirrup leg. Every layer behind
+        it is laid out like the second: two corner bars and ``n_b`` between
+        them, no more bars than the layer in front and none thicker, so it is
+        never tighter than the first except where the stirrup's bends narrow
+        it -- checked then against the same limit. No two bars of the face
+        differ by more than ``max_diameter_diff``.
+
+        The diameters only ever decrease from the face inward, and a layer
+        carries no more steel than the one in front of it, so a branch whose
+        layers left cannot make up ``A_s_req`` even as copies of the last is
+        dropped; and once the deepest layer carries it, more bars there only
+        add steel, so the first count that does is the one kept. That keeps
+        the search, which multiplies by every layer, to a fraction of a second.
+        """
+        n1 = 2
+        clear_limit_mm = max(self._clear_limit_mm, self._vibrator_mm)
+        rows: List[Dict[str, Any]] = []
+
+        def deeper(
+            layer: int,
+            groups: List[Tuple[int, int]],
+            area: float,
+            prev_count: int,
+            prev_area: float,
+            bound: int,
+            offset: float,
+            d1_mm: float,
+            width1_mm: float,
+            clear_mm: float,
+        ) -> None:
+            if area + (n_layers - layer + 1) * prev_area < A_s_req_cm2:
+                return
+            limit_mm = max(clear_limit_mm, d1_mm)
+            last = layer == n_layers
+            for ia in range(bound, -1, -1):
+                da = diams_mm[ia]
+                if d1_mm - da > max_diam_diff_mm:
+                    break
+                width_mm = layer_width_mm(da, offset)
+                for ib in range(ia, -1, -1):
+                    db = diams_mm[ib]
+                    if d1_mm - db > max_diam_diff_mm:
+                        break
+                    for nb in range(0, prev_count - n1 + 1):
+                        if nb == 0 and ib != ia:
+                            continue  # No bars between: one row for them, whatever d_b.
+                        if width_mm < width1_mm:
+                            clear = (width_mm - n1 * da - nb * db) / (n1 + nb - 1)
+                            if clear < limit_mm and not math.isclose(clear, limit_mm):
+                                break
+                        layer_area = n1 * areas_cm2[ia] + nb * areas_cm2[ib]
+                        total = area + layer_area
+                        if total > max_limit_cm2:
+                            break
+                        placed = groups + [(n1, ia), (nb, ib)]
+                        if not last:
+                            deeper(
+                                layer + 1,
+                                placed,
+                                total,
+                                n1 + nb,
+                                layer_area,
+                                ib if nb else ia,
+                                offset + da + layers_spacing_mm,
+                                d1_mm,
+                                width1_mm,
+                                clear_mm,
+                            )
+                        elif total >= A_s_req_cm2:
+                            rows.append(self._groups_combo(placed, diameters, total, clear_mm))
+                            break
+
+        for i1 in range(len(diameters)):
+            d1_mm = diams_mm[i1]
+            width1_mm = layer_width_mm(d1_mm, 0.0)
+            for i2 in range(i1, -1, -1):
+                d2_mm = diams_mm[i2]
+                if d1_mm - d2_mm > max_diam_diff_mm:
+                    break
+                for n2 in range(0, max_bars - n1 + 1):
+                    if n2 == 0 and i2 != i1:
+                        continue
+                    if n1 + n2 < getattr(self, "_min_layer_bars", 0):
+                        continue
+                    clear_mm = self._layer_clear_spacing_mm(n1, n2, d1_mm, d2_mm, width1_mm)
+                    if clear_mm is None or not sits_on_legs(i1, i2, n2):
+                        continue
+                    area1 = n1 * areas_cm2[i1] + n2 * areas_cm2[i2]
+                    if area1 > max_limit_cm2:
+                        break
+                    deeper(
+                        2,
+                        [(n1, i1), (n2, i2)],
+                        area1,
+                        n1 + n2,
+                        area1,
+                        i2 if n2 else i1,
+                        d1_mm + layers_spacing_mm,
+                        d1_mm,
+                        width1_mm,
+                        clear_mm,
+                    )
+        return rows
+
+    def _groups_combo(
+        self, groups: List[Tuple[int, int]], diameters: List[Any], total_as_cm2: float, clear_mm: float
+    ) -> Dict[str, Any]:
+        """A row of the search from ``(n, index into diameters)`` per group, nearest the face first."""
+        padded = groups + [(0, 0)] * (len(BAR_GROUPS) - len(groups))
+        (n1, i1), (n2, i2), (n3, i3), (n4, i4) = padded[:4]
+        deep = tuple((n, diameters[i]) for n, i in padded[4:])
+        return self._long_combo(
+            n1,
+            diameters[i1],
+            n2,
+            diameters[i2],
+            n3,
+            diameters[i3],
+            n4,
+            diameters[i4],
+            total_as_cm2,
+            clear_mm,
+            deep=deep,
+        )
+
+    def _deepen_fallback(
+        self,
+        fallback: Optional[Dict[str, Any]],
+        max_limit_cm2: float,
+        layers_spacing_mm: float,
+        layer_width_mm: Callable[[float, float], float],
+    ) -> Optional[Dict[str, Any]]:
+        """The two-layer fallback with its second layer repeated behind it, as far as the face allows.
+
+        Nothing in up to ``max_layers`` layers carries ``A_s_req``: the design
+        falls back on the layout that comes closest, which for a section that
+        may take more layers is the most steel it holds. The largest two-layer
+        layout is extended with copies of its second layer -- the most a
+        further layer may carry -- while each copy fits and the face keeps
+        within its steel limit. ``None`` when there is no fallback or it has
+        no second layer to repeat.
+        """
+        if fallback is None or not fallback.get("n_3"):
+            return None
+        n3, n4 = int(fallback["n_3"]), int(fallback["n_4"])
+        d3, d4 = fallback["d_b3"], fallback["d_b4"]
+        d1_mm = float(fallback["d_b1"].to("mm").magnitude)
+        d2 = fallback.get("d_b2")
+        d2_mm = float(d2.to("mm").magnitude) if d2 is not None and fallback["n_2"] else 0.0
+        d3_mm = float(d3.to("mm").magnitude)
+        d4_mm = float(d4.to("mm").magnitude) if d4 is not None and n4 else 0.0
+        layer_area = (n3 * d3_mm**2 + n4 * d4_mm**2) * math.pi / 4 / 100
+        total = float(fallback["total_as"].to("cm**2").magnitude)
+        limit_mm = max(self._clear_limit_mm, self._vibrator_mm, d1_mm)
+        width1_mm = layer_width_mm(d1_mm, 0.0)
+        offset = max(d1_mm, d2_mm) + layers_spacing_mm
+        deep: List[Tuple[int, Any]] = []
+        for _ in range(self._layers_allowed - 2):
+            offset += max(d3_mm, d4_mm) + layers_spacing_mm
+            width_mm = layer_width_mm(d3_mm, offset)
+            if width_mm < width1_mm:
+                clear = (width_mm - n3 * d3_mm - n4 * d4_mm) / (n3 + n4 - 1)
+                if clear < limit_mm and not math.isclose(clear, limit_mm):
+                    break
+            if total + layer_area > max_limit_cm2:
+                break
+            total += layer_area
+            deep += [(n3, d3), (n4, d4)]
+        if not deep:
+            return None
+        return self._long_combo(
+            int(fallback["n_1"]),
+            fallback["d_b1"],
+            int(fallback["n_2"]),
+            d2,
+            n3,
+            d3,
+            n4,
+            d4,
+            total,
+            float(fallback["clear_spacing"].to("mm").magnitude),
+            deep=tuple(deep),
+        )
 
     def _layer_clear_spacing_mm(
         self,
@@ -1099,14 +1345,23 @@ class Rebar:
         d_b4: Quantity | None,
         total_as_cm2: float,
         clear_mm: float,
+        deep: Tuple[Tuple[int, Any], ...] = (),
     ) -> Dict[str, Any]:
         """
         Builds one row of the longitudinal rebar combination table.
 
         This is where the search loop's floats become Quantities again: it runs
         once per candidate kept, not once per candidate evaluated. A group's
-        diameter is reported as None when the group holds no bars.
+        diameter is reported as None when the group holds no bars. ``deep``
+        holds ``(n, d_b)`` of groups 5 to 8, the third and fourth layers, in
+        order; the groups it leaves out hold no bars.
         """
+        deep_groups: Dict[str, Any] = {}
+        for group in BAR_GROUPS[4:]:
+            index = group - 5
+            n, d_b = deep[index] if index < len(deep) else (0, None)
+            deep_groups[f"n_{group}"] = n
+            deep_groups[f"d_b{group}"] = d_b if n > 0 else None
         return {
             "n_1": n1,
             "d_b1": d_b1,
@@ -1116,8 +1371,9 @@ class Rebar:
             "d_b3": d_b3 if n3 > 0 else None,
             "n_4": n4,
             "d_b4": d_b4 if n4 > 0 else None,
+            **deep_groups,
             "total_as": total_as_cm2 * _CM2,
-            "total_bars": n1 + n2 + n3 + n4,
+            "total_bars": n1 + n2 + n3 + n4 + sum(deep_groups[f"n_{group}"] for group in BAR_GROUPS[4:]),
             "clear_spacing": clear_mm * mm,
         }
 
@@ -1160,39 +1416,32 @@ class Rebar:
         # Series for every row; on the few hundred candidates a design produces
         # that machinery, not the arithmetic, was the cost. The columns are
         # pulled out as plain lists once and scored in a single pass.
-        groups = list(
-            zip(
-                df["n_1"].tolist(),
-                df["d_b1"].tolist(),
-                df["n_2"].tolist(),
-                df["d_b2"].tolist(),
-                df["n_3"].tolist(),
-                df["d_b3"].tolist(),
-                df["n_4"].tolist(),
-                df["d_b4"].tolist(),
-            )
-        )
+        # A table from before the third and fourth layers has no n_5..n_8.
+        rows = len(df)
+        counts = [df[f"n_{g}"].tolist() if f"n_{g}" in df else [0] * rows for g in BAR_GROUPS]
+        sizes = [df[f"d_b{g}"].tolist() if f"d_b{g}" in df else [None] * rows for g in BAR_GROUPS]
 
         diameter_penalties = []
         layer_penalties = []
         max_d_per_row = []
         min_d = None
-        for n_1, d_1, n_2, d_2, n_3, d_3, n_4, d_4 in groups:
+        for row in range(rows):
             # One entry per bar, so the spread below is weighted by bar count.
             diameters = []
-            if n_1 > 0:
-                diameters.extend([d_1.magnitude] * n_1)
-            if n_2 > 0:
-                diameters.extend([d_2.magnitude] * n_2)
-            if n_3 > 0:
-                diameters.extend([d_3.magnitude] * n_3)
-            if n_4 > 0:
-                diameters.extend([d_4.magnitude] * n_4)
+            for n_col, d_col in zip(counts, sizes):
+                if n_col[row] > 0:
+                    diameters.extend([d_col[row].magnitude] * n_col[row])
 
             # Penalty for variation in bar diameters
             diameter_penalties.append(np.std(diameters) if diameters else 0.0)
-            # Penalty for using a second layer of reinforcement
-            layer_penalties.append(1 if (n_3 > 0 or n_4 > 0) else 0)
+            # Penalty for every layer of reinforcement past the first
+            layer_penalties.append(
+                sum(
+                    1
+                    for layer in range(1, len(BAR_GROUPS) // 2)
+                    if counts[2 * layer][row] + counts[2 * layer + 1][row] > 0
+                )
+            )
 
             # Every row reaching this point has n_1 == 2, so `diameters` is
             # never empty (the A_s_req == 0 case returns before scoring).

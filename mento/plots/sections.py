@@ -39,6 +39,7 @@ from mento.i18n import translate
 from mento.precompute import DISPLAY
 from mento.plots.colors import CUSTOM_COLORS
 from mento.section_geometry import BarPosition, Crosstie, SectionGeometry
+from mento.settings import MAX_LAYERS
 from mento.units import Quantity, ureg
 
 if TYPE_CHECKING:
@@ -641,7 +642,7 @@ def _annotate_layers(ax: "Axes", geometry: SectionGeometry) -> List[Tuple["Text"
     x_text = 1.1 * _cm(geometry.width)
     labels: List[Tuple["Text", float]] = []
     for face in ("bottom", "top"):
-        for layer in (1, 2):
+        for layer in range(1, MAX_LAYERS + 1):
             bars = geometry.bars_on(face, layer)
             if not bars:
                 continue

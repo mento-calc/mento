@@ -14,6 +14,19 @@ from the release history and are summaries rather than complete lists.
 
 ### Added
 
+- **Beams with three and four layers of longitudinal bars.** A transfer beam often needs
+  more steel than two layers hold. `set_longitudinal_rebar_bot` / `_top` take `n5, d_b5 ...
+  n8, d_b8` (the third layer is `n5/n6`, the fourth `n7/n8`), and the effective depth,
+  the clear spacing, `section_geometry`, the cage detailing, the skin anchors, the plot,
+  the reports and `BeamSummary` (optional columns `n5_top ... db8_bot`, written back only
+  when used) all read them. Each layer sits `layers_spacing` behind the thickest bar of the
+  one in front. The design reaches a third layer only when no layout in two carries the
+  area, and a fourth only when three fall short; each further layer follows the rule of
+  the second: two corner bars, no more bars than the layer in front, none thicker. A
+  design that used to end without a layout, or with a fallback short of the area, now
+  gets one. `BeamSettings(max_layers=...)`, 1 to 4 (default 4), bounds it; slabs and
+  footings keep their own limit of two.
+
 - **What the limits on moment redistribution read, on every flexure result.**
   `FlexureFaceCheck` and `beam.flexure_design.bottom` / `.top` carry `epsilon_t`, the
   net tensile strain of the face's tension steel at nominal strength (ACI 318-19 /

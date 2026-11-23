@@ -26,6 +26,7 @@ from mento.codes.registry import design_code
 from mento.design_results import GRID, format_longitudinal_rebar, transverse_layout
 from mento.precompute import shown, unit_label
 from mento.design_warnings import bars_side_by_side
+from mento.settings import MAX_LAYERS
 
 if TYPE_CHECKING:
     from mento.beam import RectangularBeam
@@ -96,15 +97,22 @@ def bar_value(self: "RectangularBeam", d_b: Quantity, digits: int | None) -> Any
 
 
 def _longitudinal_rebar_rows(self: "RectangularBeam", face: str) -> tuple[list[str], list[str], list[Any]]:
-    """The two rows that identify the longitudinal reinforcement of one face.
+    """The rows that identify the longitudinal reinforcement of one face, one per layer.
 
     A beam is a number of bars per layer, so the bars are counted: ``n1+n2``. A
     slab is one bar repeated at a spacing, and the count that falls out of a
     strip is not what it is drawn with, so each of its layers reads as a
-    diameter and a spacing instead. ``face`` is ``"b"`` or ``"t"``, and there
-    are two rows either way, so every column of the table stays the same length.
+    diameter and a spacing instead. ``face`` is ``"b"`` or ``"t"``. There are
+    two rows at least, an empty second layer included, and a third and a
+    fourth only on a face that carries them: ``n5+n6``, ``n7+n8``.
     """
-    labels = ["First layer bars", "Second layer bars"]
+    used = [
+        layer
+        for layer in range(1, MAX_LAYERS + 1)
+        if getattr(self, f"_n{2 * layer - 1}_{face}", 0) + getattr(self, f"_n{2 * layer}_{face}", 0) > 0
+    ]
+    layers = max([2, *used])
+    labels = ["First layer bars", "Second layer bars", "Third layer bars", "Fourth layer bars"][:layers]
     variables = []
     values = []
     # Only a section detailed by a spacing carries these; a beam has no such
@@ -112,7 +120,7 @@ def _longitudinal_rebar_rows(self: "RectangularBeam", face: str) -> tuple[list[s
     # notation is chosen once for the face, so an empty second layer is still
     # written the way the rest of the face is.
     detailed_by_spacing = getattr(self, f"_s_b1_{face}", None) is not None
-    for first, second in ((1, 2), (3, 4)):
+    for first, second in ((2 * layer - 1, 2 * layer) for layer in range(1, layers + 1)):
         n = getattr(self, f"_n{first}_{face}")
         d_b = getattr(self, f"_d_b{first}_{face}")
         if not detailed_by_spacing:
@@ -871,8 +879,7 @@ def _initialize_dicts_ACI_318_19_flexure(self: "RectangularBeam") -> None:
             round(self._DCRb_top, 2),
         ],
         "Unit": [
-            "",
-            "",
+            *[""] * len(long_rebar_top[0]),
             unit_label("length", imperial),
             "",
             *[unit_label("area", imperial)] * 4,
@@ -920,8 +927,7 @@ def _initialize_dicts_ACI_318_19_flexure(self: "RectangularBeam") -> None:
             round(self._DCRb_bot, 2),
         ],
         "Unit": [
-            "",
-            "",
+            *[""] * len(long_rebar_bot[0]),
             unit_label("length", imperial),
             "",
             *[unit_label("area", imperial)] * 4,
@@ -1307,8 +1313,7 @@ def _initialize_dicts_EN_1992_2004_flexure(self: "RectangularBeam") -> None:
             round(self._DCRb_top, 2),
         ],
         "Unit": [
-            "",
-            "",
+            *[""] * len(long_rebar_top[0]),
             "cm",
             "",
             "cm²",
@@ -1359,8 +1364,7 @@ def _initialize_dicts_EN_1992_2004_flexure(self: "RectangularBeam") -> None:
             round(self._DCRb_bot, 2),
         ],
         "Unit": [
-            "",
-            "",
+            *[""] * len(long_rebar_bot[0]),
             "cm",
             "",
             "cm²",

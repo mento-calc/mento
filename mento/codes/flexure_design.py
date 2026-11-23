@@ -51,6 +51,8 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 from mento.units import Quantity
 
 from mento.rebar import RebarDesignInfeasibleError
+from mento.section_geometry import layer_offsets
+from mento.settings import BAR_GROUPS
 from mento.units import cm, kNm, mm
 
 if TYPE_CHECKING:
@@ -180,15 +182,10 @@ def _rebar_design_fingerprint(rebar_design: Any) -> tuple:
         q = rebar_design.get(key)
         return float(q.m_as(mm)) if q is not None else 0.0
 
-    return (
-        int(rebar_design.get("n_1", 0)),
-        _diam_mm("d_b1"),
-        int(rebar_design.get("n_2", 0)),
-        _diam_mm("d_b2"),
-        int(rebar_design.get("n_3", 0)),
-        _diam_mm("d_b3"),
-        int(rebar_design.get("n_4", 0)),
-        _diam_mm("d_b4"),
+    return tuple(
+        value
+        for group in BAR_GROUPS
+        for value in (int(rebar_design.get(f"n_{group}", 0) or 0), _diam_mm(f"d_b{group}"))
     )
 
 
@@ -376,9 +373,10 @@ def _run_flexure_design(
         """Cover to the centroid of the bars of ``row``, as the section computes it.
 
         Read off the row without applying it: the bars of each layer sit at
-        half their diameter from the stirrup, and the second layer
-        ``layers_spacing`` past the thicker bar of the first. ``None`` for a
-        row with no bars.
+        half their diameter from where the layer starts, the first on the
+        stirrup and each further one ``layers_spacing`` past the thicker bar
+        of the one in front (:func:`~mento.section_geometry.layer_offsets`).
+        ``None`` for a row with no bars.
 
         In floats, mm, and back to a quantity at the end (ADR-0005): the
         searches read it off every row they rank, thousands of times in a
@@ -390,10 +388,10 @@ def _run_flexure_design(
             value = row.get(key)
             return 0.0 if value is None else float(value.m_as(mm))
 
-        d1, d2, d3, d4 = (diameter(k) for k in ("d_b1", "d_b2", "d_b3", "d_b4"))
-        n1, n2, n3, n4 = (int(row.get(k, 0)) for k in ("n_1", "n_2", "n_3", "n_4"))
-        second = max(d1, d2) + layers_spacing_mm
-        groups = ((n1, d1, d1 / 2), (n2, d2, d2 / 2), (n3, d3, second + d3 / 2), (n4, d4, second + d4 / 2))
+        diameters = [diameter(f"d_b{group}") for group in BAR_GROUPS]
+        counts = [int(row.get(f"n_{group}", 0) or 0) for group in BAR_GROUPS]
+        offsets = layer_offsets(diameters, layers_spacing_mm)
+        groups = [(n, db, offsets[index // 2] + db / 2) for index, (n, db) in enumerate(zip(counts, diameters))]
         area = sum(n * db**2 for n, db, _ in groups)
         if area == 0:
             return None
@@ -652,11 +650,7 @@ def _run_flexure_design(
         c_mec_calc = self.c_c + self._stirrup_d_b + self._bot_rebar_centroid
         # If there is any top steel, use its centroid; otherwise keep previous d_prima
         has_top = (self.flexure_design_results_top is not None) and (
-            int(self.flexure_design_results_top.get("n_1", 0))
-            + int(self.flexure_design_results_top.get("n_2", 0))
-            + int(self.flexure_design_results_top.get("n_3", 0))
-            + int(self.flexure_design_results_top.get("n_4", 0))
-            > 0
+            sum(int(self.flexure_design_results_top.get(f"n_{group}", 0) or 0) for group in BAR_GROUPS) > 0
         )
         d_prima_calc = self.c_c + self._stirrup_d_b + self._top_rebar_centroid if has_top else d_prima
 

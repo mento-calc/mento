@@ -6,6 +6,13 @@ from mento.units import inch, mm
 # Sentinel to detect if user passed a value
 _NOT_SET = object()
 
+#: The most layers of longitudinal bars a beam face carries. Each layer holds
+#: two bar groups -- the corner bars and the bars between them -- so a face is
+#: :data:`BAR_GROUPS`, ``n1/d_b1`` and ``n2/d_b2`` nearest the face, ``n3/n4``
+#: behind them, then ``n5/n6`` and ``n7/n8``.
+MAX_LAYERS = 4
+BAR_GROUPS = tuple(range(1, 2 * MAX_LAYERS + 1))
+
 
 @dataclass
 class BeamSettings:
@@ -62,6 +69,7 @@ class BeamSettings:
       - minimum_longitudinal_diameter: 8 mm
       - max_longitudinal_diameter: 32 mm
       - max_bars_per_layer: 12
+      - max_layers: 4
       - design_options: 3
 
     Imperial Defaults:
@@ -73,7 +81,14 @@ class BeamSettings:
       - minimum_longitudinal_diameter: 3/8 inch
       - max_longitudinal_diameter: 1.693 inch
       - max_bars_per_layer: 12
+      - max_layers: 4
       - design_options: 3
+
+    ``max_layers`` is how many layers of bars a design may put on a beam face,
+    1 to 4 (:data:`MAX_LAYERS`). The search only reaches past two layers when
+    no layout in two carries the area -- a transfer beam, say -- so the
+    default changes nothing in a section two layers can reinforce. A slab
+    strip keeps to its own limit (at most two, mirrored).
 
     ``design_options`` is how many alternatives a design keeps per group of
     bars -- each face of longitudinal steel and the stirrups -- for
@@ -95,6 +110,7 @@ class BeamSettings:
         "skin_crack_width": 0.3 * mm,
         "max_longitudinal_diameter": 32 * mm,
         "max_bars_per_layer": 12,
+        "max_layers": MAX_LAYERS,
         "design_options": 3,
     }
 
@@ -111,6 +127,7 @@ class BeamSettings:
         "skin_crack_width": 0.3 * mm,
         "max_longitudinal_diameter": 1.693 * inch,
         "max_bars_per_layer": 12,
+        "max_layers": MAX_LAYERS,
         "design_options": 3,
     }
 
@@ -124,6 +141,7 @@ class BeamSettings:
     minimum_longitudinal_diameter: Any = field(default=_NOT_SET)
     max_longitudinal_diameter: Any = field(default=_NOT_SET)
     max_bars_per_layer: Any = field(default=_NOT_SET)
+    max_layers: Any = field(default=_NOT_SET)
     design_options: Any = field(default=_NOT_SET)
     mounting_bar_diameter: Any = field(default=_NOT_SET)
     # Skin-steel detailing preference, not a code minimum or resistant steel.
@@ -145,6 +163,12 @@ class BeamSettings:
 
         if self.max_bars_per_layer < 1:
             raise ValueError("max_bars_per_layer must be at least 1")
+        if (
+            isinstance(self.max_layers, bool)
+            or not isinstance(self.max_layers, int)
+            or not 1 <= self.max_layers <= MAX_LAYERS
+        ):
+            raise ValueError(f"max_layers must be an integer from 1 to {MAX_LAYERS}")
         if isinstance(self.design_options, bool) or not isinstance(self.design_options, int) or self.design_options < 1:
             raise ValueError("design_options must be an integer of at least 1")
 

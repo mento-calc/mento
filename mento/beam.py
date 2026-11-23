@@ -7,6 +7,7 @@ from typing import (
     Dict,
     FrozenSet,
     Iterator,
+    List,
     Literal,
     NamedTuple,
     Optional,
@@ -73,10 +74,23 @@ from mento.section_geometry import (
     SectionGeometry,
     build_section_geometry,
     layer_end_setbacks,
+    layer_offsets,
     stirrup_bend_inner_diameter,
 )
-from mento.settings import BeamSettings
+from mento.settings import BAR_GROUPS, BeamSettings
 from mento.units import Quantity, cm, dimensionless, inch, kN, m, mm
+
+
+def _design_groups(design: Any) -> Tuple[Any, ...]:
+    """``(n1, d_b1, ..., n8, d_b8)`` of a row of the longitudinal search, as the setters take them.
+
+    A row from before the third and fourth layers -- or a dict a test builds
+    -- carries no ``n_5``..``n_8``, which read as no bars.
+    """
+    values: List[Any] = []
+    for group in BAR_GROUPS:
+        values += [int(design.get(f"n_{group}", 0) or 0), design.get(f"d_b{group}")]
+    return tuple(values)
 
 
 def _positive_or_none(value: Quantity) -> Optional[Quantity]:
@@ -217,10 +231,10 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
     Methods:
         set_transverse_rebar(n_stirrups, d_b, s_l):
             Sets the transverse (stirrup) rebar configuration for the beam.
-        set_longitudinal_rebar_bot(n1, d_b1, n2, d_b2, n3, d_b3, n4, d_b4):
-            Sets the bottom longitudinal rebar configuration.
-        set_longitudinal_rebar_top(n1, d_b1, n2, d_b2, n3, d_b3, n4, d_b4):
-            Sets the top longitudinal rebar configuration.
+        set_longitudinal_rebar_bot(n1, d_b1, n2, d_b2, ..., n8, d_b8):
+            Sets the bottom longitudinal rebar configuration, up to four layers.
+        set_longitudinal_rebar_top(n1, d_b1, n2, d_b2, ..., n8, d_b8):
+            Sets the top longitudinal rebar configuration, up to four layers.
         design_flexure(forces):
             Designs the flexural reinforcement for the beam based on provided forces and design code.
         check_flexure(forces):
@@ -406,6 +420,12 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         self._n3_t, self._d_b3_t = 0, 0 * mm
         self._n4_t, self._d_b4_t = 0, 0 * mm
 
+        # The third and fourth layers (groups 5 to 8, MAX_LAYERS) start empty too.
+        for group in BAR_GROUPS[4:]:
+            for face in ("b", "t"):
+                setattr(self, f"_n{group}_{face}", 0)
+                setattr(self, f"_d_b{group}_{face}", 0 * mm)
+
         # Unit system default starter rebar for initial effective height
         if self.concrete.unit_system == "metric":
             self._n1_b, self._d_b1_b = 2, 8 * mm
@@ -424,36 +444,18 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
     def _apply_longitudinal_design_bot(self, design: Any) -> None:
         """Apply a discrete design to the bottom reinforcement.
 
-        ``design`` is any mapping with the rebar-designer keys (n_1..n_4,
-        d_b1..d_b4); the designer hands back a pandas row, tests pass plain
-        dicts.
+        ``design`` is any mapping with the rebar-designer keys (n_1..n_8,
+        d_b1..d_b8, the ones past n_4 optional); the designer hands back a
+        pandas row, tests pass plain dicts.
         """
-        self.set_longitudinal_rebar_bot(
-            int(design.get("n_1", 0)),
-            design.get("d_b1"),
-            int(design.get("n_2", 0)),
-            design.get("d_b2"),
-            int(design.get("n_3", 0)),
-            design.get("d_b3"),
-            int(design.get("n_4", 0)),
-            design.get("d_b4"),
-        )
+        self.set_longitudinal_rebar_bot(*_design_groups(design))
 
     def _apply_longitudinal_design_top(self, design: Any) -> None:
         """Apply a discrete design to the top reinforcement.
 
         See :meth:`_apply_longitudinal_design_bot` for the accepted shape.
         """
-        self.set_longitudinal_rebar_top(
-            int(design.get("n_1", 0)),
-            design.get("d_b1"),
-            int(design.get("n_2", 0)),
-            design.get("d_b2"),
-            int(design.get("n_3", 0)),
-            design.get("d_b3"),
-            int(design.get("n_4", 0)),
-            design.get("d_b4"),
-        )
+        self.set_longitudinal_rebar_top(*_design_groups(design))
 
     def _finalize_longitudinal_design(
         self,
@@ -500,7 +502,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         without applying it: a beam carries each bar group as it comes.
         """
         layers = []
-        for index in (1, 2, 3, 4):
+        for index in BAR_GROUPS:
             n = int(design.get(f"n_{index}", 0) or 0)
             d_b = design.get(f"d_b{index}")
             if n and d_b is not None and d_b.magnitude > 0:
@@ -583,7 +585,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         Counts and diameters on a beam; on a slab the spacings as well, since
         its counts are derived from them.
         """
-        names = [f"_{kind}{index}_{face}" for index in (1, 2, 3, 4) for kind in ("n", "d_b", "s_b")]
+        names = [f"_{kind}{index}_{face}" for index in BAR_GROUPS for kind in ("n", "d_b", "s_b")]
         return {name: getattr(self, name) for name in names if hasattr(self, name)}
 
     def _restore_longitudinal(self, snapshot: Dict[str, Any]) -> None:
@@ -1015,16 +1017,26 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         d_b3: Quantity | None = None,
         n4: int = 0,
         d_b4: Quantity | None = None,
+        n5: int = 0,
+        d_b5: Quantity | None = None,
+        n6: int = 0,
+        d_b6: Quantity | None = None,
+        n7: int = 0,
+        d_b7: Quantity | None = None,
+        n8: int = 0,
+        d_b8: Quantity | None = None,
     ) -> None:
-        L = self._len_unit()
-        self._n1_b = n1
-        self._d_b1_b = d_b1 if d_b1 is not None else 0 * L
-        self._n2_b = n2
-        self._d_b2_b = d_b2 if d_b2 is not None else 0 * L
-        self._n3_b = n3
-        self._d_b3_b = d_b3 if d_b3 is not None else 0 * L
-        self._n4_b = n4
-        self._d_b4_b = d_b4 if d_b4 is not None else 0 * L
+        """Set the bottom bars, in up to four layers of two groups each.
+
+        ``n1/d_b1`` and ``n2/d_b2`` are the layer nearest the face -- the
+        ``n1`` bars at its ends, the ``n2`` between them -- ``n3/n4`` the
+        layer behind it, ``n5/n6`` the third and ``n7/n8`` the fourth. Each
+        layer sits behind the thicker bar of the one in front of it and
+        ``settings.layers_spacing``.
+        """
+        self._set_longitudinal_groups(
+            "b", (n1, d_b1, n2, d_b2, n3, d_b3, n4, d_b4, n5, d_b5, n6, d_b6, n7, d_b7, n8, d_b8)
+        )
         self._face_set_by_hand("bot")
         self._update_longitudinal_rebar_attributes()
         self._drop_results()
@@ -1039,25 +1051,43 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         d_b3: Quantity | None = None,
         n4: int = 0,
         d_b4: Quantity | None = None,
+        n5: int = 0,
+        d_b5: Quantity | None = None,
+        n6: int = 0,
+        d_b6: Quantity | None = None,
+        n7: int = 0,
+        d_b7: Quantity | None = None,
+        n8: int = 0,
+        d_b8: Quantity | None = None,
     ) -> None:
-        L = self._len_unit()
-        self._n1_t = n1
-        self._d_b1_t = d_b1 if d_b1 is not None else 0 * L
-        self._n2_t = n2
-        self._d_b2_t = d_b2 if d_b2 is not None else 0 * L
-        self._n3_t = n3
-        self._d_b3_t = d_b3 if d_b3 is not None else 0 * L
-        self._n4_t = n4
-        self._d_b4_t = d_b4 if d_b4 is not None else 0 * L
+        """Set the top bars, in up to four layers of two groups each.
+
+        ``n1/d_b1`` and ``n2/d_b2`` are the layer nearest the face -- the
+        ``n1`` bars at its ends, the ``n2`` between them -- ``n3/n4`` the
+        layer behind it, ``n5/n6`` the third and ``n7/n8`` the fourth. Each
+        layer sits behind the thicker bar of the one in front of it and
+        ``settings.layers_spacing``.
+        """
+        self._set_longitudinal_groups(
+            "t", (n1, d_b1, n2, d_b2, n3, d_b3, n4, d_b4, n5, d_b5, n6, d_b6, n7, d_b7, n8, d_b8)
+        )
         self._face_set_by_hand("top")
         self._update_longitudinal_rebar_attributes()
         self._drop_results()
 
+    def _set_longitudinal_groups(self, suffix: str, values: Tuple[Any, ...]) -> None:
+        """Store ``(n1, d_b1, ..., n8, d_b8)`` on the face ``suffix`` (``"b"`` or ``"t"``), no diameter as zero."""
+        L = self._len_unit()
+        for group, n, d_b in zip(BAR_GROUPS, values[0::2], values[1::2]):
+            setattr(self, f"_n{group}_{suffix}", n)
+            setattr(self, f"_d_b{group}_{suffix}", d_b if d_b is not None else 0 * L)
+
     def _bar_groups(self, face: str) -> Tuple[Tuple[float, Quantity], ...]:
-        """The four bar groups of one face, ``(n, d_b)`` each, empty groups included.
+        """The eight bar groups of one face, ``(n, d_b)`` each, empty groups included.
 
         In the order :meth:`set_longitudinal_rebar_bot` takes them: groups 1
-        and 2 are the layer nearest the face, 3 and 4 the one inside it. The
+        and 2 are the layer nearest the face, 3 and 4 the one inside it, 5 to
+        8 the third and fourth layers. The
         public :attr:`reinforcement` drops the empty groups, which a table
         that writes the bars back group by group cannot: 2Ø16 in group 1 and
         2Ø12 in group 3 is a second layer, 2Ø16 + 2Ø12 in groups 1 and 2 is
@@ -1065,7 +1095,8 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         """
         suffix = "b" if face == "bot" else "t"
         return tuple(
-            (getattr(self, f"_n{group}_{suffix}"), getattr(self, f"_d_b{group}_{suffix}")) for group in (1, 2, 3, 4)
+            (getattr(self, f"_n{group}_{suffix}", 0), getattr(self, f"_d_b{group}_{suffix}", 0 * self._len_unit()))
+            for group in BAR_GROUPS
         )
 
     def _face_set_by_hand(self, face: str) -> None:
@@ -1095,21 +1126,8 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
                 return A0
             return n * (d**2) * np.pi / 4
 
-        # Bottom
-        self._A_s_bot = (
-            area(self._n1_b, self._d_b1_b)
-            + area(self._n2_b, self._d_b2_b)
-            + area(self._n3_b, self._d_b3_b)
-            + area(self._n4_b, self._d_b4_b)
-        )
-
-        # Top
-        self._A_s_top = (
-            area(self._n1_t, self._d_b1_t)
-            + area(self._n2_t, self._d_b2_t)
-            + area(self._n3_t, self._d_b3_t)
-            + area(self._n4_t, self._d_b4_t)
-        )
+        self._A_s_bot = sum((area(n, d_b) for n, d_b in self._bar_groups("bot")), A0)
+        self._A_s_top = sum((area(n, d_b) for n, d_b in self._bar_groups("top")), A0)
 
     def _layer_clear_spacing(
         self, n_a: int, d_a: Quantity, n_b: int, d_b: Quantity, offset: Optional[Quantity] = None
@@ -1133,7 +1151,8 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             d_b (Quantity): Diameter of bars in the second group of the layer.
             offset (Quantity): How far behind the stirrup's horizontal branch
                 the layer starts: ``None`` or zero for the layer nearest the
-                face, ``max(d_b1, d_b2) + layers_spacing`` for the second.
+                face, ``max(d_b1, d_b2) + layers_spacing`` for the second, and
+                so on (:func:`~mento.section_geometry.layer_offsets`).
 
         Returns:
             Quantity: Clear spacing for the given layer -- for a layer of one
@@ -1195,85 +1214,55 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             return self.width, limit
         return self._layer_clear_spacing(n_a, d_a, n_b, d_b) + max(d_a, d_b), limit
 
+    def _layer_offsets(self, face: str) -> List[Quantity]:
+        """How far behind the stirrup's horizontal branch each layer of ``face`` starts, nearest first.
+
+        :func:`~mento.section_geometry.layer_offsets` on the diameters of the
+        face; ``face`` is ``"bot"`` or ``"top"``.
+        """
+        L = self._len_unit()
+        diameters = [float(d_b.to(L).magnitude) if d_b is not None else 0.0 for _, d_b in self._bar_groups(face)]
+        spacing = float(self.settings.layers_spacing.to(L).magnitude)
+        return [offset * L for offset in layer_offsets(diameters, spacing)]
+
     def _calculate_min_clear_spacing(self) -> None:
         """
-        Calculates the maximum clear spacing between bars for the bottom rebar layers.
+        Calculates the least clear spacing between bars over the layers of each face.
 
-        Returns:
-            Quantity: The maximum clear spacing between bars in either the first or second layer.
+        Every layer is spread evenly between the stirrup legs at its own depth
+        (:meth:`_layer_clear_spacing`); the face keeps the tightest of them,
+        which the spacing checks read.
         """
-        layer_clear_spacing = self._layer_clear_spacing
-
-        # AVAIABLE CLEAR SPACING FOR BOTTOM BARS
-        # Calculate clear spacing for each layer
-        layers_spacing = self.settings.layers_spacing
-        spacing_layer1_b = layer_clear_spacing(self._n1_b, self._d_b1_b, self._n2_b, self._d_b2_b)
-        spacing_layer2_b = layer_clear_spacing(
-            self._n3_b, self._d_b3_b, self._n4_b, self._d_b4_b, max(self._d_b1_b, self._d_b2_b) + layers_spacing
-        )
-
-        # Return the maximum clear spacing between the two layers
-        self._available_s_bot = min(spacing_layer1_b, spacing_layer2_b)
-
-        # AVAIABLE CLEAR SPACING FOR TOP BARS
-        # Calculate clear spacing for each layer
-        spacing_layer1_t = layer_clear_spacing(self._n1_t, self._d_b1_t, self._n2_t, self._d_b2_t)
-        spacing_layer2_t = layer_clear_spacing(
-            self._n3_t, self._d_b3_t, self._n4_t, self._d_b4_t, max(self._d_b1_t, self._d_b2_t) + layers_spacing
-        )
-
-        # Return the maximum clear spacing between the two layers
-        self._available_s_top = min(spacing_layer1_t, spacing_layer2_t)
+        for face, attribute in (("bot", "_available_s_bot"), ("top", "_available_s_top")):
+            groups = self._bar_groups(face)
+            spacings = [
+                self._layer_clear_spacing(n_a, d_a, n_b, d_b, offset if index else None)
+                for index, ((n_a, d_a), (n_b, d_b), offset) in enumerate(
+                    zip(groups[0::2], groups[1::2], self._layer_offsets(face))
+                )
+            ]
+            setattr(self, attribute, min(spacings))
 
     def _calculate_long_rebar_centroid(self) -> None:
         """
-        Calculates the centroid (baricenter) of a group of rebars based on their diameters, quantities,
-        and layer spacing.
+        Calculates the centroid of the bars of each face, measured from the inner
+        face of the stirrup's horizontal branch.
 
-        Returns:
-            float: The calculated centroid height of the rebar group.
+        Each bar sits at its layer's offset (:meth:`_layer_offsets`) and half
+        its diameter; the centroid weighs them by area.
         """
-        # BOTTOM BARS CENTROID
-        # Calculate the vertical positions of the bar layers
-        y1_b = self._d_b1_b / 2
-        y2_b = self._d_b2_b / 2
-        y3_b = max(self._d_b1_b, self._d_b2_b) + self.settings.layers_spacing + self._d_b3_b / 2
-        y4_b = max(self._d_b1_b, self._d_b2_b) + self.settings.layers_spacing + self._d_b4_b / 2
-        # Calculate the total area of each layer
-        area_1_b = self._n1_b * self._d_b1_b**2 * np.pi / 4.0
-        area_2_b = self._n2_b * self._d_b2_b**2 * np.pi / 4.0
-        area_3_b = self._n3_b * self._d_b3_b**2 * np.pi / 4.0
-        area_4_b = self._n4_b * self._d_b4_b**2 * np.pi / 4.0
-
-        # Calculate the centroid as a weighted average
-        total_area_b = area_1_b + area_2_b + area_3_b + area_4_b
-        if total_area_b == 0:
-            self._bot_rebar_centroid = 0 * mm
-        else:
-            self._bot_rebar_centroid = (
-                area_1_b * y1_b + area_2_b * y2_b + area_3_b * y3_b + area_4_b * y4_b
-            ) / total_area_b
-        # TOP BARS CENTROID
-        # Calculate the vertical positions of the bar layers
-        y1_t = self._d_b1_t / 2
-        y2_t = self._d_b2_t / 2
-        y3_t = max(self._d_b1_t, self._d_b2_t) + self.settings.layers_spacing + self._d_b3_t / 2
-        y4_t = max(self._d_b1_t, self._d_b2_t) + self.settings.layers_spacing + self._d_b4_t / 2
-
-        # Calculate the total area of each layer
-        area_1_t = self._n1_t * self._d_b1_t**2 * np.pi / 4  # Area proportional to number of bars and their diameter
-        area_2_t = self._n2_t * self._d_b2_t**2 * np.pi / 4
-        area_3_t = self._n3_t * self._d_b3_t**2 * np.pi / 4
-        area_4_t = self._n4_t * self._d_b4_t**2 * np.pi / 4
-
-        # Calculate the centroid as a weighted average
-        total_area_t = area_1_t + area_2_t + area_3_t + area_4_t
-        if total_area_t == 0:
-            self._top_rebar_centroid = 0 * mm
-        else:
-            self._top_rebar_centroid = (
-                area_1_t * y1_t + area_2_t * y2_t + area_3_t * y3_t + area_4_t * y4_t
-            ) / total_area_t
+        for face, attribute in (("bot", "_bot_rebar_centroid"), ("top", "_top_rebar_centroid")):
+            groups = self._bar_groups(face)
+            offsets = self._layer_offsets(face)
+            total_area = 0 * self._area_unit()
+            moment = 0 * self._area_unit() * self._len_unit()
+            for index, (n, d_b) in enumerate(groups):
+                if d_b is None:
+                    continue
+                area = n * d_b**2 * np.pi / 4.0
+                total_area = total_area + area
+                moment = moment + area * (offsets[index // 2] + d_b / 2)
+            setattr(self, attribute, 0 * mm if total_area.magnitude == 0 else moment / total_area)
 
     def _update_longitudinal_rebar_attributes(self) -> None:
         """Recalculate attributes dependent on rebar configuration for both top and bottom reinforcing."""

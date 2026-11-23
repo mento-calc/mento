@@ -8,7 +8,7 @@ and :mod:`mento.summary_base` for the workflow every summary shares.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Mapping, Optional, Tuple
+from typing import Any, Dict, Mapping, Optional, Tuple, cast
 
 from pandas import DataFrame
 
@@ -27,15 +27,19 @@ from mento.summary_tables import (
     text,
     unit_of,
 )
+from mento.settings import BAR_GROUPS
 from mento.units import Quantity
 
 # Where the summaries of 1.4.0 kept them.
 _section_dimension = section_dimension
 _translated = translated
 
-#: The bar groups of a face: 1 and 2 make the layer nearest it, 3 and 4 the layer inside.
-GROUPS = (1, 2, 3, 4)
+#: The bar groups of a face: 1 and 2 make the layer nearest it, 3 and 4 the layer inside,
+#: 5 to 8 a third and a fourth layer.
+GROUPS = BAR_GROUPS
 FACES = ("top", "bot")
+#: The columns of the third and fourth layers, written only when a section uses them.
+DEEP_LAYER_COLUMNS = tuple(f"{kind}{group}_{face}" for face in FACES for group in GROUPS[4:] for kind in ("n", "db"))
 
 
 def _face_columns(face: str) -> Tuple[TableColumn, ...]:
@@ -106,6 +110,9 @@ class BeamSummary(_FlexuralSummary):
     ``n1/db1`` and ``n2/db2`` make the layer nearest the face, ``n3/db3`` and
     ``n4/db4`` a second layer inside it, as
     :meth:`~mento.beam.RectangularBeam.set_longitudinal_rebar_bot` takes them.
+    A heavily loaded beam -- a transfer beam -- may add ``n5/db5 ... n8/db8``,
+    a third and a fourth layer; those columns are optional, and written back
+    only when some section uses them.
     Zero bars is no bars. ``legs = 0`` leaves the beam without stirrups, with
     the starter stirrup of its settings in its effective depth, as a
     ``RectangularBeam`` built by hand. The reinforcement columns may be left
@@ -129,9 +136,18 @@ class BeamSummary(_FlexuralSummary):
     _REPORT = BEAM_REPORT
 
     _SECTION_TYPE = RectangularBeam
-    _OPTIONAL_SECTION_COLUMNS = ("Level", "Notes", *SKIN_COLUMNS)
+    _OPTIONAL_SECTION_COLUMNS = ("Level", "Notes", *SKIN_COLUMNS, *DEEP_LAYER_COLUMNS)
 
     def _optional_column_used(self, name: str) -> bool:
+        if name in DEEP_LAYER_COLUMNS:
+            # All of them or none: a table with a third layer anywhere keeps the
+            # columns of both deep layers on both faces, so its rows stay alike.
+            return any(
+                n > 0
+                for node in self._nodes
+                for face in FACES
+                for n, _ in cast(RectangularBeam, node.section)._bar_groups(face)[4:]
+            )
         return name in SKIN_COLUMNS and any(
             getattr(node.section, "skin_rebar", None) is not None for node in self._nodes
         )
@@ -156,9 +172,13 @@ class BeamSummary(_FlexuralSummary):
     def _unused_diameter_reason(self, section: RectangularBeam) -> Optional[str]:
         for face in FACES:
             groups = list(section._bar_groups(face))
-            if any(n > 0 for n, _ in groups[2:]):
-                if any(n == 0 and d.to("mm").magnitude > 0 for n, d in groups[:2]):
-                    return "an unused first-layer diameter shifts the second layer and cannot be stored losslessly"
+            # An empty group in front of a layer with bars still places it by its diameter.
+            for layer in range(1, len(groups) // 2):
+                if any(n > 0 for n, _ in groups[2 * layer :]) and any(
+                    n == 0 and d.to("mm").magnitude > 0 for n, d in groups[2 * layer - 2 : 2 * layer]
+                ):
+                    front, behind = ("first", "second", "third", "fourth")[layer - 1 : layer + 1]
+                    return f"an unused {front}-layer diameter shifts the {behind} layer and cannot be stored losslessly"
         return None
 
     def _validate_section_row(self, key: Key, row: Mapping[str, Any]) -> None:
@@ -190,7 +210,7 @@ class BeamSummary(_FlexuralSummary):
                 placed[group] = n > 0
             # A second diameter group needs the first group of the same layer.
             # A second layer may exist on its own, retaining its physical position.
-            for group, needs in ((2, 1), (4, 3)):
+            for group, needs in ((2, 1), (4, 3), (6, 5), (8, 7)):
                 if placed[group] and not placed[needs]:
                     raise _incomplete(key, f"n{group}_{face}", f"n{needs}_{face}")
 
@@ -244,12 +264,11 @@ class BeamSummary(_FlexuralSummary):
         """The top bars, the bottom bars and the stirrups, as ``check()`` writes them."""
 
         def face(name: str) -> str:
-            groups = section._bar_groups(name)
-            (n1, d1), (n2, d2), (n3, d3), (n4, d4) = ((int(round(n)), d_b) for n, d_b in groups)
-            if n1 + n2 + n3 + n4 == 0:
+            groups = [(int(round(n)), d_b) for n, d_b in section._bar_groups(name)]
+            if sum(n for n, _ in groups) == 0:
                 return "-"
             layers = []
-            for na, da, nb, db in ((n1, d1, n2, d2), (n3, d3, n4, d4)):
+            for (na, da), (nb, db) in zip(groups[0::2], groups[1::2]):
                 if na + nb:
                     if na == 0:
                         na, da, nb, db = nb, db, 0, da

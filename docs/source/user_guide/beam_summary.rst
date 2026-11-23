@@ -49,6 +49,9 @@ Excel sheet with its unit row under the headers. Columns are read by name, in an
   the bars of each face, as four groups of a number and a diameter. ``n1/db1`` and
   ``n2/db2`` make the layer nearest the face; ``n3/db3`` and ``n4/db4`` a second layer
   inside it, as :meth:`~mento.beam.RectangularBeam.set_longitudinal_rebar_bot` takes them.
+- **n5_top, db5_top ... n8_top, db8_top** and the same for ``bot`` (optional): a third
+  (``n5/n6``) and a fourth (``n7/n8``) layer, for a heavily loaded beam. They are written
+  back only when some section uses them.
 - **Notes** (optional): free text — a span, a station, the name a model gives the
   member. It is kept and written back, and never read.
 
