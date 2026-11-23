@@ -1037,9 +1037,7 @@ class Rebar:
                     valid_combinations = deep
                     break
             else:
-                fallback = self._deepen_fallback(
-                    best_fallback_combination, max_limit_cm2, layers_spacing_mm, layer_width_mm
-                )
+                fallback = self._deepen_fallback(best_fallback_combination, max_limit_cm2)
                 if fallback is not None:
                     best_fallback_combination = fallback
 
@@ -1240,8 +1238,6 @@ class Rebar:
         self,
         fallback: Optional[Dict[str, Any]],
         max_limit_cm2: float,
-        layers_spacing_mm: float,
-        layer_width_mm: Callable[[float, float], float],
     ) -> Optional[Dict[str, Any]]:
         """The two-layer fallback with its second layer repeated behind it, as far as the face allows.
 
@@ -1249,30 +1245,25 @@ class Rebar:
         falls back on the layout that comes closest, which for a section that
         may take more layers is the most steel it holds. The largest two-layer
         layout is extended with copies of its second layer -- the most a
-        further layer may carry -- while each copy fits and the face keeps
-        within its steel limit. ``None`` when there is no fallback or it has
+        further layer may carry -- while the face keeps within its steel
+        limit. ``None`` when there is no fallback or it has
         no second layer to repeat.
         """
         if fallback is None or not fallback.get("n_3"):
             return None
         n3, n4 = int(fallback["n_3"]), int(fallback["n_4"])
         d3, d4 = fallback["d_b3"], fallback["d_b4"]
-        d1_mm = float(fallback["d_b1"].to("mm").magnitude)
         d2 = fallback.get("d_b2")
-        d2_mm = float(d2.to("mm").magnitude) if d2 is not None and fallback["n_2"] else 0.0
         d3_mm = float(d3.to("mm").magnitude)
         d4_mm = float(d4.to("mm").magnitude) if d4 is not None and n4 else 0.0
         layer_area = (n3 * d3_mm**2 + n4 * d4_mm**2) * math.pi / 4 / 100
         total = float(fallback["total_as"].to("cm**2").magnitude)
-        limit_mm = max(self._clear_limit_mm, self._vibrator_mm, d1_mm)
-        width1_mm = layer_width_mm(d1_mm, 0.0)
-        offset = max(d1_mm, d2_mm) + layers_spacing_mm
+        # Each copy fits where the second layer did: the search held that layer
+        # to the face's clear spacing, and the bends only narrow a layer less
+        # the deeper it sits (section_geometry.corner_setback), so a copy
+        # further in is never tighter. Only the steel limit can stop it.
         deep: List[Tuple[int, Any]] = []
         for _ in range(self._layers_allowed - 2):
-            offset += max(d3_mm, d4_mm) + layers_spacing_mm
-            width_mm = layer_width_mm(d3_mm, offset)
-            if not self._deep_layer_fits(width_mm, width1_mm, n3, d3_mm, n4, d4_mm, limit_mm):
-                break
             if total + layer_area > max_limit_cm2:
                 break
             total += layer_area
