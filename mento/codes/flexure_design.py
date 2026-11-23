@@ -206,7 +206,8 @@ def _best_visited_pair(
     Of the pairs that are admissible and carry both moments, the one with the
     least steel -- meeting the preferred limit before missing it. If none
     does, the admissible pair that comes closest, and only failing that the
-    closest of all; the check then reports what is missing.
+    closest of all, the lighter of two that come as close; the check then
+    reports what is missing.
     """
     bots: list = list(bot_visited.values()) or [None]
     tops: list = list(top_visited.values()) or [None]
@@ -221,7 +222,10 @@ def _best_visited_pair(
                 top.get("total_as", zero) if top is not None else zero
             )
             rank = _rank(within, preferred, worst)
-            key = (rank, float(steel.to("cm**2").magnitude)) if rank <= 1 else (rank, worst)
+            area = float(steel.to("cm**2").magnitude)
+            # Of two that come as close, the lighter: steel that changes
+            # nothing of the ratio is steel for nothing.
+            key = (rank, area) if rank <= 1 else (rank, round(worst, 9), area)
             if best_key is None or key < best_key:
                 best_key, best_pair = key, (bot, top)
     _apply_pair(self, *best_pair)
@@ -969,6 +973,29 @@ def _run_flexure_design(
                     if closer(key, best_key):
                         best_key, current = key, trial
                     put(current)
+        # Steel that brings the pair no closer is steel for nothing. The loop
+        # can leave a face heavier than the pair needs -- the compression
+        # steel of a deeper tension layout it tried and put aside, a third or
+        # fourth layer -- and no move above takes it off, since a lighter
+        # face is not closer. Each face takes the lightest of its layouts that
+        # leaves the pair no further from closing: as many faces past the
+        # limits and no higher ratio.
+        if best_key[0] >= 2:
+
+            def area(row: Any) -> float:
+                return 0.0 if row is None else float(row.get("total_as", 0 * (cm**2)).m_as(cm**2))
+
+            for face, rows in candidates.items():
+                for row in sorted(rows, key=area):
+                    if area(row) >= area(current[face]):
+                        break
+                    trial = dict(current, **{face: row})
+                    put(trial)
+                    key = _pair_key()
+                    if key[0] <= best_key[0] and key[1] <= best_key[1] * (1 + 1e-9):
+                        best_key, current = key, trial
+                        break
+                put(current)
         if memo is not None:
             memo[memo_key] = (current, candidates)
         _register(current, candidates)
@@ -1005,6 +1032,20 @@ def _run_flexure_design(
     # it can take and stay tension-controlled.
     self._short_faces = {}
     if not _layout_closes():
+        # What the faces need at the depth of the bars they were left with,
+        # which the check finds too: the loop's last iteration may have been
+        # run at the depth of another layout -- one in three or four layers
+        # the design tried and put aside.
+        has_top = self._A_s_top.magnitude > 0
+        d_prime_now = self._c_mec_top if has_top else d_prima
+        settled_bot = required_areas("bot", max_M_y_bot, self._d_bot, d_prime_now)
+        A_req_bot, A_s_comp_top = settled_bot.A_s_tension, settled_bot.A_s_compression
+        A_s_comp_bot = 0 * (cm**2)
+        A_req_top = A_s_comp_top
+        if max_M_y_top < 0:
+            settled_top = required_areas("top", abs(max_M_y_top.to("kN*m")), self._d_top, self._c_mec_bot)
+            A_req_top = max(A_s_comp_top, settled_top.A_s_tension)
+            A_s_comp_bot = settled_top.A_s_compression
         needed = {"bot": max(A_req_bot, A_s_comp_bot), "top": max(A_req_top, A_s_comp_top)}
         placed = {"bot": self._A_s_bot, "top": self._A_s_top}
         for face in ("bot", "top"):

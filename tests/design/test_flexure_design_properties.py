@@ -255,8 +255,10 @@ def test_a_design_with_no_layout_says_what_it_is_short_of() -> None:
     layout within the limits (issue #169) finds 2Ø20 in one layer, 6.28 cm²,
     deeper than the two layers and tension-controlled with 2Ø10 + 1Ø10
     above: DCR 1.010. The design says what the bottom is short of, A_s,req =
-    6.98 cm², and that the section is: 38.2 kN·m against 37.84. The same
-    forces give the same bars on a second run.
+    6.36 cm² at the depth of the 2Ø20 it carries (the 6.98 it used to report
+    was read at the depth of the two layers the loop put aside), and that the
+    section is: 38.2 kN·m against 37.84. The same forces give the same bars on
+    a second run.
     """
     beam, node = _short_beam()
     node.design()
@@ -267,7 +269,7 @@ def test_a_design_with_no_layout_says_what_it_is_short_of() -> None:
     assert beam.flexure_design.bottom.DCR == pytest.approx(1.0095, abs=0.0005)
     assert beam.flexure_checks[0].bottom.admissible
     short = {w.face: w for w in node.warnings if w.code == "As_below_required"}
-    assert short["bottom"].values["A_s_req"].to("cm**2").magnitude == pytest.approx(6.98, abs=0.01)
+    assert short["bottom"].values["A_s_req"].to("cm**2").magnitude == pytest.approx(6.36, abs=0.01)
     assert short["bottom"].values["A_s_req"] > short["bottom"].values["A_s"]
     small = {w.code: w for w in node.warnings}["section_too_small_for_moment"]
     assert small.values["M"].to("kN*m").magnitude == pytest.approx(38.2)
@@ -615,10 +617,12 @@ def test_a_compression_face_is_searched_without_a_cap_left_by_an_earlier_check()
     under a cap the first round never had, and a design redone after a check
     ended somewhere else than the first one. Searched with no cap, the design
     starts at the Ø10 of the ACI 318-19 catalogue and ends on 2Ø20 under
-    2Ø20, DCR 1.159 (2Ø12 + 1Ø12 + 2Ø12 + 1Ø10 in two layers, DCR 1.237,
+    2Ø10 + 1Ø10, DCR 1.159 (2Ø12 + 1Ø12 + 2Ø12 + 1Ø10 in two layers, DCR 1.237,
     before the search for the closest layout within the limits of issue
-    #169), warning ``As_below_required``: the section is too shallow for the
-    moment. A design redone after a check ends where the first one did.
+    #169; 2Ø20 on top, with the same DCR, before the closest pair shed the
+    steel that brought it no closer), warning ``As_below_required``: the
+    section is too shallow for the moment. A design redone after a check ends
+    where the first one did.
     """
     beam = RectangularBeam(
         label="V",
@@ -631,7 +635,7 @@ def test_a_compression_face_is_searched_without_a_cap_left_by_an_earlier_check()
     node = Node(section=beam, forces=[Forces(label="C1", M_y=45.19488336734695 * kNm)])
     node.design()
 
-    designed = ("2Ø20 mm", "2Ø20 mm")
+    designed = ("2Ø20 mm", "2Ø10 mm + 1Ø10 mm")
     assert (str(beam.reinforcement.bottom), str(beam.reinforcement.top)) == designed
     assert beam.flexure_design.DCR == pytest.approx(1.159, abs=5e-4)
     assert "As_below_required" in {w.code for w in node.warnings}

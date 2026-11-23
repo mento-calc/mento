@@ -1881,21 +1881,31 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         round kept is re-run (its result is a function of the stirrup it
         started from), and :meth:`_record_shortfall` makes sure the face
         that fails says so.
+
+        A third or fourth layer is the search's last resort, and the stirrup
+        decides when it is needed: the starter stirrup of the first round can
+        leave too little width for two layers that the stirrup the shear
+        design picks has room for. So a round that passes with more than two
+        layers on a face is designed once more with its own stirrup, and of
+        the rounds that pass, the one with the fewest layers is kept -- a
+        12.5 cm web goes from 2Ø12 + 2Ø10 + 2Ø10 back to 2Ø16 + 2Ø12.
         """
         verdict = self._flexure_verdict(forces, ("bot", "top"))
-        if verdict.passes and verdict.seated:
+        if verdict.passes and verdict.seated and self._deepest_layer() <= 2:
             return
         # Each round's verdict, with the stirrup it started from (None: the
-        # starter stirrup of the first).
-        rounds: list[Tuple[_Verdict, Optional[Tuple[int, Quantity, Quantity]]]] = [(verdict, None)]
+        # starter stirrup of the first) and the most layers a face took.
+        rounds: list[Tuple[_Verdict, Optional[Tuple[int, Quantity, Quantity]], int]] = [
+            (verdict, None, self._deepest_layer())
+        ]
         seen = {self._design_state()}
         for _ in range(self._DESIGN_ROUNDS):
             start = (self._stirrup_n, self._stirrup_d_b, self._stirrup_s_l)
             self._redesign_from(start, forces)
             verdict = self._flexure_verdict(forces, ("bot", "top"))
-            if verdict.passes and verdict.seated:
+            if verdict.passes and verdict.seated and self._deepest_layer() <= 2:
                 return
-            rounds.append((verdict, start))
+            rounds.append((verdict, start, self._deepest_layer()))
             state = self._design_state()
             if state in seen:
                 break
@@ -1903,17 +1913,28 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         last = len(rounds) - 1
 
         def distance(i: int) -> Tuple[bool, bool, bool, float, int]:
-            verdict = rounds[i][0]
+            verdict, _, layers = rounds[i]
             if verdict.passes:
-                # It carries the loads and its cage is left to detail: the
-                # first round that did, ahead of any that does not pass.
-                return (False, False, False, 0.0, i)
+                # It carries the loads and its cage is left to detail: of the
+                # rounds that did, the one in fewest layers, then the first,
+                # ahead of any that does not pass.
+                return (False, False, False, float(layers), i)
             return (True, not verdict.fits, not verdict.admissible, verdict.DCR, int(i != last))
 
         closest = min(range(len(rounds)), key=distance)
         if closest != last:
             self._redesign_from(rounds[closest][1], forces)
         self._record_shortfall(forces)
+
+    def _deepest_layer(self) -> int:
+        """The most layers either face carries now: 0 with no bars, up to MAX_LAYERS."""
+        deepest = 0
+        for face in ("bot", "top"):
+            groups = self._bar_groups(face)
+            for layer in range(len(groups) // 2):
+                if groups[2 * layer][0] + groups[2 * layer + 1][0] > 0:
+                    deepest = max(deepest, layer + 1)
+        return deepest
 
     def _redesign_from(self, stirrup: Optional[Tuple[int, Quantity, Quantity]], forces: list[Forces]) -> None:
         """One design round: the flexure at the depth of ``stirrup``, then the stirrups for its bars.
