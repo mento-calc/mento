@@ -212,3 +212,13 @@ def test_a_section_that_cannot_close_ends_no_further_than_in_two_layers(width, h
     deep, shallow = design(4), design(2)
     assert deep[2] <= shallow[2] + 1e-9
     assert deep == shallow
+
+
+def test_a_deep_layer_narrowed_by_the_bends_is_held_to_the_face_limit() -> None:
+    fits = Rebar._deep_layer_fits
+    # As wide as the first layer: it fits, having fewer and thinner bars.
+    assert fits(230.0, 230.0, 2, 32.0, 2, 32.0, 32.0)
+    # Narrower: 4Ø32 in 226 mm leave 32.67 mm, enough for 32; in 224 mm, 32 exactly; in 220 mm, 30.67.
+    assert fits(226.0, 230.0, 2, 32.0, 2, 32.0, 32.0)
+    assert fits(224.0, 230.0, 2, 32.0, 2, 32.0, 32.0)
+    assert not fits(220.0, 230.0, 2, 32.0, 2, 32.0, 32.0)

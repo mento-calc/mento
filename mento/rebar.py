@@ -1143,10 +1143,8 @@ class Rebar:
                     for nb in range(0, prev_count - n1 + 1):
                         if nb == 0 and ib != ia:
                             continue  # No bars between: one row for them, whatever d_b.
-                        if width_mm < width1_mm:
-                            clear = (width_mm - n1 * da - nb * db) / (n1 + nb - 1)
-                            if clear < limit_mm and not math.isclose(clear, limit_mm):
-                                break
+                        if not self._deep_layer_fits(width_mm, width1_mm, n1, da, nb, db, limit_mm):
+                            break
                         layer_area = n1 * areas_cm2[ia] + nb * areas_cm2[ib]
                         total = area + layer_area
                         if total > max_limit_cm2:
@@ -1200,6 +1198,22 @@ class Rebar:
                         clear_mm,
                     )
         return rows
+
+    @staticmethod
+    def _deep_layer_fits(
+        width_mm: float, width1_mm: float, n_a: int, d_a_mm: float, n_b: int, d_b_mm: float, limit_mm: float
+    ) -> bool:
+        """Whether a layer behind the first keeps the clear spacing the first is held to.
+
+        It has no more bars than the layer in front and none thicker, so only
+        the stirrup's bends can leave it tighter: a layer as wide as the
+        first (``width1_mm``) fits; a narrower one is checked against
+        ``limit_mm``, the clear spacing, vibrator and largest bar of the face.
+        """
+        if width_mm >= width1_mm:
+            return True
+        clear = (width_mm - n_a * d_a_mm - n_b * d_b_mm) / (n_a + n_b - 1)
+        return clear >= limit_mm or math.isclose(clear, limit_mm)
 
     def _groups_combo(
         self, groups: List[Tuple[int, int]], diameters: List[Any], total_as_cm2: float, clear_mm: float
@@ -1257,10 +1271,8 @@ class Rebar:
         for _ in range(self._layers_allowed - 2):
             offset += max(d3_mm, d4_mm) + layers_spacing_mm
             width_mm = layer_width_mm(d3_mm, offset)
-            if width_mm < width1_mm:
-                clear = (width_mm - n3 * d3_mm - n4 * d4_mm) / (n3 + n4 - 1)
-                if clear < limit_mm and not math.isclose(clear, limit_mm):
-                    break
+            if not self._deep_layer_fits(width_mm, width1_mm, n3, d3_mm, n4, d4_mm, limit_mm):
+                break
             if total + layer_area > max_limit_cm2:
                 break
             total += layer_area

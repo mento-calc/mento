@@ -1256,9 +1256,8 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
             offsets = self._layer_offsets(face)
             total_area = 0 * self._area_unit()
             moment = 0 * self._area_unit() * self._len_unit()
+            # The setters store a group with no diameter as zero, so every d_b is a length.
             for index, (n, d_b) in enumerate(groups):
-                if d_b is None:
-                    continue
                 area = n * d_b**2 * np.pi / 4.0
                 total_area = total_area + area
                 moment = moment + area * (offsets[index // 2] + d_b / 2)
