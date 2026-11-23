@@ -177,3 +177,38 @@ def test_beam_summary_rejects_a_fourth_layer_group_without_its_first(concrete, s
     beam.set_longitudinal_rebar_bot(2, 25 * mm, 0, None, 2, 25 * mm, 0, None, 2, 20 * mm, 0, None, 0, None, 2, 16 * mm)
     with pytest.raises(SummaryInputError, match="n8_bot is given without n7_bot"):
         BeamSummary.from_nodes(concrete, steel, [Node(beam, [Forces(label="C1", M_y=500 * kNm)])])
+
+
+def test_a_request_past_two_full_layers_still_gets_the_deepened_fallback(concrete, steel) -> None:
+    # Two full layers of 8Ø32 hold 128.7 cm²; the bound that skipped every pair
+    # past them left no fallback, though four layers hold 257 cm².
+    beam = _beam(concrete, steel, width=60, height=200)
+    beam.set_transverse_rebar(n_stirrups=1, d_b=10 * mm, s_l=20 * cm)
+    rebar = Rebar(beam)
+    rebar.longitudinal_rebar(290 * cm**2, face="bot")
+    best = rebar.longitudinal_rebar_design
+    assert len(_layers(best)) == 4
+    assert best["total_as"].to("cm**2").magnitude < 290
+
+
+@pytest.mark.parametrize(("width", "height", "moment"), [(16, 30, 3000), (12, 24, 900)])
+def test_a_section_that_cannot_close_ends_no_further_than_in_two_layers(width, height, moment) -> None:
+    """Deeper layers a short section tried are kept only if they come closer than two layers do."""
+    from mento.units import ft, inch, kip, ksi, psi
+
+    def design(max_layers: int) -> tuple[str, str, float]:
+        beam = RectangularBeam(
+            label="B",
+            concrete=Concrete_ACI_318_19(name="4000", f_c=4000 * psi),
+            steel_bar=SteelBar(name="60", f_y=60 * ksi),
+            width=width * inch,
+            height=height * inch,
+            c_c=1.5 * inch,
+            settings=BeamSettings(unit_system="imperial", max_layers=max_layers),
+        )
+        Node(beam, Forces(label="C", M_y=moment * kip * ft, V_z=20 * kip)).design()
+        return str(beam.reinforcement.bottom), str(beam.reinforcement.top), beam.flexure_design.DCR
+
+    deep, shallow = design(4), design(2)
+    assert deep[2] <= shallow[2] + 1e-9
+    assert deep == shallow

@@ -885,10 +885,13 @@ class Rebar:
                 area2, d2_mm = areas_cm2[i2], diams_mm[i2]
 
                 # Quick upper-bound check for this diameter pair.
-                # Max for layer 1 (n1 fixed, n2 up to max_bars); layer 2 can at
-                # best mirror it, for both beam and slab mode.
+                # Max for layer 1 (n1 fixed, n2 up to max_bars); every layer
+                # behind can at best mirror it, for both beam and slab mode.
+                # The bound counts the layers a face may take, so a request
+                # past two layers still leaves the fallback the deep search
+                # extends.
                 A_layer1_max = 2 * area1 + max_bars * area2  # n1=2 fixed
-                A_total_max = 2 * A_layer1_max
+                A_total_max = max(2, self._layers_allowed) * A_layer1_max
 
                 # If even the maximum possible As with these diameters
                 # is less than required, skip all n2/n3/n4 loops.

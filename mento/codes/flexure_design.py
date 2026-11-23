@@ -206,8 +206,7 @@ def _best_visited_pair(
     Of the pairs that are admissible and carry both moments, the one with the
     least steel -- meeting the preferred limit before missing it. If none
     does, the admissible pair that comes closest, and only failing that the
-    closest of all, the lighter of two that come as close; the check then
-    reports what is missing.
+    closest of all; the check then reports what is missing.
     """
     bots: list = list(bot_visited.values()) or [None]
     tops: list = list(top_visited.values()) or [None]
@@ -222,10 +221,7 @@ def _best_visited_pair(
                 top.get("total_as", zero) if top is not None else zero
             )
             rank = _rank(within, preferred, worst)
-            area = float(steel.to("cm**2").magnitude)
-            # Of two that come as close, the lighter: steel that changes
-            # nothing of the ratio is steel for nothing.
-            key = (rank, area) if rank <= 1 else (rank, round(worst, 9), area)
+            key = (rank, float(steel.to("cm**2").magnitude)) if rank <= 1 else (rank, worst)
             if best_key is None or key < best_key:
                 best_key, best_pair = key, (bot, top)
     _apply_pair(self, *best_pair)
@@ -857,8 +853,9 @@ def _run_flexure_design(
             None if current["bot"] is None else _rebar_design_fingerprint(current["bot"]),
             None if current["top"] is None else _rebar_design_fingerprint(current["top"]),
             # A design that prefers a limit searches differently from one
-            # that does not, from the same pair.
+            # that does not, from the same pair; so does one held to fewer layers.
             preferred is not None,
+            getattr(settings, "max_layers", 2),
         )
         if memo is not None and memo_key in memo:
             current, candidates = memo[memo_key]

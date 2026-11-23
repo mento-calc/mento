@@ -1331,10 +1331,48 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
                 max_M_y_bot = force._M_y
                 self._limiting_case_top = force
         # Design flexural reinforcement for the limiting cases
-        design_code(self.concrete).design_flexure(self, max_M_y_bot, max_M_y_top)
+        code = design_code(self.concrete)
+        code.design_flexure(self, max_M_y_bot, max_M_y_top)
+        self._keep_deep_layers_only_if_closer(forces, lambda: code.design_flexure(self, max_M_y_bot, max_M_y_top))
 
         # Check flexural capacity for all forces with the assigned reinforcement
         return self.check_flexure(forces)
+
+    def _keep_deep_layers_only_if_closer(self, forces: list[Forces], redesign: Callable[[], Any]) -> None:
+        """A design that ends short with a third or fourth layer allowed keeps them only if they come closer.
+
+        The search reaches past two layers when two cannot carry the area, and
+        in a section that closes that is what lets it close. In one that does
+        not, the deeper rows it tried -- inadmissible, or no closer -- crowd
+        out of the flexure loop and of the closest-pair search the two-layer
+        pair it would have ended on: an ACI 16x30 in under 3000 kip·ft ended
+        on 7#14 at DCR 1.889 where 8#14 in two layers reach 1.683. So the face
+        is designed again with two layers at most, and whichever comes closer
+        is kept -- bars that fit, then within the code's limits, then the
+        lower ratio, the order the design rounds rank by; the deeper one on a
+        tie. ``redesign`` runs the code's flexure design once more on the
+        section as it is.
+        """
+        settings = self.settings
+        if not self._short_faces or self.mode != "beam" or settings is None or settings.max_layers <= 2:
+            return
+
+        def rank() -> Tuple[bool, bool, float]:
+            verdict = self._flexure_verdict(forces, ("bot", "top"))
+            return (not verdict.fits, not verdict.admissible, round(verdict.DCR, 9))
+
+        deep = rank()
+        layers = settings.max_layers
+        settings.max_layers = 2
+        try:
+            self._reset_longitudinal_for_design()
+            redesign()
+            shallow = rank()
+        finally:
+            settings.max_layers = layers
+        if deep <= shallow:
+            self._reset_longitudinal_for_design()
+            redesign()
 
     @property
     def flexure_checks(self) -> Tuple[FlexureCheck, ...]:
@@ -1887,7 +1925,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
         leave too little width for two layers that the stirrup the shear
         design picks has room for. So a round that passes with more than two
         layers on a face is designed once more with its own stirrup, and of
-        the rounds that pass, the one with the fewest layers is kept -- a
+        the rounds that pass, the one with the fewest layers past two is kept -- a
         12.5 cm web goes from 2Ø12 + 2Ø10 + 2Ø10 back to 2Ø16 + 2Ø12.
         """
         verdict = self._flexure_verdict(forces, ("bot", "top"))
@@ -1918,7 +1956,7 @@ class RectangularBeam(RectangularSection, _DesignCodeAttributes):
                 # It carries the loads and its cage is left to detail: of the
                 # rounds that did, the one in fewest layers, then the first,
                 # ahead of any that does not pass.
-                return (False, False, False, float(layers), i)
+                return (False, False, False, float(max(layers, 2)), i)
             return (True, not verdict.fits, not verdict.admissible, verdict.DCR, int(i != last))
 
         closest = min(range(len(rounds)), key=distance)
